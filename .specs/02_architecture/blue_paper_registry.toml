@@ -1,0 +1,115 @@
+[registry]
+schema_version = "1.0.0"
+title = "CivitForge Blue Paper Registry"
+last_updated = "2026-05-30"
+maintainer = "CivitForge Core Team"
+phase = "Phase 2 - Architecture Design"
+
+[[papers]]
+id = "BP-CORE-API-001"
+title = "CivitCore - Axum API Gateway & Git Engine"
+status = "draft"
+domain = "core"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "BP-CORE-API-001.md"
+component = "civitcore"
+runtime = "tokio"
+framework = "axum"
+dependencies = ["YP-VERSION-CONTROL-GIT-001", "YP-SECURITY-RBAC-001"]
+keywords = ["axum", "gitoxide", "api-gateway", "rest", "grpc", "ssh", "russh"]
+interfaces = [
+    "interface_core_api.toml",
+    "interface_federation.toml",
+]
+
+[[papers]]
+id = "BP-RUNNER-001"
+title = "CivitRunner - K8s Operator & Podman Sandboxes"
+status = "draft"
+domain = "runner"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "BP-RUNNER-001.md"
+component = "civitrunner"
+runtime = "tokio"
+framework = "kube-rs"
+dependencies = ["YP-STORAGE-CHUNKING-001", "YP-SECURITY-RBAC-001"]
+keywords = ["kubernetes", "operator", "podman", "crun", "csi", "sbom", "cosign"]
+interfaces = ["interface_runner.toml"]
+
+[[papers]]
+id = "BP-BRAIN-001"
+title = "CivitBrain - AST Parser & RAG Engine"
+status = "draft"
+domain = "ai"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "BP-BRAIN-001.md"
+component = "civitbrain"
+runtime = "tokio"
+framework = "tree-sitter"
+dependencies = ["YP-AI-RAG-001", "YP-VERSION-CONTROL-GIT-001"]
+keywords = ["tree-sitter", "rag", "embedding", "qdrant", "vllm", "ast", "agent"]
+interfaces = ["interface_brain.toml"]
+
+[[papers]]
+id = "BP-VFS-001"
+title = "CivitVFS - FUSE Daemon & On-Demand Fetch"
+status = "draft"
+domain = "storage"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "BP-VFS-001.md"
+component = "civitvfs"
+runtime = "tokio"
+framework = "fuser"
+dependencies = ["YP-VERSION-CONTROL-GIT-001"]
+keywords = ["fuse", "vfs", "gRPC", "on-demand-fetch", "lru-cache", "fuser"]
+interfaces = ["interface_vfs.toml"]
+
+[[papers]]
+id = "BP-CRYPTO-001"
+title = "CivitCrypto - SBOM, Cosign, mTLS"
+status = "draft"
+domain = "security"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "BP-CRYPTO-001.md"
+component = "civitcrypto"
+runtime = "tokio"
+framework = "rustls"
+dependencies = ["YP-SECURITY-RBAC-001"]
+keywords = ["sbom", "spdx", "cyclonedx", "cosign", "sigstore", "mtls", "x509"]
+interfaces = ["interface_federation.toml"]
+
+[interface_contracts]
+directory = "interface_contracts"
+files = [
+    "interface_core_api.toml",
+    "interface_runner.toml",
+    "interface_brain.toml",
+    "interface_vfs.toml",
+    "interface_federation.toml",
+]
+
+[formal_proofs]
+directory = "proofs"
+files = [
+    "proof_git_dag.lean",
+    "proof_chunking.lean",
+    "proof_dag_sync.lean",
+    "proof_rbac.lean",
+    "proof_rag.lean",
+]
+
+[traceability]
+file = "../TRACEABILITY_MATRIX.md"
+
+[reports]
+phase2 = "../../reports/phase_02_architecture_report.md"

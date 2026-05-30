@@ -1,0 +1,95 @@
+[registry]
+schema_version = "1.0.0"
+description = "FastCDC content-defined chunking test vectors for CivitForge LFS+ storage engine"
+yellow_paper = "YP-STORAGE-CHUNKING-001"
+date = "2026-05-30"
+
+[[vectors]]
+id = "TV-CDC-001"
+name = "all_zeros_file"
+category = "nominal"
+description = "File of all-zero bytes (1MB). Verifies minimum-size enforcement since rolling hash is constant."
+input = { size_bytes = 1048576, content = "0x00 repeated" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_chunk_count = { exact = 256 }
+expected_chunk_sizes = [8192, 8192, "..."] # all exactly target_size
+notes = "All-zero content produces deterministic hash values. All chunks should be exactly target_size (no max boundary needed)."
+
+[[vectors]]
+id = "TV-CDC-002"
+name = "random_bytes_file"
+category = "nominal"
+description = "File of random bytes (1MB). Verifies geometric distribution of chunk sizes."
+input = { size_bytes = 1048576, content = "pseudo-random with seed 42" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_chunk_count_min = 8
+expected_chunk_count_max = 256
+expected_avg_chunk_size = { lower = 6000, upper = 12000 }
+notes = "Random content triggers hash-based boundaries at varying positions. Distribution should approximate geometric."
+
+[[vectors]]
+id = "TV-CDC-003"
+name = "exact_min_size_file"
+category = "boundary"
+description = "File of exactly min_size bytes. Must produce exactly one chunk."
+input = { size_bytes = 4096, content = "arbitrary" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_chunk_count = { exact = 1 }
+expected_chunk_sizes = [4096]
+notes = "Boundary test: file is exactly the minimum, so only one chunk is produced (hard minimum enforced before hash check)."
+
+[[vectors]]
+id = "TV-CDC-004"
+name = "exact_max_size_file"
+category = "boundary"
+description = "File of exactly max_size bytes. Must produce exactly one chunk."
+input = { size_bytes = 65536, content = "arbitrary" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_chunk_count = { exact = 1 }
+expected_chunk_sizes = [65536]
+notes = "Boundary test: file exactly fills one maximum chunk. No boundary hash is triggered before the hard max."
+
+[[vectors]]
+id = "TV-CDC-005"
+name = "just_above_max_size"
+category = "boundary"
+description = "File of max_size + 1 bytes. Must produce exactly two chunks."
+input = { size_bytes = 65537, content = "arbitrary" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_chunk_count = { exact = 2 }
+expected_chunk_sizes = [65536, 1]
+notes = "First chunk hits max boundary; remaining 1 byte forms second chunk. Verifies hard boundary triggers correctly."
+
+[[vectors]]
+id = "TV-CDC-006"
+name = "dedup_1_percent_modification"
+category = "nominal"
+description = "Two versions of a 1MB file differing in 1% of bytes. Expected dedup ratio >90%."
+input_v1 = { size_bytes = 1048576, content = "random seed 1" }
+input_v2_modification = { offset = 524288, length = 10486, new_content = "random modified bytes" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_dedup_ratio = { lower = 0.85 }
+expected_unique_chunks_v2 = { upper = 20 }
+notes = "Modification in the middle of the file should affect only chunks near the modification boundary plus the modified chunks themselves."
+
+[[vectors]]
+id = "TV-CDC-007"
+name = "deterministic_chunking"
+category = "nominal"
+description = "Same input with same seed produces identical chunks across 3 runs."
+input = { size_bytes = 524288, content = "structured data with patterns" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xCAFEBABE }
+runs = 3
+expected_behavior = "All 3 runs produce identical chunk boundaries, identical chunk hashes"
+notes = "Verifies that the algorithm is deterministic given fixed parameters and seed."
+
+[[vectors]]
+id = "TV-CDC-008"
+name = "adversarial_max_chunks_everywhere"
+category = "adversarial"
+description = "Crafted input that forces every chunk to be maximum size. Tests dedup efficiency worst case."
+input = { size_bytes = 1048576, content = "carefully crafted to avoid hitting the hash boundary for max_size-1 bytes, then repeat" }
+params = { min_size = 4096, max_size = 65536, target_size = 8192, window_size = 48, gear_seed = 0xDEADBEEF }
+expected_chunk_count = { exact = 16 }
+expected_chunk_sizes = [65536, 65536, "..."] # all max_size
+notes = "Generates content where the rolling hash never matches the boundary mask within max_size range. All chunks are forced to the maximum boundary."

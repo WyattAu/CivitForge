@@ -1,0 +1,68 @@
+[registry]
+schema_version = "1.0.0"
+description = "Domain constraints for CivitForge Version Control System (VCS) engine"
+yellow_paper = "YP-VERSION-CONTROL-GIT-001"
+date = "2026-05-30"
+
+[repository_limits]
+max_repository_size_tb = 10.0
+max_commit_count = 10_000_000
+max_branch_count = 100_000
+max_tag_count = 100_000
+max_file_count_per_tree = 5_000_000
+max_tree_depth = 20
+max_filename_length_bytes = 4096
+max_path_length_bytes = 8192
+
+[object_storage]
+hash_algorithm = "sha256"
+hash_length_bytes = 32
+max_loose_object_size_bytes = 2_147_483_648
+max_object_count_total = 500_000_000
+max_packed_object_count = 50_000_000
+pack_compression = "zstd"
+pack_compression_level = 3
+delta_depth_limit = 50
+delta_min_object_size_bytes = 128
+delta_max_size_factor = 1.5
+
+[pack_generation]
+algorithm = "ALG-PACK-001"
+max_threads = 256
+target_pack_generation_time_seconds_repo_1tb = 300
+target_pack_generation_time_seconds_repo_10tb = 3600
+pack_index_format = "v2"
+index_build_time_seconds_per_10m_objects = 10
+thin_pack_enabled = true
+ofs_delta_enabled = true
+
+[performance]
+object_lookup_latency_p50_ms = 0.1
+object_lookup_latency_p99_ms = 1.0
+commit_create_latency_p99_ms = 50
+push_processing_latency_p99_bytes_per_sec = 500_000_000
+clone_latency_p99_initial_mb_per_sec = 200
+ref_update_latency_p99_ms = 5
+concurrent_push_capacity = 10_000
+concurrent_clone_capacity = 5_000
+
+[vfs]
+vfs_mount_time_seconds_max_repo_5tb = 30
+vfs_file_fetch_latency_p99_ms = 50
+vfs_prefetch_batch_size_mb = 256
+vfs_local_cache_size_gb = 100
+vfs_max_open_file_descriptors = 1_000_000
+
+[memory]
+max_pack_generation_memory_gb = 64
+max_object_cache_entries = 1_000_000
+max_index_memory_per_10m_objects_mb = 512
+reachability_bitmap_max_memory_mb = 2048
+
+[hardware_requirements]
+recommended_cpu_cores = 64
+recommended_ram_gb = 128
+recommended_storage_iops = 50_000
+recommended_network_bandwidth_gbps = 10
+minimum_cpu_cores = 16
+minimum_ram_gb = 32

@@ -1,0 +1,72 @@
+[registry]
+schema_version = "1.0.0"
+description = "Domain constraints for CivitForge LFS+ content-defined chunking storage engine"
+yellow_paper = "YP-STORAGE-CHUNKING-001"
+date = "2026-05-30"
+
+[chunking]
+algorithm = "ALG-CDC-001"
+implementation = "FastCDC"
+min_chunk_size_bytes = 4_194_304
+max_chunk_size_bytes = 67_108_864
+default_target_chunk_size_bytes = 16_777_216
+window_size_bytes = 48
+gear_hash_bits = 64
+gear_hash_precision = "uint64"
+deterministic_seed = true
+
+[deduplication]
+target_dedup_ratio_percent_1pct_modification = 90
+target_dedup_ratio_percent_0_1pct_modification = 98
+minimum_savings_threshold_percent = 10
+chunk_store_backend = "s3_compatible"
+chunk_metadata_format = "toml"
+max_chunk_metadata_size_bytes = 256
+manifest_storage = "git_object"
+
+[performance]
+chunking_throughput_gb_per_sec_per_core = 2.0
+chunk_hash_computation_ns_per_mb = 5_000
+chunk_upload_latency_p99_ms = 500
+chunk_download_latency_p99_ms = 500
+concurrent_chunk_upload_max = 100
+concurrent_chunk_download_max = 100
+manifest_build_time_seconds_per_1m_chunks = 5
+
+[storage_limits]
+max_file_size_tb = 100
+max_total_storage_per_repo_tb = 50
+max_chunk_count_per_file = 2_621_444
+max_chunk_count_total = 1_000_000_000
+max_manifest_size_bytes = 1_073_741_824
+s3_object_key_format = "chunks/{first_2_hash_chars}/{full_hash}"
+s3_multipart_threshold_bytes = 67_108_864
+s3_multipart_part_size_bytes = 8_388_608
+s3_storage_class_default = "STANDARD"
+s3_versioning_enabled = true
+
+[memory]
+max_chunking_buffer_bytes = 1_073_741_824
+max_concurrent_chunking_jobs = 16
+gear_table_size_bytes = 2048
+chunk_hash_cache_size = 1_000_000
+
+[network]
+upload_bandwidth_utilization_percent = 80
+download_bandwidth_utilization_percent = 80
+chunk_transfer_retry_count = 3
+chunk_transfer_retry_backoff_ms = [100, 500, 2000]
+chunk_transfer_timeout_seconds = 300
+
+[compatibility]
+supported_file_types = ["*"]
+banned_file_patterns = [".git/", ".gitmodules", "locks/"]
+max_filename_length_for_chunking = 4096
+max_path_depth = 50
+
+[hardware_requirements]
+recommended_cpu_cores_chunking = 32
+recommended_ram_gb_chunking = 64
+recommended_network_bandwidth_gbps_chunking = 25
+recommended_s3_put_latency_ms_p50 = 50
+recommended_s3_get_latency_ms_p50 = 20

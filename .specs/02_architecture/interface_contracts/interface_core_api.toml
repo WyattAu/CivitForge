@@ -1,0 +1,209 @@
+[contract]
+id = "IC-CORE-API-001"
+name = "CivitCore API Interface Contract"
+version = "0.1.0"
+date = "2026-05-30"
+blue_paper = "BP-CORE-API-001"
+protocol = "REST + gRPC + SSH"
+authentication = "OIDC/JWT (Bearer) + SSH key + WebAuthn"
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/auth/login"
+description = "Authenticate via OIDC callback or credential exchange"
+request_body = '{ "grant_type": "authorization_code|password|refresh_token", "code": "optional", "redirect_uri": "optional", "username": "optional", "password": "optional" }'
+response_body = '{ "access_token": "jwt", "refresh_token": "jwt", "expires_in": 3600, "token_type": "Bearer" }'
+auth_required = false
+rate_limit = "10/min per IP"
+status_codes = [200, 400, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/auth/refresh"
+description = "Refresh JWT access token"
+request_body = '{ "refresh_token": "jwt" }'
+response_body = '{ "access_token": "jwt", "expires_in": 3600, "token_type": "Bearer" }'
+auth_required = true
+rate_limit = "30/min per user"
+status_codes = [200, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/auth/logout"
+description = "Revoke session, invalidate JWT"
+request_body = '{}'
+response_body = '{ "message": "logged out" }'
+auth_required = true
+rate_limit = "10/min per user"
+status_codes = [200, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/auth/webauthn/register"
+description = "Begin WebAuthn/FIDO2 registration ceremony"
+request_body = '{ "attestation": "direct|none", "username": "string" }'
+response_body = '{ "challenge": "base64url", "rp": { "name": "CivitForge", "id": "civitforge.local" }, "user": { "id": "base64url", "name": "string" }, "pubKeyCredParams": [{ "type": "public-key", "alg": -7 }] }'
+auth_required = true
+rate_limit = "5/min per user"
+status_codes = [200, 400, 401, 409]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/repos"
+description = "List repositories (paginated, filterable)"
+query_params = ["page", "per_page", "sort", "order", "org", "owner", "search", "language", "visibility"]
+response_body = '{ "repos": [{ "id": "uuid", "name": "string", "slug": "string", "owner": { "id": "uuid", "username": "string" }, "description": "string", "is_public": true, "default_branch": "main", "created_at": "ISO8601", "updated_at": "ISO8601" }], "total": 100, "page": 1, "per_page": 30 }'
+auth_required = true
+rate_limit = "60/min per user"
+status_codes = [200, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/repos"
+description = "Create a new repository"
+request_body = '{ "name": "string", "description": "string", "is_public": false, "default_branch": "main", "org_id": "optional-uuid", "auto_init": true }'
+response_body = '{ "id": "uuid", "name": "string", "slug": "string", "created_at": "ISO8601" }'
+auth_required = true
+rate_limit = "20/min per user"
+status_codes = [201, 400, 401, 409]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/repos/{owner}/{name}"
+description = "Get repository details"
+response_body = '{ "id": "uuid", "name": "string", "slug": "string", "owner": { "id": "uuid", "username": "string" }, "description": "string", "is_public": true, "default_branch": "main", "size_bytes": 1024, "created_at": "ISO8601" }'
+auth_required = true
+rate_limit = "120/min per user"
+status_codes = [200, 401, 404]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/repos/{owner}/{name}/pulls"
+description = "List pull requests"
+query_params = ["page", "per_page", "state", "sort", "author", "labels", "base", "head"]
+response_body = '{ "pulls": [{ "id": 0, "number": 1, "title": "string", "state": "open", "author": { "username": "string" }, "head_branch": "feature/foo", "base_branch": "main", "created_at": "ISO8601" }], "total": 50 }'
+auth_required = true
+rate_limit = "60/min per user"
+status_codes = [200, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/repos/{owner}/{name}/pulls"
+description = "Create pull request"
+request_body = '{ "title": "string", "body": "string (markdown)", "head": "feature/foo", "base": "main" }'
+response_body = '{ "id": 0, "number": 1, "title": "string", "state": "open", "head_branch": "feature/foo", "base_branch": "main" }'
+auth_required = true
+rate_limit = "30/min per user"
+status_codes = [201, 400, 401, 409, 422]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/repos/{owner}/{name}/pulls/{number}/merge"
+description = "Merge pull request"
+request_body = '{ "merge_method": "merge|squash|rebase", "commit_title": "optional", "commit_message": "optional" }'
+response_body = '{ "merged": true, "merge_commit_sha": "sha256", "sha": "sha256" }'
+auth_required = true
+rate_limit = "20/min per user"
+status_codes = [200, 401, 403, 405, 409]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/repos/{owner}/{name}/issues"
+description = "List issues"
+query_params = ["page", "per_page", "state", "sort", "assignee", "labels", "since"]
+response_body = '{ "issues": [{ "id": 0, "number": 1, "title": "string", "state": "open", "author": { "username": "string" }, "assignee": { "username": "string" }, "created_at": "ISO8601" }] }'
+auth_required = true
+rate_limit = "60/min per user"
+status_codes = [200, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/repos/{owner}/{name}/issues"
+description = "Create issue"
+request_body = '{ "title": "string", "body": "string (markdown)", "assignees": ["username"], "labels": ["bug"] }'
+response_body = '{ "id": 0, "number": 1, "title": "string", "state": "open" }'
+auth_required = true
+rate_limit = "20/min per user"
+status_codes = [201, 400, 401, 422]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/orgs"
+description = "Create organization"
+request_body = '{ "name": "string", "slug": "string", "description": "string" }'
+response_body = '{ "id": "uuid", "name": "string", "slug": "string", "created_at": "ISO8601" }'
+auth_required = true
+rate_limit = "5/min per user"
+status_codes = [201, 400, 401, 409]
+
+[[grpc_service]]
+name = "VFSFetchService"
+package = "civitforge.vfs"
+protocol = "gRPC (tonic)"
+transport = "TLS"
+
+[[grpc_service.method]]
+name = "GetObject"
+input = "VFSObjectRequest { repo: string, commit: string, path: string, object_hash: string }"
+output = "stream VFSObjectChunk { data: bytes, offset: int64, is_last: bool }"
+timeout = "30s"
+errors = ["NOT_FOUND", "INTERNAL", "UNAVAILABLE"]
+
+[[grpc_service.method]]
+name = "ListTree"
+input = "VFSTreeRequest { repo: string, commit: string, path: string }"
+output = "VFSTreeResponse { entries: repeated VFSTreeEntry }"
+timeout = "10s"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "Prefetch"
+input = "VFSPrefetchRequest { repo: string, commit: string, paths: repeated string }"
+output = "VFSPrefetchResponse { prefetched: int32, already_cached: int32, bytes_transferred: int64 }"
+timeout = "120s"
+errors = ["INTERNAL", "RESOURCE_EXHAUSTED"]
+
+[[ssh_command]]
+name = "git-upload-pack"
+description = "Server-side of git fetch / clone"
+protocol = "SSH (russh)"
+key_types = ["ed25519", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "rsa-sha2-256", "rsa-sha2-512"]
+auth = "SSH key + optional FIDO2"
+
+[[ssh_command]]
+name = "git-receive-pack"
+description = "Server-side of git push"
+protocol = "SSH (russh)"
+key_types = ["ed25519", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "rsa-sha2-256", "rsa-sha2-512"]
+auth = "SSH key + write permission"
+
+[[ssh_command]]
+name = "vfs-mount"
+description = "Initialize VFS session for on-demand fetch"
+protocol = "SSH (russh)"
+key_types = ["ed25519", "ecdsa-sha2-nistp256", "rsa-sha2-256"]
+auth = "SSH key + read permission"
+
+[event_types]]
+name = "CodePushed"
+topic = "civitforge.events.code"
+payload = '{ "repo": "string", "head_commit": "sha256", "author": "string", "branch": "string", "timestamp": "ISO8601" }'
+
+[event_types]]
+name = "PRCreated"
+topic = "civitforge.events.pr"
+payload = '{ "repo": "string", "pr_number": 0, "title": "string", "author": "string", "head_commit": "sha256" }'
+
+[event_types]]
+name = "PRMerged"
+topic = "civitforge.events.pr"
+payload = '{ "repo": "string", "pr_number": 0, "merge_commit": "sha256" }'
+
+[error_codes]
+AUTH_EXPIRED = { code = 401, description = "JWT token has expired" }
+AUTH_INVALID = { code = 401, description = "Invalid authentication credentials" }
+FORBIDDEN = { code = 403, description = "User lacks permission for this action" }
+NOT_FOUND = { code = 404, description = "Requested resource does not exist" }
+RATE_LIMITED = { code = 429, description = "Rate limit exceeded, retry after X seconds" }
+INTERNAL = { code = 500, description = "Internal server error" }
+SERVICE_UNAVAILABLE = { code = 503, description = "Service temporarily unavailable" }

@@ -1,0 +1,153 @@
+[contract]
+id = "IC-VFS-001"
+name = "CivitVFS Interface Contract"
+version = "0.1.0"
+date = "2026-05-30"
+blue_paper = "BP-VFS-001"
+protocol = "FUSE (kernel) + gRPC"
+authentication = "User JWT (for gRPC), POSIX uid/gid (for FUSE)"
+
+[fuse_operations]
+mount_protocol = "FUSE 3 (libfuse3 via fuser crate)"
+mount_options = ["allow_other=false", "auto_inval_data=true", "max_read=1MB", "big_writes=true"]
+kernel_requirements = "Linux 5.16+ (FUSE3), macOS 12+ (osxfuse), Windows 10+ (WinFsp)"
+
+[[fuse_operations.callback]]
+name = "lookup"
+description = "Resolve path to inode number"
+input = "parent_ino: u64, name: OsStr"
+output = "ReplyEntry { attr: FileAttr, ttl: Duration, generation: u64 }"
+error_codes = ["ENOENT", "ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "getattr"
+description = "Get file attributes (metadata)"
+input = "ino: u64"
+output = "ReplyAttr { attr: FileAttr, ttl: Duration }"
+error_codes = ["ENOENT", "ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "readdir"
+description = "Read directory entries"
+input = "ino: u64, offset: i64"
+output = "ReplyDirectory { entries: [(name, kind, ino), ...] }"
+error_codes = ["ENOENT", "ENOTDIR", "ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "read"
+description = "Read file data (triggers on-demand fetch if placeholder)"
+input = "ino: u64, offset: i64, size: u32, fh: u64"
+output = "ReplyData { data: bytes }"
+error_codes = ["ENOENT", "EIO", "ENOSYS", "ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "write"
+description = "Write file data (persisted to local cache, uploaded on close)"
+input = "ino: u64, offset: i64, data: bytes, fh: u64, flags: u32"
+output = "ReplyWrite { written: u32 }"
+error_codes = ["ENOENT", "EIO", "ENOSPC", "EACCES", "ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "open"
+description = "Open file handle (hydrate placeholder for write mode)"
+input = "ino: u64, flags: u32"
+output = "ReplyOpen { fh: u64, flags: u32 }"
+error_codes = ["ENOENT", "EACCES", "EMFILE", "ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "release"
+description = "Release file handle (flush dirty data, schedule upload)"
+input = "ino: u64, fh: u64, flags: u32, lock_owner: u64, flush: bool"
+output = "()"
+error_codes = ["ENOENT", "EIO"]
+
+[[fuse_operations.callback]]
+name = "statfs"
+description = "Get filesystem statistics"
+input = "ino: u64"
+output = "ReplyStatfs { blocks: u64, bfree: u64, bavail: u64, files: u64, ffree: u64, bsize: u32, namelen: u32, frsize: u32 }"
+error_codes = ["ENOMEM"]
+
+[[fuse_operations.callback]]
+name = "forget"
+description = "Forget inode reference (reduce refcount, potentially evict)"
+input = "ino: u64, nlookup: u64"
+output = "()"
+
+[[grpc_service]]
+name = "VFSFetchService"
+package = "civitforge.vfs"
+protocol = "gRPC (tonic)"
+transport = "mTLS"
+
+[[grpc_service.method]]
+name = "GetObject"
+description = "Fetch a git object by hash, streamed in 1MB chunks"
+input = "VFSObjectRequest { repo: string, commit: string, path: string, object_hash: string }"
+output = "stream VFSObjectChunk { data: bytes, offset: int64, is_last: bool }"
+timeout = "30s"
+errors = ["NOT_FOUND", "INTERNAL", "UNAVAILABLE"]
+
+[[grpc_service.method]]
+name = "ListTree"
+description = "List directory tree at a given path and commit"
+input = "VFSTreeRequest { repo: string, commit: string, path: string (empty for root) }"
+output = "VFSTreeResponse { entries: repeated VFSTreeEntry { name: string, mode: string, object_hash: string, size: int64 } }"
+timeout = "10s"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "Prefetch"
+description = "Bulk-prefetch files for a given commit (build graph aware)"
+input = "VFSPrefetchRequest { repo: string, commit: string, paths: repeated string, strategy: enum (sequential, parallel, build_aware) }"
+output = "VFSPrefetchResponse { prefetched: int32, already_cached: int32, bytes_transferred: int64, duration_ms: int32 }"
+timeout = "120s"
+errors = ["INTERNAL", "RESOURCE_EXHAUSTED", "UNAVAILABLE"]
+
+[[grpc_service.method]]
+name = "ResolvePlaceholders"
+description = "Stream hydration status updates for placeholder resolution"
+input = "ResolveRequest { repo: string, commit: string, paths: repeated string }"
+output = "stream ResolveResponse { path: string, status: enum (pending, hydrating, hydrated, error), bytes: int64, error_message: optional string }"
+timeout = "300s"
+errors = ["INTERNAL"]
+
+[[grpc_service.method]]
+name = "UploadModified"
+description = "Upload a locally modified file back to the server"
+input = "UploadRequest { repo: string, branch: string, path: string, old_object_hash: string, new_object_hash: string, content: bytes }"
+output = "UploadResponse { success: bool, commit_hash: string, error_message: optional string }"
+timeout = "30s"
+errors = ["NOT_FOUND", "ALREADY_MODIFIED", "INTERNAL"]
+
+[cache_interface]
+type = "content-addressable (SHA-256)"
+storage = "on-disk (prefix hierarchy: ab/cd1234...)"
+max_size = "50GB (configurable)"
+compression = "zstd level 3"
+eviction = "LRU by last_access timestamp"
+metadata_db = "SQLite (lru_index, mount_state, placeholders)"
+
+[placeholder_protocol]
+description = "Files not yet fetched appear as zero-size placeholders in FUSE"
+hydration_trigger = "on read (blocking), on write (blocking), background prefetch"
+metadata_tracking = "SQLite: (path, object_hash, state: pending|hydrating|hydrated)"
+file_mode = "0o644 (regular file), size=0, mtime=epoch"
+
+[event_types]]
+name = "VFSMountCreated"
+topic = "civitforge.vfs.mount"
+payload = '{ "mount_path": "string", "repo": "string", "commit": "string", "pid": 0 }'
+
+[event_types]]
+name = "VFSCacheEvicted"
+topic = "civitforge.vfs.cache"
+payload = '{ "mount_path": "string", "entries_evicted": 100, "bytes_freed": 1073741824 }'
+
+[error_codes]
+OBJECT_NOT_FOUND = { code = "NOT_FOUND", description = "Git object not found in storage" }
+PLACEHOLDER_NOT_HYDRATED = { code = "FAILED_PRECONDITION", description = "Attempted to read/write unhydrated placeholder" }
+CACHE_FULL = { code = "RESOURCE_EXHAUSTED", description = "Local cache at capacity, cannot fetch new objects" }
+UPLOAD_CONFLICT = { code = "ALREADY_EXISTS", description = "File was modified on server since local read" }
+MOUNT_BUSY = { code = "FAILED_PRECONDITION", description = "Cannot unmount: files still in use" }
+NETWORK_UNREACHABLE = { code = "UNAVAILABLE", description = "gRPC server unreachable, serving from cache only" }

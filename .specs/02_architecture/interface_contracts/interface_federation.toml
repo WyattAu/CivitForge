@@ -1,0 +1,160 @@
+[contract]
+id = "IC-FEDERATION-001"
+name = "CivitForge Federation Interface Contract"
+version = "0.1.0"
+date = "2026-05-30"
+blue_paper = "BP-CORE-API-001, BP-CRYPTO-001"
+protocol = "ActivityPub + gRPC + mTLS"
+authentication = "mTLS (X.509 node certificates)"
+
+[[activitypub_actor]]
+type = "Service"
+id = "https://node1.civitforge.local/actors/{node_id}"
+inbox = "https://node1.civitforge.local/actors/{node_id}/inbox"
+outbox = "https://node1.civitforge.local/actors/{node_id}/outbox"
+followers = "https://node1.civitforge.local/actors/{node_id}/followers"
+following = "https://node1.civitforge.local/actors/{node_id}/following"
+public_key = '''
+{
+  "id": "https://node1.civitforge.local/actors/{node_id}#main-key",
+  "owner": "https://node1.civitforge.local/actors/{node_id}",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----..."
+}
+'''
+
+[[activitypub_activity]]
+type = "Create"
+description = "Announce new repository, issue, or PR to federated nodes"
+payload = '''
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "type": "Create",
+  "id": "https://node1.civitforge.local/activities/{uuid}",
+  "actor": "https://node1.civitforge.local/actors/node1",
+  "object": {
+    "type": "ForgeRepository|ForgeIssue|ForgePullRequest",
+    "id": "https://node1.civitforge.local/repos/myorg/myrepo",
+    "name": "myrepo",
+    "attributedTo": "https://node1.civitforge.local/actors/myorg",
+    "summary": "Repository description"
+  },
+  "published": "2026-05-30T12:00:00Z",
+  "to": ["https://www.w3.org/ns/activitystreams#Public"]
+}
+'''
+
+[[activitypub_activity]]
+type = "Push"
+description = "Notify federated nodes of new commits (ForgeFed extension)"
+payload = '''
+{
+  "@context": ["https://www.w3.org/ns/activitystreams", "https://forgefed.org/ns"],
+  "type": "Push",
+  "id": "https://node1.civitforge.local/activities/{uuid}",
+  "actor": "https://node1.civitforge.local/actors/node1",
+  "object": {
+    "type": "Commit",
+    "id": "https://node1.civitforge.local/repos/myorg/myrepo/commits/a1b2c3",
+    "committedBy": "https://node1.civitforge.local/actors/alice",
+    "hash": "a1b2c3d4e5f6...",
+    "message": "Fix authentication bug",
+    "committedDateTime": "2026-05-30T12:00:00Z"
+  },
+  "target": {
+    "type": "Branch",
+    "name": "main"
+  },
+  "to": ["https://node1.civitforge.local/actors/node1/followers"]
+}
+'''
+
+[[grpc_service]]
+name = "FederationSyncService"
+package = "civitforge.federation"
+protocol = "gRPC (tonic)"
+transport = "mTLS (X.509 node certs)"
+
+[[grpc_service.method]]
+name = "ExchangeMerkleRoots"
+description = "Bidirectional Merkle root exchange for DAG state sync"
+input = "stream MerkleRootUpdate { repo: string, commit: string, merkle_root: string, timestamp: int64 }"
+output = "stream MerkleRootResponse { repo: string, have_commit: bool, need_objects: repeated string }"
+timeout = "300s (streaming)"
+errors = ["UNAUTHENTICATED", "INTERNAL", "UNAVAILABLE"]
+
+[[grpc_service.method]]
+name = "TransferObjects"
+description = "Transfer missing git objects between nodes"
+input = "TransferRequest { repo: string, object_hashes: repeated string }"
+output = "stream GitObjectChunk { hash: string, data: bytes, is_pack: bool, offset: int64 }"
+timeout = "600s (streaming)"
+errors = ["NOT_FOUND", "UNAUTHENTICATED", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "DiscoverNodes"
+description = "Node discovery via gossip protocol"
+input = "DiscoverRequest { node_id: string, known_nodes: repeated string, version: string }"
+output = "DiscoverResponse { nodes: repeated NodeInfo { node_id: string, endpoint: string, region: string, last_seen: int64, capabilities: repeated string }, cluster_size: int32 }"
+timeout = "10s"
+errors = ["UNAUTHENTICATED", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "GetNodeStatus"
+description = "Health and capacity check for a federated node"
+input = "NodeStatusRequest { node_id: string }"
+output = "NodeStatusResponse { node_id: string, healthy: bool, repos_count: int64, total_size_bytes: int64, last_sync_at: int64, version: string, region: string }"
+timeout = "5s"
+errors = ["NOT_FOUND", "UNAUTHENTICATED"]
+
+[[grpc_service.method]]
+name = "RequestMirroring"
+description = "Request a repository to be mirrored on this node"
+input = "MirrorRequest { repo: string, source_node: string, commit: string, include_lfs: bool }"
+output = "MirrorResponse { accepted: bool, estimated_size: int64, repo_id: string }"
+timeout = "30s"
+errors = ["NOT_FOUND", "UNAUTHORIZED", "RESOURCE_EXHAUSTED", "INTERNAL"]
+
+[mTLS_configuration]
+protocol_version = "TLS 1.3"
+cipher_suites = ["TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"]
+certificate_authority = "civitforge-internal-ca (or HashiCorp Vault PKI)"
+certificate_format = "X.509 with SAN (DNS: node.civitforge.local, IP: node-IP)"
+key_type = "Ed25519"
+certificate_lifetime = "24 hours"
+renewal_window = "1 hour before expiry"
+revocation_check = "CRL (Certificate Revocation List) + OCSP stapling"
+
+[dag_sync_protocol]
+sync_method = "Merkle-root exchange + missing object negotiation"
+consistency_model = "Eventual consistency under no network partition"
+conflict_resolution = "Last-writer-wins per branch (commits are append-only)"
+object_transfer = "Streaming packfile format over gRPC"
+merkle_root_algorithm = "SHA-256 of sorted commit hash list"
+
+[event_types]]
+name = "DAGSyncStarted"
+topic = "civitforge.federation.sync"
+payload = '{ "source_node": "node1", "target_node": "node2", "repo": "string", "merkle_roots_exchanged": 5 }'
+
+[event_types]]
+name = "DAGSyncCompleted"
+topic = "civitforge.federation.sync"
+payload = '{ "source_node": "node1", "target_node": "node2", "repo": "string", "objects_transferred": 150, "bytes_transferred": 52428800, "duration_ms": 3000 }'
+
+[event_types]]
+name = "NodeDiscovered"
+topic = "civitforge.federation.discovery"
+payload = '{ "node_id": "node3", "endpoint": "https://node3.civitforge.local", "region": "tokyo", "capabilities": ["lfs", "ai"] }'
+
+[event_types]]
+name = "CertificateRotated"
+topic = "civitforge.federation.crypto"
+payload = '{ "node_id": "node1", "serial_number": "string", "new_expiry": "ISO8601" }'
+
+[error_codes]
+UNAUTHENTICATED_NODE = { code = "UNAUTHENTICATED", description = "Node certificate not recognized or expired" }
+MISSING_OBJECTS = { code = "NOT_FOUND", description = "Requested git objects not available on this node" }
+SYNC_CONFLICT = { code = "ALREADY_EXISTS", description = "Merge conflict during DAG sync" ]
+PARTITION_DETECTED = { code = "UNAVAILABLE", description = "Network partition detected, sync paused" }
+QUOTA_EXCEEDED = { code = "RESOURCE_EXHAUSTED", description = "Target node cannot accept mirror due to storage limits" }
+UNSUPPORTED_VERSION = { code = "FAILED_PRECONDITION", description = "Node protocol version incompatible" }

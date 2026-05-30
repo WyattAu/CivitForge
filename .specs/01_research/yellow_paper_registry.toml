@@ -1,0 +1,82 @@
+[registry]
+schema_version = "1.0.0"
+title = "CivitForge Yellow Paper Registry"
+last_updated = "2026-05-30"
+maintainer = "CivitForge Core Team"
+
+[[papers]]
+id = "YP-VERSION-CONTROL-GIT-001"
+title = "Git Object Model & DAG Consistency"
+status = "draft"
+domain = "version_control"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "YP-VERSION-CONTROL-GIT-001.md"
+algorithms = ["ALG-PACK-001"]
+dependencies = []
+keywords = ["git", "merkle-dag", "content-addressable", "packfile", "gitoxide", "reachability"]
+
+[[papers]]
+id = "YP-STORAGE-CHUNKING-001"
+title = "FastCDC Content-Defined Chunking"
+status = "draft"
+domain = "storage"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "YP-STORAGE-CHUNKING-001.md"
+algorithms = ["ALG-CDC-001"]
+dependencies = []
+keywords = ["fastcdc", "content-defined-chunking", "deduplication", "rolling-hash", "rabin-fingerprint"]
+
+[[papers]]
+id = "YP-NETWORK-FEDERATION-001"
+title = "ForgeFed DAG Synchronization Protocol"
+status = "draft"
+domain = "network"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "YP-NETWORK-FEDERATION-001.md"
+algorithms = ["ALG-SYNC-001"]
+dependencies = ["YP-VERSION-CONTROL-GIT-001"]
+keywords = ["federation", "forgefed", "activitypub", "dag-sync", "eventual-consistency", "merkle-root"]
+
+[[papers]]
+id = "YP-SECURITY-RBAC-001"
+title = "RBAC/ABAC Access Control Model"
+status = "draft"
+domain = "security"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "YP-SECURITY-RBAC-001.md"
+algorithms = ["ALG-POLICY-001"]
+dependencies = []
+keywords = ["rbac", "abac", "policy-evaluation", "least-privilege", "deny-override", "zero-trust"]
+
+[[papers]]
+id = "YP-AI-RAG-001"
+title = "RAG over Abstract Syntax Trees"
+status = "draft"
+domain = "ai"
+version = "0.1.0"
+date = "2026-05-30"
+authors = ["CivitForge Core Team"]
+file = "YP-AI-RAG-001.md"
+algorithms = ["ALG-RAG-001"]
+dependencies = ["YP-VERSION-CONTROL-GIT-001"]
+keywords = ["rag", "ast", "tree-sitter", "embedding", "vector-search", "code-understanding"]
+
+[test_vectors]
+git = "test_vectors/test_vectors_git.toml"
+chunking = "test_vectors/test_vectors_chunking.toml"
+federation = "test_vectors/test_vectors_federation.toml"
+
+[domain_constraints]
+version_control = "domain_constraints/domain_constraints_version_control.toml"
+storage = "domain_constraints/domain_constraints_storage.toml"
+
+[bibliography]
+file = "bibliography.md"

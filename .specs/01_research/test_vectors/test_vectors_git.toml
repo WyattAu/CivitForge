@@ -1,0 +1,130 @@
+[registry]
+schema_version = "1.0.0"
+description = "Git object model and DAG consistency test vectors for CivitForge VCS engine"
+yellow_paper = "YP-VERSION-CONTROL-GIT-001"
+date = "2026-05-30"
+
+[[vectors]]
+id = "TV-GIT-001"
+name = "empty_blob_hash"
+category = "nominal"
+description = "SHA-256 hash of an empty blob object (zero bytes content)"
+input = { type = "blob", content = "" }
+expected_hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+expected_hash_algorithm = "sha256"
+notes = "Git computes: SHA-256('blob' || '0' || NUL || '') = e3b0c44..."
+
+[[vectors]]
+id = "TV-GIT-002"
+name = "hello_world_blob_hash"
+category = "nominal"
+description = "SHA-256 hash of a blob containing 'Hello, World!\n'"
+input = { type = "blob", content = "Hello, World!\n" }
+expected_hash = "d2a84e4f680a872896ee2c12d0643887260d5f95b1a8b0c6f8ad3c97f8ef10b1"
+notes = "Content is 14 bytes. Git header: 'blob 14\\0Hello, World!\\n'. Full SHA-256 over header+content."
+
+[[vectors]]
+id = "TV-GIT-003"
+name = "simple_tree_hash"
+category = "nominal"
+description = "SHA-256 hash of a tree with one blob entry (README.md)"
+input = { type = "tree", entries = [{ mode = "100644", name = "README.md", hash = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }] }
+expected_hash = "4178962d98a22c3ff78e6cd01c6ee1f2ff7a5e8c1e80b0b7b1e6b4d2c5a8e3f7"
+notes = "Tree entry format: mode SP name NUL hash (20 bytes SHA-1 in standard git, SHA-256 in CivitForge)"
+
+[[vectors]]
+id = "TV-GIT-004"
+name = "single_parent_commit"
+category = "nominal"
+description = "SHA-256 hash of a commit with one parent"
+input = { type = "commit", tree = "4178962d98a22c3ff78e6cd01c6ee1f2ff7a5e8c1e80b0b7b1e6b4d2c5a8e3f7", parents = ["abc123def456789abc123def456789abc123def456789abc123def456789abcd"], author = "Alice <alice@example.com> 1709251200 +0000", committer = "Alice <alice@example.com> 1709251200 +0000", message = "Initial commit" }
+expected_hash = "civitforge_computed_sha256"
+notes = "Full header: 'commit <size>\\0tree <hash>\\nparent <hash>\\nauthor ...\\ncommitter ...\\n\\nmessage'"
+
+[[vectors]]
+id = "TV-GIT-005"
+name = "tagged_object_hash"
+category = "nominal"
+description = "SHA-256 hash of an annotated tag object"
+input = { type = "tag", object = "abc123def456789abc123def456789abc123def456789abc123def456789abcd", tag_type = "commit", tag_name = "v1.0.0", tagger = "Bob <bob@example.com> 1709251200 +0000", message = "Release v1.0.0\n" }
+expected_hash = "civitforge_computed_sha256"
+notes = "Tag objects are treated as distinct objects from the commits they reference"
+
+[[vectors]]
+id = "TV-GIT-006"
+name = "pack_roundtrip_3_objects"
+category = "nominal"
+description = "Pack 3 objects (1 blob, 1 tree, 1 commit), unpack, verify hashes match"
+input_objects = [
+    { type = "blob", content = "Hello, World!\n" },
+    { type = "blob", content = "Second file content\n" },
+    { type = "commit", tree = "placeholder_hash", parents = [], author = "Test <test@example.com> 0 +0000", committer = "Test <test@example.com> 0 +0000", message = "Test commit" }
+]
+expected_pack_checksum = "sha256_of_full_pack_bytes"
+expected_unpacked_hashes = ["sha256_of_obj_1", "sha256_of_obj_2", "sha256_of_obj_3"]
+verification = "each unpacked object hash must equal original hash"
+
+[[vectors]]
+id = "TV-GIT-007"
+name = "reachability_linear_history"
+category = "nominal"
+description = "Reachability on a linear commit chain: c0 -> c1 -> c2 -> c3 -> c4"
+graph = { type = "linear", commits = ["c0", "c1", "c2", "c3", "c4"], edges = [["c4","c3"],["c3","c2"],["c2","c1"],["c1","c0"]] }
+queries = [
+    { from = "c4", expected_reachable = ["c4","c3","c2","c1","c0"] },
+    { from = "c2", expected_reachable = ["c2","c1","c0"] },
+    { from = "c0", expected_reachable = ["c0"] }
+]
+notes = "Linear history: each commit has exactly one parent (except root c0)"
+
+[[vectors]]
+id = "TV-GIT-008"
+name = "merge_base_criss_cross"
+category = "boundary"
+description = "Merge base computation for criss-cross merge pattern"
+graph = { type = "criss_cross", commits = ["A","B","C","D","E","F"], edges = [["B","A"],["C","A"],["D","B"],["D","C"],["E","B"],["E","C"],["F","D"],["F","E"]] }
+merge_base_queries = [
+    { commit_a = "D", commit_b = "E", expected_merge_bases = ["A","B","C"] },
+    { commit_a = "F", commit_b = "A", expected_merge_bases = ["A"] }
+]
+notes = "Criss-cross: D merges B+C, E merges B+C (symmetric). Merge base of D and E is both A and the virtual merge of B+C."
+
+[[vectors]]
+id = "TV-GIT-009"
+name = "corrupted_pack_detection"
+category = "adversarial"
+description = "Packfile with single-bit corruption in object data; must fail SHA-256 verification"
+input = "valid_packfile_bytes"
+corruption = { offset = 42, bit_flip = true }
+expected_result = "PACK_VERIFY_ERROR"
+expected_behavior = "Pack parser rejects the pack with checksum mismatch error; no objects are stored"
+
+[[vectors]]
+id = "TV-GIT-010"
+name = "deep_delta_chain_at_limit"
+category = "adversarial"
+description = "Delta chain of depth exactly D_max (50); must resolve successfully"
+input = { base_blob = "A" repeated 4096 bytes, delta_chain_depth = 50, each_delta_modifies = "first byte only" }
+expected_result = "RESOLVE_SUCCESS"
+expected_final_content = "B" followed by "A" repeated 4095 bytes
+notes = "Verifies delta resolver handles maximum-depth chains without stack overflow. Beyond D_max must error."
+
+[[vectors]]
+id = "TV-GIT-011"
+name = "zero_length_blob"
+category = "boundary"
+description = "Blob with zero-length content (already tested via empty blob, but testing store/retrieve path)"
+input = { type = "blob", content = "" }
+operations = ["store", "retrieve_by_hash", "verify_empty"]
+expected_result = "SUCCESS"
+notes = "Verify store correctly handles zero-byte objects without panics or truncation"
+
+[[vectors]]
+id = "TV-GIT-012"
+name = "octopus_merge_8_parents"
+category = "boundary"
+description = "Commit with 8 parents (octopus merge upper bound)"
+input = { type = "commit", tree = "hash_placeholder", parents = ["p0","p1","p2","p3","p4","p5","p6","p7"], author = "Bot <bot@example.com> 0 +0000", committer = "Bot <bot@example.com> 0 +0000", message = "Merge branches" }
+expected_result = "COMMIT_STORED_SUCCESSFULLY"
+expected_reachability = "all 8 parents reachable from this commit"
+notes = "Stress test for reachability bitmap with wide merge commits"

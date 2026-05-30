@@ -1,0 +1,100 @@
+[registry]
+schema_version = "1.0.0"
+description = "DAG synchronization protocol test vectors for CivitForge federation engine"
+yellow_paper = "YP-NETWORK-FEDERATION-001"
+date = "2026-05-30"
+
+[[vectors]]
+id = "TV-FED-001"
+name = "two_node_no_divergence"
+category = "nominal"
+description = "Two nodes with identical Merkle roots. Sync should complete instantly with zero object transfer."
+setup = {
+    node_a_state = { commits = ["sha_a1", "sha_a2", "sha_a3"], merkle_root = "mr_abc123" },
+    node_b_state = { commits = ["sha_a1", "sha_a2", "sha_a3"], merkle_root = "mr_abc123" }
+}
+expected_behavior = "Merkle root comparison matches; no object exchange; convergence confirmed in <10ms"
+expected_transferred_objects = 0
+expected_network_bytes = 64 # two merkle root hashes (32 bytes each)
+
+[[vectors]]
+id = "TV-FED-002"
+name = "two_node_one_push"
+category = "nominal"
+description = "Node A has one additional commit not on Node B. One-way sync."
+setup = {
+    node_a_state = { commits = ["sha_a1", "sha_a2", "sha_a3", "sha_a4"], merkle_root = "mr_def456" },
+    node_b_state = { commits = ["sha_a1", "sha_a2", "sha_a3"], merkle_root = "mr_abc123" }
+}
+expected_behavior = "Merkle walk identifies divergence at commit sha_a4; Node A sends sha_a4 commit object and any new tree/blob objects to Node B"
+expected_transferred_objects_min = 3 # commit + tree + blob minimum
+expected_convergence = true
+
+[[vectors]]
+id = "TV-FED-003"
+name = "two_node_concurrent_pushes"
+category = "nominal"
+description = "Both nodes pushed different commits to the same branch. Conflict detection and resolution required."
+setup = {
+    node_a_state = { commits = ["base", "a_branch_commit"], branch_tip = "main -> a_branch_commit", merkle_root = "mr_nodeA" },
+    node_b_state = { commits = ["base", "b_branch_commit"], branch_tip = "main -> b_branch_commit", merkle_root = "mr_nodeB" }
+}
+expected_behavior = """Both nodes exchange commits. Merge base is 'base'.
+Conflict resolution: create a merge commit combining both branches.
+Both nodes converge to identical DAG containing base, a_branch_commit, b_branch_commit, merge_commit."""
+expected_transferred_objects_min = 6 # 2 commits + trees + blobs from each side
+expected_conflict_resolution = "merge_commit"
+
+[[vectors]]
+id = "TV-FED-004"
+name = "partition_diverge_reconnect"
+category = "boundary"
+description = "Simulate 10-second partition between 2 nodes, each generating 5 operations, then reconnect."
+setup = {
+    pre_partition_state = { shared_commits = ["c0", "c1", "c2"], merkle_root = "mr_pre" },
+    partition_duration_ms = 10000,
+    ops_rate_per_node = 1, # 1 op/sec
+    node_a_ops_during_partition = ["a_push_c3", "a_issue_create", "a_pr_open", "a_push_c4", "a_comment"],
+    node_b_ops_during_partition = ["b_push_c5", "b_issue_close", "b_push_c6", "b_pr_merge", "b_tag_v2"]
+}
+expected_behavior = """During partition: both nodes diverge independently.
+After reconnection: Merkle walk identifies divergent branches.
+All 10 operations are exchanged and causally ordered.
+Git pushes: merge commits created for concurrent pushes.
+Metadata: operations applied in Lamport timestamp order.
+Convergence verified within (partition_duration + sync_latency)."""
+expected_convergence_time_max_ms = 15000 # partition + sync overhead
+expected_merged_operations = 10
+
+[[vectors]]
+id = "TV-FED-005"
+name = "three_node_cascade"
+category = "nominal"
+description = "Three nodes in chain: A syncs with B, then B syncs with C. All must converge."
+setup = {
+    node_a = { commits = ["c0", "c1", "c2", "c3"], merkle_root = "mr_a" },
+    node_b = { commits = ["c0", "c1"], merkle_root = "mr_b" },
+    node_c = { commits = ["c0"], merkle_root = "mr_c" }
+}
+sync_order = ["A<->B", "B<->C"]
+expected_behavior = """After A<->B: A and B both have c0,c1,c2,c3. Same merkle root.
+After B<->C: B and C both have c0,c1,c2,c3. Same merkle root.
+All three nodes converge to identical state."""
+expected_final_state_all_nodes = { commits = ["c0", "c1", "c2", "c3"], merkle_root = "mr_a" }
+
+[[vectors]]
+id = "TV-FED-006"
+name = "adversarial_conflicting_policy_updates"
+category = "adversarial"
+description = "Two nodes concurrently push conflicting access control policies to the same repository."
+setup = {
+    node_a_policy = { resource = "repo/secret", action = "read", effect = "allow", subject = "team-alpha", condition = "ip IN 10.0.0.0/8" },
+    node_b_policy = { resource = "repo/secret", action = "read", effect = "deny", subject = "team-beta", condition = "ip NOT IN 10.0.0.0/8" }
+}
+expected_behavior = """Both policies target the same resource with different effects.
+Policy conflict resolution: deny-override semantics (per YP-SECURITY-RBAC-001 Axiom 2).
+Both deny policies AND allow policies are stored.
+Evaluation order: deny always wins.
+Convergence: both nodes have identical policy sets after sync."""
+expected_convergence = true
+expected_policy_count_post_sync = 2

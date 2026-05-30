@@ -1,0 +1,160 @@
+[contract]
+id = "IC-BRAIN-001"
+name = "CivitBrain Interface Contract"
+version = "0.1.0"
+date = "2026-05-30"
+blue_paper = "BP-BRAIN-001"
+protocol = "gRPC + REST"
+authentication = "Service account JWT + mTLS"
+
+[[grpc_service]]
+name = "AIService"
+package = "civitforge.brain"
+protocol = "gRPC (tonic)"
+transport = "mTLS"
+
+[[grpc_service.method]]
+name = "QueryCodebase"
+input = "CodeQueryRequest { repo: string, query: string, top_k: int32, score_threshold: float, filters: repeated string }"
+output = "CodeQueryResponse { results: repeated CodeChunk, total_processed: int32, query_latency_ms: float }"
+timeout = "10s"
+errors = ["INVALID_ARGUMENT", "NOT_FOUND", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "TriggerIndexing"
+input = "IndexRequest { repo: string, commit: string, force: bool }"
+output = "IndexResponse { job_id: string, files_to_parse: int32, estimated_duration_ms: int32 }"
+timeout = "5s"
+errors = ["ALREADY_INDEXING", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "ReviewPullRequest"
+input = "PRReviewRequest { repo: string, pr_number: int64, base_ref: string, head_ref: string, check_types: repeated string }"
+output = "stream PRReviewEvent { event_type: string, severity: string, file_path: string, start_line: int32, end_line: int32, message: string, suggested_fix: string }"
+timeout = "600s"
+errors = ["NOT_FOUND", "MODEL_UNAVAILABLE", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "StreamEmbeddingProgress"
+input = "ProgressRequest { job_id: string }"
+output = "stream EmbeddingProgress { job_id: string, total_files: int32, completed_files: int32, failed_files: int32, current_file: string, phase: string }"
+timeout = "3600s"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "DeleteCollection"
+input = "DeleteRequest { repo: string, confirm: bool }"
+output = "DeleteResponse { deleted_count: int64 }"
+timeout = "30s"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[grpc_message_types]
+CodeChunk = '''
+{
+  "chunk_id": "string (uuid)",
+  "file_path": "string",
+  "start_line": "int32",
+  "end_line": "int32",
+  "content": "string",
+  "language": "string",
+  "scope": "string (e.g., fn my_function)",
+  "score": "float",
+  "repo": "string"
+}
+'''
+
+PRReviewEvent = '''
+{
+  "event_type": "enum (finding, suggestion, summary, complete, error)",
+  "severity": "enum (critical, warning, info, suggestion)",
+  "check_type": "enum (security, performance, style, bugs, documentation)",
+  "file_path": "string",
+  "start_line": "int32",
+  "end_line": "int32",
+  "message": "string (markdown)",
+  "suggested_fix": "string (optional, diff format)",
+  "rule_id": "string (optional, e.g., CVE-2024-12345)",
+  "confidence": "float (0.0-1.0)"
+}
+'''
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/ai/chat"
+description = "Codebase question-answering via RAG"
+request_body = '{ "repo": "string", "query": "string", "top_k": 10, "context_mode": "compact|detailed" }'
+response_body = '{ "answer": "string (markdown)", "sources": [{ "file_path": "string", "start_line": 0, "end_line": 10, "score": 0.95, "snippet": "string" }], "model": "string", "tokens_used": 500, "latency_ms": 120 }'
+auth_required = true
+rate_limit = "20/min per user"
+status_codes = [200, 400, 401, 503]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/ai/index/{repo}/status"
+description = "Get indexing status for a repository"
+response_body = '{ "repo": "string", "commit": "sha256", "total_files": 5000, "indexed_files": 4998, "pending_files": 2, "last_indexed_at": "ISO8601", "indexing": false, "total_chunks": 45000, "model_version": "nomic-embed-text-v1.5" }'
+auth_required = true
+rate_limit = "30/min per user"
+status_codes = [200, 401, 404]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/ai/index/{repo}/reindex"
+description = "Force full repository re-index"
+request_body = '{ "commit": "optional-sha256", "languages": ["optional filter"] }'
+response_body = '{ "job_id": "uuid", "total_files": 5000, "estimated_duration_ms": 60000 }'
+auth_required = true
+rate_limit = "2/hour per user"
+status_codes = [202, 400, 401, 404]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/ai/search"
+description = "Semantic code search across indexed repositories"
+query_params = ["q", "repo", "language", "path", "scope", "top_k", "min_score"]
+response_body = '{ "results": [{ "file_path": "string", "start_line": 0, "end_line": 10, "content": "string", "language": "string", "scope": "string", "score": 0.95 }], "total": 42, "query_time_ms": 3 }'
+auth_required = true
+rate_limit = "60/min per user"
+status_codes = [200, 400, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/ai/review/{repo}/pr/{number}"
+description = "Request AI code review for a pull request"
+request_body = '{ "check_types": ["security", "performance", "bugs"], "severity_threshold": "info", "auto_comment": true }'
+response_body = '{ "review_id": "uuid", "status": "pending", "estimated_duration_ms": 30000 }'
+auth_required = true
+rate_limit = "5/hour per user"
+status_codes = [202, 400, 401, 404, 503]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/ai/reviews/{repo}/pr/{number}"
+description = "Get AI review results for a pull request"
+response_body = '{ "review_id": "uuid", "status": "complete", "model_used": "deepseek-coder-33b", "findings": [{ "severity": "warning", "check_type": "security", "file_path": "src/auth.rs", "start_line": 42, "end_line": 45, "message": "SQL injection vulnerability", "suggested_fix": "Use parameterized queries", "confidence": 0.92 }], "total_findings": 3, "latency_ms": 12500, "tokens_used": 8000 }'
+auth_required = true
+rate_limit = "30/min per user"
+status_codes = [200, 401, 404]
+
+[event_types]]
+name = "IndexingStarted"
+topic = "civitforge.brain.index"
+payload = '{ "repo": "string", "commit": "sha256", "job_id": "uuid", "total_files": 5000 }'
+
+[event_types]]
+name = "IndexingCompleted"
+topic = "civitforge.brain.index"
+payload = '{ "repo": "string", "commit": "sha256", "job_id": "uuid", "indexed_files": 4998, "failed_files": 2, "total_chunks": 45000, "duration_ms": 55000 }'
+
+[event_types]]
+name = "AIReviewCompleted"
+topic = "civitforge.brain.review"
+payload = '{ "repo": "string", "pr_number": 0, "review_id": "uuid", "findings_count": 3, "model_used": "string", "tokens_used": 8000 }'
+
+[error_codes]
+INDEX_NOT_FOUND = { code = "NOT_FOUND", description = "Repository has not been indexed" }
+INDEXING_IN_PROGRESS = { code = "ALREADY_EXISTS", description = "Indexing already in progress for this repo" }
+MODEL_UNAVAILABLE = { code = "UNAVAILABLE", description = "LLM inference server is not responding" ]
+EMBEDDING_FAILED = { code = "INTERNAL", description = "Embedding model returned error for chunk" }
+CONTEXT_TOO_LARGE = { code = "INVALID_ARGUMENT", description = "Retrieved context exceeds model token limit" }
+QUOTA_EXCEEDED = { code = "RESOURCE_EXHAUSTED", description = "Token usage quota exceeded for this user/org" }

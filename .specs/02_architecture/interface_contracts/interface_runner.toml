@@ -1,0 +1,156 @@
+[contract]
+id = "IC-RUNNER-001"
+name = "CivitRunner Interface Contract"
+version = "0.1.0"
+date = "2026-05-30"
+blue_paper = "BP-RUNNER-001"
+protocol = "gRPC + REST + K8s CRD"
+authentication = "Service account JWT + mTLS"
+
+[[grpc_service]]
+name = "PipelineService"
+package = "civitforge.runner"
+protocol = "gRPC (tonic)"
+transport = "mTLS"
+
+[[grpc_service.method]]
+name = "TriggerPipeline"
+input = "TriggerRequest { repo: string, revision: string, pipeline_ref: string, params: map<string,string> }"
+output = "TriggerResponse { run_id: string, status: PipelinePhase.PENDING, created_at: ISO8601 }"
+timeout = "10s"
+errors = ["INVALID_ARGUMENT", "NOT_FOUND", "RESOURCE_EXHAUSTED", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "GetPipelineStatus"
+input = "StatusRequest { run_id: string }"
+output = "stream PipelineEvent { pipeline_run_id: string, step_name: string, phase: PipelinePhase, timestamp: int64, message: string, artifacts: repeated ArtifactRef }"
+timeout = "3600s (long-poll)"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "ListPipelines"
+input = "ListRequest { repo: string, state: optional PipelinePhase, page: int32, per_page: int32 }"
+output = "ListResponse { runs: repeated PipelineRunSummary, total: int64 }"
+timeout = "5s"
+errors = ["INVALID_ARGUMENT", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "CancelPipeline"
+input = "CancelRequest { run_id: string, reason: string }"
+output = "CancelResponse { cancelled: bool, status: PipelinePhase.CANCELLED }"
+timeout = "10s"
+errors = ["NOT_FOUND", "ALREADY_TERMINATED", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "GetArtifacts"
+input = "ArtifactRequest { run_id: string, step_name: optional string }"
+output = "stream ArtifactInfo { name: string, digest: string, media_type: string, size_bytes: int64, sbom_digest: string, cosign_signature: string, download_url: string }"
+timeout = "30s"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "RequestSandbox"
+input = "SandboxRequest { image: string, repo: string, commands: repeated string, timeout: int64, network_policy: NetworkPolicy, allowed_domains: repeated string }"
+output = "SandboxResponse { sandbox_id: string, status: SandboxState.CREATED }"
+timeout = "30s"
+errors = ["INVALID_IMAGE", "RESOURCE_EXHAUSTED", "INTERNAL"]
+
+[[grpc_service.method]]
+name = "GetSandboxLogs"
+input = "SandboxLogsRequest { sandbox_id: string, since: int64, tail: optional int32 }"
+output = "stream LogLine { timestamp: int64, stream: string (stdout|stderr), message: string }"
+timeout = "300s"
+errors = ["NOT_FOUND", "INTERNAL"]
+
+[k8s_crd]
+api_version = "civitforge.io/v1"
+kind = "PipelineRun"
+namespaced = true
+
+[k8s_crd.spec]
+pipeline_ref.name = "string (required)"
+pipeline_ref.namespace = "string (optional, default: default)"
+params = "map<string,string>"
+workspace.repo_ref.name = "string"
+workspace.repo_ref.revision = "string"
+workspace.lfs_mounts = "repeated LFSMountSpec"
+workspace.size = "string (Kubernetes resource quantity)"
+security_context.seccomp_profile = "enum (strict, moderate, relaxed)"
+security_context.network_policy = "enum (hermetic, allowlisted, unrestricted)"
+security_context.allowed_domains = "repeated string"
+timeout = "string (Go duration)"
+
+[k8s_crd.status]
+phase = "enum (Pending, Running, Succeeded, Failed, Cancelled)"
+conditions = "repeated Condition { type, status, reason, message, last_transition_time }"
+steps = "repeated StepStatus { name, phase, started_at, completed_at, exit_code }"
+observed_generation = "int64"
+start_time = "ISO8601"
+completion_time = "ISO8601"
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/pipelines"
+description = "List pipeline definitions"
+query_params = ["page", "per_page", "repo"]
+response_body = '{ "pipelines": [{ "id": "uuid", "name": "string", "repo": "string", "created_at": "ISO8601" }] }'
+auth_required = true
+rate_limit = "60/min per user"
+status_codes = [200, 401]
+
+[[rest_endpoint]]
+method = "POST"
+path = "/api/v1/pipelines"
+description = "Create pipeline definition"
+request_body = '{ "name": "string", "repo_id": "uuid", "definition": { "steps": [{ "name": "string", "image": "string", "command": ["string"], "depends_on": ["string"], "timeout": "string" }] } }'
+response_body = '{ "id": "uuid", "name": "string", "created_at": "ISO8601" }'
+auth_required = true
+rate_limit = "10/min per user"
+status_codes = [201, 400, 401, 422]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/pipelines/runs/{id}/logs"
+description = "Stream pipeline step logs (SSE)"
+response_body = "Server-Sent Events: { event: 'log', data: { step: 'build', stream: 'stdout', message: 'Compiling...', timestamp: '...' } }"
+auth_required = true
+rate_limit = "10/min per user"
+status_codes = [200, 401, 404]
+
+[[rest_endpoint]]
+method = "GET"
+path = "/api/v1/artifacts/{digest}/sbom"
+description = "Get SBOM for a build artifact"
+query_params = ["format (spdx|cyclonedx)"]
+response_body = '{ SPDX or CycloneDX JSON document }'
+auth_required = true
+rate_limit = "30/min per user"
+status_codes = [200, 401, 404]
+
+[event_types]]
+name = "PipelineTriggered"
+topic = "civitforge.runner.pipeline"
+payload = '{ "run_id": "uuid", "repo": "string", "revision": "string", "pipeline_ref": "string", "triggered_by": "string", "trigger_type": "push|pr|tag|scheduled" }'
+
+[event_types]]
+name = "PipelineStepCompleted"
+topic = "civitforge.runner.pipeline"
+payload = '{ "run_id": "uuid", "step_name": "string", "phase": "succeeded|failed", "exit_code": 0, "duration_ms": 5000, "artifacts": [] }'
+
+[event_types]]
+name = "PipelineCompleted"
+topic = "civitforge.runner.pipeline"
+payload = '{ "run_id": "uuid", "phase": "succeeded|failed", "total_duration_ms": 30000, "artifact_count": 5, "sbom_generated": true }'
+
+[event_types]]
+name = "ArtifactSigned"
+topic = "civitforge.runner.crypto"
+payload = '{ "run_id": "uuid", "artifact_digest": "sha256:...", "sbom_digest": "sha256:...", "rekor_entry": "uuid", "signed_at": "ISO8601" }'
+
+[error_codes]
+PIPELINE_NOT_FOUND = { code = "NOT_FOUND", description = "Pipeline run does not exist" }
+STEP_FAILED = { code = "FAILED_PRECONDITION", description = "Pipeline step exited with non-zero code" }
+SANDBOX_TIMEOUT = { code = "DEADLINE_EXCEEDED", description = "Sandbox execution exceeded timeout" }
+RESOURCE_EXHAUSTED = { code = "RESOURCE_EXHAUSTED", description = "No resources available to create sandbox" }
+INVALID_IMAGE = { code = "INVALID_ARGUMENT", description = "Container image not found or invalid" }
+NETWORK_POLICY_VIOLATION = { code = "PERMISSION_DENIED", description = "Sandbox attempted to reach unauthorized endpoint" }
