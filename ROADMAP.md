@@ -6,13 +6,13 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 
 ---
 
-## Current State: v0.1.2 (Orphan Modules Integrated, Security Hardened)
+## Current State: v0.1.3 (Deadlock Fix, Clippy Clean, Version Synchronized)
 
 | Metric | Value |
 |---|---|
-| Version | 0.1.2 |
+| Version | 0.1.3 |
 | Crates | 5 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto) |
-| Unit tests | 885 passing, 0 ignored |
+| Unit tests | 882 passing, 0 ignored |
 | Lean4 proofs | 5/5 compiling |
 | Rust source files | 115 |
 | Lines of code | 29,086 |
@@ -26,7 +26,10 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 | CI | Hardened (toolchain pinning, `--locked` on all build/test/clippy steps) |
 | Pre-commit hooks | fmt + clippy --locked + test --locked |
 | SAML security | Fail-closed signature validation |
+| Health endpoints | /healthz, /ready, /api/v1/health (matching Helm probes) |
+| Helm chart | Version-synchronized with workspace (0.1.0) |
 | Documentation | 8 ADRs, CONTRIBUTING.md, CHANGELOG.md, landing page at GitHub Pages |
+| Known bugs fixed | DashMap deadlock in RateLimiter, items_after_test_module clippy error |
 
 ### Technology Stack (Prototype)
 
@@ -450,3 +453,4 @@ These items are intentionally excluded from the current roadmap. They may be rev
 
 *Last updated: 2026-05-31*
 *Document owner: CivitForge core team*
+*Latest audit: Phase 7.4 -- DashMap deadlock fix, clippy cleanup, version synchronization*
