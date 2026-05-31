@@ -3,7 +3,7 @@
 use crate::llm::models::TokenCounter;
 use serde::{Deserialize, Serialize};
 use std::sync::mpsc::{self, Receiver, Sender};
-use tracing::{debug, warn};
+use tracing::warn;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceConfig {
@@ -128,10 +128,7 @@ impl InferenceService {
         format!("http://{}:{}", self.config.host, self.config.port)
     }
 
-    pub async fn generate(
-        &self,
-        request: &InferenceRequest,
-    ) -> anyhow::Result<InferenceResponse> {
+    pub async fn generate(&self, request: &InferenceRequest) -> anyhow::Result<InferenceResponse> {
         let prompt_tokens = estimate_tokens(&request.prompt) as u32;
         let max_tokens = request.max_tokens.unwrap_or(self.config.max_tokens);
 
@@ -181,10 +178,7 @@ impl InferenceService {
         Ok(response)
     }
 
-    pub async fn stream(
-        &self,
-        request: &InferenceRequest,
-    ) -> anyhow::Result<InferenceStream> {
+    pub async fn stream(&self, request: &InferenceRequest) -> anyhow::Result<InferenceStream> {
         let (tx, rx) = mpsc::channel();
         let model_id = &self.config.model_id;
 
@@ -192,10 +186,8 @@ impl InferenceService {
             anyhow::bail!("token budget exceeded for model {model_id}");
         }
 
-        self.token_counter.record_usage(
-            model_id,
-            estimate_tokens(&request.prompt) as u32,
-        );
+        self.token_counter
+            .record_usage(model_id, estimate_tokens(&request.prompt) as u32);
 
         let messages = self.build_messages(request);
         let body = serde_json::json!({
@@ -239,7 +231,9 @@ impl InferenceService {
                                             });
                                             return;
                                         }
-                                        if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                                        if let Ok(json) =
+                                            serde_json::from_str::<serde_json::Value>(data)
+                                        {
                                             if let Some(content) = json
                                                 .get("choices")
                                                 .and_then(|c| c.get(0))

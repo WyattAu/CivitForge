@@ -136,12 +136,7 @@ impl GitService {
     ///
     /// Creates a bare repo and configures the "origin" remote.
     /// Full fetch requires gix network features which may not be available.
-    pub fn clone(
-        &self,
-        owner: &str,
-        name: &str,
-        remote_url: &str,
-    ) -> Result<CloneResult> {
+    pub fn clone(&self, owner: &str, name: &str, remote_url: &str) -> Result<CloneResult> {
         let path = self.repo_path(owner, name);
 
         if path.exists() {
@@ -256,7 +251,11 @@ mod tests {
         let svc = GitService::new(tmp.path().to_path_buf());
         // Should succeed in creating the bare repo with remote config,
         // even if fetch fails (no network)
-        let result = svc.clone("testorg", "cloned", "https://nonexistent.example.invalid/repo.git");
+        let result = svc.clone(
+            "testorg",
+            "cloned",
+            "https://nonexistent.example.invalid/repo.git",
+        );
         // Either succeeds (with 0 commits) or fails due to gix network unavailability
         match result {
             Ok(cr) => {

@@ -140,18 +140,21 @@ impl CodebaseChat {
             )
         };
 
-        let response = self.inference.generate(&InferenceRequest {
-            prompt: full_prompt,
-            max_tokens: Some(self.context_manager.max_tokens),
-            temperature: Some(0.3),
-            stop: None,
-            system_prompt: Some(
-                "You are a codebase assistant. Answer questions about code structure, \
+        let response = self
+            .inference
+            .generate(&InferenceRequest {
+                prompt: full_prompt,
+                max_tokens: Some(self.context_manager.max_tokens),
+                temperature: Some(0.3),
+                stop: None,
+                system_prompt: Some(
+                    "You are a codebase assistant. Answer questions about code structure, \
                  functionality, and architecture. Reference specific files and line numbers."
-                    .into(),
-            ),
-            messages: Vec::new(),
-        }).await?;
+                        .into(),
+                ),
+                messages: Vec::new(),
+            })
+            .await?;
 
         let sources: Vec<crate::rag_extended::context::ChunkSource> = session
             .context_window
@@ -300,7 +303,12 @@ mod tests {
         let chunks = vec![make_chunk("c1", "fn test() {}")];
         let _ = chat.query(&mut session, "explain test", &chunks).await;
         // At minimum, user message should have been added before inference attempt
-        assert!(session.messages.iter().any(|m| matches!(m.role, ChatRole::User)));
+        assert!(
+            session
+                .messages
+                .iter()
+                .any(|m| matches!(m.role, ChatRole::User))
+        );
     }
 
     #[test]

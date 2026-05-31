@@ -223,9 +223,7 @@ mod tests {
     async fn test_evaluate_condition_branch_empty_branches() {
         let engine = PipelineEngine::new("default".into());
         let prior: Vec<StepStatus> = vec![];
-        let cond = crate::models::StepCondition::Branch {
-            branches: vec![],
-        };
+        let cond = crate::models::StepCondition::Branch { branches: vec![] };
         // Empty branches + no CI_BRANCH env = allowed
         assert!(engine.evaluate_condition(&cond, &prior));
     }

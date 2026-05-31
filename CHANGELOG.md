@@ -9,6 +9,18 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- `civit-brain/vectordb.rs`: moved `QdrantVectorDbAdapter` before `#[cfg(test)]` to resolve `clippy::items_after_test_module` error
+- `civit-brain/llm/inference.rs`: removed unused `debug` import that caused compiler warning
+- `civit-core/ssh/auth.rs`: fixed DashMap deadlock in `RateLimiter::check()` where holding a guard from `.get()` while calling `.remove()` on the same key would deadlock the shard lock; restructured to read ban status in a scoped block before removing
+- `civit-core/api/mod.rs`: added `/healthz` and `/ready` endpoints to match Helm liveness/readiness probe paths
+- Landing page: corrected architecture section to reference ActivityPub/ForgeFed instead of libp2p/gossipsub; updated AI layer tech tags to match actual codebase (vLLM, tree-sitter, Qdrant)
+- Helm chart `Chart.yaml` and `values.yaml`: synchronized version from 0.2.0 to 0.1.0 to match workspace `Cargo.toml`
+- `civit-core/Cargo.toml`: corrected `sha1` dependency to use `workspace = true`
+
+### Added
+- `#[allow(deprecated)]` annotations on test modules in `civit-core/federation/webfinger.rs` and `civit-core/federation/forgefed.rs` to permit testing of deprecated legacy signature functions while clippy enforces `-D warnings`
+
 ### Added
 - Integrated 4 orphan modules into their crate lib.rs files: `civit-core/src/ssh/` (3 files), `civit-brain/src/llm/` (3 files), `civit-brain/src/rag_extended/` (3 files), `civit-brain/src/review/` (3 files)
 - Added re-exports: `SshConfig`, `SshServer`, `SshAuthService` in civit-core; module declarations in civit-brain

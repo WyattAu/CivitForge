@@ -8,7 +8,7 @@ api:
   replicas: 3
   image:
     repository: civitforge/api
-    tag: "0.2.0"
+    tag: "0.1.0"
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -28,7 +28,7 @@ runner:
   replicas: 2
   image:
     repository: civitforge/runner
-    tag: "0.2.0"
+    tag: "0.1.0"
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -48,7 +48,7 @@ brain:
   replicas: 1
   image:
     repository: civitforge/brain
-    tag: "0.2.0"
+    tag: "0.1.0"
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -67,7 +67,7 @@ vfs:
   replicas: 2
   image:
     repository: civitforge/vfs
-    tag: "0.2.0"
+    tag: "0.1.0"
     pullPolicy: IfNotPresent
   resources:
     requests:

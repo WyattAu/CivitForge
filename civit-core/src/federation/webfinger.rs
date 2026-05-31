@@ -31,9 +31,7 @@ pub async fn resolve_webfinger(domain: &str, username: &str) -> Result<WebFinger
     }
 
     let resource = format!("acct:{username}@{domain}");
-    let url = format!(
-        "https://{domain}/.well-known/webfinger?resource={resource}"
-    );
+    let url = format!("https://{domain}/.well-known/webfinger?resource={resource}");
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -41,12 +39,10 @@ pub async fn resolve_webfinger(domain: &str, username: &str) -> Result<WebFinger
         .map_err(|e| CoreError::Federation(format!("HTTP client error: {e}")))?;
 
     match client.get(&url).send().await {
-        Ok(resp) if resp.status().is_success() => {
-            match resp.json::<serde_json::Value>().await {
-                Ok(body) => parse_webfinger_json(&body, &resource, domain, username),
-                Err(_) => build_fallback_response(&resource, domain, username),
-            }
-        }
+        Ok(resp) if resp.status().is_success() => match resp.json::<serde_json::Value>().await {
+            Ok(body) => parse_webfinger_json(&body, &resource, domain, username),
+            Err(_) => build_fallback_response(&resource, domain, username),
+        },
         _ => build_fallback_response(&resource, domain, username),
     }
 }
@@ -71,10 +67,12 @@ fn parse_webfinger_json(
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect()
         })
-        .unwrap_or_else(|| vec![
-            format!("https://{domain}/users/{username}"),
-            format!("https://{domain}/u/{username}"),
-        ]);
+        .unwrap_or_else(|| {
+            vec![
+                format!("https://{domain}/users/{username}"),
+                format!("https://{domain}/u/{username}"),
+            ]
+        });
 
     let links: Vec<Link> = body
         .get("links")
@@ -101,18 +99,20 @@ fn parse_webfinger_json(
                 })
                 .collect()
         })
-        .unwrap_or_else(|| vec![
-            Link {
-                rel: "self".into(),
-                type_: "application/activity+json".into(),
-                href: format!("https://{domain}/users/{username}"),
-            },
-            Link {
-                rel: "http://webfinger.net/rel/profile-page".into(),
-                type_: "text/html".into(),
-                href: format!("https://{domain}/{username}"),
-            },
-        ]);
+        .unwrap_or_else(|| {
+            vec![
+                Link {
+                    rel: "self".into(),
+                    type_: "application/activity+json".into(),
+                    href: format!("https://{domain}/users/{username}"),
+                },
+                Link {
+                    rel: "http://webfinger.net/rel/profile-page".into(),
+                    type_: "text/html".into(),
+                    href: format!("https://{domain}/{username}"),
+                },
+            ]
+        });
 
     Ok(WebFingerResponse {
         subject,
@@ -269,6 +269,7 @@ pub fn create_http_signature(
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
     use super::*;
 
@@ -326,13 +327,7 @@ mod tests {
     #[test]
     fn test_parse_webfinger_json_minimal() {
         let body = serde_json::json!({});
-        let result = parse_webfinger_json(
-            &body,
-            "acct:a@b.com",
-            "b.com",
-            "a",
-        )
-        .unwrap();
+        let result = parse_webfinger_json(&body, "acct:a@b.com", "b.com", "a").unwrap();
         assert_eq!(result.subject, "acct:a@b.com");
         // Fallback aliases/links used when JSON fields missing
         assert_eq!(result.aliases.len(), 2);

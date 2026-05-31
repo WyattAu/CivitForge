@@ -121,12 +121,18 @@ impl PodmanService {
     pub fn new() -> Self {
         let config = PodmanConfig::default();
         let http_client = Self::build_client(&config.socket_path);
-        Self { config, http_client }
+        Self {
+            config,
+            http_client,
+        }
     }
 
     pub fn with_config(config: PodmanConfig) -> Self {
         let http_client = Self::build_client(&config.socket_path);
-        Self { config, http_client }
+        Self {
+            config,
+            http_client,
+        }
     }
 
     fn build_client(socket_path: &str) -> reqwest::Client {
@@ -230,10 +236,7 @@ impl PodmanService {
     }
 
     pub async fn exec(&self, container_id: &str, command: &str) -> anyhow::Result<ExecResult> {
-        let url = format!(
-            "{}/containers/{container_id}/exec",
-            self.base_url()
-        );
+        let url = format!("{}/containers/{container_id}/exec", self.base_url());
         let body = serde_json::json!({
             "Cmd": ["sh", "-c", command],
             "AttachStdout": true,
@@ -250,16 +253,17 @@ impl PodmanService {
                     .unwrap_or("unknown")
                     .to_string();
 
-                let start_url = format!(
-                    "{}/exec/{}/start",
-                    self.base_url(),
-                    exec_id
-                );
+                let start_url = format!("{}/exec/{}/start", self.base_url(), exec_id);
                 let start_body = serde_json::json!({
                     "Detach": false,
                     "Tty": false,
                 });
-                let start_resp = self.http_client.post(&start_url).json(&start_body).send().await;
+                let start_resp = self
+                    .http_client
+                    .post(&start_url)
+                    .json(&start_body)
+                    .send()
+                    .await;
                 match start_resp {
                     Ok(sr) => {
                         let text = sr.text().await.unwrap_or_default();
@@ -285,10 +289,7 @@ impl PodmanService {
     }
 
     pub async fn inspect(&self, container_id: &str) -> anyhow::Result<PodmanContainer> {
-        let url = format!(
-            "{}/containers/{container_id}/json",
-            self.base_url()
-        );
+        let url = format!("{}/containers/{container_id}/json", self.base_url());
         let resp = self.http_client.get(&url).send().await;
         match resp {
             Ok(r) if r.status().is_success() => {
@@ -304,10 +305,7 @@ impl PodmanService {
                     .and_then(|s| s.get("ExitCode"))
                     .and_then(|e| e.as_i64())
                     .map(|c| c as i32);
-                let created_str = json
-                    .get("Created")
-                    .and_then(|c| c.as_str())
-                    .unwrap_or("");
+                let created_str = json.get("Created").and_then(|c| c.as_str()).unwrap_or("");
                 let created_at = chrono::DateTime::parse_from_rfc3339(created_str)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now());
@@ -362,10 +360,7 @@ impl PodmanService {
     }
 
     pub async fn logs(&self, container_id: &str, tail: Option<usize>) -> anyhow::Result<String> {
-        let mut url = format!(
-            "{}/containers/{container_id}/logs",
-            self.base_url()
-        );
+        let mut url = format!("{}/containers/{container_id}/logs", self.base_url());
         if let Some(t) = tail {
             url = format!("{url}?stdout=true&stderr=true&tail={t}");
         } else {
@@ -395,10 +390,7 @@ impl PodmanService {
                     .iter()
                     .filter_map(|c| {
                         let id = c.get("Id").and_then(|v| v.as_str())?;
-                        let state = c
-                            .get("State")
-                            .and_then(|s| s.as_str())
-                            .unwrap_or("exited");
+                        let state = c.get("State").and_then(|s| s.as_str()).unwrap_or("exited");
                         let status = match state {
                             "running" => ContainerStatus::Running,
                             "created" => ContainerStatus::Created,
@@ -462,7 +454,10 @@ impl PodmanService {
     }
 
     pub async fn cleanup(&self, _older_than: chrono::Duration) -> anyhow::Result<usize> {
-        let url = format!("{}/containers/json?filters={{\"status\":[\"exited\"]}}", self.base_url());
+        let url = format!(
+            "{}/containers/json?filters={{\"status\":[\"exited\"]}}",
+            self.base_url()
+        );
         let resp = self.http_client.get(&url).send().await;
         let mut removed = 0usize;
         if let Ok(r) = resp {

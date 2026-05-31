@@ -981,9 +981,9 @@
         code in production paths.
       </p>
       <p>
-        Federation is achieved through a gossip protocol layered on top
-        of libp2p. Each instance maintains a local event log that is
-        merged via conflict-free replicated data types (CRDTs).
+        Federation is achieved through the ActivityPub protocol layered on top
+        of HTTP. Each instance maintains a local event log that is
+        synchronized via a custom DAG merge protocol.
       </p>
     </div>
     <div class="arch-layers">
@@ -994,14 +994,14 @@
         </div>
         <p class="arch-layer-desc">
           Peer discovery, encrypted channels, and replication
-          coordination. Built on libp2p with custom gossipsub
-          routing optimized for event-sourced state.
+          coordination. Built on ActivityPub (ForgeFed) with custom
+          HTTP signature verification and DAG-based merge.
         </p>
         <div class="arch-layer-tech">
-          <span class="tech-tag">libp2p</span>
-          <span class="tech-tag">noise-protocol</span>
-          <span class="tech-tag">gossipsub</span>
-          <span class="tech-tag">quic</span>
+          <span class="tech-tag">activitypub</span>
+          <span class="tech-tag">forgefed</span>
+          <span class="tech-tag">webfinger</span>
+          <span class="tech-tag">http-sig</span>
         </div>
       </div>
 
@@ -1052,9 +1052,9 @@
           cached and versioned alongside code.
         </p>
         <div class="arch-layer-tech">
-          <span class="tech-tag">candle-rs</span>
-          <span class="tech-tag">onnx-runtime</span>
-          <span class="tech-tag">llama.cpp</span>
+          <span class="tech-tag">vllm</span>
+          <span class="tech-tag">tree-sitter</span>
+          <span class="tech-tag">qdrant</span>
           <span class="tech-tag">air-gap-enforced</span>
         </div>
       </div>

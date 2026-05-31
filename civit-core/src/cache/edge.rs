@@ -2,8 +2,8 @@
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
-use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use tracing::info;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -37,7 +37,8 @@ impl EdgeNode {
     }
 
     pub fn heartbeat(&self) {
-        self.last_heartbeat.store(Utc::now().timestamp(), Ordering::Relaxed);
+        self.last_heartbeat
+            .store(Utc::now().timestamp(), Ordering::Relaxed);
     }
 
     pub fn add_usage(&self, bytes: u64) {
@@ -271,7 +272,12 @@ mod tests {
     #[test]
     fn test_register_node() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         assert_eq!(mgr.node_status("node-1"), Some(EdgeNodeStatus::Active));
         let stats = mgr.stats();
         assert_eq!(stats.total_nodes, 1);
@@ -281,7 +287,12 @@ mod tests {
     #[test]
     fn test_deregister_node() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         assert!(mgr.deregister_node("node-1"));
         assert_eq!(mgr.node_status("node-1"), None);
         assert!(!mgr.deregister_node("node-1"));
@@ -290,7 +301,12 @@ mod tests {
     #[test]
     fn test_put_and_get() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         mgr.put("key-1".into(), b"hello world".to_vec());
         let val = mgr.get("key-1").unwrap();
         assert_eq!(val, b"hello world");
@@ -307,7 +323,12 @@ mod tests {
     #[test]
     fn test_invalidate() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         mgr.put("key-1".into(), b"data".to_vec());
         assert!(mgr.invalidate("key-1"));
         assert!(mgr.get("key-1").is_none());
@@ -317,7 +338,12 @@ mod tests {
     #[test]
     fn test_invalidate_pattern() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         mgr.put("repo-a:data".into(), b"1".to_vec());
         mgr.put("repo-a:meta".into(), b"2".to_vec());
         mgr.put("repo-b:data".into(), b"3".to_vec());
@@ -329,7 +355,12 @@ mod tests {
     #[test]
     fn test_invalidate_pattern_wildcard() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         mgr.put("key-1".into(), b"1".to_vec());
         mgr.put("key-2".into(), b"2".to_vec());
         let count = mgr.invalidate_pattern("*");
@@ -339,7 +370,12 @@ mod tests {
     #[test]
     fn test_hit_rate() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         mgr.put("key-1".into(), b"data".to_vec());
         mgr.get("key-1");
         mgr.get("key-1");
@@ -351,7 +387,12 @@ mod tests {
     #[test]
     fn test_total_size() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 10240);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            10240,
+        );
         mgr.put("k1".into(), vec![0u8; 100]);
         mgr.put("k2".into(), vec![0u8; 200]);
         assert_eq!(mgr.total_size(), 300);
@@ -360,8 +401,18 @@ mod tests {
     #[test]
     fn test_stats() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 10240);
-        mgr.register_node("node-2".into(), "eu-west".into(), "http://node2:8080".into(), 10240);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            10240,
+        );
+        mgr.register_node(
+            "node-2".into(),
+            "eu-west".into(),
+            "http://node2:8080".into(),
+            10240,
+        );
         mgr.put("k1".into(), vec![0u8; 100]);
         let stats = mgr.stats();
         assert_eq!(stats.total_nodes, 2);
@@ -372,7 +423,12 @@ mod tests {
     #[test]
     fn test_edge_node_heartbeat() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         if let Some(node) = mgr.nodes.get("node-1") {
             let ts_before = node.last_heartbeat.load(Ordering::Relaxed);
             node.heartbeat();
@@ -384,7 +440,12 @@ mod tests {
     #[test]
     fn test_put_compresses_large_data() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1_048_576);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1_048_576,
+        );
         // 8KB of repetitive data -- should compress well
         let data = "abcdefghij".repeat(1024).into_bytes();
         mgr.put("big-key".into(), data.clone());
@@ -399,7 +460,12 @@ mod tests {
     #[test]
     fn test_put_skips_compression_for_small_data() {
         let mgr = EdgeCacheManager::new();
-        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.register_node(
+            "node-1".into(),
+            "us-east".into(),
+            "http://node1:8080".into(),
+            1024,
+        );
         mgr.put("tiny".into(), b"hello".to_vec());
         if let Some(entry) = mgr.cache.get("tiny") {
             assert!(!entry.compressed, "small entry should not be compressed");

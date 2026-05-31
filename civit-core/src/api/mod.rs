@@ -18,6 +18,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .allow_headers(Any);
 
     let api = Router::new()
+        .route("/healthz", get(health))
+        .route("/ready", get(health))
         .route("/api/v1/health", get(health))
         .route(
             "/api/v1/repos",

@@ -281,10 +281,11 @@ mod tests {
         let types: Vec<AstNodeType> = nodes.iter().map(|n| n.node_type).collect();
         // Tree-sitter may not detect simple let bindings as Variable nodes,
         // but should detect loop structures
-        assert!(types.iter().any(|t| matches!(
-            t,
-            AstNodeType::LoopExpression | AstNodeType::Variable
-        )));
+        assert!(
+            types
+                .iter()
+                .any(|t| matches!(t, AstNodeType::LoopExpression | AstNodeType::Variable))
+        );
     }
 
     #[test]

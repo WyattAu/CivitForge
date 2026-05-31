@@ -271,11 +271,24 @@ impl RateLimiter {
     }
 
     pub fn check(&self, ip: &str) -> bool {
-        if let Some(banned_at) = self.bans.get(ip) {
-            if banned_at.elapsed() < self.ban_duration {
-                return false;
+        // Check ban status in a separate scope to avoid holding the DashMap guard
+        // across the remove call, which would deadlock on the same shard lock.
+        let is_currently_banned = {
+            if let Some(banned_at) = self.bans.get(ip) {
+                banned_at.elapsed() < self.ban_duration
+            } else {
+                false
             }
+        };
+
+        // If the ban has expired, remove it now that the guard is dropped.
+        if !is_currently_banned {
             self.bans.remove(ip);
+        }
+
+        // Still banned? Reject immediately.
+        if is_currently_banned {
+            return false;
         }
 
         let now = Instant::now();
