@@ -17,13 +17,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.88"
           components: llvm-tools
 
       - name: Build release binaries
-        run: cargo build --workspace --release
+        run: cargo build --workspace --release --locked
 
       - name: Collect artifacts
         run: |

@@ -16,8 +16,8 @@ else
     exit 1
 fi
 
-echo "==> Running cargo test --workspace"
-if cargo test --workspace; then
+echo "==> Running cargo test --workspace --locked"
+if cargo test --workspace --locked; then
     echo "==> [OK] All tests passed"
 else
     echo "==> [FAIL] Tests failed"
