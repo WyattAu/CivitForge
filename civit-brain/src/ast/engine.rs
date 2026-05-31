@@ -279,8 +279,6 @@ mod tests {
         let code = "let x = 42;\nfor i in 0..10 {}\nwhile true {}";
         let nodes = engine.parse(code, "rust").unwrap();
         let types: Vec<AstNodeType> = nodes.iter().map(|n| n.node_type).collect();
-        // Tree-sitter may not detect simple let bindings as Variable nodes,
-        // but should detect loop structures
         assert!(
             types
                 .iter()

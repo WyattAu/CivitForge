@@ -10,8 +10,9 @@ pub mod rag;
 pub mod rag_extended;
 pub mod review;
 pub mod treesitter;
+pub mod vector;
 pub mod vectordb;
 
-pub use ast::{AstNode, AstNodeType, ParseEngine};
+pub use ast::engine::{AstNode, AstNodeType, ParseEngine};
 pub use embedding::{EmbeddingVector, EmbeddingWorker};
 pub use models::CodeEntity;

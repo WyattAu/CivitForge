@@ -32,6 +32,11 @@ pub enum ForgeFedActivity {
         repo: FederatedRepo,
         issue: FederatedIssue,
     },
+    ReviewPullRequest {
+        actor: String,
+        repo: FederatedRepo,
+        review: FederatedPRReview,
+    },
     CreatePullRequest {
         actor: String,
         repo: FederatedRepo,
@@ -78,6 +83,20 @@ pub struct FederatedIssue {
     pub id: String,
     pub title: String,
     pub body: String,
+    pub state: IssueState,
+    pub author: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum IssueState {
+    Open,
+    Closed,
+}
+
+impl Default for IssueState {
+    fn default() -> Self {
+        Self::Open
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -87,6 +106,55 @@ pub struct FederatedPR {
     pub body: String,
     pub source_branch: String,
     pub target_branch: String,
+    pub state: PRState,
+    pub author: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PRState {
+    Open,
+    Closed,
+    Merged,
+}
+
+impl Default for PRState {
+    fn default() -> Self {
+        Self::Open
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PRReviewState {
+    Approved,
+    ChangesRequested,
+    Comment,
+    Pending,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FederatedPRReview {
+    pub id: String,
+    pub pr_id: String,
+    pub reviewer: String,
+    pub state: PRReviewState,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FederatedStar {
+    pub id: String,
+    pub actor: String,
+    pub repo_id: String,
+    pub starred_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FederatedFork {
+    pub id: String,
+    pub source_repo_id: String,
+    pub target_repo_id: String,
+    pub actor: String,
+    pub forked_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -237,8 +305,32 @@ impl ForgeFedProcessor {
                     ProcessingOutcome::Accepted {
                         activity_id: id.clone(),
                         message: format!(
-                            "issue '{}' created in {} by {}",
-                            issue.title, repo.name, actor
+                            "issue '{}' ({:?}) created in {} by {}",
+                            issue.title, issue.state, repo.name, actor
+                        ),
+                    }
+                }
+            }
+            ForgeFedActivity::ReviewPullRequest {
+                actor,
+                repo,
+                review,
+            } => {
+                if actor.is_empty()
+                    || repo.id.is_empty()
+                    || review.id.is_empty()
+                    || review.reviewer.is_empty()
+                {
+                    ProcessingOutcome::Rejected {
+                        activity_id: id.clone(),
+                        reason: "missing required fields for PR review".into(),
+                    }
+                } else {
+                    ProcessingOutcome::Accepted {
+                        activity_id: id.clone(),
+                        message: format!(
+                            "PR review {:?} on PR {} in {} by {}",
+                            review.state, review.pr_id, repo.name, actor
                         ),
                     }
                 }
@@ -395,6 +487,16 @@ impl ForgeFedProcessor {
                 },
                 ActivityType::Create,
             ),
+            ForgeFedActivity::ReviewPullRequest { actor, review, .. } => (
+                actor.clone(),
+                ActivityObject::Unknown(serde_json::json!({
+                    "type": "Review",
+                    "id": review.id,
+                    "pr": review.pr_id,
+                    "state": format!("{:?}", review.state),
+                })),
+                ActivityType::Create,
+            ),
             ForgeFedActivity::CreatePullRequest { actor, pr, .. } => (
                 actor.clone(),
                 ActivityObject::PullRequest {
@@ -520,6 +622,50 @@ impl ForgeFedProcessor {
     }
 }
 
+use crate::federation::webfinger::WebFingerResponse;
+
+pub struct CrossInstanceIdentityResolver {
+    cache: DashMap<String, WebFingerResponse>,
+    instance_domain: String,
+}
+
+impl CrossInstanceIdentityResolver {
+    pub fn new(instance_domain: String) -> Self {
+        Self {
+            cache: DashMap::new(),
+            instance_domain,
+        }
+    }
+
+    pub fn resolve_local(&self, username: &str) -> String {
+        format!("https://{}/users/{}", self.instance_domain, username)
+    }
+
+    pub fn cache_identity(&self, acct: &str, response: WebFingerResponse) {
+        self.cache.insert(acct.to_string(), response);
+    }
+
+    pub fn get_cached(&self, acct: &str) -> Option<WebFingerResponse> {
+        self.cache.get(acct).map(|r| r.clone())
+    }
+
+    pub fn remove_cached(&self, acct: &str) -> bool {
+        self.cache.remove(acct).is_some()
+    }
+
+    pub fn cached_count(&self) -> usize {
+        self.cache.len()
+    }
+
+    pub fn federation_uri(&self, remote_domain: &str, username: &str) -> String {
+        format!("acct:{username}@{remote_domain}")
+    }
+
+    pub fn is_local(&self, actor_uri: &str) -> bool {
+        actor_uri.contains(&self.instance_domain)
+    }
+}
+
 #[cfg(test)]
 #[allow(deprecated)]
 mod tests {
@@ -638,12 +784,15 @@ mod tests {
                 id: "issue-1".into(),
                 title: "Bug report".into(),
                 body: "Something is broken".into(),
+                state: IssueState::Open,
+                author: "alice".into(),
             },
         };
         let outcome = proc.process_incoming(activity).unwrap();
         match outcome {
             ProcessingOutcome::Accepted { ref message, .. } => {
-                assert!(message.contains("issue 'Bug report' created"));
+                assert!(message.contains("issue 'Bug report'"));
+                assert!(message.contains("Open"));
             }
             _ => panic!("expected Accepted"),
         }
@@ -661,6 +810,8 @@ mod tests {
                 body: "Fixes issue-1".into(),
                 source_branch: "fix-branch".into(),
                 target_branch: "main".into(),
+                state: PRState::Open,
+                author: "alice".into(),
             },
         };
         let outcome = proc.process_incoming(activity).unwrap();
@@ -829,5 +980,187 @@ mod tests {
     fn test_verify_signature_empty_inputs() {
         let result = ForgeFedProcessor::verify_signature("", "sig", "key");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_review_pr_accepted() {
+        let proc = make_processor();
+        let activity = ForgeFedActivity::ReviewPullRequest {
+            actor: "https://other.forge/users/alice".into(),
+            repo: make_repo(),
+            review: FederatedPRReview {
+                id: "rev-1".into(),
+                pr_id: "pr-1".into(),
+                reviewer: "alice".into(),
+                state: PRReviewState::Approved,
+                body: "LGTM".into(),
+            },
+        };
+        let outcome = proc.process_incoming(activity).unwrap();
+        match outcome {
+            ProcessingOutcome::Accepted { ref message, .. } => {
+                assert!(message.contains("Approved"));
+                assert!(message.contains("pr-1"));
+            }
+            _ => panic!("expected Accepted"),
+        }
+    }
+
+    #[test]
+    fn test_process_review_pr_missing_reviewer() {
+        let proc = make_processor();
+        let activity = ForgeFedActivity::ReviewPullRequest {
+            actor: "alice".into(),
+            repo: make_repo(),
+            review: FederatedPRReview {
+                id: "rev-1".into(),
+                pr_id: "pr-1".into(),
+                reviewer: "".into(),
+                state: PRReviewState::Approved,
+                body: "LGTM".into(),
+            },
+        };
+        let outcome = proc.process_incoming(activity).unwrap();
+        match outcome {
+            ProcessingOutcome::Rejected { ref reason, .. } => {
+                assert!(reason.contains("missing"));
+            }
+            _ => panic!("expected Rejected"),
+        }
+    }
+
+    #[test]
+    fn test_issue_state_default() {
+        assert_eq!(IssueState::default(), IssueState::Open);
+    }
+
+    #[test]
+    fn test_pr_state_default() {
+        assert_eq!(PRState::default(), PRState::Open);
+    }
+
+    #[test]
+    fn test_federated_star_construction() {
+        let star = FederatedStar {
+            id: "star-1".into(),
+            actor: "alice".into(),
+            repo_id: "repo-1".into(),
+            starred_at: Utc::now(),
+        };
+        assert_eq!(star.actor, "alice");
+        assert_eq!(star.repo_id, "repo-1");
+    }
+
+    #[test]
+    fn test_federated_fork_construction() {
+        let fork = FederatedFork {
+            id: "fork-1".into(),
+            source_repo_id: "repo-1".into(),
+            target_repo_id: "repo-2".into(),
+            actor: "bob".into(),
+            forked_at: Utc::now(),
+        };
+        assert_eq!(fork.source_repo_id, "repo-1");
+        assert_eq!(fork.target_repo_id, "repo-2");
+    }
+
+    #[test]
+    fn test_cross_instance_identity_resolver_local() {
+        let resolver = CrossInstanceIdentityResolver::new("forge.example.com".into());
+        assert_eq!(
+            resolver.resolve_local("alice"),
+            "https://forge.example.com/users/alice"
+        );
+        assert!(resolver.is_local("https://forge.example.com/users/alice"));
+        assert!(!resolver.is_local("https://other.forge/users/bob"));
+    }
+
+    #[test]
+    fn test_cross_instance_identity_resolver_cache() {
+        let resolver = CrossInstanceIdentityResolver::new("forge.example.com".into());
+        assert_eq!(resolver.cached_count(), 0);
+        let wf = WebFingerResponse {
+            subject: "acct:bob@other.forge".into(),
+            aliases: vec!["https://other.forge/users/bob".into()],
+            links: vec![],
+        };
+        resolver.cache_identity("acct:bob@other.forge", wf);
+        assert_eq!(resolver.cached_count(), 1);
+        assert!(resolver.get_cached("acct:bob@other.forge").is_some());
+        assert!(resolver.remove_cached("acct:bob@other.forge"));
+        assert_eq!(resolver.cached_count(), 0);
+    }
+
+    #[test]
+    fn test_cross_instance_identity_resolver_federation_uri() {
+        let resolver = CrossInstanceIdentityResolver::new("forge.example.com".into());
+        let uri = resolver.federation_uri("other.forge", "bob");
+        assert_eq!(uri, "acct:bob@other.forge");
+    }
+
+    #[test]
+    fn test_review_state_variants() {
+        assert_eq!(format!("{:?}", PRReviewState::Approved), "Approved");
+        assert_eq!(
+            format!("{:?}", PRReviewState::ChangesRequested),
+            "ChangesRequested"
+        );
+        assert_eq!(format!("{:?}", PRReviewState::Comment), "Comment");
+        assert_eq!(format!("{:?}", PRReviewState::Pending), "Pending");
+    }
+
+    #[test]
+    fn test_pr_state_variants() {
+        assert_eq!(format!("{:?}", PRState::Open), "Open");
+        assert_eq!(format!("{:?}", PRState::Closed), "Closed");
+        assert_eq!(format!("{:?}", PRState::Merged), "Merged");
+    }
+
+    #[test]
+    fn test_build_outbox_activity_review_pr() {
+        let proc = make_processor();
+        let activity = ForgeFedActivity::ReviewPullRequest {
+            actor: "alice".into(),
+            repo: make_repo(),
+            review: FederatedPRReview {
+                id: "rev-1".into(),
+                pr_id: "pr-1".into(),
+                reviewer: "alice".into(),
+                state: PRReviewState::ChangesRequested,
+                body: "needs work".into(),
+            },
+        };
+        let outbox = proc.build_outbox_activity(activity);
+        assert!(!outbox.id.is_empty());
+    }
+
+    #[test]
+    fn test_federated_issue_serialization() {
+        let issue = FederatedIssue {
+            id: "i1".into(),
+            title: "Bug".into(),
+            body: "fix me".into(),
+            state: IssueState::Closed,
+            author: "alice".into(),
+        };
+        let json = serde_json::to_string(&issue).unwrap();
+        let deser: FederatedIssue = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.state, IssueState::Closed);
+    }
+
+    #[test]
+    fn test_federated_pr_serialization() {
+        let pr = FederatedPR {
+            id: "p1".into(),
+            title: "Fix".into(),
+            body: "fix".into(),
+            source_branch: "f".into(),
+            target_branch: "main".into(),
+            state: PRState::Merged,
+            author: "bob".into(),
+        };
+        let json = serde_json::to_string(&pr).unwrap();
+        let deser: FederatedPR = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.state, PRState::Merged);
     }
 }

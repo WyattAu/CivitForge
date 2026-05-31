@@ -265,6 +265,170 @@ impl Default for EdgeCacheManager {
     }
 }
 
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Instant;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EdgeCacheEntry {
+    pub key: String,
+    pub value: Vec<u8>,
+    pub content_type: String,
+    pub etag: String,
+    pub created_at: u64,
+    pub last_accessed: u64,
+    pub access_count: u64,
+    pub size_bytes: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EdgeCacheNodeStats {
+    pub hit_count: u64,
+    pub miss_count: u64,
+    pub hit_rate: f64,
+    pub total_bytes: u64,
+    pub entry_count: usize,
+}
+
+pub struct EdgeCacheNode {
+    entries: std::sync::Mutex<HashMap<String, EdgeCacheEntry>>,
+    max_size_bytes: u64,
+    current_size_bytes: AtomicU64,
+    hit_count: AtomicU64,
+    miss_count: AtomicU64,
+}
+
+impl EdgeCacheNode {
+    pub fn new(max_size_bytes: u64) -> Self {
+        Self {
+            entries: std::sync::Mutex::new(HashMap::new()),
+            max_size_bytes,
+            current_size_bytes: AtomicU64::new(0),
+            hit_count: AtomicU64::new(0),
+            miss_count: AtomicU64::new(0),
+        }
+    }
+
+    pub fn get(&self, key: &str) -> Option<EdgeCacheEntry> {
+        let entries = self.entries.lock().unwrap();
+        if let Some(mut entry) = entries.get(key).cloned() {
+            entry.access_count += 1;
+            drop(entries);
+            self.hit_count.fetch_add(1, Ordering::Relaxed);
+            Some(entry)
+        } else {
+            drop(entries);
+            self.miss_count.fetch_add(1, Ordering::Relaxed);
+            None
+        }
+    }
+
+    pub fn put(&self, key: &str, value: Vec<u8>, content_type: &str) -> Result<(), String> {
+        let etag = Self::compute_etag(&value);
+        let size = value.len() as u64;
+        let now = Instant::now().elapsed().as_nanos() as u64;
+        let entry = EdgeCacheEntry {
+            key: key.to_string(),
+            value,
+            content_type: content_type.to_string(),
+            etag,
+            created_at: now,
+            last_accessed: now,
+            access_count: 0,
+            size_bytes: size as usize,
+        };
+
+        let mut entries = self.entries.lock().unwrap();
+        let old_size: u64 = entries.get(key).map(|e| e.size_bytes as u64).unwrap_or(0);
+
+        let current = self.current_size_bytes.load(Ordering::Relaxed);
+        let needed = current.saturating_sub(old_size).saturating_add(size);
+
+        if needed > self.max_size_bytes {
+            drop(entries);
+            self.evict(needed.saturating_sub(self.max_size_bytes / 10));
+            let mut entries = self.entries.lock().unwrap();
+            entries.insert(key.to_string(), entry);
+            self.current_size_bytes.store(
+                current.saturating_sub(old_size).saturating_add(size),
+                Ordering::Relaxed,
+            );
+        } else {
+            entries.insert(key.to_string(), entry);
+            self.current_size_bytes.store(
+                current.saturating_sub(old_size).saturating_add(size),
+                Ordering::Relaxed,
+            );
+        }
+        Ok(())
+    }
+
+    pub fn invalidate(&self, key: &str) -> bool {
+        let mut entries = self.entries.lock().unwrap();
+        if let Some(entry) = entries.remove(key) {
+            self.current_size_bytes
+                .fetch_sub(entry.size_bytes as u64, Ordering::Relaxed);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn stats(&self) -> EdgeCacheNodeStats {
+        let hits = self.hit_count.load(Ordering::Relaxed);
+        let misses = self.miss_count.load(Ordering::Relaxed);
+        let total = hits + misses;
+        let hit_rate = if total > 0 {
+            hits as f64 / total as f64
+        } else {
+            0.0
+        };
+        EdgeCacheNodeStats {
+            hit_count: hits,
+            miss_count: misses,
+            hit_rate,
+            total_bytes: self.current_size_bytes.load(Ordering::Relaxed),
+            entry_count: self.entries.lock().unwrap().len(),
+        }
+    }
+
+    pub fn entry_count(&self) -> usize {
+        self.entries.lock().unwrap().len()
+    }
+
+    fn evict(&self, target_bytes: u64) {
+        let mut evicted = 0u64;
+        let mut entries = self.entries.lock().unwrap();
+        let mut to_remove = Vec::new();
+        for (key, entry) in entries.iter() {
+            if evicted >= target_bytes {
+                break;
+            }
+            to_remove.push(key.clone());
+            evicted += entry.size_bytes as u64;
+        }
+        for key in to_remove {
+            if let Some(entry) = entries.remove(&key) {
+                self.current_size_bytes
+                    .fetch_sub(entry.size_bytes as u64, Ordering::Relaxed);
+            }
+        }
+    }
+
+    fn compute_etag(data: &[u8]) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        format!("\"{:x}\"", hasher.finalize())
+    }
+}
+
+impl Default for EdgeCacheNode {
+    fn default() -> Self {
+        Self::new(1024 * 1024)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,5 +635,124 @@ mod tests {
             assert!(!entry.compressed, "small entry should not be compressed");
         }
         assert_eq!(mgr.get("tiny").unwrap(), b"hello");
+    }
+
+    #[test]
+    fn test_edge_cache_node_put_and_get() {
+        let node = EdgeCacheNode::new(1024);
+        node.put("key1", b"hello".to_vec(), "text/plain").unwrap();
+        let entry = node.get("key1").unwrap();
+        assert_eq!(entry.value, b"hello");
+        assert_eq!(entry.content_type, "text/plain");
+    }
+
+    #[test]
+    fn test_edge_cache_node_miss() {
+        let node = EdgeCacheNode::new(1024);
+        assert!(node.get("missing").is_none());
+        let stats = node.stats();
+        assert_eq!(stats.miss_count, 1);
+        assert_eq!(stats.hit_count, 0);
+    }
+
+    #[test]
+    fn test_edge_cache_node_invalidate() {
+        let node = EdgeCacheNode::new(1024);
+        node.put("k", b"v".to_vec(), "text/plain").unwrap();
+        assert!(node.invalidate("k"));
+        assert!(node.get("k").is_none());
+        assert!(!node.invalidate("k"));
+    }
+
+    #[test]
+    fn test_edge_cache_node_stats() {
+        let node = EdgeCacheNode::new(10240);
+        node.put("k1", b"a".to_vec(), "text/plain").unwrap();
+        node.get("k1");
+        node.get("k1");
+        node.get("missing");
+        let stats = node.stats();
+        assert_eq!(stats.hit_count, 2);
+        assert_eq!(stats.miss_count, 1);
+        assert!((stats.hit_rate - 0.6667).abs() < 0.01);
+        assert_eq!(stats.entry_count, 1);
+    }
+
+    #[test]
+    fn test_edge_cache_node_etag() {
+        let node = EdgeCacheNode::new(1024);
+        node.put("k", b"data".to_vec(), "text/plain").unwrap();
+        let entry = node.get("k").unwrap();
+        assert!(!entry.etag.is_empty());
+        assert!(entry.etag.starts_with('"'));
+    }
+
+    #[test]
+    fn test_edge_cache_node_overwrite() {
+        let node = EdgeCacheNode::new(1024);
+        node.put("k", b"short".to_vec(), "text/plain").unwrap();
+        node.put("k", b"longer data here".to_vec(), "text/plain")
+            .unwrap();
+        let entry = node.get("k").unwrap();
+        assert_eq!(entry.value, b"longer data here");
+    }
+
+    #[test]
+    fn test_edge_cache_node_default() {
+        let node = EdgeCacheNode::default();
+        assert_eq!(node.entry_count(), 0);
+    }
+
+    #[test]
+    fn test_edge_cache_node_access_count() {
+        let node = EdgeCacheNode::new(1024);
+        node.put("k", b"v".to_vec(), "text/plain").unwrap();
+        node.get("k");
+        node.get("k");
+        let entry = node.get("k").unwrap();
+        assert_eq!(entry.access_count, 1);
+    }
+
+    #[test]
+    fn test_edge_cache_node_eviction() {
+        let node = EdgeCacheNode::new(20);
+        node.put("k1", b"hello".to_vec(), "text/plain").unwrap();
+        node.put("k2", b"world!".to_vec(), "text/plain").unwrap();
+        node.put("k3", b"big data here".to_vec(), "text/plain")
+            .unwrap();
+        assert!(node.entry_count() >= 1);
+    }
+
+    #[test]
+    fn test_edge_cache_entry_serialization() {
+        let entry = EdgeCacheEntry {
+            key: "k".into(),
+            value: b"v".to_vec(),
+            content_type: "text/plain".into(),
+            etag: "\"abc\"".into(),
+            created_at: 123,
+            last_accessed: 456,
+            access_count: 7,
+            size_bytes: 1,
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let deser: EdgeCacheEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.key, "k");
+        assert_eq!(deser.access_count, 7);
+    }
+
+    #[test]
+    fn test_edge_cache_node_stats_serialization() {
+        let stats = EdgeCacheNodeStats {
+            hit_count: 10,
+            miss_count: 5,
+            hit_rate: 0.6667,
+            total_bytes: 100,
+            entry_count: 3,
+        };
+        let json = serde_json::to_string(&stats).unwrap();
+        let deser: EdgeCacheNodeStats = serde_json::from_str(&json).unwrap();
+        assert_eq!(deser.hit_count, 10);
+        assert_eq!(deser.entry_count, 3);
     }
 }

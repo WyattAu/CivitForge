@@ -8,11 +8,13 @@ pub mod webfinger;
 
 pub use activitypub::{Activity, Actor, InboxHandler};
 pub use forgefed::{
-    FederatedIssue, FederatedPR, FederatedRepo, ForgeFedActivity, ForgeFedProcessor,
-    IdempotencyTracker, ProcessingOutcome,
+    CrossInstanceIdentityResolver, FederatedFork, FederatedIssue, FederatedPR, FederatedPRReview,
+    FederatedRepo, FederatedStar, ForgeFedActivity, ForgeFedProcessor, IdempotencyTracker,
+    IssueState, PRReviewState, PRState, ProcessingOutcome,
 };
 pub use multimaster::{
-    ConflictEntry, ConflictResolution, ConflictStrategy, DeltaCompressor, SyncCheckpoint,
+    BandwidthOptimizer, ConflictEntry, ConflictResolution, ConflictStrategy, DeltaCompressor,
+    IncrementalSyncEngine, PartitionStatus, PartitionTracker, SyncCheckpoint, SyncDelta,
 };
 pub use sync::DagSyncEngine;
 pub use webfinger::{HttpSignature, Link, WebFingerResponse};

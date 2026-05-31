@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod remote;
+
 use std::collections::HashMap;
 use tracing::debug;
 
