@@ -799,9 +799,44 @@
     text-transform: uppercase;
     opacity: 0.5;
   }
+
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 0;
+    background: var(--red);
+    color: var(--offwhite);
+    padding: 0.5rem 1rem;
+    z-index: 10000;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .skip-link:focus {
+    top: 0;
+  }
+
+  *:focus-visible {
+    outline: 3px solid var(--red);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
 </style>
 </head>
 <body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
 
 <nav>
   <div class="logo">CIVIT<span>FORGE</span></div>
@@ -814,7 +849,7 @@
   </ul>
 </nav>
 
-<main>
+<main id="main-content">
 <section id="hero">
   <div class="hero-bg-shape hero-bg-shape-1 blob-morph"></div>
   <div class="hero-bg-shape hero-bg-shape-2 blob-morph-alt"></div>

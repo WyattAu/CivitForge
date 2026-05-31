@@ -12,8 +12,9 @@ rollback_checkpoint: phase-5-prototype-complete
 - Lean4 proof files: 6
 - Phase reports: 4
 - Cargo workspace crates: 5
-- Unit tests passing: 640
+- Unit tests passing: 773
 - Lean4 proofs compiling: 5/5
+- Helm templates: 8
 - Clippy warnings: 0
 - `#![forbid(unsafe_code)]`: Enforced across all crates
 

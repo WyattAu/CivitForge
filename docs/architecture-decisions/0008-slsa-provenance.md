@@ -15,7 +15,7 @@ Generate SLSA (Supply-chain Levels for Software Artifacts) provenance attestatio
 ## Considerations
 
 - SLSA provides a framework for supply chain security levels (L1-L4)
-- Target: SLSA Level 2 for initial release (hermetic builds, provenance attestation)
+- Target: SLSA Level 4 (hermetic builds, reproducible builds, provenance attestation, non-falsifiable provenance)
 - In-toto attestation format for provenance metadata
 - Provenance includes: builder identity, source commit, build configuration, dependencies
 - Public verification via Transparency Log or Sigstore
@@ -30,6 +30,7 @@ Generate SLSA (Supply-chain Levels for Software Artifacts) provenance attestatio
 ## Consequences
 
 - All pipeline artifacts have cryptographic provenance
-- Builds are reproducible (hermetic build environment via sandbox)
-- Consumers can verify artifact authenticity independently
+- Builds are hermetic and reproducible (isolated sandbox environment, deterministic inputs)
+- Non-falsifiable provenance via SLSA Level 4 requirements (hardened builder, isolated build environment)
+- Consumers can verify artifact authenticity independently via Sigstore transparency log
 - Provenance generation adds minimal latency to pipeline completion

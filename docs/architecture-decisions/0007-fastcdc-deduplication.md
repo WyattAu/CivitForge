@@ -19,7 +19,7 @@ Use FastCDC for content-defined chunking in the VFS layer.
 - Enables efficient deduplication: identical files produce identical chunks
 - Pure Rust implementation available
 - Suitable for git pack-like storage with deduplication on top
-- Average chunk size configurable (32KB-256KB recommended)
+- Average chunk size configurable (32KB-64MB recommended)
 
 ## Alternatives Considered
 

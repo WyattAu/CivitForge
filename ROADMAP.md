@@ -20,7 +20,7 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 | EARS requirements | 69 |
 | Clippy warnings | 0 |
 | `#![forbid(unsafe_code)]` | Enforced across all crates |
-| MSRV | Rust 1.85 (edition 2024) |
+| MSRV | Rust 1.88 (edition 2024) |
 
 ### Technology Stack (Prototype)
 
