@@ -54,6 +54,12 @@ pub struct HttpSignature {
     pub signature: String,
 }
 
+/// Verify HTTP signature using SHA-256 hash comparison (insecure, legacy).
+///
+/// WARNING: This is NOT cryptographic signature verification. It compares a
+/// hash of key_id+method+path+headers against the signature. Use
+/// `verify_http_signature_ed25519` for real cryptographic verification.
+#[deprecated(note = "Use verify_http_signature_ed25519 for real crypto verification")]
 pub fn verify_http_signature(
     signature: &HttpSignature,
     _public_key_pem: &str,
@@ -80,6 +86,49 @@ pub fn verify_http_signature(
     let expected = hex::encode(hasher.finalize());
 
     Ok(signature.signature == expected)
+}
+
+/// Verify an HTTP signature using Ed25519 cryptographic verification.
+///
+/// `public_key_bytes` must be the raw 32-byte Ed25519 public key of the signer.
+/// The signature in `HttpSignature.signature` must be base64-encoded 64 bytes.
+pub fn verify_http_signature_ed25519(
+    signature: &HttpSignature,
+    public_key_bytes: &[u8],
+    method: &str,
+    path: &str,
+    headers: &HashMap<String, String>,
+) -> Result<bool> {
+    if signature.key_id.is_empty() || signature.signature.is_empty() {
+        return Err(CoreError::Federation(
+            "key_id and signature must be non-empty".into(),
+        ));
+    }
+
+    let mut message = Vec::new();
+    message.extend_from_slice(signature.key_id.as_bytes());
+    message.extend_from_slice(method.as_bytes());
+    message.extend_from_slice(path.as_bytes());
+    for header_name in &signature.headers {
+        if let Some(value) = headers.get(header_name) {
+            message.extend_from_slice(header_name.as_bytes());
+            message.extend_from_slice(value.as_bytes());
+        }
+    }
+
+    let signature_bytes = base64::Engine::decode(
+        &base64::engine::general_purpose::STANDARD,
+        &signature.signature,
+    )
+    .map_err(|_| CoreError::Federation("invalid base64 signature".into()))?;
+
+    let public_key =
+        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
+
+    match public_key.verify(&message, &signature_bytes) {
+        Ok(()) => Ok(true),
+        Err(_) => Ok(false),
+    }
 }
 
 pub fn create_http_signature(

@@ -74,12 +74,14 @@ impl ChunkStore {
     }
 
     pub fn delete(&self, id: &str) -> bool {
-        let existed = self.chunks.remove(id).is_some();
-        if existed {
+        if let Some((_, data)) = self.chunks.remove(id) {
             self.references.remove(id);
-            self.total_bytes.fetch_sub(0, Ordering::Relaxed);
+            self.total_bytes
+                .fetch_sub(data.len() as u64, Ordering::Relaxed);
+            true
+        } else {
+            false
         }
-        existed
     }
 
     pub fn store_file(&self, file_id: &str, file_name: &str, data: &[u8]) -> ChunkManifest {

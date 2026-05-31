@@ -2,11 +2,30 @@
 
 use crate::events::bus::EventBus;
 use crate::events::model::Event;
+use axum::{
+    extract::State,
+    extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    response::IntoResponse,
+};
 use dashmap::DashMap;
+use futures::{SinkExt, StreamExt};
+use serde::Deserialize;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum WsCommand {
+    #[serde(rename = "subscribe")]
+    Subscribe { topic: String },
+    #[serde(rename = "unsubscribe")]
+    Unsubscribe { topic: String },
+    #[serde(rename = "ping")]
+    Ping,
+}
 
 pub struct WsConnection {
     pub id: Uuid,
@@ -14,16 +33,18 @@ pub struct WsConnection {
     pub subscriptions: HashSet<String>,
     pub last_ping: Instant,
     pub connected_at: Instant,
+    pub tx: mpsc::UnboundedSender<String>,
 }
 
 impl WsConnection {
-    pub fn new(id: Uuid, user_id: Option<String>) -> Self {
+    pub fn new(id: Uuid, user_id: Option<String>, tx: mpsc::UnboundedSender<String>) -> Self {
         Self {
             id,
             user_id,
             subscriptions: HashSet::new(),
             last_ping: Instant::now(),
             connected_at: Instant::now(),
+            tx,
         }
     }
 
@@ -34,10 +55,15 @@ impl WsConnection {
     pub fn is_stale(&self, timeout: Duration) -> bool {
         self.last_ping.elapsed() > timeout
     }
+
+    pub fn send(&self, msg: &str) -> bool {
+        self.tx.send(msg.to_string()).is_ok()
+    }
 }
 
+#[derive(Clone)]
 pub struct WebSocketManager {
-    connections: DashMap<Uuid, WsConnection>,
+    connections: Arc<DashMap<Uuid, WsConnection>>,
     #[allow(dead_code)]
     event_bus: Arc<EventBus>,
 }
@@ -45,14 +71,27 @@ pub struct WebSocketManager {
 impl WebSocketManager {
     pub fn new(event_bus: Arc<EventBus>) -> Self {
         Self {
-            connections: DashMap::new(),
+            connections: Arc::new(DashMap::new()),
             event_bus,
         }
     }
 
     pub fn register(&self, user_id: Option<String>) -> Uuid {
         let id = Uuid::new_v4();
-        let conn = WsConnection::new(id, user_id);
+        let (tx, _rx) = mpsc::unbounded_channel::<String>();
+        let conn = WsConnection::new(id, user_id, tx);
+        self.connections.insert(id, conn);
+        id
+    }
+
+    /// Register a connection with a real sender channel (used by the WebSocket handler).
+    pub fn register_with_channel(
+        &self,
+        user_id: Option<String>,
+        tx: mpsc::UnboundedSender<String>,
+    ) -> Uuid {
+        let id = Uuid::new_v4();
+        let conn = WsConnection::new(id, user_id, tx);
         self.connections.insert(id, conn);
         id
     }
@@ -79,11 +118,15 @@ impl WebSocketManager {
         }
     }
 
+    /// Broadcast an event to all matching connections. Actually sends
+    /// the serialized event through each connection's mpsc channel.
     pub fn broadcast_event(&self, event: &Event) {
-        let _msg = match serde_json::to_string(event) {
+        let msg = match serde_json::to_string(event) {
             Ok(m) => m,
             Err(_) => return,
         };
+
+        let mut stale_ids: Vec<Uuid> = Vec::new();
 
         for mut conn in self.connections.iter_mut() {
             let mut should_send = conn.subscriptions.contains("global");
@@ -93,18 +136,31 @@ impl WebSocketManager {
                 }
             }
             if should_send {
-                conn.record_ping();
+                if !conn.send(&msg) {
+                    // Channel closed -- connection is dead
+                    stale_ids.push(conn.id);
+                } else {
+                    conn.record_ping();
+                }
             }
+        }
+
+        // Clean up dead connections
+        for id in stale_ids {
+            self.connections.remove(&id);
         }
     }
 
-    pub fn send_to_connection(&self, conn_id: Uuid, _msg: &str) -> anyhow::Result<()> {
-        let mut conn = self
+    pub fn send_to_connection(&self, conn_id: Uuid, msg: &str) -> anyhow::Result<()> {
+        let conn = self
             .connections
-            .get_mut(&conn_id)
+            .get(&conn_id)
             .ok_or_else(|| anyhow::anyhow!("connection not found: {conn_id}"))?;
-        conn.record_ping();
-        Ok(())
+        if conn.send(msg) {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("send failed: channel closed"))
+        }
     }
 
     pub fn active_count(&self) -> usize {
@@ -118,6 +174,7 @@ impl WebSocketManager {
             subscriptions: c.subscriptions.clone(),
             last_ping: c.last_ping,
             connected_at: c.connected_at,
+            tx: c.tx.clone(),
         })
     }
 
@@ -149,28 +206,61 @@ impl WebSocketManager {
 
 /// Axum WebSocket upgrade handler.
 ///
-/// This function would serve as the axum handler for the `/ws` endpoint.
-/// When a client connects, it upgrades the HTTP connection to a WebSocket
-/// using `axum::extract::ws::WebSocketUpgrade`. After the upgrade, the handler
-/// enters a loop that:
-///
-/// 1. Spawns a read task that processes incoming client messages (ping/pong,
-///    subscribe/unsubscribe commands encoded as JSON).
-/// 2. Registers the connection with `WebSocketManager::register`.
-/// 3. Waits for the read task to complete (client disconnect).
-/// 4. Unregisters the connection via `WebSocketManager::unregister`.
-///
-/// The handler signature would be:
-///
-/// ```text
-/// async fn ws_handler(
-///     ws: WebSocketUpgrade,
-///     State(manager): State<Arc<WebSocketManager>>,
-/// ) -> impl IntoResponse {
-///     ws.on_upgrade(move |socket| handle_socket(socket, manager))
-/// }
-/// ```
-pub fn ws_upgrade_handler() {}
+/// Upgrades the HTTP connection to WebSocket, spawns read/write tasks,
+/// and integrates with `WebSocketManager` for pub/sub event delivery.
+pub async fn ws_upgrade_handler(
+    ws: WebSocketUpgrade,
+    State(manager): State<Arc<RwLock<WebSocketManager>>>,
+) -> impl IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, manager))
+}
+
+async fn handle_socket(socket: WebSocket, manager: Arc<RwLock<WebSocketManager>>) {
+    let (mut ws_sender, mut ws_receiver) = socket.split();
+    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+
+    // Register connection
+    let conn_id = {
+        let mgr = manager.read().await;
+        mgr.register_with_channel(None, tx)
+    };
+
+    // Write task: forward messages from channel to WebSocket
+    let write_handle = tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            if ws_sender.send(Message::Text(msg.into())).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    // Read task: process incoming commands
+    let mgr_read = manager.clone();
+    let cid = conn_id;
+    while let Some(Ok(msg)) = ws_receiver.next().await {
+        if let Ok(text) = msg.to_text() {
+            if let Ok(cmd) = serde_json::from_str::<WsCommand>(text) {
+                let mgr = mgr_read.read().await;
+                match cmd {
+                    WsCommand::Subscribe { topic } => {
+                        mgr.subscribe(cid, &topic);
+                    }
+                    WsCommand::Unsubscribe { topic } => {
+                        mgr.unsubscribe(cid, &topic);
+                    }
+                    WsCommand::Ping => {
+                        mgr.subscribe(cid, "global");
+                    }
+                }
+            }
+        }
+    }
+
+    // Cleanup on disconnect
+    write_handle.abort();
+    let mgr = manager.write().await;
+    mgr.unregister(conn_id);
+}
 
 #[cfg(test)]
 mod tests {
@@ -259,13 +349,94 @@ mod tests {
     fn broadcast_to_global_subscribers() {
         let bus = make_bus();
         let mgr = WebSocketManager::new(bus);
-        let id1 = mgr.register(None);
-        let _id2 = mgr.register(None);
+        let (tx1, _rx1) = mpsc::unbounded_channel::<String>();
+        let (tx2, _rx2) = mpsc::unbounded_channel::<String>();
+        let id1 = mgr.register_with_channel(None, tx1);
+        let _id2 = mgr.register_with_channel(None, tx2);
         mgr.subscribe(id1, "global");
 
         let event = make_system_event("broadcast test");
         mgr.broadcast_event(&event);
 
+        // id1 has alive receiver, should remain
         assert_eq!(mgr.active_count(), 2);
+    }
+
+    #[test]
+    fn register_with_channel() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let id = mgr.register_with_channel(Some("user-2".to_string()), tx);
+        assert_eq!(mgr.active_count(), 1);
+
+        // Send via manager
+        assert!(mgr.send_to_connection(id, "hello").is_ok());
+        let received = rx.try_recv().unwrap();
+        assert_eq!(received, "hello");
+    }
+
+    #[test]
+    fn broadcast_sends_to_matching_channels() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx1, mut rx1) = mpsc::unbounded_channel::<String>();
+        let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
+        let id1 = mgr.register_with_channel(None, tx1);
+        let id2 = mgr.register_with_channel(None, tx2);
+
+        mgr.subscribe(id1, "global");
+        mgr.subscribe(id2, "repo:abc");
+
+        let event = make_system_event("test broadcast send");
+        mgr.broadcast_event(&event);
+
+        // id1 subscribed to global, should receive
+        let msg1 = rx1.try_recv().unwrap();
+        assert!(msg1.contains("test broadcast send"));
+
+        // id2 not subscribed to global, should not receive
+        assert!(rx2.try_recv().is_err());
+    }
+
+    #[test]
+    fn ws_command_deserialization() {
+        let sub: WsCommand =
+            serde_json::from_str(r#"{"type":"subscribe","topic":"repo:123"}"#).unwrap();
+        match sub {
+            WsCommand::Subscribe { topic } => assert_eq!(topic, "repo:123"),
+            _ => panic!("expected Subscribe"),
+        }
+
+        let unsub: WsCommand =
+            serde_json::from_str(r#"{"type":"unsubscribe","topic":"global"}"#).unwrap();
+        match unsub {
+            WsCommand::Unsubscribe { topic } => assert_eq!(topic, "global"),
+            _ => panic!("expected Unsubscribe"),
+        }
+
+        let ping: WsCommand = serde_json::from_str(r#"{"type":"ping"}"#).unwrap();
+        assert!(matches!(ping, WsCommand::Ping));
+    }
+
+    #[test]
+    fn dead_channel_cleaned_on_broadcast() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx, rx) = mpsc::unbounded_channel::<String>();
+        let id = mgr.register_with_channel(None, tx);
+        assert_eq!(mgr.active_count(), 1);
+
+        // Drop receiver to simulate dead connection
+        drop(rx);
+
+        let event = make_system_event("stale");
+        mgr.subscribe(id, "global");
+        mgr.broadcast_event(&event);
+
+        // Dead connection should be cleaned up
+        assert_eq!(mgr.active_count(), 0);
     }
 }

@@ -3,7 +3,6 @@
 use dashmap::DashMap;
 use std::collections::HashMap;
 use tracing::debug;
-use uuid::Uuid;
 
 pub struct BlockStore {
     blocks: DashMap<String, Vec<u8>>,
@@ -33,19 +32,9 @@ impl BlockStore {
     }
 
     fn content_hash(data: &[u8]) -> String {
-        let mut hash = [0u8; 16];
-        let mut offset = 0;
-        for chunk in data.chunks(16) {
-            for (i, b) in chunk.iter().enumerate() {
-                hash[i] ^= b;
-            }
-            offset += 1;
-        }
-        for (i, b) in hash.iter_mut().enumerate() {
-            *b = b.wrapping_add(offset as u8 * (i as u8 + 1));
-        }
-        let uuid = Uuid::from_bytes(hash);
-        uuid.to_string()
+        use sha2::{Digest, Sha256};
+        let hash = Sha256::digest(data);
+        hex::encode(hash)
     }
 
     pub fn put_block(&self, data: &[u8]) -> String {
@@ -135,16 +124,18 @@ impl BlockStore {
         paths: &[String],
     ) -> HashMap<String, Vec<u8>> {
         let mut result = HashMap::new();
+        // Reconstruct the full file content from blocks
+        let mut file_data = Vec::new();
+        for entry in &file_ref.block_map {
+            if let Some(block_data) = self.get_block(&entry.block_id) {
+                file_data.extend_from_slice(&block_data);
+            }
+        }
+        // Return reconstructed data for each requested path
         for path in paths {
             let full_path = format!("{}{}", file_ref.path, path);
-            let mut all_data = Vec::new();
-            for entry in &file_ref.block_map {
-                if let Some(block_data) = self.get_block(&entry.block_id) {
-                    all_data.extend_from_slice(&block_data);
-                }
-            }
-            if !all_data.is_empty() {
-                result.insert(full_path, all_data);
+            if !file_data.is_empty() {
+                result.insert(full_path, file_data.clone());
             }
         }
         result

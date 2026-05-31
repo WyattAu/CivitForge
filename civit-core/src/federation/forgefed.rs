@@ -465,6 +465,12 @@ impl ForgeFedProcessor {
         }
     }
 
+    /// Verify signature using SHA-256 hash comparison (insecure, legacy).
+    ///
+    /// WARNING: This is NOT cryptographic signature verification. It compares a
+    /// hash of payload+key_id against the signature. Use `verify_signature_ed25519`
+    /// for real cryptographic verification.
+    #[deprecated(note = "Use verify_signature_ed25519 for real crypto verification")]
     pub fn verify_signature(payload: &str, signature: &str, key_id: &str) -> Result<bool> {
         if payload.is_empty() || signature.is_empty() || key_id.is_empty() {
             return Err(CoreError::Federation(
@@ -478,6 +484,39 @@ impl ForgeFedProcessor {
         let expected = hex::encode(hasher.finalize());
 
         Ok(signature == expected)
+    }
+
+    /// Verify a ForgeFed activity signature using Ed25519 cryptographic verification.
+    ///
+    /// `public_key_bytes` must be the raw 32-byte Ed25519 public key of the signing actor.
+    /// `signature` must be the base64-encoded 64-byte Ed25519 signature.
+    pub fn verify_signature_ed25519(
+        payload: &str,
+        signature: &str,
+        key_id: &str,
+        public_key_bytes: &[u8],
+    ) -> Result<bool> {
+        if payload.is_empty() || signature.is_empty() || key_id.is_empty() {
+            return Err(CoreError::Federation(
+                "payload, signature, and key_id must all be non-empty".into(),
+            ));
+        }
+
+        let mut message = Vec::new();
+        message.extend_from_slice(payload.as_bytes());
+        message.extend_from_slice(key_id.as_bytes());
+
+        let signature_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, signature)
+                .map_err(|_| CoreError::Federation("invalid base64 signature".into()))?;
+
+        let public_key =
+            ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
+
+        match public_key.verify(&message, &signature_bytes) {
+            Ok(()) => Ok(true),
+            Err(_) => Ok(false),
+        }
     }
 }
 
