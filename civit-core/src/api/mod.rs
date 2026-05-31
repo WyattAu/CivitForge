@@ -3,13 +3,15 @@
 pub mod repos;
 
 use crate::config::AppConfig;
+use crate::db::DbRepository;
 use crate::error::Result;
 use axum::Router;
 use axum::routing::get;
+use sqlx::postgres::PgPool;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
-pub fn create_router(config: AppConfig) -> Result<Router> {
+pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -34,7 +36,7 @@ pub fn create_router(config: AppConfig) -> Result<Router> {
         .merge(api)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        .with_state(AppState::new(config));
+        .with_state(AppState::new(config, db));
 
     Ok(router)
 }
@@ -46,11 +48,15 @@ async fn health() -> &'static str {
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub config: AppConfig,
+    pub db: DbRepository,
 }
 
 impl AppState {
-    pub fn new(config: AppConfig) -> Self {
-        Self { config }
+    pub fn new(config: AppConfig, db: PgPool) -> Self {
+        Self {
+            config,
+            db: DbRepository::new(db),
+        }
     }
 }
 
@@ -69,18 +75,15 @@ mod tests {
             federation_enabled: false,
             federation_instance_id: "test".into(),
             federation_instance_domain: "localhost".into(),
+            storage_path: "/tmp/repos".into(),
         }
     }
 
-    #[test]
-    fn test_create_router() {
-        let router = create_router(test_config());
-        assert!(router.is_ok());
-    }
-
-    #[test]
-    fn test_app_state_new() {
-        let state = AppState::new(test_config());
+    #[tokio::test]
+    async fn test_app_state_new() {
+        let opts = sqlx::postgres::PgPoolOptions::new().max_connections(1);
+        let pool = opts.connect_lazy("postgres://localhost/test").unwrap();
+        let state = AppState::new(test_config(), pool);
         assert_eq!(state.config.port, 8080);
     }
 

@@ -53,10 +53,67 @@ impl GitService {
     }
 
     pub fn list_commits(&self, owner: &str, name: &str, limit: usize) -> Result<Vec<CommitInfo>> {
-        let _path = self.repo_path(owner, name);
-        let _limit = limit;
-        debug!(repo = %name, "listed commits");
-        Ok(vec![])
+        let path = self.repo_path(owner, name);
+        let repo = gix::open(&path).map_err(|e| CoreError::Git(e.to_string()))?;
+
+        let head_id = repo.head_id().map_err(|e| CoreError::Git(e.to_string()))?;
+
+        let mut commits = Vec::new();
+        let mut current_id = head_id;
+
+        while commits.len() < limit {
+            let commit_obj = current_id
+                .object()
+                .map_err(|e| CoreError::Git(e.to_string()))?;
+
+            let commit = commit_obj
+                .try_into_commit()
+                .map_err(|e| CoreError::Git(format!("non-commit object: {e}")))?;
+
+            let parent_ids: Vec<gix::Id<'_>> = commit.parent_ids().collect();
+
+            let parents: Vec<String> = parent_ids
+                .iter()
+                .map(|id| id.to_hex().to_string())
+                .take(20)
+                .collect();
+
+            let author = commit.author().ok().map(|a| {
+                let name = a.name.to_string();
+                let email = a.email.to_string();
+                format!("{name} <{email}>")
+            });
+
+            let time = commit.time().ok();
+
+            commits.push(CommitInfo {
+                id: commit.id().to_hex().to_string(),
+                message: commit
+                    .message()
+                    .map(|m| m.summary().to_string())
+                    .unwrap_or_default(),
+                author: author.unwrap_or_default(),
+                timestamp: time
+                    .map(|t| {
+                        chrono::DateTime::from_timestamp(t.seconds, 0)
+                            .map(|dt| dt.to_rfc3339())
+                            .unwrap_or_default()
+                    })
+                    .unwrap_or_default(),
+                parents: parents.clone(),
+            });
+
+            // Walk to first parent for linear history
+            match parent_ids.first() {
+                Some(first_parent) => {
+                    current_id = *first_parent;
+                }
+                None => break,
+            }
+        }
+
+        debug!(repo = %name, count = commits.len(), "listed commits");
+        Ok(commits)
     }
 
     pub fn get_default_branch(&self, owner: &str, name: &str) -> Result<String> {
