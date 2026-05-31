@@ -10,8 +10,11 @@ pub mod events;
 pub mod federation;
 pub mod git;
 pub mod loadtest;
+pub mod provenance;
+pub mod runner;
 pub mod scaling;
 pub mod ssh;
+pub mod storage;
 pub mod telemetry;
 
 pub use config::AppConfig;

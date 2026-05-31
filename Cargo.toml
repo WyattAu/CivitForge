@@ -53,3 +53,5 @@ libc = "0.2"
 zstd = "0.13"
 russh = "0.61"
 rand = "0.10"
+flate2 = "1"
+schemars = { version = "0.8", features = ["chrono"] }

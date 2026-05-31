@@ -37,6 +37,7 @@ ring = { workspace = true }
 zstd = { workspace = true }
 russh = { workspace = true, optional = true }
 rand = "0.10"
+flate2 = { workspace = true }
 
 [features]
 default = []
