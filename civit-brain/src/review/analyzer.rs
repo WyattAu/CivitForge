@@ -48,8 +48,7 @@ impl DiffAnalyzer {
             if raw_line.starts_with("+++") || raw_line.starts_with("---") {
                 continue;
             }
-            if raw_line.starts_with('+') {
-                let code = &raw_line[1..];
+            if let Some(code) = raw_line.strip_prefix('+') {
                 added_lines += 1;
                 line_num += 1;
 
@@ -112,20 +111,13 @@ impl DiffAnalyzer {
         let branches: usize = source
             .lines()
             .map(|l| {
-                l.matches("if ")
-                    .count()
-                    + l.matches("match ")
-                    .count()
-                    + l.matches("else")
-                    .count()
-                    + l.matches("for ")
-                    .count()
-                    + l.matches("while ")
-                    .count()
-                    + l.matches("&&")
-                    .count()
-                    + l.matches("||")
-                    .count()
+                l.matches("if ").count()
+                    + l.matches("match ").count()
+                    + l.matches("else").count()
+                    + l.matches("for ").count()
+                    + l.matches("while ").count()
+                    + l.matches("&&").count()
+                    + l.matches("||").count()
             })
             .sum();
 
@@ -140,7 +132,12 @@ impl DiffAnalyzer {
     }
 
     fn check_security(&self, line: &str, line_num: usize, violations: &mut Vec<RuleViolation>) {
-        let sql_injection_patterns = ["format!(\"SELECT", "format!(\"INSERT", "format!(\"UPDATE", "format!(\"DELETE"];
+        let sql_injection_patterns = [
+            "format!(\"SELECT",
+            "format!(\"INSERT",
+            "format!(\"UPDATE",
+            "format!(\"DELETE",
+        ];
         for pat in &sql_injection_patterns {
             if line.contains(pat) {
                 violations.push(RuleViolation {
@@ -154,17 +151,17 @@ impl DiffAnalyzer {
             }
         }
 
-        if line.contains("Command::new") || line.contains("std::process::Command") {
-            if line.contains("format!") || line.contains("+") {
-                violations.push(RuleViolation {
-                    rule_id: "command-injection".into(),
-                    line: line_num,
-                    severity: RuleSeverity::Critical,
-                    message: "Potential command injection via string interpolation".into(),
-                    suggestion: Some("Use argument vectors instead of string concatenation.".into()),
-                });
-                return;
-            }
+        if (line.contains("Command::new") || line.contains("std::process::Command"))
+            && (line.contains("format!") || line.contains("+"))
+        {
+            violations.push(RuleViolation {
+                rule_id: "command-injection".into(),
+                line: line_num,
+                severity: RuleSeverity::Critical,
+                message: "Potential command injection via string interpolation".into(),
+                suggestion: Some("Use argument vectors instead of string concatenation.".into()),
+            });
+            return;
         }
 
         if line.contains("../") || line.contains("..\\") {
@@ -193,7 +190,12 @@ impl DiffAnalyzer {
         }
     }
 
-    fn check_performance(&self, line: &str, line_num: usize, suggestions: &mut Vec<CodeSuggestion>) {
+    fn check_performance(
+        &self,
+        line: &str,
+        line_num: usize,
+        suggestions: &mut Vec<CodeSuggestion>,
+    ) {
         if line.contains(".to_string()")
             || line.contains("String::from")
             || line.contains("format!(")
@@ -212,10 +214,7 @@ impl DiffAnalyzer {
             }
         }
 
-        let nested_loops = ["for"]
-            .iter()
-            .filter(|p| line.contains(**p))
-            .count();
+        let nested_loops = ["for"].iter().filter(|p| line.contains(**p)).count();
         if nested_loops > 1 && line.contains("for") {
             suggestions.push(CodeSuggestion {
                 line: line_num,
@@ -226,10 +225,7 @@ impl DiffAnalyzer {
             });
         }
 
-        if line.contains(".lock()")
-            || line.contains(".write()")
-            || line.contains(".read()")
-        {
+        if line.contains(".lock()") || line.contains(".write()") || line.contains(".read()") {
             suggestions.push(CodeSuggestion {
                 line: line_num,
                 original: line.to_owned(),
@@ -266,7 +262,7 @@ mod tests {
     #[test]
     fn test_analyze_clean_diff() {
         let analyzer = make_analyzer();
-        let diff = "@@ -1,3 +1,3 @@\n let x = 5;\n let y = 10;\n";
+        let diff = "@@ -1,3 +1,3 @@\n+let x = 5;\n+let y = 10;\n";
         let result = analyzer.analyze_diff(diff, "src/main.rs");
         assert!(result.violations.is_empty());
         assert_eq!(result.added_lines, 2);
@@ -277,19 +273,32 @@ mod tests {
         let analyzer = make_analyzer();
         let diff = "@@ -1,1 +1,1 @@\n+let val = data.unwrap();\n";
         let result = analyzer.analyze_diff(diff, "src/main.rs");
-        assert!(result.violations.iter().any(|v| v.rule_id == "unwrap-usage"));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "unwrap-usage")
+        );
     }
 
     #[test]
     fn test_analyze_sql_injection() {
         let analyzer = make_analyzer();
-        let diff = "@@ -1,1 +1,1 @@\n+let q = format!(\"SELECT * FROM users WHERE id = {}\", id);\n";
+        let diff =
+            "@@ -1,1 +1,1 @@\n+let q = format!(\"SELECT * FROM users WHERE id = {}\", id);\n";
         let result = analyzer.analyze_diff(diff, "src/main.rs");
-        assert!(result.violations.iter().any(|v| v.rule_id == "sql-injection"));
-        assert!(result
-            .violations
-            .iter()
-            .any(|v| v.severity == RuleSeverity::Critical));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "sql-injection")
+        );
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.severity == RuleSeverity::Critical)
+        );
     }
 
     #[test]
@@ -297,10 +306,12 @@ mod tests {
         let analyzer = make_analyzer();
         let diff = "@@ -1,1 +1,1 @@\n+Command::new(format!(\"rm {}\", path));\n";
         let result = analyzer.analyze_diff(diff, "src/main.rs");
-        assert!(result
-            .violations
-            .iter()
-            .any(|v| v.rule_id == "command-injection"));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "command-injection")
+        );
     }
 
     #[test]
@@ -308,7 +319,12 @@ mod tests {
         let analyzer = make_analyzer();
         let diff = "@@ -1,1 +1,1 @@\n+let path = format!(\"../{}\", user_input);\n";
         let result = analyzer.analyze_diff(diff, "src/main.rs");
-        assert!(result.violations.iter().any(|v| v.rule_id == "path-traversal"));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "path-traversal")
+        );
     }
 
     #[test]
@@ -316,7 +332,12 @@ mod tests {
         let analyzer = make_analyzer();
         let diff = "@@ -1,1 +1,1 @@\n+println!(\"debugging\");\n";
         let result = analyzer.analyze_diff(diff, "src/main.rs");
-        assert!(result.violations.iter().any(|v| v.rule_id == "println-usage"));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "println-usage")
+        );
     }
 
     #[test]
@@ -324,8 +345,18 @@ mod tests {
         let analyzer = make_analyzer();
         let source = "fn main() {\n    let x = data.unwrap();\n    println!(\"hi\");\n}\n";
         let result = analyzer.analyze_file(source, "src/main.rs");
-        assert!(result.violations.iter().any(|v| v.rule_id == "unwrap-usage"));
-        assert!(result.violations.iter().any(|v| v.rule_id == "println-usage"));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "unwrap-usage")
+        );
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.rule_id == "println-usage")
+        );
         assert_eq!(result.added_lines, 4);
     }
 

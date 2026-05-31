@@ -127,9 +127,7 @@ impl RuleEngine {
                 severity: RuleSeverity::Info,
                 language: Some("rust".into()),
                 enabled: true,
-                pattern: RulePattern::Regex(
-                    r"#\[(?:allow|warn)\(dead_code\)\]".into(),
-                ),
+                pattern: RulePattern::Regex(r"#\[(?:allow|warn)\(dead_code\)\]".into()),
             },
             ReviewRule {
                 id: "naming-convention".into(),
@@ -215,11 +213,19 @@ impl RuleEngine {
             }
             if matches_rule(rule, line) {
                 let suggestion = match rule.id.as_str() {
-                    "unwrap-usage" => Some("Replace with .map_err()? or .unwrap_or_default()".into()),
-                    "println-usage" => Some("Replace with tracing::info! or tracing::debug!".into()),
-                    "secret-detection" => Some("Use environment variables or secrets manager.".into()),
+                    "unwrap-usage" => {
+                        Some("Replace with .map_err()? or .unwrap_or_default()".into())
+                    }
+                    "println-usage" => {
+                        Some("Replace with tracing::info! or tracing::debug!".into())
+                    }
+                    "secret-detection" => {
+                        Some("Use environment variables or secrets manager.".into())
+                    }
                     "unsafe-usage" => Some("Review if unsafe is truly necessary.".into()),
-                    "error-swallow" => Some("Handle the error explicitly or use #[allow(unused_must_use)].".into()),
+                    "error-swallow" => {
+                        Some("Handle the error explicitly or use #[allow(unused_must_use)].".into())
+                    }
                     "naming-convention" => Some("Use snake_case for functions and modules.".into()),
                     _ => None,
                 };
@@ -237,7 +243,7 @@ impl RuleEngine {
 }
 
 fn matches_rule(rule: &ReviewRule, line: &str) -> bool {
-    match &rule.id {
+    match rule.id.as_str() {
         "unwrap-usage" => line.contains("unwrap()"),
         "println-usage" => line.contains("println!") || line.contains("dbg!"),
         "secret-detection" => {
@@ -246,7 +252,10 @@ fn matches_rule(rule: &ReviewRule, line: &str) -> bool {
                 || lower.contains("secret")
                 || lower.contains("api_key")
                 || lower.contains("token"))
-                && (line.contains(":=\"") || line.contains("='") || line.contains("=\"") || line.contains("='"))
+                && (line.contains(":=\"")
+                    || line.contains("='")
+                    || line.contains("=\"")
+                    || line.contains("='"))
         }
         "todo-fixme" => {
             let upper = line.to_uppercase();
@@ -269,7 +278,7 @@ fn matches_rule(rule: &ReviewRule, line: &str) -> bool {
                         .take_while(|c| c.is_alphanumeric() || *c == '_')
                         .collect();
                     !name_part.is_empty()
-                        && name_part.chars().next().map_or(false, |c| c.is_uppercase())
+                        && name_part.chars().next().is_some_and(|c| c.is_uppercase())
                         && !name_part.starts_with('_')
                 }
             }
@@ -277,7 +286,11 @@ fn matches_rule(rule: &ReviewRule, line: &str) -> bool {
         _ => match &rule.pattern {
             RulePattern::ExactMatch(s) => line.contains(s),
             RulePattern::Regex(pat) => {
-                let clean = pat.replace("(?i)", "").replace("\\b", "").replace("\\s*", " ").replace("[^\"']+", "");
+                let clean = pat
+                    .replace("(?i)", "")
+                    .replace("\\b", "")
+                    .replace("\\s*", " ")
+                    .replace("[^\"']+", "");
                 let lower_text = line.to_lowercase();
                 lower_text.contains(&clean.to_lowercase())
             }
@@ -343,7 +356,11 @@ mod tests {
         let mut engine = RuleEngine::default_rules();
         assert!(engine.enable_rule("unwrap-usage"));
         assert!(engine.disable_rule("unwrap-usage"));
-        let rule = engine.rules.iter().find(|r| r.id == "unwrap-usage").unwrap();
+        let rule = engine
+            .rules
+            .iter()
+            .find(|r| r.id == "unwrap-usage")
+            .unwrap();
         assert!(!rule.enabled);
     }
 
@@ -364,9 +381,13 @@ mod tests {
     #[test]
     fn test_evaluate_secret() {
         let engine = RuleEngine::default_rules();
-        let violations = engine.evaluate_line("let password = \"supersecret\";", "src/main.rs");
+        let violations = engine.evaluate_line("let password=\"supersecret\";", "src/main.rs");
         assert!(violations.iter().any(|v| v.rule_id == "secret-detection"));
-        assert!(violations.iter().any(|v| v.severity == RuleSeverity::Critical));
+        assert!(
+            violations
+                .iter()
+                .any(|v| v.severity == RuleSeverity::Critical)
+        );
     }
 
     #[test]
@@ -427,7 +448,7 @@ mod tests {
     #[test]
     fn test_secret_case_insensitive() {
         let engine = RuleEngine::default_rules();
-        let violations = engine.evaluate_line("let PASSWORD = \"abc\"", "src/main.rs");
+        let violations = engine.evaluate_line("let PASSWORD=\"abc\"", "src/main.rs");
         assert!(violations.iter().any(|v| v.rule_id == "secret-detection"));
     }
 

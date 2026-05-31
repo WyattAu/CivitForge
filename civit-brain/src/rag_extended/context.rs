@@ -99,7 +99,14 @@ impl ContextWindow {
             let parts: Vec<String> = self
                 .chunks
                 .iter()
-                .map(|c| format!("{}:{} {}", c.source.file_path, c.source.entity_name, &c.content[..c.content.len().min(80)]))
+                .map(|c| {
+                    format!(
+                        "{}:{} {}",
+                        c.source.file_path,
+                        c.source.entity_name,
+                        &c.content[..c.content.len().min(80)]
+                    )
+                })
                 .collect();
             return parts.join("\n");
         }
@@ -109,9 +116,13 @@ impl ContextWindow {
             .map(|c| format!("{}:{}", c.source.file_path, c.source.entity_name))
             .collect();
         let unique_files: std::collections::HashSet<&String> = files.iter().collect();
-        let mut summary = format!("{} relevant code chunks from {} locations:\n", self.chunks.len(), unique_files.len());
+        let mut summary = format!(
+            "{} relevant code chunks from {} locations:\n",
+            self.chunks.len(),
+            unique_files.len()
+        );
         for f in &files {
-            summary.push_str(&format!("  - {}\n", f));
+            summary.push_str(&format!("  - {f}\n"));
         }
         summary
     }
@@ -125,7 +136,9 @@ fn estimate_tokens(text: &str) -> usize {
 }
 
 pub fn build_code_review_prompt(context: &ContextWindow, diff: &str) -> String {
-    let mut prompt = String::from("You are a senior code reviewer. Review the following diff with the provided codebase context.\n\n");
+    let mut prompt = String::from(
+        "You are a senior code reviewer. Review the following diff with the provided codebase context.\n\n",
+    );
     prompt.push_str("## Codebase Context\n\n");
     prompt.push_str(&context.to_prompt());
     prompt.push_str("## Diff to Review\n\n");
@@ -135,14 +148,19 @@ pub fn build_code_review_prompt(context: &ContextWindow, diff: &str) -> String {
 }
 
 pub fn build_architecture_query_prompt(context: &ContextWindow, query: &str) -> String {
-    let mut prompt = String::from("You are a codebase architect assistant. Answer questions about the codebase structure.\n\n");
+    let mut prompt = String::from(
+        "You are a codebase architect assistant. Answer questions about the codebase structure.\n\n",
+    );
     prompt.push_str("## Relevant Code\n\n");
     prompt.push_str(&context.to_prompt());
-    prompt.push_str(&format!("## Question\n\n{}\n\n", query));
-    prompt.push_str("Provide a clear, structured answer referencing specific files and line numbers.\n");
+    prompt.push_str(&format!("## Question\n\n{query}\n\n"));
+    prompt.push_str(
+        "Provide a clear, structured answer referencing specific files and line numbers.\n",
+    );
     prompt
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_chunk(
     id: &str,
     content: &str,
@@ -184,7 +202,16 @@ mod tests {
     #[test]
     fn test_add_chunk() {
         let mut window = ContextWindow::new("test query".into(), 1000);
-        let chunk = create_chunk("c1", "fn main() {}", 0.9, "src/main.rs", "Function", "main", 1, 3);
+        let chunk = create_chunk(
+            "c1",
+            "fn main() {}",
+            0.9,
+            "src/main.rs",
+            "Function",
+            "main",
+            1,
+            3,
+        );
         assert!(window.add_chunk(chunk));
         assert_eq!(window.chunks.len(), 1);
         assert!(!window.is_full());
@@ -193,7 +220,16 @@ mod tests {
     #[test]
     fn test_add_chunk_exceeds_capacity() {
         let mut window = ContextWindow::new("test".into(), 5);
-        let chunk = create_chunk("c1", "hello world this is long text", 0.9, "f.rs", "F", "f", 1, 2);
+        let chunk = create_chunk(
+            "c1",
+            "hello world this is long text",
+            0.9,
+            "f.rs",
+            "F",
+            "f",
+            1,
+            2,
+        );
         assert!(!window.add_chunk(chunk));
         assert_eq!(window.chunks.len(), 0);
     }
@@ -210,7 +246,16 @@ mod tests {
     #[test]
     fn test_to_prompt() {
         let mut window = ContextWindow::new("test".into(), 4096);
-        window.add_chunk(create_chunk("c1", "fn main() {}", 0.9, "src/main.rs", "Function", "main", 1, 3));
+        window.add_chunk(create_chunk(
+            "c1",
+            "fn main() {}",
+            0.9,
+            "src/main.rs",
+            "Function",
+            "main",
+            1,
+            3,
+        ));
         let prompt = window.to_prompt();
         assert!(prompt.contains("src/main.rs"));
         assert!(prompt.contains("main"));
@@ -225,8 +270,26 @@ mod tests {
     #[test]
     fn test_summarize_few_chunks() {
         let mut window = ContextWindow::new("test".into(), 4096);
-        window.add_chunk(create_chunk("c1", "fn main() {}", 0.9, "src/main.rs", "Function", "main", 1, 3));
-        window.add_chunk(create_chunk("c2", "fn helper() {}", 0.8, "src/util.rs", "Function", "helper", 5, 7));
+        window.add_chunk(create_chunk(
+            "c1",
+            "fn main() {}",
+            0.9,
+            "src/main.rs",
+            "Function",
+            "main",
+            1,
+            3,
+        ));
+        window.add_chunk(create_chunk(
+            "c2",
+            "fn helper() {}",
+            0.8,
+            "src/util.rs",
+            "Function",
+            "helper",
+            5,
+            7,
+        ));
         let summary = window.summarize();
         assert!(summary.contains("src/main.rs"));
         assert!(summary.contains("src/util.rs"));
@@ -235,7 +298,16 @@ mod tests {
     #[test]
     fn test_build_code_review_prompt() {
         let mut window = ContextWindow::new("review".into(), 4096);
-        window.add_chunk(create_chunk("c1", "fn main() {}", 0.9, "src/main.rs", "Function", "main", 1, 3));
+        window.add_chunk(create_chunk(
+            "c1",
+            "fn main() {}",
+            0.9,
+            "src/main.rs",
+            "Function",
+            "main",
+            1,
+            3,
+        ));
         let prompt = build_code_review_prompt(&window, "+let x = 5;");
         assert!(prompt.contains("code reviewer"));
         assert!(prompt.contains("+let x = 5;"));

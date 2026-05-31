@@ -2,8 +2,8 @@
 
 use crate::ssh::auth::{RateLimiter, SshKeyStore};
 use dashmap::DashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,7 +129,6 @@ impl SshServer {
 mod tests {
     use super::*;
     use crate::ssh::auth::InMemorySshKeyStore;
-    use std::thread;
 
     #[test]
     fn test_ssh_config_defaults() {

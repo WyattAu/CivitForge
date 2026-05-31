@@ -119,7 +119,7 @@ impl InferenceService {
 
         let model_id = &self.config.model_id;
         if !self.token_counter.check_budget(model_id) {
-            anyhow::bail!("token budget exceeded for model {}", model_id);
+            anyhow::bail!("token budget exceeded for model {model_id}");
         }
 
         let completion_tokens = prompt_tokens.min(max_tokens / 2);
@@ -148,7 +148,7 @@ impl InferenceService {
     pub fn stream(&self, request: &InferenceRequest) -> anyhow::Result<InferenceStream> {
         let (tx, rx) = mpsc::channel();
         let _prompt_tokens = estimate_tokens(&request.prompt);
-        let _ = self.token_counter.record_usage(
+        self.token_counter.record_usage(
             &self.config.model_id,
             estimate_tokens(&request.prompt) as u32,
         );
@@ -169,10 +169,7 @@ impl InferenceService {
 pub fn validate_airgap(config: &InferenceConfig) -> anyhow::Result<()> {
     let host = &config.host;
     if host != "127.0.0.1" && host != "localhost" && host != "::1" && host != "0.0.0.0" {
-        anyhow::bail!(
-            "air-gap violation: inference host {} is not a loopback address",
-            host
-        );
+        anyhow::bail!("air-gap violation: inference host {host} is not a loopback address");
     }
     if config.port == 0 {
         anyhow::bail!("air-gap violation: port 0 is invalid");

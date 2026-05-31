@@ -42,6 +42,12 @@ pub struct ModelRegistry {
     default_model: Option<String>,
 }
 
+impl Default for ModelRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ModelRegistry {
     pub fn new() -> Self {
         Self {
@@ -80,7 +86,7 @@ impl ModelRegistry {
 
     pub fn set_default(&mut self, id: &str) -> anyhow::Result<()> {
         if !self.models.contains_key(id) {
-            anyhow::bail!("model {} not found", id);
+            anyhow::bail!("model {id} not found");
         }
         self.default_model = Some(id.to_owned());
         Ok(())
@@ -175,7 +181,7 @@ impl TokenCounter {
 
     pub fn register_budget(&self, id: String, budget: TokenBudget) {
         self.budgets.insert(id.clone(), budget);
-        self.usage.entry(id).or_insert_with(TokenUsage::new);
+        self.usage.entry(id).or_default();
     }
 
     pub fn check_budget(&self, id: &str) -> bool {
@@ -208,8 +214,12 @@ impl TokenCounter {
 
     pub fn record_usage(&self, id: &str, tokens: u32) {
         if let Some(usage) = self.usage.get(id) {
-            usage.total_tokens.fetch_add(tokens as u64, Ordering::Relaxed);
-            usage.minute_tokens.fetch_add(tokens as u64, Ordering::Relaxed);
+            usage
+                .total_tokens
+                .fetch_add(tokens as u64, Ordering::Relaxed);
+            usage
+                .minute_tokens
+                .fetch_add(tokens as u64, Ordering::Relaxed);
             usage.day_tokens.fetch_add(tokens as u64, Ordering::Relaxed);
         }
     }
@@ -247,8 +257,7 @@ impl TokenCounter {
                 remaining_day: 0,
             });
 
-        let budget = self
-            .budgets
+        self.budgets
             .get(id)
             .map(|b| TokenUsageSnapshot {
                 total_tokens: usage.total_tokens,
@@ -257,9 +266,7 @@ impl TokenCounter {
                 remaining_minute: (b.tokens_per_minute as u64).saturating_sub(usage.minute_tokens),
                 remaining_day: (b.tokens_per_day as u64).saturating_sub(usage.day_tokens),
             })
-            .unwrap_or(usage);
-
-        budget
+            .unwrap_or(usage)
     }
 }
 
@@ -353,8 +360,12 @@ mod tests {
     #[test]
     fn test_search() {
         let registry = ModelRegistry::new();
-        registry.register(make_model_info("llama-7b", "Llama 7B")).unwrap();
-        registry.register(make_model_info("mistral-7b", "Mistral 7B")).unwrap();
+        registry
+            .register(make_model_info("llama-7b", "Llama 7B"))
+            .unwrap();
+        registry
+            .register(make_model_info("mistral-7b", "Mistral 7B"))
+            .unwrap();
         let results = registry.search("llama");
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].id, "llama-7b");
@@ -363,7 +374,9 @@ mod tests {
     #[test]
     fn test_search_case_insensitive() {
         let registry = ModelRegistry::new();
-        registry.register(make_model_info("LlamaModel", "Llama")).unwrap();
+        registry
+            .register(make_model_info("LlamaModel", "Llama"))
+            .unwrap();
         let results = registry.search("llama");
         assert_eq!(results.len(), 1);
     }

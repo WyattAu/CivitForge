@@ -101,7 +101,8 @@ impl SshKeyStore for InMemorySshKeyStore {
             return Err("key with this fingerprint already exists".to_string());
         }
         self.keys.insert(record.id, record.clone());
-        self.fingerprints.insert(record.fingerprint.clone(), record.id);
+        self.fingerprints
+            .insert(record.fingerprint.clone(), record.id);
         self.user_keys
             .entry(record.user_id)
             .or_default()
@@ -218,7 +219,11 @@ impl SshAuthService {
         }
     }
 
-    pub fn authenticate(&self, fingerprint: &str, ip: &str) -> Result<Option<SshKeyRecord>, String> {
+    pub fn authenticate(
+        &self,
+        fingerprint: &str,
+        ip: &str,
+    ) -> Result<Option<SshKeyRecord>, String> {
         if !self.rate_limiter.check(ip) {
             return Err("too many authentication failures".to_string());
         }
@@ -271,10 +276,7 @@ mod tests {
         assert_eq!(SshKeyType::Ed25519.as_str(), "ssh-ed25519");
         assert_eq!(SshKeyType::EcdsaP256.as_str(), "ecdsa-sha2-nistp256");
         assert_eq!(SshKeyType::Rsa4096.as_str(), "rsa");
-        assert_eq!(
-            SshKeyType::Unknown("custom".to_string()).as_str(),
-            "custom"
-        );
+        assert_eq!(SshKeyType::Unknown("custom".to_string()).as_str(), "custom");
     }
 
     #[test]
@@ -373,10 +375,12 @@ mod tests {
     #[test]
     fn test_in_memory_store_missing_fingerprint() {
         let store = InMemorySshKeyStore::new();
-        assert!(store
-            .lookup_by_fingerprint("SHA256:nonexistent")
-            .unwrap()
-            .is_none());
+        assert!(
+            store
+                .lookup_by_fingerprint("SHA256:nonexistent")
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
@@ -468,7 +472,9 @@ mod tests {
         let rl = RateLimiter::new(5, Duration::from_secs(60), Duration::from_secs(300));
         let service = SshAuthService::new(store, rl);
 
-        let result = service.authenticate("SHA256:nonexistent", "1.2.3.4").unwrap();
+        let result = service
+            .authenticate("SHA256:nonexistent", "1.2.3.4")
+            .unwrap();
         assert!(result.is_none());
     }
 
@@ -478,16 +484,22 @@ mod tests {
         let rl = RateLimiter::new(2, Duration::from_secs(60), Duration::from_secs(300));
         let service = SshAuthService::new(store, rl);
 
-        assert!(service
-            .authenticate("SHA256:nonexistent", "1.2.3.4")
-            .unwrap()
-            .is_none());
-        assert!(service
-            .authenticate("SHA256:nonexistent", "1.2.3.4")
-            .unwrap()
-            .is_none());
-        assert!(service
-            .authenticate("SHA256:nonexistent", "1.2.3.4")
-            .is_err());
+        assert!(
+            service
+                .authenticate("SHA256:nonexistent", "1.2.3.4")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            service
+                .authenticate("SHA256:nonexistent", "1.2.3.4")
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            service
+                .authenticate("SHA256:nonexistent", "1.2.3.4")
+                .is_err()
+        );
     }
 }

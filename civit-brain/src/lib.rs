@@ -3,9 +3,12 @@
 pub mod agent;
 pub mod ast;
 pub mod embedding;
+pub mod llm;
 pub mod models;
 pub mod qdrant;
 pub mod rag;
+pub mod rag_extended;
+pub mod review;
 pub mod treesitter;
 pub mod vectordb;
 

@@ -49,7 +49,11 @@ impl ChatSession {
         self.trim_history();
     }
 
-    pub fn add_assistant_response(&mut self, content: String, sources: Vec<crate::rag_extended::context::ChunkSource>) {
+    pub fn add_assistant_response(
+        &mut self,
+        content: String,
+        sources: Vec<crate::rag_extended::context::ChunkSource>,
+    ) {
         let msg = ChatMessage {
             role: ChatRole::Assistant,
             content,
@@ -129,11 +133,10 @@ impl CodebaseChat {
         let history_summary = session.summarize_history();
 
         let full_prompt = if history_summary.is_empty() {
-            format!("{}\n\nUser question: {}", context_prompt, query)
+            format!("{context_prompt}\n\nUser question: {query}")
         } else {
             format!(
-                "Conversation context: {}\n\n{}\n\nUser question: {}",
-                history_summary, context_prompt, query
+                "Conversation context: {history_summary}\n\n{context_prompt}\n\nUser question: {query}"
             )
         };
 
@@ -176,10 +179,7 @@ impl CodebaseChat {
             confidence,
         };
 
-        session.add_assistant_response(
-            result.response.clone(),
-            result.sources.clone(),
-        );
+        session.add_assistant_response(result.response.clone(), result.sources.clone());
 
         Ok(result)
     }
@@ -274,17 +274,19 @@ mod tests {
 
     #[test]
     fn test_query_basic() {
-        let mut chat = make_chat();
+        let chat = make_chat();
         let mut session = ChatSession::new("test".into(), 4096, 50);
         let chunks = vec![make_chunk("c1", "fn main() { println!(\"hello\"); }")];
-        let result = chat.query(&mut session, "what does main do?", &chunks).unwrap();
+        let result = chat
+            .query(&mut session, "what does main do?", &chunks)
+            .unwrap();
         assert!(!result.response.is_empty());
         assert_eq!(result.sources.len(), 1);
     }
 
     #[test]
     fn test_query_empty_context() {
-        let mut chat = make_chat();
+        let chat = make_chat();
         let mut session = ChatSession::new("test".into(), 4096, 50);
         let result = chat.query(&mut session, "hello?", &[]).unwrap();
         assert!(result.confidence < 0.5);
@@ -292,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_query_adds_messages_to_session() {
-        let mut chat = make_chat();
+        let chat = make_chat();
         let mut session = ChatSession::new("test".into(), 4096, 50);
         let chunks = vec![make_chunk("c1", "fn test() {}")];
         chat.query(&mut session, "explain test", &chunks).unwrap();
