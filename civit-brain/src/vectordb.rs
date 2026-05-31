@@ -261,3 +261,95 @@ mod tests {
         assert!((results[0].score - expected_score).abs() < 0.01);
     }
 }
+
+/// Adapter that delegates to a QdrantClient, implementing the same interface
+/// as the in-memory VectorDbClient but backed by a remote Qdrant instance.
+pub struct QdrantVectorDbAdapter {
+    client: crate::qdrant::client::QdrantClient,
+}
+
+impl QdrantVectorDbAdapter {
+    pub fn new(config: crate::qdrant::client::QdrantConfig) -> Self {
+        Self {
+            client: crate::qdrant::client::QdrantClient::new(config),
+        }
+    }
+
+    pub fn qdrant_client(&self) -> &crate::qdrant::client::QdrantClient {
+        &self.client
+    }
+
+    pub async fn upsert(
+        &self,
+        vector: &EmbeddingVector,
+        metadata: serde_json::Value,
+    ) -> anyhow::Result<()> {
+        let point = crate::qdrant::client::QdrantPoint {
+            id: vector.id.clone(),
+            vector: vector.data.clone(),
+            payload: metadata,
+        };
+        self.client.upsert_points(vec![point]).await?;
+        Ok(())
+    }
+
+    pub async fn upsert_batch(
+        &self,
+        vectors: &[(EmbeddingVector, serde_json::Value)],
+    ) -> anyhow::Result<usize> {
+        let points: Vec<crate::qdrant::client::QdrantPoint> = vectors
+            .iter()
+            .map(|(v, m)| crate::qdrant::client::QdrantPoint {
+                id: v.id.clone(),
+                vector: v.data.clone(),
+                payload: m.clone(),
+            })
+            .collect();
+        let count = points.len();
+        self.client.upsert_points(points).await?;
+        Ok(count)
+    }
+
+    pub async fn search(&self, query: &[f32], top_k: usize) -> Vec<VectorSearchResult> {
+        let request = crate::qdrant::client::QdrantSearchRequest {
+            vector: query.to_vec(),
+            top_k,
+            filter: None,
+            with_payload: true,
+            score_threshold: None,
+        };
+        match self.client.search(request).await {
+            Ok(points) => points
+                .into_iter()
+                .map(|p| VectorSearchResult {
+                    id: p.id,
+                    score: p.score,
+                    metadata: p.payload,
+                })
+                .collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    pub async fn delete(&self, id: &str) -> anyhow::Result<bool> {
+        let filter = crate::qdrant::client::FilterCondition::match_eq(
+            "id",
+            serde_json::json!(id),
+        );
+        let mut f = crate::qdrant::client::QdrantFilter::new();
+        f.must.push(filter);
+        let deleted = self.client.delete_points(f).await?;
+        Ok(deleted > 0)
+    }
+
+    pub async fn count(&self) -> anyhow::Result<usize> {
+        match self.client.collection_info().await {
+            Ok(info) => Ok(info.vectors_count as usize),
+            Err(_) => Ok(0),
+        }
+    }
+
+    pub async fn health(&self) -> anyhow::Result<bool> {
+        self.client.health().await
+    }
+}

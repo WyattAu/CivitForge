@@ -18,15 +18,116 @@ pub struct Link {
     pub href: String,
 }
 
-pub fn resolve_webfinger(domain: &str, username: &str) -> Result<WebFingerResponse> {
+/// Resolve a WebFinger query by issuing an HTTP GET to the remote server.
+///
+/// Follows RFC 7033: `GET /.well-known/webfinger?resource=acct:{username}@{domain}`
+/// Falls back to constructing a valid response from the domain/username if the
+/// remote server is unreachable, ensuring callers always get a usable result.
+pub async fn resolve_webfinger(domain: &str, username: &str) -> Result<WebFingerResponse> {
     if domain.is_empty() || username.is_empty() {
         return Err(CoreError::Federation(
             "domain and username must be non-empty".into(),
         ));
     }
 
+    let resource = format!("acct:{username}@{domain}");
+    let url = format!(
+        "https://{domain}/.well-known/webfinger?resource={resource}"
+    );
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| CoreError::Federation(format!("HTTP client error: {e}")))?;
+
+    match client.get(&url).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            match resp.json::<serde_json::Value>().await {
+                Ok(body) => parse_webfinger_json(&body, &resource, domain, username),
+                Err(_) => build_fallback_response(&resource, domain, username),
+            }
+        }
+        _ => build_fallback_response(&resource, domain, username),
+    }
+}
+
+fn parse_webfinger_json(
+    body: &serde_json::Value,
+    resource: &str,
+    domain: &str,
+    username: &str,
+) -> Result<WebFingerResponse> {
+    let subject = body
+        .get("subject")
+        .and_then(|v| v.as_str())
+        .unwrap_or(resource)
+        .to_string();
+
+    let aliases: Vec<String> = body
+        .get("aliases")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_else(|| vec![
+            format!("https://{domain}/users/{username}"),
+            format!("https://{domain}/u/{username}"),
+        ]);
+
+    let links: Vec<Link> = body
+        .get("links")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| {
+                    let rel = v.get("rel").and_then(|r| r.as_str())?;
+                    let type_ = v
+                        .get("type")
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let href = v
+                        .get("href")
+                        .and_then(|h| h.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    Some(Link {
+                        rel: rel.to_string(),
+                        type_,
+                        href,
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_else(|| vec![
+            Link {
+                rel: "self".into(),
+                type_: "application/activity+json".into(),
+                href: format!("https://{domain}/users/{username}"),
+            },
+            Link {
+                rel: "http://webfinger.net/rel/profile-page".into(),
+                type_: "text/html".into(),
+                href: format!("https://{domain}/{username}"),
+            },
+        ]);
+
     Ok(WebFingerResponse {
-        subject: format!("acct:{username}@{domain}"),
+        subject,
+        aliases,
+        links,
+    })
+}
+
+fn build_fallback_response(
+    resource: &str,
+    domain: &str,
+    username: &str,
+) -> Result<WebFingerResponse> {
+    Ok(WebFingerResponse {
+        subject: resource.to_string(),
         aliases: vec![
             format!("https://{domain}/users/{username}"),
             format!("https://{domain}/u/{username}"),
@@ -171,28 +272,71 @@ pub fn create_http_signature(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_resolve_webfinger() {
-        let response = resolve_webfinger("forge.example.com", "alice").unwrap();
-        assert_eq!(response.subject, "acct:alice@forge.example.com");
+    #[tokio::test]
+    async fn test_resolve_webfinger_fallback() {
+        // Unreachable domain should fall back to constructed response
+        let response = resolve_webfinger("nonexistent.invalid.tld", "alice")
+            .await
+            .unwrap();
+        assert_eq!(response.subject, "acct:alice@nonexistent.invalid.tld");
         assert_eq!(response.aliases.len(), 2);
         assert_eq!(response.links.len(), 2);
 
         let self_link = response.links.iter().find(|l| l.rel == "self").unwrap();
         assert_eq!(self_link.type_, "application/activity+json");
-        assert_eq!(self_link.href, "https://forge.example.com/users/alice");
+        assert_eq!(
+            self_link.href,
+            "https://nonexistent.invalid.tld/users/alice"
+        );
     }
 
-    #[test]
-    fn test_resolve_webfinger_empty_domain() {
-        let result = resolve_webfinger("", "alice");
+    #[tokio::test]
+    async fn test_resolve_webfinger_empty_domain() {
+        let result = resolve_webfinger("", "alice").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_resolve_webfinger_empty_username() {
+        let result = resolve_webfinger("forge.example.com", "").await;
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_resolve_webfinger_empty_username() {
-        let result = resolve_webfinger("forge.example.com", "");
-        assert!(result.is_err());
+    fn test_parse_webfinger_json_valid() {
+        let body = serde_json::json!({
+            "subject": "acct:bob@forge.example.com",
+            "aliases": ["https://forge.example.com/users/bob"],
+            "links": [
+                { "rel": "self", "type": "application/activity+json", "href": "https://forge.example.com/users/bob" }
+            ]
+        });
+        let result = parse_webfinger_json(
+            &body,
+            "acct:bob@forge.example.com",
+            "forge.example.com",
+            "bob",
+        )
+        .unwrap();
+        assert_eq!(result.subject, "acct:bob@forge.example.com");
+        assert_eq!(result.links.len(), 1);
+        assert_eq!(result.links[0].rel, "self");
+    }
+
+    #[test]
+    fn test_parse_webfinger_json_minimal() {
+        let body = serde_json::json!({});
+        let result = parse_webfinger_json(
+            &body,
+            "acct:a@b.com",
+            "b.com",
+            "a",
+        )
+        .unwrap();
+        assert_eq!(result.subject, "acct:a@b.com");
+        // Fallback aliases/links used when JSON fields missing
+        assert_eq!(result.aliases.len(), 2);
+        assert_eq!(result.links.len(), 2);
     }
 
     #[test]

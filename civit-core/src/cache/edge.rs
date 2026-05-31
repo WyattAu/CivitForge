@@ -51,6 +51,7 @@ impl EdgeNode {
 
 pub struct CacheEntry {
     pub data: Vec<u8>,
+    pub compressed: bool,
     pub compressed_size: usize,
     pub original_size: usize,
     pub created_at: DateTime<Utc>,
@@ -85,9 +86,9 @@ impl EdgeCacheManager {
     }
 
     pub fn register_node(&self, id: String, region: String, endpoint: String, capacity_bytes: u64) {
-        let node = EdgeNode::new(id.clone(), region, endpoint, capacity_bytes);
         info!(node_id = %id, region = %region, "registered edge node");
-        self.nodes.insert(id, node);
+        let node = EdgeNode::new(id, region, endpoint, capacity_bytes);
+        self.nodes.insert(node.id.clone(), node);
     }
 
     pub fn deregister_node(&self, id: &str) -> bool {
@@ -105,37 +106,75 @@ impl EdgeCacheManager {
         if let Some(entry) = self.cache.get(key) {
             entry.access_count.fetch_add(1, Ordering::Relaxed);
             self.hit_count.fetch_add(1, Ordering::Relaxed);
+            if entry.compressed {
+                let cursor = std::io::Cursor::new(&entry.data);
+                return zstd::decode_all(cursor).ok();
+            }
             return Some(entry.data.clone());
         }
         self.miss_count.fetch_add(1, Ordering::Relaxed);
         None
     }
 
-    pub fn put(&self, key: String, data: Vec<u8>) {
-        let compressed_size = data.len();
-        let original_size = data.len();
-        let node_id = if let Some(first_node) = self.nodes.iter().next() {
-            first_node.id.clone()
-        } else {
-            String::new()
-        };
+    /// Minimum data size (bytes) below which compression is skipped.
+    const COMPRESSION_THRESHOLD: usize = 512;
 
+    pub fn put(&self, key: String, data: Vec<u8>) {
+        let original_size = data.len();
+
+        // Attempt compression only for large payloads.
+        if data.len() >= Self::COMPRESSION_THRESHOLD {
+            if let Ok(encoded) = zstd::encode_all(std::io::Cursor::new(&data), 3) {
+                if encoded.len() < original_size {
+                    // Compression saved space -- use it.
+                    let encoded_len = encoded.len();
+                    let node_id = self.pick_node_id();
+                    let node = self.nodes.get(&node_id);
+                    if let Some(ref n) = node {
+                        n.add_usage(encoded_len as u64);
+                    }
+                    drop(node);
+                    let entry = CacheEntry {
+                        data: encoded,
+                        compressed: true,
+                        compressed_size: encoded_len,
+                        original_size,
+                        created_at: Utc::now(),
+                        access_count: Arc::new(AtomicU64::new(0)),
+                        node_id,
+                    };
+                    self.cache.insert(key, entry);
+                    return;
+                }
+                // Compression didn't help -- fall through to uncompressed.
+            }
+        }
+
+        // No compression or compression didn't reduce size.
+        let node_id = self.pick_node_id();
         let node = self.nodes.get(&node_id);
         if let Some(ref n) = node {
             n.add_usage(data.len() as u64);
         }
         drop(node);
-
         let entry = CacheEntry {
             data,
-            compressed_size,
+            compressed: false,
+            compressed_size: original_size,
             original_size,
             created_at: Utc::now(),
             access_count: Arc::new(AtomicU64::new(0)),
-            node_id: node_id.clone(),
+            node_id,
         };
-
         self.cache.insert(key, entry);
+    }
+
+    fn pick_node_id(&self) -> String {
+        self.nodes
+            .iter()
+            .next()
+            .map(|n| n.id.clone())
+            .unwrap_or_default()
     }
 
     pub fn invalidate(&self, key: &str) -> bool {
@@ -340,5 +379,31 @@ mod tests {
             let ts_after = node.last_heartbeat.load(Ordering::Relaxed);
             assert!(ts_after >= ts_before);
         }
+    }
+
+    #[test]
+    fn test_put_compresses_large_data() {
+        let mgr = EdgeCacheManager::new();
+        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1_048_576);
+        // 8KB of repetitive data -- should compress well
+        let data = "abcdefghij".repeat(1024).into_bytes();
+        mgr.put("big-key".into(), data.clone());
+        let val = mgr.get("big-key").unwrap();
+        assert_eq!(val, data);
+        if let Some(entry) = mgr.cache.get("big-key") {
+            assert!(entry.compressed, "large entry should be compressed");
+            assert!(entry.compressed_size < entry.original_size);
+        }
+    }
+
+    #[test]
+    fn test_put_skips_compression_for_small_data() {
+        let mgr = EdgeCacheManager::new();
+        mgr.register_node("node-1".into(), "us-east".into(), "http://node1:8080".into(), 1024);
+        mgr.put("tiny".into(), b"hello".to_vec());
+        if let Some(entry) = mgr.cache.get("tiny") {
+            assert!(!entry.compressed, "small entry should not be compressed");
+        }
+        assert_eq!(mgr.get("tiny").unwrap(), b"hello");
     }
 }
