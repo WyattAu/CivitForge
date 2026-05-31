@@ -37,15 +37,15 @@ jobs:
         run: cargo fmt --check --all
 
       - name: Run Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Run tests
         run: cargo test --workspace --locked
 
       - name: Build release
-        run: cargo build --workspace --release
+        run: cargo build --workspace --release --locked
 
       - name: Generate coverage report
         run: |
-          cargo install cargo-llvm-cov --locked || true
+          cargo install cargo-llvm-cov --locked --force || true
           cargo llvm-cov --workspace --summary-only || true

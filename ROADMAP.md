@@ -6,25 +6,26 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 
 ---
 
-## Current State: v0.1.1 (Post-Audit Hardened Prototype)
+## Current State: v0.1.2 (Orphan Modules Integrated, Security Hardened)
 
 | Metric | Value |
 |---|---|
-| Version | 0.1.1 |
+| Version | 0.1.2 |
 | Crates | 5 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto) |
-| Unit tests | 773 passing, 0 ignored |
+| Unit tests | 885 passing, 0 ignored |
 | Lean4 proofs | 5/5 compiling |
 | Rust source files | 115 |
-| Lines of code | 27,362 |
+| Lines of code | 29,086 |
 | Spec artifacts | 42 |
 | EARS requirements | 69 |
 | Clippy warnings | 0 |
-| Test coverage (line) | 85.60% |
-| Test coverage (region) | 86.60% |
+| Test coverage (line) | 85.61% |
+| Test coverage (region) | 86.61% |
 | `#![forbid(unsafe_code)]` | Enforced across all crates |
 | MSRV | Rust 1.88 (edition 2024) |
-| CI | Hardened (toolchain pinning, `--locked`, cache key includes `rust-toolchain.toml`) |
-| Pre-commit hooks | fmt + clippy + test --locked |
+| CI | Hardened (toolchain pinning, `--locked` on all build/test/clippy steps) |
+| Pre-commit hooks | fmt + clippy --locked + test --locked |
+| SAML security | Fail-closed signature validation |
 | Documentation | 8 ADRs, CONTRIBUTING.md, CHANGELOG.md, landing page at GitHub Pages |
 
 ### Technology Stack (Prototype)

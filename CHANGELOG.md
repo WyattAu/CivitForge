@@ -9,8 +9,25 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+- Integrated 4 orphan modules into their crate lib.rs files: `civit-core/src/ssh/` (3 files), `civit-brain/src/llm/` (3 files), `civit-brain/src/rag_extended/` (3 files), `civit-brain/src/review/` (3 files)
+- Added re-exports: `SshConfig`, `SshServer`, `SshAuthService` in civit-core; module declarations in civit-brain
+- 112 new unit tests from previously uncompiled orphan code (total: 773 -> 885)
+
 ### Changed
-- Updated MSRV from Rust 1.85 to 1.88 (transitive dependency requirements from `home` 0.5 and `time` 0.3)
+- Updated VERSION.md artifact counts: 115 source files, 29,086 LOC, 885 unit tests (was 27,362 LOC, 773 tests)
+- CI workflow: added `--locked` flag to `cargo clippy` and `cargo build --release` for reproducible builds
+- CI workflow: changed `cargo install cargo-llvm-cov` to use `--force` to handle existing installations
+
+### Fixed
+- SAML signature validation: changed from insecure stub (always returns `true`) to fail-closed (always returns `false`) until XML-DSIG implementation
+- SAML test: updated `test_is_valid_signature_stub` to `test_is_valid_signature_fail_closed` asserting rejection
+- Clippy fixes in orphan modules: `uninlined_format_args`, `let_unit_value`, `new_without_default`, `or_insert_with` -> `or_default`, `manual_strip`, `collapsible_if`, `too_many_arguments`, `let_and_return`, `unnecessary_map_or`, `unused_mut`
+- Review analyzer test: fixed `test_analyze_clean_diff` test data to use proper diff `+` prefix instead of space prefix
+- Review rules test: fixed `test_evaluate_secret` and `test_secret_case_insensitive` test inputs to match assignment pattern detection logic
+
+### Security
+- SAML `is_valid_signature()` now returns `false` (fail-closed) instead of `true` (fail-open)
 - Added `rust-toolchain.toml` for reproducible builds across all environments
 - Pinned CI pipeline to Rust 1.88 (was `rust:latest` container, non-deterministic)
 - Applied `clippy::uninlined_format_args` fixes across civit-core, civit-crypto, civit-runner (Rust 1.88 lint change)
