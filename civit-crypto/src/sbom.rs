@@ -77,7 +77,7 @@ impl SbomGenerator {
         let relationships: Vec<SbomRelationship> = packages
             .iter()
             .map(|pkg| SbomRelationship {
-                spdx_id: format!("SPDXRef-{}", name),
+                spdx_id: format!("SPDXRef-{name}"),
                 relationship_type: "DEPENDS_ON".into(),
                 related_spdx_id: pkg.spdx_id.clone(),
             })

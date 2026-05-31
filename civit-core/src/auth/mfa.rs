@@ -45,8 +45,7 @@ impl TotpService {
         let encoded_issuer = url_encode(&self.issuer);
         let encoded_email = url_encode(email);
         format!(
-            "otpauth://totp/{}:{}?secret={}&issuer={}&algorithm=SHA1&digits=6&period=30",
-            encoded_issuer, encoded_email, secret, encoded_issuer
+            "otpauth://totp/{encoded_issuer}:{encoded_email}?secret={secret}&issuer={encoded_issuer}&algorithm=SHA1&digits=6&period=30"
         )
     }
 
@@ -173,7 +172,7 @@ fn url_encode(input: &str) -> String {
                 out.push(byte as char);
             }
             _ => {
-                out.push_str(&format!("%{:02X}", byte));
+                out.push_str(&format!("%{byte:02X}"));
             }
         }
     }

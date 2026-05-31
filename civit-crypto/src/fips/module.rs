@@ -91,7 +91,7 @@ impl FipsModule {
 
     pub fn hash(&self, data: &[u8], algorithm: &str) -> anyhow::Result<Vec<u8>> {
         if self.config.enforce_fips && !self.is_approved(algorithm) {
-            anyhow::bail!("algorithm '{}' is not FIPS-approved", algorithm);
+            anyhow::bail!("algorithm '{algorithm}' is not FIPS-approved");
         }
         if !self.self_test_passed.load(Ordering::SeqCst) {
             anyhow::bail!("FIPS self-tests have not passed");
@@ -109,7 +109,7 @@ impl FipsModule {
                 let result = Sha512::digest(data);
                 Ok(result.to_vec())
             }
-            _ => anyhow::bail!("unsupported algorithm: {}", algorithm),
+            _ => anyhow::bail!("unsupported algorithm: {algorithm}"),
         }
     }
 

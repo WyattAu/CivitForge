@@ -54,7 +54,7 @@ impl Reconciler {
     pub fn submit(&self, spec: PipelineRunSpec) -> anyhow::Result<()> {
         let name = spec.name.clone();
         if self.running.contains_key(&name) || self.queue.contains_key(&name) {
-            anyhow::bail!("pipeline run '{}' already exists", name);
+            anyhow::bail!("pipeline run '{name}' already exists");
         }
         let status = PipelineRunStatus::new_pending("submitted");
         self.queue.insert(name.clone(), spec);

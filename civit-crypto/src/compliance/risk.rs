@@ -260,8 +260,8 @@ mod tests {
     fn sample_risk(id: &str, likelihood: RiskLevel, impact: RiskLevel) -> Risk {
         Risk {
             id: id.to_string(),
-            title: format!("Risk {}", id),
-            description: format!("Description for risk {}", id),
+            title: format!("Risk {id}"),
+            description: format!("Description for risk {id}"),
             category: RiskCategory::Security,
             likelihood,
             impact,

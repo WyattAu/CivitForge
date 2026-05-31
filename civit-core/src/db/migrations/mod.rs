@@ -134,14 +134,14 @@ mod tests {
 
     #[test]
     fn test_initial_schema_sql_not_empty() {
-        assert!(!M_001_INITIAL_SCHEMA_UP.is_empty());
+        assert_ne!(M_001_INITIAL_SCHEMA_UP, "");
         assert!(M_001_INITIAL_SCHEMA_UP.contains("CREATE TABLE IF NOT EXISTS users"));
         assert!(M_001_INITIAL_SCHEMA_UP.contains("CREATE TABLE IF NOT EXISTS schema_migrations"));
     }
 
     #[test]
     fn test_initial_schema_down_sql_not_empty() {
-        assert!(!M_001_INITIAL_SCHEMA_DOWN.is_empty());
+        assert_ne!(M_001_INITIAL_SCHEMA_DOWN, "");
         assert!(M_001_INITIAL_SCHEMA_DOWN.contains("DROP TABLE IF EXISTS"));
     }
 }

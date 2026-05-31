@@ -85,20 +85,20 @@ impl Scheduler {
                         return ScheduleDecision {
                             pool: pool_name.clone(),
                             node: None,
-                            reason: format!("gpu requirement matched pool '{}'", pool_name),
+                            reason: format!("gpu requirement matched pool '{pool_name}'"),
                         };
                     }
                     return ScheduleDecision {
                         pool: pool_name.clone(),
                         node: None,
-                        reason: format!("gpu pool '{}' full", pool_name),
+                        reason: format!("gpu pool '{pool_name}' full"),
                     };
                 }
             }
             return ScheduleDecision {
                 pool: String::new(),
                 node: None,
-                reason: format!("no pool for gpu request: {}", gpu),
+                reason: format!("no pool for gpu request: {gpu}"),
             };
         }
 
@@ -109,7 +109,7 @@ impl Scheduler {
                     return ScheduleDecision {
                         pool: pool_name.clone(),
                         node: None,
-                        reason: format!("matched pool '{}'", pool_name),
+                        reason: format!("matched pool '{pool_name}'"),
                     };
                 }
             }

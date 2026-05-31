@@ -121,25 +121,22 @@ impl HsmClient {
         let sk_id = format!("sk-{}", uuid::Uuid::new_v4());
 
         let (pk_alg, sk_alg) = match key_type {
-            KeyType::Rsa => (format!("RSA-{}", bits), format!("RSA-{}", bits)),
+            KeyType::Rsa => (format!("RSA-{bits}"), format!("RSA-{bits}")),
             KeyType::Ecc => ("ECDSA-P256".to_string(), "ECDSA-P256".to_string()),
-            _ => anyhow::bail!(
-                "key type {:?} not supported for key pair generation",
-                key_type
-            ),
+            _ => anyhow::bail!("key type {key_type:?} not supported for key pair generation"),
         };
 
         Ok((
             HsmKeyHandle {
                 id: pk_id,
-                label: format!("{}-pub", label),
+                label: format!("{label}-pub"),
                 key_type: key_type.clone(),
                 algorithm: pk_alg,
                 handle: 1,
             },
             HsmKeyHandle {
                 id: sk_id,
-                label: format!("{}-priv", label),
+                label: format!("{label}-priv"),
                 key_type,
                 algorithm: sk_alg,
                 handle: 2,
@@ -190,16 +187,16 @@ fn software_sign_rsa(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     let rng = ring::rand::SystemRandom::new();
     let pkcs8_bytes =
         signature::EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, &rng)
-            .map_err(|e| anyhow::anyhow!("key generation failed: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("key generation failed: {e:?}"))?;
     let key_pair = signature::EcdsaKeyPair::from_pkcs8(
         &signature::ECDSA_P256_SHA256_ASN1_SIGNING,
         pkcs8_bytes.as_ref(),
         &rng,
     )
-    .map_err(|e| anyhow::anyhow!("key parsing failed: {:?}", e))?;
+    .map_err(|e| anyhow::anyhow!("key parsing failed: {e:?}"))?;
     let sig = key_pair
         .sign(&rng, data)
-        .map_err(|e| anyhow::anyhow!("signing failed: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("signing failed: {e:?}"))?;
     Ok(sig.as_ref().to_vec())
 }
 
@@ -211,16 +208,16 @@ fn software_sign_ecdsa(data: &[u8]) -> anyhow::Result<Vec<u8>> {
     let rng = ring::rand::SystemRandom::new();
     let pkcs8_bytes =
         signature::EcdsaKeyPair::generate_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, &rng)
-            .map_err(|e| anyhow::anyhow!("key generation failed: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("key generation failed: {e:?}"))?;
     let key_pair = signature::EcdsaKeyPair::from_pkcs8(
         &signature::ECDSA_P256_SHA256_ASN1_SIGNING,
         pkcs8_bytes.as_ref(),
         &rng,
     )
-    .map_err(|e| anyhow::anyhow!("key parsing failed: {:?}", e))?;
+    .map_err(|e| anyhow::anyhow!("key parsing failed: {e:?}"))?;
     let sig = key_pair
         .sign(&rng, data)
-        .map_err(|e| anyhow::anyhow!("signing failed: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("signing failed: {e:?}"))?;
     Ok(sig.as_ref().to_vec())
 }
 

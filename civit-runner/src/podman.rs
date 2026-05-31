@@ -140,7 +140,7 @@ impl PodmanService {
     pub fn exec(&self, _container_id: &str, command: &str) -> anyhow::Result<ExecResult> {
         Ok(ExecResult {
             exit_code: 0,
-            stdout: format!("executed: {}", command),
+            stdout: format!("executed: {command}"),
             stderr: String::new(),
         })
     }
@@ -161,7 +161,7 @@ impl PodmanService {
 
     pub fn logs(&self, _container_id: &str, tail: Option<usize>) -> anyhow::Result<String> {
         let limit = tail.unwrap_or(100);
-        let lines: Vec<String> = (0..limit).map(|i| format!("log line {}", i)).collect();
+        let lines: Vec<String> = (0..limit).map(|i| format!("log line {i}")).collect();
         Ok(lines.join("\n"))
     }
 

@@ -83,7 +83,7 @@ impl ProvenanceEngine {
         let relationships: Vec<SbomRelationship> = packages
             .iter()
             .map(|pkg| SbomRelationship {
-                from: format!("SPDXRef-{}", name),
+                from: format!("SPDXRef-{name}"),
                 r#type: "DEPENDS_ON".into(),
                 to: pkg.spdx_id.clone(),
             })

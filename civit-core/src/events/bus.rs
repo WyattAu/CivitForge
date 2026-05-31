@@ -89,7 +89,7 @@ impl EventBus {
             return true;
         }
         if let Some(repo_id) = self.extract_repo_id(event) {
-            if topic == format!("repo:{}", repo_id) {
+            if topic == format!("repo:{repo_id}") {
                 return true;
             }
         }
@@ -142,7 +142,7 @@ mod tests {
             category,
             EventPayload::SystemEvent {
                 level: crate::events::model::SystemLevel::Info,
-                message: format!("test for {}", repo_id),
+                message: format!("test for {repo_id}"),
             },
             "test.local".to_string(),
         )
@@ -187,7 +187,7 @@ mod tests {
                     EventCategory::System,
                     EventPayload::SystemEvent {
                         level: crate::events::model::SystemLevel::Info,
-                        message: format!("event-{}", i),
+                        message: format!("event-{i}"),
                     },
                     "test.local".to_string(),
                 ),
@@ -240,7 +240,7 @@ mod tests {
                     EventCategory::System,
                     EventPayload::SystemEvent {
                         level: crate::events::model::SystemLevel::Info,
-                        message: format!("ev-{}", i),
+                        message: format!("ev-{i}"),
                     },
                     "test.local".to_string(),
                 ),

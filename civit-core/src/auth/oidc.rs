@@ -240,7 +240,7 @@ pub(crate) mod urlencoding {
                     out.push(byte as char);
                 }
                 _ => {
-                    out.push_str(&format!("%{:02X}", byte));
+                    out.push_str(&format!("%{byte:02X}"));
                 }
             }
         }

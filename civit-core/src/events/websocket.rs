@@ -89,7 +89,7 @@ impl WebSocketManager {
             let mut should_send = conn.subscriptions.contains("global");
             if !should_send {
                 if let Some(repo_id) = self.extract_repo_id(event) {
-                    should_send = conn.subscriptions.contains(&format!("repo:{}", repo_id));
+                    should_send = conn.subscriptions.contains(&format!("repo:{repo_id}"));
                 }
             }
             if should_send {
@@ -102,7 +102,7 @@ impl WebSocketManager {
         let mut conn = self
             .connections
             .get_mut(&conn_id)
-            .ok_or_else(|| anyhow::anyhow!("connection not found: {}", conn_id))?;
+            .ok_or_else(|| anyhow::anyhow!("connection not found: {conn_id}"))?;
         conn.record_ping();
         Ok(())
     }

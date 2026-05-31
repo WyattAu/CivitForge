@@ -125,7 +125,7 @@ impl DagSyncEngine {
         };
 
         for node in self.nodes.keys() {
-            if self.dfs_cycle(node, &adj, &mut visited, &mut stack) {
+            if Self::dfs_cycle(node, &adj, &mut visited, &mut stack) {
                 return true;
             }
         }
@@ -133,7 +133,6 @@ impl DagSyncEngine {
     }
 
     fn dfs_cycle(
-        &self,
         node: &str,
         adj: &HashMap<&str, Vec<&str>>,
         visited: &mut HashSet<String>,
@@ -145,7 +144,7 @@ impl DagSyncEngine {
         if let Some(neighbors) = adj.get(node) {
             for neighbor in neighbors {
                 if !visited.contains(*neighbor) {
-                    if self.dfs_cycle(neighbor, adj, visited, stack) {
+                    if Self::dfs_cycle(neighbor, adj, visited, stack) {
                         return true;
                     }
                 } else if stack.contains(*neighbor) {

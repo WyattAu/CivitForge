@@ -223,7 +223,7 @@ impl ForgeFedProcessor {
                 } else {
                     ProcessingOutcome::Accepted {
                         activity_id: id.clone(),
-                        message: format!("{} wants to follow {}", actor, target),
+                        message: format!("{actor} wants to follow {target}"),
                     }
                 }
             }
@@ -291,7 +291,7 @@ impl ForgeFedProcessor {
                 } else {
                     ProcessingOutcome::Accepted {
                         activity_id: id.clone(),
-                        message: format!("{} liked {} {}", actor, target_type, target_id),
+                        message: format!("{actor} liked {target_type} {target_id}"),
                     }
                 }
             }
@@ -304,7 +304,7 @@ impl ForgeFedProcessor {
                 } else {
                     ProcessingOutcome::Accepted {
                         activity_id: id.clone(),
-                        message: format!("{} accepted {}", actor, target),
+                        message: format!("{actor} accepted {target}"),
                     }
                 }
             }
@@ -317,7 +317,7 @@ impl ForgeFedProcessor {
                 } else {
                     ProcessingOutcome::Accepted {
                         activity_id: id.clone(),
-                        message: format!("{} rejected {}", actor, target),
+                        message: format!("{actor} rejected {target}"),
                     }
                 }
             }
@@ -334,7 +334,7 @@ impl ForgeFedProcessor {
                 } else {
                     ProcessingOutcome::Accepted {
                         activity_id: id.clone(),
-                        message: format!("{} undid {} {}", actor, target_type, target_id),
+                        message: format!("{actor} undid {target_type} {target_id}"),
                     }
                 }
             }

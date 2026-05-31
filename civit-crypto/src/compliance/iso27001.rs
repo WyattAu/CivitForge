@@ -140,7 +140,7 @@ impl AssetInventory {
         report.push_str(&format!("Total Assets: {}\n\n", self.assets.len()));
 
         for (category, ids) in &self.categories {
-            report.push_str(&format!("[{}]\n", category));
+            report.push_str(&format!("[{category}]\n"));
             for id in ids {
                 if let Some(asset) = self.assets.iter().find(|a| a.id == *id) {
                     report.push_str(&format!(
@@ -369,7 +369,7 @@ mod tests {
     fn sample_asset(id: &str, asset_type: AssetType, criticality: Criticality) -> Asset {
         Asset {
             id: id.to_string(),
-            name: format!("Asset {}", id),
+            name: format!("Asset {id}"),
             asset_type,
             owner: "owner-1".to_string(),
             classification: Classification::Confidential,
