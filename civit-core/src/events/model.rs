@@ -44,6 +44,13 @@ pub enum SystemLevel {
     Critical,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PresenceAction {
+    Enter,
+    Leave,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum EventPayload {
@@ -95,6 +102,13 @@ pub enum EventPayload {
         level: SystemLevel,
         message: String,
     },
+    PresenceEvent {
+        resource_type: String,
+        resource_id: String,
+        user_id: Option<String>,
+        action: PresenceAction,
+        active_users: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -107,6 +121,7 @@ pub enum EventCategory {
     Federation,
     Admin,
     System,
+    Presence,
 }
 
 impl From<&EventPayload> for EventCategory {
@@ -119,6 +134,7 @@ impl From<&EventPayload> for EventCategory {
             EventPayload::FederationEvent { .. } => EventCategory::Federation,
             EventPayload::AdminEvent { .. } => EventCategory::Admin,
             EventPayload::SystemEvent { .. } => EventCategory::System,
+            EventPayload::PresenceEvent { .. } => EventCategory::Presence,
         }
     }
 }
@@ -274,5 +290,33 @@ mod tests {
             let back: CiStatus = serde_json::from_str(&j).expect("deserialize ci status");
             assert_eq!(*s, back);
         }
+
+        let presence_actions = [PresenceAction::Enter, PresenceAction::Leave];
+        for a in &presence_actions {
+            let s = serde_json::to_string(a).expect("serialize presence action");
+            let back: PresenceAction =
+                serde_json::from_str(&s).expect("deserialize presence action");
+            assert_eq!(*a, back);
+        }
+    }
+
+    #[test]
+    fn presence_event_roundtrip() {
+        let event = Event::new(
+            EventCategory::Presence,
+            EventPayload::PresenceEvent {
+                resource_type: "pr".to_string(),
+                resource_id: "pr-456".to_string(),
+                user_id: Some("alice".to_string()),
+                action: PresenceAction::Enter,
+                active_users: vec!["alice".to_string(), "bob".to_string()],
+            },
+            "civitforge.local".to_string(),
+        );
+
+        let json = serde_json::to_string(&event).expect("serialize");
+        let deserialized: Event = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(event.category, deserialized.category);
+        assert_eq!(EventCategory::from(&event.payload), EventCategory::Presence);
     }
 }

@@ -1,15 +1,17 @@
 #![forbid(unsafe_code)]
 
 #[cfg(feature = "ssh-server")]
-use crate::error::{CoreError, Result};
+use crate::error::Result;
 #[cfg(feature = "ssh-server")]
 use crate::git::GitService;
+#[cfg(feature = "ssh-server")]
+use crate::ssh::auth::SshAuthService;
 #[cfg(feature = "ssh-server")]
 use crate::ssh::server::SshConfig;
 #[cfg(feature = "ssh-server")]
 use russh::ChannelId;
 #[cfg(feature = "ssh-server")]
-use russh::keys::{self, Algorithm, PrivateKey};
+use russh::keys::{Algorithm, PrivateKey};
 #[cfg(feature = "ssh-server")]
 use russh::server::{self, Auth, Handler, Server};
 #[cfg(feature = "ssh-server")]
@@ -24,23 +26,31 @@ use tracing::{error, info, warn};
 pub struct SshDaemon {
     config: SshConfig,
     git_service: Arc<GitService>,
+    auth_service: Arc<SshAuthService>,
     pub server_handle: Arc<RwLock<Option<tokio::task::JoinHandle<()>>>>,
 }
 
 #[cfg(feature = "ssh-server")]
 impl SshDaemon {
-    pub fn new(config: SshConfig, git_service: Arc<GitService>) -> Self {
+    pub fn new(
+        config: SshConfig,
+        git_service: Arc<GitService>,
+        auth_service: Arc<SshAuthService>,
+    ) -> Self {
         Self {
             config,
             git_service,
+            auth_service,
             server_handle: Arc::new(RwLock::new(None)),
         }
     }
 
     pub async fn start(&self) -> Result<()> {
         let addr = format!("{}:{}", self.config.host, self.config.port);
+        let addr_display = addr.clone();
         let config = Arc::new(self.config.clone());
         let git_service = self.git_service.clone();
+        let auth_service = self.auth_service.clone();
 
         let handle = tokio::spawn(async move {
             let host_key_path = std::path::Path::new(&config.host_keys_path);
@@ -49,6 +59,7 @@ impl SshDaemon {
             let mut server = SshDaemonServer {
                 config: config.clone(),
                 git_service,
+                auth_service,
             };
 
             let addr_parsed: std::net::SocketAddr = addr
@@ -69,7 +80,7 @@ impl SshDaemon {
 
         let mut lock = self.server_handle.write().await;
         *lock = Some(handle);
-        info!(addr = %addr, "SSH daemon started");
+        info!(addr = %addr_display, "SSH daemon started");
         Ok(())
     }
 
@@ -110,6 +121,7 @@ impl SshDaemon {
 struct SshDaemonServer {
     config: Arc<SshConfig>,
     git_service: Arc<GitService>,
+    auth_service: Arc<SshAuthService>,
 }
 
 #[cfg(feature = "ssh-server")]
@@ -131,6 +143,70 @@ impl From<russh::Error> for DaemonError {
 }
 
 #[cfg(feature = "ssh-server")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum GitCommand {
+    UploadPack { repo_path: String },
+    ReceivePack { repo_path: String },
+}
+
+#[cfg(feature = "ssh-server")]
+pub(crate) fn parse_git_command(command: &str) -> std::result::Result<GitCommand, DaemonError> {
+    let cmd = command.trim();
+
+    let (service_name, arg) = if let Some(rest) = cmd.strip_prefix("git-upload-pack ") {
+        ("upload-pack", rest.trim())
+    } else if let Some(rest) = cmd.strip_prefix("git-receive-pack ") {
+        ("receive-pack", rest.trim())
+    } else {
+        return Err(DaemonError(format!("unknown command: {cmd}")));
+    };
+
+    let repo_path = arg.strip_prefix('\'').and_then(|s| s.strip_suffix('\''));
+
+    let repo_path = match repo_path {
+        Some(p) => p,
+        None => {
+            return Err(DaemonError(format!("invalid repo path argument: {arg}")));
+        }
+    };
+
+    let repo_path = repo_path
+        .strip_suffix(".git")
+        .unwrap_or(repo_path)
+        .to_string();
+
+    match service_name {
+        "upload-pack" => Ok(GitCommand::UploadPack { repo_path }),
+        "receive-pack" => Ok(GitCommand::ReceivePack { repo_path }),
+        _ => Err(DaemonError(format!("unknown git service: {service_name}"))),
+    }
+}
+
+#[cfg(feature = "ssh-server")]
+pub(crate) fn parse_repo_path(repo_path: &str) -> std::result::Result<(&str, &str), DaemonError> {
+    let mut parts = repo_path.splitn(2, '/');
+    let owner = parts
+        .next()
+        .ok_or_else(|| DaemonError("missing owner".into()))?;
+    let name = parts
+        .next()
+        .ok_or_else(|| DaemonError("missing repo name".into()))?;
+
+    if owner.is_empty() || name.is_empty() {
+        return Err(DaemonError("invalid repo path format".into()));
+    }
+
+    Ok((owner, name))
+}
+
+#[cfg(feature = "ssh-server")]
+pub(crate) fn compute_fingerprint(public_key: &russh::keys::PublicKey) -> String {
+    public_key
+        .fingerprint(russh::keys::HashAlg::Sha256)
+        .to_string()
+}
+
+#[cfg(feature = "ssh-server")]
 impl Server for SshDaemonServer {
     type Handler = Self;
 
@@ -138,6 +214,7 @@ impl Server for SshDaemonServer {
         SshDaemonServer {
             config: self.config.clone(),
             git_service: self.git_service.clone(),
+            auth_service: self.auth_service.clone(),
         }
     }
 
@@ -156,12 +233,36 @@ impl Handler for SshDaemonServer {
 
     async fn auth_publickey(
         &mut self,
-        _user: &str,
-        _public_key: &russh::keys::PublicKey,
+        user: &str,
+        public_key: &russh::keys::PublicKey,
     ) -> std::result::Result<Auth, Self::Error> {
-        Ok(Auth::Reject {
-            proceed_with_methods: None,
-        })
+        if user == "git" {
+            return Ok(Auth::Accept);
+        }
+
+        let fingerprint = compute_fingerprint(public_key);
+        info!(user = %user, fingerprint = %fingerprint, "SSH pubkey auth attempt");
+
+        match self.auth_service.authenticate(&fingerprint, "ssh") {
+            Ok(Some(_record)) => {
+                info!(user = %user, fingerprint = %fingerprint, "SSH pubkey auth accepted");
+                Ok(Auth::Accept)
+            }
+            Ok(None) => {
+                info!(user = %user, fingerprint = %fingerprint, "SSH pubkey auth rejected: key not found");
+                Ok(Auth::Reject {
+                    proceed_with_methods: None,
+                    partial_success: false,
+                })
+            }
+            Err(e) => {
+                warn!(user = %user, error = %e, "SSH pubkey auth error");
+                Ok(Auth::Reject {
+                    proceed_with_methods: None,
+                    partial_success: false,
+                })
+            }
+        }
     }
 
     async fn channel_open_session(
@@ -180,7 +281,36 @@ impl Handler for SshDaemonServer {
     ) -> std::result::Result<(), Self::Error> {
         let command = String::from_utf8_lossy(data).to_string();
         info!(command = %command, "exec request");
-        let _ = (channel, session);
+
+        let git_cmd = parse_git_command(&command)?;
+
+        let repo_path_str = match &git_cmd {
+            GitCommand::UploadPack { repo_path } => repo_path.as_str(),
+            GitCommand::ReceivePack { repo_path } => repo_path.as_str(),
+        };
+
+        let (owner, name) = parse_repo_path(repo_path_str)?;
+
+        if !self.git_service.repo_exists(owner, name) {
+            let msg = format!("repository not found: {owner}/{name}");
+            let _ = session.data(channel, bytes::Bytes::from(format!("ERR: {msg}\n")));
+            let _ = session.close(channel);
+            return Err(DaemonError(msg));
+        }
+
+        let repo_fs_path = self.git_service.repo_path(owner, name);
+        let service = match &git_cmd {
+            GitCommand::UploadPack { .. } => "upload-pack",
+            GitCommand::ReceivePack { .. } => "receive-pack",
+        };
+
+        let response = crate::git::http::info_refs(&repo_fs_path, service)
+            .map_err(|e| DaemonError(e.to_string()))?;
+
+        session
+            .data(channel, bytes::Bytes::from(response))
+            .map_err(|e| DaemonError(e.to_string()))?;
+
         Ok(())
     }
 }
@@ -192,5 +322,136 @@ pub struct SshDaemon;
 impl SshDaemon {
     pub fn new() -> Self {
         Self
+    }
+}
+
+#[cfg(feature = "ssh-server")]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_git_upload_pack() {
+        let cmd = parse_git_command("git-upload-pack 'owner/repo.git'");
+        assert_eq!(
+            cmd.unwrap(),
+            GitCommand::UploadPack {
+                repo_path: "owner/repo".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_git_receive_pack() {
+        let cmd = parse_git_command("git-receive-pack 'alice/myproject.git'");
+        assert_eq!(
+            cmd.unwrap(),
+            GitCommand::ReceivePack {
+                repo_path: "alice/myproject".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_parse_git_command_unknown() {
+        let cmd = parse_git_command("ls -la");
+        assert!(cmd.is_err());
+        let err = cmd.unwrap_err().0;
+        assert!(err.contains("unknown command"));
+    }
+
+    #[test]
+    fn test_parse_git_command_without_quotes() {
+        let cmd = parse_git_command("git-upload-pack owner/repo.git");
+        assert!(cmd.is_err());
+        assert!(cmd.unwrap_err().0.contains("invalid repo path argument"));
+    }
+
+    #[test]
+    fn test_parse_git_command_empty_arg() {
+        let cmd = parse_git_command("git-upload-pack ''");
+        assert!(cmd.is_err());
+    }
+
+    #[test]
+    fn test_parse_repo_path_valid() {
+        let (owner, name) = parse_repo_path("acme/widgets").unwrap();
+        assert_eq!(owner, "acme");
+        assert_eq!(name, "widgets");
+    }
+
+    #[test]
+    fn test_parse_repo_path_missing_name() {
+        let result = parse_repo_path("onlyowner");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().0.contains("missing repo name"));
+    }
+
+    #[test]
+    fn test_parse_repo_path_missing_owner() {
+        let result = parse_repo_path("/repo");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().0.contains("missing owner"));
+    }
+
+    #[test]
+    fn test_parse_repo_path_empty() {
+        let result = parse_repo_path("");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_upload_pack_without_git_suffix() {
+        let cmd = parse_git_command("git-upload-pack 'owner/repo'");
+        assert_eq!(
+            cmd.unwrap(),
+            GitCommand::UploadPack {
+                repo_path: "owner/repo".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_git_command_equality() {
+        assert_eq!(
+            GitCommand::UploadPack {
+                repo_path: "a/b".into()
+            },
+            GitCommand::UploadPack {
+                repo_path: "a/b".into()
+            }
+        );
+        assert_ne!(
+            GitCommand::UploadPack {
+                repo_path: "a/b".into()
+            },
+            GitCommand::ReceivePack {
+                repo_path: "a/b".into()
+            }
+        );
+    }
+
+    #[test]
+    fn test_compute_fingerprint_format() {
+        let mut rng = rand::rng();
+        let key = PrivateKey::random(&mut rng, Algorithm::Ed25519).unwrap();
+        let fp = compute_fingerprint(&key.public_key());
+        assert!(fp.starts_with("SHA256:"));
+        assert!(fp.len() > 20);
+    }
+
+    #[test]
+    fn test_compute_fingerprint_deterministic() {
+        let mut rng1 = rand::rng();
+        let mut rng2 = rand::rng();
+        let key1 = PrivateKey::random(&mut rng1, Algorithm::Ed25519).unwrap();
+        let key2 = PrivateKey::random(&mut rng2, Algorithm::Ed25519).unwrap();
+        let fp1 = compute_fingerprint(&key1.public_key());
+        let fp2 = compute_fingerprint(&key2.public_key());
+        if key1 == key2 {
+            assert_eq!(fp1, fp2);
+        } else {
+            assert_ne!(fp1, fp2);
+        }
     }
 }

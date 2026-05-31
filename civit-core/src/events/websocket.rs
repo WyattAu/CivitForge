@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::events::bus::EventBus;
-use crate::events::model::Event;
+use crate::events::model::{Event, EventCategory, EventPayload, PresenceAction};
 use axum::{
     extract::State,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
@@ -10,7 +10,7 @@ use axum::{
 use dashmap::DashMap;
 use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
@@ -25,6 +25,12 @@ pub enum WsCommand {
     Unsubscribe { topic: String },
     #[serde(rename = "ping")]
     Ping,
+    #[serde(rename = "presence")]
+    Presence {
+        resource_type: String,
+        resource_id: String,
+        action: PresenceAction,
+    },
 }
 
 pub struct WsConnection {
@@ -34,6 +40,15 @@ pub struct WsConnection {
     pub last_ping: Instant,
     pub connected_at: Instant,
     pub tx: mpsc::UnboundedSender<String>,
+    pub current_resource: Option<(String, String)>,
+    pub entered_at: Option<Instant>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PresenceInfo {
+    pub user_id: Option<String>,
+    pub connection_id: Uuid,
+    pub entered_at: Instant,
 }
 
 impl WsConnection {
@@ -45,6 +60,8 @@ impl WsConnection {
             last_ping: Instant::now(),
             connected_at: Instant::now(),
             tx,
+            current_resource: None,
+            entered_at: None,
         }
     }
 
@@ -175,6 +192,8 @@ impl WebSocketManager {
             last_ping: c.last_ping,
             connected_at: c.connected_at,
             tx: c.tx.clone(),
+            current_resource: c.current_resource.clone(),
+            entered_at: c.entered_at,
         })
     }
 
@@ -190,6 +209,122 @@ impl WebSocketManager {
             self.connections.remove(&id);
         }
         count
+    }
+
+    pub fn presence_for_resource(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+    ) -> Vec<PresenceInfo> {
+        self.connections
+            .iter()
+            .filter_map(|c| {
+                let conn = c.value();
+                if conn.current_resource.as_ref()
+                    == Some(&(resource_type.to_string(), resource_id.to_string()))
+                {
+                    Some(PresenceInfo {
+                        user_id: conn.user_id.clone(),
+                        connection_id: conn.id,
+                        entered_at: conn.entered_at.unwrap_or(conn.connected_at),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    pub fn presence_summary(
+        &self,
+        resources: &[(String, String)],
+    ) -> HashMap<String, Vec<PresenceInfo>> {
+        let mut result: HashMap<String, Vec<PresenceInfo>> = HashMap::new();
+        for (rt, ri) in resources {
+            let key = format!("{rt}:{ri}");
+            let users = self.presence_for_resource(rt, ri);
+            result.insert(key, users);
+        }
+        result
+    }
+
+    fn broadcast_presence(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+        user_id: Option<&str>,
+        action: PresenceAction,
+    ) {
+        let topic = format!("presence:{resource_type}:{resource_id}");
+        let active_users: Vec<String> = self
+            .presence_for_resource(resource_type, resource_id)
+            .iter()
+            .filter_map(|p| p.user_id.clone())
+            .collect();
+
+        let event = Event::new(
+            EventCategory::Presence,
+            EventPayload::PresenceEvent {
+                resource_type: resource_type.to_string(),
+                resource_id: resource_id.to_string(),
+                user_id: user_id.map(String::from),
+                action,
+                active_users,
+            },
+            "civitforge.local".to_string(),
+        );
+
+        let msg = match serde_json::to_string(&event) {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+
+        let mut stale_ids: Vec<Uuid> = Vec::new();
+        for conn in self.connections.iter_mut() {
+            if (conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global"))
+                && !conn.send(&msg)
+            {
+                stale_ids.push(conn.id);
+            }
+        }
+        for id in stale_ids {
+            self.connections.remove(&id);
+        }
+    }
+
+    pub(crate) fn enter_presence(&self, conn_id: Uuid, resource_type: &str, resource_id: &str) {
+        let user_id = if let Some(mut conn) = self.connections.get_mut(&conn_id) {
+            conn.current_resource = Some((resource_type.to_string(), resource_id.to_string()));
+            conn.entered_at = Some(Instant::now());
+            conn.user_id.clone()
+        } else {
+            return;
+        };
+        self.broadcast_presence(
+            resource_type,
+            resource_id,
+            user_id.as_deref(),
+            PresenceAction::Enter,
+        );
+    }
+
+    pub(crate) fn leave_presence(&self, conn_id: Uuid) {
+        let (resource_type, resource_id, user_id) = {
+            if let Some(mut conn) = self.connections.get_mut(&conn_id) {
+                let old = conn.current_resource.take();
+                conn.entered_at = None;
+                let uid = conn.user_id.clone();
+                match old {
+                    Some((rt, ri)) => (Some(rt), Some(ri), uid),
+                    None => return,
+                }
+            } else {
+                return;
+            }
+        };
+        if let (Some(rt), Some(ri)) = (resource_type, resource_id) {
+            self.broadcast_presence(&rt, &ri, user_id.as_deref(), PresenceAction::Leave);
+        }
     }
 
     fn extract_repo_id<'a>(&self, event: &'a Event) -> Option<&'a str> {
@@ -251,6 +386,18 @@ async fn handle_socket(socket: WebSocket, manager: Arc<RwLock<WebSocketManager>>
                     WsCommand::Ping => {
                         mgr.subscribe(cid, "global");
                     }
+                    WsCommand::Presence {
+                        resource_type,
+                        resource_id,
+                        action,
+                    } => match action {
+                        PresenceAction::Enter => {
+                            mgr.enter_presence(cid, &resource_type, &resource_id);
+                        }
+                        PresenceAction::Leave => {
+                            mgr.leave_presence(cid);
+                        }
+                    },
                 }
             }
         }
@@ -259,6 +406,7 @@ async fn handle_socket(socket: WebSocket, manager: Arc<RwLock<WebSocketManager>>
     // Cleanup on disconnect
     write_handle.abort();
     let mgr = manager.write().await;
+    mgr.leave_presence(conn_id);
     mgr.unregister(conn_id);
 }
 
@@ -418,6 +566,174 @@ mod tests {
 
         let ping: WsCommand = serde_json::from_str(r#"{"type":"ping"}"#).unwrap();
         assert!(matches!(ping, WsCommand::Ping));
+    }
+
+    #[test]
+    fn presence_command_deserialization() {
+        let enter: WsCommand = serde_json::from_str(
+            r#"{"type":"presence","resource_type":"pr","resource_id":"pr-1","action":"enter"}"#,
+        )
+        .unwrap();
+        match enter {
+            WsCommand::Presence {
+                resource_type,
+                resource_id,
+                action,
+            } => {
+                assert_eq!(resource_type, "pr");
+                assert_eq!(resource_id, "pr-1");
+                assert_eq!(action, PresenceAction::Enter);
+            }
+            _ => panic!("expected Presence"),
+        }
+
+        let leave: WsCommand = serde_json::from_str(
+            r#"{"type":"presence","resource_type":"repo","resource_id":"repo-1","action":"leave"}"#,
+        )
+        .unwrap();
+        match leave {
+            WsCommand::Presence { action, .. } => assert_eq!(action, PresenceAction::Leave),
+            _ => panic!("expected Presence Leave"),
+        }
+    }
+
+    #[test]
+    fn presence_enter_leave_tracking() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx1, _rx1) = mpsc::unbounded_channel::<String>();
+        let (tx2, _rx2) = mpsc::unbounded_channel::<String>();
+        let id1 = mgr.register_with_channel(Some("alice".to_string()), tx1);
+        let id2 = mgr.register_with_channel(Some("bob".to_string()), tx2);
+
+        mgr.enter_presence(id1, "pr", "pr-123");
+        mgr.enter_presence(id2, "pr", "pr-123");
+
+        let present = mgr.presence_for_resource("pr", "pr-123");
+        assert_eq!(present.len(), 2);
+
+        mgr.leave_presence(id1);
+        let present = mgr.presence_for_resource("pr", "pr-123");
+        assert_eq!(present.len(), 1);
+        assert_eq!(present[0].user_id.as_deref(), Some("bob"));
+    }
+
+    #[test]
+    fn presence_for_resource_empty() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+        let present = mgr.presence_for_resource("repo", "repo-999");
+        assert!(present.is_empty());
+    }
+
+    #[test]
+    fn presence_summary_multiple_resources() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx1, _) = mpsc::unbounded_channel::<String>();
+        let (tx2, _) = mpsc::unbounded_channel::<String>();
+        let id1 = mgr.register_with_channel(Some("alice".to_string()), tx1);
+        let id2 = mgr.register_with_channel(Some("bob".to_string()), tx2);
+
+        mgr.enter_presence(id1, "repo", "repo-1");
+        mgr.enter_presence(id2, "pr", "pr-456");
+
+        let summary = mgr.presence_summary(&[
+            ("repo".to_string(), "repo-1".to_string()),
+            ("pr".to_string(), "pr-456".to_string()),
+            ("issue".to_string(), "issue-789".to_string()),
+        ]);
+
+        assert_eq!(summary["repo:repo-1"].len(), 1);
+        assert_eq!(summary["pr:pr-456"].len(), 1);
+        assert!(summary["issue:issue-789"].is_empty());
+    }
+
+    #[test]
+    fn broadcast_presence_event_on_enter() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx_enterer, _) = mpsc::unbounded_channel::<String>();
+        let (tx_watcher, mut rx_watcher) = mpsc::unbounded_channel::<String>();
+        let id_enterer = mgr.register_with_channel(Some("alice".to_string()), tx_enterer);
+        let id_watcher = mgr.register_with_channel(None, tx_watcher);
+
+        let presence_topic = "presence:pr:pr-10";
+        mgr.subscribe(id_watcher, presence_topic);
+
+        mgr.enter_presence(id_enterer, "pr", "pr-10");
+
+        let received = rx_watcher.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
+        // EventPayload uses serde(tag="type", content="data") so fields are nested under .payload.data
+        assert_eq!(parsed["category"], "presence");
+        assert_eq!(parsed["payload"]["data"]["resource_type"], "pr");
+        assert_eq!(parsed["payload"]["data"]["resource_id"], "pr-10");
+        assert_eq!(parsed["payload"]["data"]["action"], "enter");
+        assert_eq!(parsed["payload"]["data"]["user_id"], "alice");
+        assert!(
+            parsed["payload"]["data"]["active_users"]
+                .as_array()
+                .unwrap()
+                .contains(&serde_json::json!("alice"))
+        );
+    }
+
+    #[test]
+    fn broadcast_presence_event_on_leave() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx_enterer, _) = mpsc::unbounded_channel::<String>();
+        let (tx_watcher, mut rx_watcher) = mpsc::unbounded_channel::<String>();
+        let id_enterer = mgr.register_with_channel(Some("bob".to_string()), tx_enterer);
+        let id_watcher = mgr.register_with_channel(None, tx_watcher);
+
+        let presence_topic = "presence:issue:issue-5";
+        mgr.subscribe(id_watcher, presence_topic);
+
+        mgr.enter_presence(id_enterer, "issue", "issue-5");
+        rx_watcher.try_recv().unwrap();
+
+        mgr.leave_presence(id_enterer);
+        let received = rx_watcher.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
+        assert_eq!(parsed["payload"]["data"]["action"], "leave");
+        assert_eq!(
+            parsed["payload"]["data"]["active_users"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+    }
+
+    #[test]
+    fn presence_cleared_on_disconnect() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx1, _) = mpsc::unbounded_channel::<String>();
+        let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
+        let id1 = mgr.register_with_channel(Some("charlie".to_string()), tx1);
+        let id2 = mgr.register_with_channel(None, tx2);
+
+        let presence_topic = "presence:repo:repo-1";
+        mgr.subscribe(id2, presence_topic);
+
+        mgr.enter_presence(id1, "repo", "repo-1");
+        rx2.try_recv().unwrap();
+
+        // leave_presence broadcasts a leave event and clears the resource
+        mgr.leave_presence(id1);
+        assert!(mgr.presence_for_resource("repo", "repo-1").is_empty());
+
+        let received = rx2.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
+        assert_eq!(parsed["payload"]["data"]["action"], "leave");
     }
 
     #[test]

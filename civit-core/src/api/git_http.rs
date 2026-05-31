@@ -58,21 +58,22 @@ pub async fn upload_pack(
 pub async fn receive_pack(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    body: axum::body::Bytes,
 ) -> impl IntoResponse {
     if !state.git_service.repo_exists(&owner, &name) {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }
 
     let repo_path = state.git_service.repo_path(&owner, &name);
-    match crate::git::http::receive_pack(&repo_path) {
-        Ok(()) => Response::builder()
+    match crate::git::http::receive_pack(&repo_path, &body) {
+        Ok(data) => Response::builder()
             .status(StatusCode::OK)
             .header(
                 header::CONTENT_TYPE,
                 "application/x-git-receive-pack-result",
             )
             .header(header::CACHE_CONTROL, "no-cache")
-            .body(axum::body::Body::empty())
+            .body(axum::body::Body::from(data))
             .unwrap_or_else(|_| {
                 (StatusCode::INTERNAL_SERVER_ERROR, "response build error").into_response()
             }),
