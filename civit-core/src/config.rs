@@ -19,6 +19,46 @@ pub struct AppConfig {
 }
 
 impl AppConfig {
+    pub fn validate(&self) -> crate::error::Result<()> {
+        if self.host.is_empty() {
+            return Err(CoreError::Config("host must not be empty".into()));
+        }
+        if self.port == 0 {
+            return Err(CoreError::Config("port must not be 0".into()));
+        }
+        if self.database_url.is_empty() {
+            return Err(CoreError::Config("DATABASE_URL must not be empty".into()));
+        }
+        if self.database_url.starts_with("postgres://")
+            && self.database_url.contains('@')
+            && self.database_url.len() < 20
+        {
+            return Err(CoreError::Config("DATABASE_URL appears malformed".into()));
+        }
+        if self.jwt_secret.len() < 16 {
+            return Err(CoreError::Config(
+                "JWT_SECRET must be at least 16 characters".into(),
+            ));
+        }
+        if self.storage_path.is_empty() {
+            return Err(CoreError::Config("storage_path must not be empty".into()));
+        }
+        if self.federation_enabled {
+            if self.federation_instance_id.is_empty() {
+                return Err(CoreError::Config(
+                    "federation_instance_id must not be empty when federation is enabled".into(),
+                ));
+            }
+            if self.federation_instance_domain.is_empty() {
+                return Err(CoreError::Config(
+                    "federation_instance_domain must not be empty when federation is enabled"
+                        .into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn from_env() -> crate::error::Result<Self> {
         Ok(Self {
             host: std::env::var("CIVIT_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
@@ -453,6 +493,176 @@ mod tests {
             "/data/repos",
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_host() {
+        let config = AppConfig {
+            host: String::new(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_port_zero() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 0,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_database_url() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: String::new(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_short_jwt_secret() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "short".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_empty_storage_path() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: String::new(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_federation_empty_instance_id() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: true,
+            federation_instance_id: String::new(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_federation_empty_domain() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: true,
+            federation_instance_id: "inst-1".into(),
+            federation_instance_domain: String::new(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_validate_valid_config() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_federation_valid() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: true,
+            federation_instance_id: "inst-1".into(),
+            federation_instance_domain: "forge.example.com".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_validate_jwt_secret_boundary_16_chars() {
+        let config = AppConfig {
+            host: "127.0.0.1".into(),
+            port: 8080,
+            database_url: "postgres://localhost/test".into(),
+            redis_url: "redis://localhost:6379".into(),
+            jwt_secret: "0123456789abcdef".into(),
+            jwt_expiry_hours: 24,
+            federation_enabled: false,
+            federation_instance_id: "default-instance".into(),
+            federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
+        };
+        assert!(config.validate().is_ok());
     }
 
     #[test]

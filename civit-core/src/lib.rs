@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod api;
+pub mod audit;
 pub mod auth;
 pub mod cache;
 pub mod config;
@@ -9,10 +10,14 @@ pub mod error;
 pub mod events;
 pub mod federation;
 pub mod git;
+pub mod health;
 pub mod loadtest;
+pub mod policy;
 pub mod provenance;
+pub mod release;
 pub mod runner;
 pub mod scaling;
+pub mod shutdown;
 pub mod ssh;
 pub mod storage;
 pub mod telemetry;
