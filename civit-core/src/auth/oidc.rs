@@ -408,4 +408,223 @@ mod tests {
         );
         assert_eq!(urlencoding::percent_encode("safe"), "safe");
     }
+
+    fn make_test_id_token(nonce_val: Option<&str>) -> String {
+        use base64::Engine;
+        let header_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(r#"{"alg":"RS256","typ":"JWT"}"#);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let mut claims_json = format!(
+            r#"{{"sub":"user-123","email":"test@example.com","name":"Test User","preferred_username":"testuser","iss":"https://auth.example.com","aud":"test-client-id","exp":{},"iat":{}"#,
+            now + 3600,
+            now
+        );
+        if let Some(n) = nonce_val {
+            claims_json.push_str(&format!(r#","nonce":"{n}""#));
+        }
+        claims_json.push('}');
+        let claims_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&claims_json);
+        let dummy_sig = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"fakesignature");
+        format!("{header_b64}.{claims_b64}.{dummy_sig}")
+    }
+
+    #[test]
+    fn test_validate_id_token_aud_validation_fails() {
+        let svc = make_service();
+        let token = make_test_id_token(None);
+        let result = svc.validate_id_token(&token, None);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid id_token claims")
+        );
+    }
+
+    #[test]
+    fn test_validate_id_token_nonce_check_not_reached() {
+        let svc = make_service();
+        let token = make_test_id_token(Some("test-nonce"));
+        let result = svc.validate_id_token(&token, Some("test-nonce"));
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid id_token claims")
+        );
+    }
+
+    #[test]
+    fn test_validate_id_token_invalid_jwt() {
+        let svc = make_service();
+        let result = svc.validate_id_token("not-a-jwt", None);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid id_token header")
+        );
+    }
+
+    #[test]
+    fn test_validate_id_token_claims_missing_fields() {
+        let svc = make_service();
+        let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+        #[derive(serde::Serialize)]
+        struct BadClaims {
+            sub: String,
+        }
+        let claims = BadClaims {
+            sub: "user-1".into(),
+        };
+        let encoded = jsonwebtoken::encode(
+            &header,
+            &claims,
+            &jsonwebtoken::EncodingKey::from_secret(b"test-secret"),
+        )
+        .unwrap();
+        let parts: Vec<&str> = encoded.split('.').collect();
+        let header_with_rs256 = {
+            use base64::Engine;
+            base64::engine::general_purpose::URL_SAFE_NO_PAD
+                .encode(r#"{"alg":"RS256","typ":"JWT"}"#)
+        };
+        let token = format!("{header_with_rs256}.{}.{}", parts[1], parts[2]);
+        let result = svc.validate_id_token(&token, None);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid id_token claims")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_exchange_code_no_discovery() {
+        let config = OidcConfig {
+            issuer_url: "https://auth.example.com".into(),
+            client_id: "c1".into(),
+            client_secret: "s1".into(),
+            redirect_uri: "https://app.example.com/cb".into(),
+            scopes: vec!["openid".into()],
+        };
+        let svc = OidcService::new(config);
+        let result = svc.exchange_code("code").await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("OIDC discovery not completed")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_userinfo_no_discovery() {
+        let config = OidcConfig {
+            issuer_url: "https://auth.example.com".into(),
+            client_id: "c1".into(),
+            client_secret: "s1".into(),
+            redirect_uri: "https://app.example.com/cb".into(),
+            scopes: vec!["openid".into()],
+        };
+        let svc = OidcService::new(config);
+        let result = svc.get_userinfo("token").await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("OIDC discovery not completed")
+        );
+    }
+
+    #[test]
+    fn test_percent_encode_empty() {
+        assert_eq!(urlencoding::percent_encode(""), "");
+    }
+
+    #[test]
+    fn test_percent_encode_all_unreserved() {
+        assert_eq!(
+            urlencoding::percent_encode("abcABC0123456789-_.~"),
+            "abcABC0123456789-_.~"
+        );
+    }
+
+    #[test]
+    fn test_percent_encode_special_chars() {
+        assert_eq!(
+            urlencoding::percent_encode("!@#$%^&*()"),
+            "%21%40%23%24%25%5E%26%2A%28%29"
+        );
+    }
+
+    #[test]
+    fn test_percent_encode_unicode() {
+        let encoded = urlencoding::percent_encode("café");
+        assert!(
+            encoded.contains("C3A9") || encoded.contains("a%C3%A9") || encoded.contains("%C3%A9")
+        );
+    }
+
+    #[test]
+    fn test_percent_encode_space() {
+        assert_eq!(urlencoding::percent_encode(" "), "%20");
+        assert_eq!(urlencoding::percent_encode("  "), "%20%20");
+    }
+
+    #[test]
+    fn test_url_encoded_from_string() {
+        let encoded = urlencoding::UrlEncoded::from_string("hello world").unwrap();
+        assert_eq!(encoded.0, "hello%20world");
+    }
+
+    #[test]
+    fn test_url_encoded_display() {
+        let encoded = urlencoding::UrlEncoded::from_string("a+b").unwrap();
+        assert_eq!(format!("{encoded}"), "a%2Bb");
+    }
+
+    #[test]
+    fn test_url_encoded_default() {
+        let encoded = urlencoding::UrlEncoded::default();
+        assert_eq!(encoded.0, "");
+    }
+
+    #[test]
+    fn test_oidc_discovery_display() {
+        let discovery = OidcDiscovery {
+            issuer: "https://auth.example.com".into(),
+            authorization_endpoint: "https://auth.example.com/authorize".into(),
+            token_endpoint: "https://auth.example.com/token".into(),
+            userinfo_endpoint: "https://auth.example.com/userinfo".into(),
+            jwks_uri: "https://auth.example.com/jwks".into(),
+        };
+        let display = format!("{discovery}");
+        assert!(display.contains("issuer=https://auth.example.com"));
+        assert!(display.contains("auth_endpoint=https://auth.example.com/authorize"));
+    }
+
+    #[test]
+    fn test_oidc_config_serialization() {
+        let config = OidcConfig {
+            issuer_url: "https://auth.example.com".into(),
+            client_id: "client-1".into(),
+            client_secret: "secret-1".into(),
+            redirect_uri: "https://app.example.com/cb".into(),
+            scopes: vec!["openid".into()],
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let de: OidcConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.client_id, "client-1");
+        assert_eq!(de.scopes.len(), 1);
+    }
 }

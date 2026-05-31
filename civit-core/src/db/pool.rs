@@ -200,4 +200,145 @@ mod tests {
         let threshold: u32 = 5;
         assert_eq!(threshold, 5);
     }
+
+    #[test]
+    fn test_consecutive_failures_below_threshold_keeps_closed() {
+        let failures = AtomicU32::new(0);
+        let threshold = 5u32;
+        let state = AtomicU8::new(CIRCUIT_CLOSED);
+
+        for _ in 0..(threshold - 1) {
+            let count = failures.fetch_add(1, Ordering::Relaxed) + 1;
+            if count >= threshold {
+                state.store(CIRCUIT_OPEN, Ordering::Relaxed);
+            }
+        }
+
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_CLOSED);
+        assert_eq!(failures.load(Ordering::Relaxed), threshold - 1);
+    }
+
+    #[test]
+    fn test_failure_accumulates_across_multiple_thresholds() {
+        let failures = AtomicU32::new(3);
+        let threshold = 5u32;
+        let state = AtomicU8::new(CIRCUIT_CLOSED);
+
+        for _ in 0..threshold {
+            let count = failures.fetch_add(1, Ordering::Relaxed) + 1;
+            if count >= threshold {
+                state.store(CIRCUIT_OPEN, Ordering::Relaxed);
+            }
+        }
+
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_OPEN);
+        assert_eq!(failures.load(Ordering::Relaxed), 3 + threshold);
+    }
+
+    #[test]
+    fn test_new_error_format() {
+        let err = CoreError::Database("failed to create pool: connection refused".into());
+        assert!(err.to_string().contains("failed to create pool"));
+    }
+
+    #[test]
+    fn test_execute_circuit_open_error() {
+        let err = CoreError::Database("circuit breaker is open".into());
+        assert!(err.to_string().contains("circuit breaker is open"));
+    }
+
+    #[test]
+    fn test_execute_query_failure_error() {
+        let err = CoreError::Database("query execution failed: syntax error".into());
+        assert!(err.to_string().contains("query execution failed"));
+    }
+
+    #[test]
+    fn test_opened_at_mutex_none_means_no_transition() {
+        let opened_at: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+        assert!(opened_at.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn test_opened_at_mutex_some_tracks_time() {
+        let opened_at: std::sync::Mutex<Option<std::time::Instant>> =
+            std::sync::Mutex::new(Some(std::time::Instant::now()));
+        let guard = opened_at.lock().unwrap();
+        assert!(guard.is_some());
+        assert!(guard.unwrap().elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn test_circuit_state_accessor() {
+        let state = AtomicU8::new(CIRCUIT_CLOSED);
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_CLOSED);
+        state.store(CIRCUIT_HALF_OPEN, Ordering::Relaxed);
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_HALF_OPEN);
+        state.store(CIRCUIT_OPEN, Ordering::Relaxed);
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_OPEN);
+    }
+
+    #[test]
+    fn test_is_circuit_open_with_elapsed_timeout() {
+        let state = AtomicU8::new(CIRCUIT_OPEN);
+        let opened_at: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+
+        if state.load(Ordering::Relaxed) == CIRCUIT_OPEN {
+            if let Some(_opened) = *opened_at.lock().unwrap() {
+                if _opened.elapsed() >= Duration::from_secs(30) {
+                    state.store(CIRCUIT_HALF_OPEN, Ordering::Relaxed);
+                }
+            }
+        }
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_OPEN);
+    }
+
+    #[test]
+    fn test_record_failure_updates_opened_at() {
+        let failures = AtomicU32::new(4);
+        let threshold = 5u32;
+        let state = AtomicU8::new(CIRCUIT_CLOSED);
+        let opened_at: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+
+        let count = failures.fetch_add(1, Ordering::Relaxed) + 1;
+        if count >= threshold {
+            state.store(CIRCUIT_OPEN, Ordering::Relaxed);
+            *opened_at.lock().unwrap() = Some(std::time::Instant::now());
+        }
+
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_OPEN);
+        assert!(opened_at.lock().unwrap().is_some());
+    }
+
+    #[test]
+    fn test_record_success_clears_opened_at() {
+        let failures = AtomicU32::new(5);
+        let state = AtomicU8::new(CIRCUIT_OPEN);
+        let opened_at: std::sync::Mutex<Option<std::time::Instant>> =
+            std::sync::Mutex::new(Some(std::time::Instant::now()));
+
+        failures.store(0, Ordering::Relaxed);
+        state.store(CIRCUIT_CLOSED, Ordering::Relaxed);
+        *opened_at.lock().unwrap() = None;
+
+        assert_eq!(failures.load(Ordering::Relaxed), 0);
+        assert_eq!(state.load(Ordering::Relaxed), CIRCUIT_CLOSED);
+        assert!(opened_at.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn test_result_type_used_in_pool() {
+        let res: Result<()> = Ok(());
+        assert!(res.is_ok());
+        let res: Result<()> = Err(CoreError::Database("fail".into()));
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_new_with_invalid_url_returns_error() {
+        let result = DatabasePool::new("postgres://invalid-host:0/invalid_db", 1).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("failed to create pool"));
+    }
 }

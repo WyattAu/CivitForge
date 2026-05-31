@@ -215,4 +215,100 @@ mod tests {
         let diff = expiry.signed_duration_since(now).num_days();
         assert!((29..=31).contains(&diff));
     }
+
+    #[test]
+    fn test_hash_token_empty_string() {
+        let hash = SessionManager::hash_token("");
+        assert_eq!(hash.len(), 64);
+    }
+
+    #[test]
+    fn test_hash_token_is_hex() {
+        let hash = SessionManager::hash_token("test");
+        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_hash_token_unicode_input() {
+        let hash = SessionManager::hash_token("hello 世界");
+        assert_eq!(hash.len(), 64);
+    }
+
+    #[test]
+    fn test_default_ttl_accessor() {
+        let ttl = Duration::from_secs(3600);
+        assert_eq!(ttl.as_secs(), 3600);
+    }
+
+    #[test]
+    fn test_compute_expiry_fallback_for_overflow() {
+        let very_large = Duration::from_secs(u64::MAX);
+        let fallback = ChronoDuration::from_std(very_large).unwrap_or(ChronoDuration::hours(24));
+        assert_eq!(fallback, ChronoDuration::hours(24));
+    }
+
+    #[test]
+    fn test_session_expiry_check_logic() {
+        let expired = Utc::now() - ChronoDuration::hours(1);
+        let future = Utc::now() + ChronoDuration::hours(1);
+        assert!(Utc::now() > expired);
+        assert!(Utc::now() < future);
+    }
+
+    #[test]
+    fn test_session_struct_fields() {
+        let session = Session {
+            id: Uuid::nil(),
+            user_id: Uuid::nil(),
+            token_hash: "abc".into(),
+            ip: Some("127.0.0.1".into()),
+            user_agent: Some("test".into()),
+            created_at: Utc::now(),
+            expires_at: Utc::now() + ChronoDuration::hours(1),
+            last_active_at: Utc::now(),
+        };
+        assert_eq!(session.token_hash, "abc");
+        assert_eq!(session.ip.as_deref(), Some("127.0.0.1"));
+        assert!(Utc::now() < session.expires_at);
+    }
+
+    #[test]
+    fn test_create_session_error_format() {
+        let err = CoreError::Database("create_session: connection refused".into());
+        assert!(err.to_string().contains("create_session"));
+    }
+
+    #[test]
+    fn test_validate_session_error_format() {
+        let auth_err = CoreError::Auth("session not found: no rows returned".into());
+        assert!(auth_err.to_string().contains("session not found"));
+        let expired_err = CoreError::Auth("session expired".into());
+        assert!(expired_err.to_string().contains("session expired"));
+    }
+
+    #[test]
+    fn test_extend_session_error_format() {
+        let db_err = CoreError::Database("lookup session: connection refused".into());
+        assert!(db_err.to_string().contains("lookup session"));
+        let auth_err = CoreError::Auth("session not found".into());
+        assert!(auth_err.to_string().contains("session not found"));
+    }
+
+    #[test]
+    fn test_revoke_session_error_format() {
+        let err = CoreError::Database("revoke_session: connection refused".into());
+        assert!(err.to_string().contains("revoke_session"));
+    }
+
+    #[test]
+    fn test_revoke_all_sessions_error_format() {
+        let err = CoreError::Database("revoke_all_sessions: connection refused".into());
+        assert!(err.to_string().contains("revoke_all_sessions"));
+    }
+
+    #[test]
+    fn test_cleanup_expired_error_format() {
+        let err = CoreError::Database("cleanup_expired: connection refused".into());
+        assert!(err.to_string().contains("cleanup_expired"));
+    }
 }

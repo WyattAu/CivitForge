@@ -314,4 +314,359 @@ mod tests {
         assert_eq!(client.config.pin.as_deref(), Some("1234"));
         assert!(!client.config.software_fallback);
     }
+
+    #[test]
+    fn test_default_client() {
+        let client = HsmClient::default();
+        assert!(client.config.software_fallback);
+        assert_eq!(client.config.library_path, "");
+        assert_eq!(client.config.timeout, Duration::from_secs(30));
+        assert!(client.config.slot_label.is_none());
+        assert!(client.config.pin.is_none());
+    }
+
+    #[test]
+    fn test_generate_ecc_key_pair() {
+        let client = HsmClient::new();
+        let (pk, sk) = client
+            .generate_key_pair("test-ecc", KeyType::Ecc, 256)
+            .unwrap();
+        assert_eq!(pk.key_type, KeyType::Ecc);
+        assert_eq!(sk.key_type, KeyType::Ecc);
+        assert_eq!(pk.algorithm, "ECDSA-P256");
+        assert_eq!(sk.algorithm, "ECDSA-P256");
+        assert_eq!(pk.label, "test-ecc-pub");
+        assert_eq!(sk.label, "test-ecc-priv");
+        assert!(pk.id.starts_with("pk-"));
+        assert!(sk.id.starts_with("sk-"));
+    }
+
+    #[test]
+    fn test_generate_key_pair_unsupported_type() {
+        let client = HsmClient::new();
+        let result = client.generate_key_pair("test-aes", KeyType::Aes, 256);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not supported"));
+    }
+
+    #[test]
+    fn test_generate_key_pair_hmac_unsupported() {
+        let client = HsmClient::new();
+        let result = client.generate_key_pair("test-hmac", KeyType::Hmac, 256);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not supported"));
+    }
+
+    #[test]
+    fn test_generate_key_pair_distinct_ids() {
+        let client = HsmClient::new();
+        let (pk1, sk1) = client
+            .generate_key_pair("key1", KeyType::Rsa, 2048)
+            .unwrap();
+        let (pk2, sk2) = client
+            .generate_key_pair("key2", KeyType::Rsa, 2048)
+            .unwrap();
+        assert_ne!(pk1.id, pk2.id);
+        assert_ne!(sk1.id, sk2.id);
+    }
+
+    #[test]
+    fn test_sign_rsa() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Rsa,
+            algorithm: "RSA-2048".into(),
+            handle: 1,
+        };
+        let sig = client.sign(&key, b"hello").unwrap();
+        assert!(!sig.is_empty());
+    }
+
+    #[test]
+    fn test_sign_ecdsa() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Ecc,
+            algorithm: "ECDSA-P256".into(),
+            handle: 1,
+        };
+        let sig = client.sign(&key, b"hello").unwrap();
+        assert!(!sig.is_empty());
+    }
+
+    #[test]
+    fn test_sign_hmac() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Hmac,
+            algorithm: "HMAC-SHA256".into(),
+            handle: 1,
+        };
+        let sig = client.sign(&key, b"hello").unwrap();
+        assert!(!sig.is_empty());
+    }
+
+    #[test]
+    fn test_sign_unsupported_type() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Aes,
+            algorithm: "AES-256".into(),
+            handle: 1,
+        };
+        let result = client.sign(&key, b"data");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("signing not supported")
+        );
+    }
+
+    #[test]
+    fn test_verify_rsa() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Rsa,
+            algorithm: "RSA-2048".into(),
+            handle: 1,
+        };
+        assert!(client.verify(&key, b"data", b"sig").unwrap());
+    }
+
+    #[test]
+    fn test_verify_ecdsa() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Ecc,
+            algorithm: "ECDSA-P256".into(),
+            handle: 1,
+        };
+        assert!(client.verify(&key, b"data", b"sig").unwrap());
+    }
+
+    #[test]
+    fn test_verify_hmac_valid() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Hmac,
+            algorithm: "HMAC-SHA256".into(),
+            handle: 1,
+        };
+        let sig = client.sign(&key, b"data").unwrap();
+        assert!(client.verify(&key, b"data", &sig).unwrap());
+    }
+
+    #[test]
+    fn test_verify_hmac_invalid() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Hmac,
+            algorithm: "HMAC-SHA256".into(),
+            handle: 1,
+        };
+        assert!(!client.verify(&key, b"data", b"bad-sig").unwrap());
+    }
+
+    #[test]
+    fn test_verify_unsupported_type() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Aes,
+            algorithm: "AES-256".into(),
+            handle: 1,
+        };
+        let result = client.verify(&key, b"data", b"sig");
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("verification not supported")
+        );
+    }
+
+    #[test]
+    fn test_list_keys_empty() {
+        let client = HsmClient::new();
+        let keys = client.list_keys().unwrap();
+        assert!(keys.is_empty());
+    }
+
+    #[test]
+    fn test_delete_key_ok() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "pk-1".into(),
+            label: "test-pub".into(),
+            key_type: KeyType::Rsa,
+            algorithm: "RSA-2048".into(),
+            handle: 1,
+        };
+        assert!(client.delete_key(&key).is_ok());
+    }
+
+    #[test]
+    fn test_health_disconnected() {
+        let client = HsmClient::new();
+        let status = client.health().unwrap();
+        assert!(matches!(status, HsmHealthStatus::Disconnected));
+    }
+
+    #[test]
+    fn test_connect_with_library_path_fails() {
+        let config = HsmConfig {
+            library_path: "/usr/lib/libpkcs11.so".into(),
+            software_fallback: true,
+            ..HsmConfig::default()
+        };
+        let client = HsmClient::with_config(config);
+        let result = client.connect();
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("HSM library not available")
+        );
+    }
+
+    #[test]
+    fn test_disconnect_already_disconnected() {
+        let mut session = HsmSession {
+            config: HsmConfig::default(),
+            connected: false,
+            session_handle: 0,
+        };
+        HsmClient::disconnect(&mut session);
+        assert!(!session.connected);
+        assert_eq!(session.session_handle, 0);
+    }
+
+    #[test]
+    fn test_hsm_key_handle_fields() {
+        let key = HsmKeyHandle {
+            id: "my-id".into(),
+            label: "my-label".into(),
+            key_type: KeyType::Ecc,
+            algorithm: "ECDSA-P256".into(),
+            handle: 42,
+        };
+        assert_eq!(key.id, "my-id");
+        assert_eq!(key.label, "my-label");
+        assert_eq!(key.handle, 42);
+    }
+
+    #[test]
+    fn test_hsm_key_handle_clone() {
+        let key = HsmKeyHandle {
+            id: "id".into(),
+            label: "label".into(),
+            key_type: KeyType::Rsa,
+            algorithm: "RSA-4096".into(),
+            handle: 1,
+        };
+        let cloned = key.clone();
+        assert_eq!(key.id, cloned.id);
+        assert_eq!(key.key_type, cloned.key_type);
+    }
+
+    #[test]
+    fn test_hsm_config_default() {
+        let config = HsmConfig::default();
+        assert!(config.slot_label.is_none());
+        assert!(config.pin.is_none());
+        assert_eq!(config.library_path, "");
+        assert_eq!(config.timeout, Duration::from_secs(30));
+        assert!(config.software_fallback);
+    }
+
+    #[test]
+    fn test_hsm_config_clone() {
+        let config = HsmConfig {
+            slot_label: Some("slot".into()),
+            pin: Some("pin".into()),
+            library_path: "/path".into(),
+            timeout: Duration::from_secs(10),
+            software_fallback: false,
+        };
+        let cloned = config.clone();
+        assert_eq!(cloned.slot_label.as_deref(), Some("slot"));
+        assert!(!cloned.software_fallback);
+    }
+
+    #[test]
+    fn test_hsm_session_clone() {
+        let session = HsmSession {
+            config: HsmConfig::default(),
+            connected: true,
+            session_handle: 99,
+        };
+        let cloned = session.clone();
+        assert!(cloned.connected);
+        assert_eq!(cloned.session_handle, 99);
+    }
+
+    #[test]
+    fn test_hsm_health_status_variants() {
+        let c = HsmHealthStatus::Connected;
+        let d = HsmHealthStatus::Disconnected;
+        let e = HsmHealthStatus::Error("fail".into());
+        if let HsmHealthStatus::Error(msg) = e {
+            assert_eq!(msg, "fail");
+        } else {
+            panic!("expected Error variant");
+        }
+        assert!(matches!(c, HsmHealthStatus::Connected));
+        assert!(matches!(d, HsmHealthStatus::Disconnected));
+    }
+
+    #[test]
+    fn test_sign_deterministic_hmac() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "k".into(),
+            label: "l".into(),
+            key_type: KeyType::Hmac,
+            algorithm: "HMAC-SHA256".into(),
+            handle: 1,
+        };
+        let sig1 = client.sign(&key, b"same data").unwrap();
+        let sig2 = client.sign(&key, b"same data").unwrap();
+        assert_eq!(sig1, sig2);
+    }
+
+    #[test]
+    fn test_sign_different_data_hmac() {
+        let client = HsmClient::new();
+        let key = HsmKeyHandle {
+            id: "k".into(),
+            label: "l".into(),
+            key_type: KeyType::Hmac,
+            algorithm: "HMAC-SHA256".into(),
+            handle: 1,
+        };
+        let sig1 = client.sign(&key, b"data a").unwrap();
+        let sig2 = client.sign(&key, b"data b").unwrap();
+        assert_ne!(sig1, sig2);
+    }
 }

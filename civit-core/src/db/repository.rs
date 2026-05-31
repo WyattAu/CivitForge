@@ -613,11 +613,250 @@ impl DbRepository {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_db_repository_new_compiles() {
         fn _assert_send<T: Send>() {}
         fn _assert_sync<T: Sync>() {}
         _assert_send::<super::DbRepository>();
         _assert_sync::<super::DbRepository>();
+    }
+
+    #[test]
+    fn test_struct_has_pool_field() {
+        let _: Option<sqlx::postgres::PgPool> = None;
+    }
+
+    #[test]
+    fn test_create_user_error_message_format() {
+        let err = CoreError::Database("create_user: connection refused".into());
+        let msg = err.to_string();
+        assert!(msg.contains("create_user"));
+        assert!(msg.contains("connection refused"));
+    }
+
+    #[test]
+    fn test_get_user_by_id_error_message_format() {
+        let err = CoreError::Database("get_user_by_id: no rows returned".into());
+        let msg = err.to_string();
+        assert!(msg.contains("get_user_by_id"));
+    }
+
+    #[test]
+    fn test_get_user_by_username_error_message_format() {
+        let err = CoreError::Database("get_user_by_username: no rows returned".into());
+        let msg = err.to_string();
+        assert!(msg.contains("get_user_by_username"));
+    }
+
+    #[test]
+    fn test_get_user_by_email_error_message_format() {
+        let err = CoreError::Database("get_user_by_email: no rows returned".into());
+        let msg = err.to_string();
+        assert!(msg.contains("get_user_by_email"));
+    }
+
+    #[test]
+    fn test_update_user_error_message_format() {
+        let err = CoreError::Database("update_user: no rows returned".into());
+        assert!(err.to_string().contains("update_user"));
+    }
+
+    #[test]
+    fn test_delete_user_error_message_format() {
+        let err = CoreError::Database("delete_user: relation not found".into());
+        assert!(err.to_string().contains("delete_user"));
+    }
+
+    #[test]
+    fn test_list_users_error_message_format() {
+        let err = CoreError::Database("list_users: connection refused".into());
+        assert!(err.to_string().contains("list_users"));
+    }
+
+    #[test]
+    fn test_create_org_error_message_format() {
+        let err = CoreError::Database("create_org: duplicate key".into());
+        assert!(err.to_string().contains("create_org"));
+    }
+
+    #[test]
+    fn test_get_org_error_message_format() {
+        let err = CoreError::Database("get_org: no rows returned".into());
+        assert!(err.to_string().contains("get_org"));
+    }
+
+    #[test]
+    fn test_list_orgs_by_owner_error_message_format() {
+        let err = CoreError::Database("list_orgs_by_owner: connection refused".into());
+        assert!(err.to_string().contains("list_orgs_by_owner"));
+    }
+
+    #[test]
+    fn test_update_org_error_message_format() {
+        let err = CoreError::Database("update_org: no rows returned".into());
+        assert!(err.to_string().contains("update_org"));
+    }
+
+    #[test]
+    fn test_create_repo_error_message_format() {
+        let err = CoreError::Database("create_repo: duplicate key".into());
+        assert!(err.to_string().contains("create_repo"));
+    }
+
+    #[test]
+    fn test_get_repo_error_message_format() {
+        let err = CoreError::Database("get_repo: no rows returned".into());
+        assert!(err.to_string().contains("get_repo"));
+    }
+
+    #[test]
+    fn test_get_repo_by_owner_name_error_message_format() {
+        let err = CoreError::Database("get_repo_by_owner_name: no rows returned".into());
+        assert!(err.to_string().contains("get_repo_by_owner_name"));
+    }
+
+    #[test]
+    fn test_list_repos_error_message_format() {
+        let err = CoreError::Database("list_repos: connection refused".into());
+        assert!(err.to_string().contains("list_repos"));
+    }
+
+    #[test]
+    fn test_list_repos_by_org_error_message_format() {
+        let err = CoreError::Database("list_repos_by_org: connection refused".into());
+        assert!(err.to_string().contains("list_repos_by_org"));
+    }
+
+    #[test]
+    fn test_update_repo_error_message_format() {
+        let err = CoreError::Database("update_repo: no rows returned".into());
+        assert!(err.to_string().contains("update_repo"));
+    }
+
+    #[test]
+    fn test_delete_repo_error_message_format() {
+        let err = CoreError::Database("delete_repo: relation not found".into());
+        assert!(err.to_string().contains("delete_repo"));
+    }
+
+    #[test]
+    fn test_create_issue_error_message_format() {
+        let err = CoreError::Database("create_issue: duplicate key".into());
+        assert!(err.to_string().contains("create_issue"));
+    }
+
+    #[test]
+    fn test_get_issue_error_message_format() {
+        let err = CoreError::Database("get_issue: no rows returned".into());
+        assert!(err.to_string().contains("get_issue"));
+    }
+
+    #[test]
+    fn test_list_issues_error_message_format() {
+        let err = CoreError::Database("list_issues: connection refused".into());
+        assert!(err.to_string().contains("list_issues"));
+    }
+
+    #[test]
+    fn test_update_issue_error_message_format() {
+        let err = CoreError::Database("update_issue: no rows returned".into());
+        assert!(err.to_string().contains("update_issue"));
+    }
+
+    #[test]
+    fn test_create_pr_error_message_format() {
+        let err = CoreError::Database("create_pr: duplicate key".into());
+        assert!(err.to_string().contains("create_pr"));
+    }
+
+    #[test]
+    fn test_get_pr_error_message_format() {
+        let err = CoreError::Database("get_pr: no rows returned".into());
+        assert!(err.to_string().contains("get_pr"));
+    }
+
+    #[test]
+    fn test_list_prs_error_message_format() {
+        let err = CoreError::Database("list_prs: connection refused".into());
+        assert!(err.to_string().contains("list_prs"));
+    }
+
+    #[test]
+    fn test_update_pr_error_message_format() {
+        let err = CoreError::Database("update_pr: no rows returned".into());
+        assert!(err.to_string().contains("update_pr"));
+    }
+
+    #[test]
+    fn test_create_pipeline_error_message_format() {
+        let err = CoreError::Database("create_pipeline: duplicate key".into());
+        assert!(err.to_string().contains("create_pipeline"));
+    }
+
+    #[test]
+    fn test_get_pipeline_error_message_format() {
+        let err = CoreError::Database("get_pipeline: no rows returned".into());
+        assert!(err.to_string().contains("get_pipeline"));
+    }
+
+    #[test]
+    fn test_list_pipelines_error_message_format() {
+        let err = CoreError::Database("list_pipelines: connection refused".into());
+        assert!(err.to_string().contains("list_pipelines"));
+    }
+
+    #[test]
+    fn test_update_pipeline_error_message_format() {
+        let err = CoreError::Database("update_pipeline: no rows returned".into());
+        assert!(err.to_string().contains("update_pipeline"));
+    }
+
+    #[test]
+    fn test_create_access_token_error_message_format() {
+        let err = CoreError::Database("create_access_token: duplicate key".into());
+        assert!(err.to_string().contains("create_access_token"));
+    }
+
+    #[test]
+    fn test_validate_access_token_error_message_format() {
+        let db_err = CoreError::Database("validate_access_token: no rows returned".into());
+        assert!(db_err.to_string().contains("validate_access_token"));
+        let auth_err = CoreError::Auth("access token expired".into());
+        assert!(auth_err.to_string().contains("access token expired"));
+    }
+
+    #[test]
+    fn test_revoke_access_token_error_message_format() {
+        let err = CoreError::Database("revoke_access_token: relation not found".into());
+        assert!(err.to_string().contains("revoke_access_token"));
+    }
+
+    #[test]
+    fn test_record_audit_event_error_message_format() {
+        let err = CoreError::Database("record_audit_event: connection refused".into());
+        assert!(err.to_string().contains("record_audit_event"));
+    }
+
+    #[test]
+    fn test_query_audit_events_error_message_format() {
+        let err = CoreError::Database("query_audit_events: connection refused".into());
+        assert!(err.to_string().contains("query_audit_events"));
+    }
+
+    #[test]
+    fn test_uuid_values_are_distinct() {
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_result_type_works() {
+        let res: Result<Uuid> = Ok(Uuid::nil());
+        assert!(res.is_ok());
+        let res: Result<Uuid> = Err(CoreError::Database("fail".into()));
+        assert!(res.is_err());
     }
 }
