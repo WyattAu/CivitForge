@@ -6,38 +6,33 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 
 ---
 
-## Current State: v0.2.0-beta (Phase 1 Complete)
+## Current State: v0.3.0-beta (Phases 1-6 Scaffolding Complete)
 
 | Metric | Value |
 |---|---|
-| Version | 0.2.0-beta |
+| Version | 0.3.0-beta |
 | Crates | 5 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto) |
-| Unit tests | 1034 passing, 0 ignored |
-| Rust source files | 124 |
-| Lines of code | 34,324 |
-| Spec artifacts | 42 |
-| EARS requirements | 69 |
+| Unit tests | 1370 passing, 0 ignored |
+| Rust source files | 160+ |
+| Lines of code | 41,873 |
 | Clippy warnings | 0 |
-| Test coverage (line) | 86.20% |
-| Test coverage (region) | 87.10% |
 | `#![forbid(unsafe_code)]` | Enforced across all crates |
 | MSRV | Rust 1.88 (edition 2024) |
 | CI | Hardened (toolchain pinning, `--locked` on all build/test/clippy steps) |
-| Pre-commit hooks | fmt + clippy --locked + test --locked |
-| SAML security | Fail-closed signature validation |
-| Health endpoints | /healthz, /ready, /api/v1/health (matching Helm probes) |
-| Helm chart | Version-synchronized with workspace (0.1.0) |
-| Documentation | 8 ADRs, CONTRIBUTING.md, CHANGELOG.md, landing page at GitHub Pages |
-| Known bugs fixed | DashMap deadlock in RateLimiter, items_after_test_module clippy error |
+| Pre-commit hooks | fmt + clippy -D warnings + test --locked |
 | API endpoints | 20 routes (repos, users, orgs, auth, SSH keys, WebSocket, smart HTTP git) |
-| Auth middleware | JWT Bearer with AuthUser extractor + OptionalAuthUser |
-| DB migration runner | Automatic on startup, version-tracked in schema_migrations |
-| EventBus | In-memory pub/sub wired to AppState with WebSocket broadcast |
-| SessionManager | DB-backed sessions wired to AppState (24h TTL) |
-| SSH daemon | russh 0.61 on port 2222, Ed25519 host key, public key auth, git command routing |
-| Git packfile | BFS object graph traversal, zlib-compressed pack entries, SHA-1 trailer |
-| Pre-receive hooks | RefNameValidator + HookRunner framework |
-| Presence tracking | WebSocket-based enter/leave with per-resource viewer tracking |
+| Auth stack | JWT, OIDC, SAML, TOTP, WebAuthn, RBAC, token rotation, session management |
+| DB layer | 17 tables, 34 DbRepository methods, circuit breaker, migration framework |
+| SSH daemon | russh 0.61, Ed25519 host key, public key auth, git command routing |
+| Git packfile | BFS object graph, zlib-compressed pack entries, SHA-1 trailer |
+| K8s operator | PipelineRun + TaskSpec CRDs, PodBuilder, PipelinePhase state machine |
+| CI/CD storage | FastCDC chunking, OCI registry, content dedup, SLSA provenance |
+| Federation | ForgeFed protocol, incremental DAG sync, partition tolerance, bandwidth optimization |
+| Edge caching | LRU eviction, ETag computation, hit/miss tracking |
+| FUSE remote | Block fetch protocol, on-demand fetcher with cache |
+| AI integration | AST parser (10 languages), vector DB with cosine similarity, LLM interface, PR review agent |
+| Enterprise | Structured audit events, retention policies, token rotation, health checks |
+| Production | HealthAggregator, graceful shutdown, release metadata |
 
 ### Technology Stack (Prototype)
 
