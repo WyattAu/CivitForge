@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Rust 1.85+ (edition 2024)
+- Rust 1.88+ (edition 2024)
 - PostgreSQL 16+
 - Redis 7+
 - Protocol Buffers compiler (for gRPC)

@@ -2,7 +2,7 @@
 
 **Federated, Rust-native engineering platform for extreme-scale monorepos.**
 
-[![Rust Version](https://img.shields.io/badge/rust-1.78%2B-blue.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.88%2B-blue.svg)](https://www.rust-lang.org)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-native-326ce5.svg)](https://kubernetes.io)
 [![Podman](https://img.shields.io/badge/podman-rootless-892ca0.svg)](https://podman.io)

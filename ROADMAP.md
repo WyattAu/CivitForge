@@ -12,10 +12,10 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 |---|---|
 | Version | 0.1.0 |
 | Crates | 5 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto) |
-| Unit tests | 184 passing |
+| Unit tests | 640 passing |
 | Lean4 proofs | 5/5 compiling |
-| Rust source files | 44 |
-| Lines of code | 6,282 |
+| Rust source files | 115 |
+| Lines of code | 27,362 |
 | Spec artifacts | 42 |
 | EARS requirements | 69 |
 | Clippy warnings | 0 |
@@ -103,7 +103,7 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 - SSH git clone/push works end-to-end
 - OIDC login flow completes with session issuance
 - WebSocket events propagate within 100ms of source event
-- Zero regression in existing 184 tests
+- Zero regression in existing 640 tests
 - Clippy warning-free, forbid(unsafe_code) maintained
 
 ---
@@ -418,7 +418,7 @@ The following stub and placeholder implementations must be replaced before their
 
 | Phase | Target Version | Months | Key Deliverable |
 |---|---|---|---|
-| Prototype | v0.1.0 | Complete | 5 crates, 184 tests, architecture proven |
+| Prototype | v0.1.0 | Complete | 5 crates, 640 tests, architecture proven |
 | 1 -- Foundation Hardening | v0.2.0 | 1-3 | Real DB, SSH git, production auth, WebSocket events |
 | 2 -- CI/CD and Storage | v0.4.0 | 3-6 | K8s operator, rootless execution, FastCDC dedup, SLSA |
 | 3 -- AI Integration | v0.6.0 | 6-9 | Tree-sitter, Qdrant, local inference, PR review agent |
