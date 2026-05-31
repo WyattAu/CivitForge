@@ -134,11 +134,15 @@ impl SamlService {
     }
 
     pub fn is_valid_signature(&self) -> bool {
-        // TODO: Implement actual XML signature validation using the configured certificate
-        // This should parse the XML-DSIG signature, extract the digest and signature values,
-        // and verify against the configured X.509 certificate.
-        // For now, return true as a stub.
-        true
+        // SECURITY: Signature validation is fail-closed until XML-DSIG implementation.
+        // Full XML-DSIG validation requires:
+        // 1. Extract <ds:Signature> element from SAML response XML
+        // 2. Compute SHA-256 digest of <ds:SignedInfo> canonicalization
+        // 3. Verify RSA/ECDSA signature against the configured X.509 certificate
+        // 4. Validate certificate chain and expiration
+        // This will be implemented with the xmlsec or ring crates in Phase 1.
+        // Until then, SAML authentication is not usable in production.
+        false
     }
 }
 
@@ -340,9 +344,11 @@ mod tests {
     }
 
     #[test]
-    fn test_is_valid_signature_stub() {
+    fn test_is_valid_signature_fail_closed() {
         let svc = make_service();
-        assert!(svc.is_valid_signature());
+        // Signature validation is fail-closed until XML-DSIG is implemented.
+        // This test verifies the security property: unsigned responses are rejected.
+        assert!(!svc.is_valid_signature());
     }
 
     #[test]
