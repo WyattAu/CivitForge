@@ -9,16 +9,17 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain 1.88
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "1.88"
-          components: clippy, rustfmt
+          components: clippy, rustfmt, llvm-tools
 
       - name: Cache cargo registry and build
         uses: actions/cache@v4
@@ -42,3 +43,8 @@ jobs:
 
       - name: Build release
         run: cargo build --workspace --release
+
+      - name: Generate coverage report
+        run: |
+          cargo install cargo-llvm-cov --locked || true
+          cargo llvm-cov --workspace --summary-only || true

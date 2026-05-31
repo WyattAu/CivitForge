@@ -1,0 +1,15 @@
+{{- if and .Values.vfs.enabled .Values.vfs.storage }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "civitforge.fullname" . }}-vfs
+  labels:
+    {{- include "civitforge.labels" . | nindent 4 }}
+    app.kubernetes.io/component: vfs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.vfs.storage.size | default "50Gi" }}
+{{- end }}

@@ -21,3 +21,15 @@ target
 # be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
 # and can be added to the global gitignore or merged into this file.
 #.idea/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# direnv
+.direnv/
