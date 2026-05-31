@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CivitForge -- Federated, Rust-native engineering platform for extreme-scale monorepos. Rootless CI/CD, air-gapped AI, ForgeFed federation.">
+<meta name="theme-color" content="#1a1a2e">
+<meta name="robots" content="index, follow">
+<title>CIVITFORGE -- Federated Rust-Native Forge</title>
+<style>
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --charcoal: #1a1a2e;
+    --offwhite: #e8e8e8;
+    --red: #c73e1d;
+    --blue: #4a6fa5;
+    --muted: #2d2d44;
+    --charcoal-deep: #0f0f1e;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    font-size: 16px;
+  }
+
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    background: var(--charcoal);
+    color: var(--offwhite);
+    line-height: 1.7;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: var(--red);
+    color: var(--offwhite);
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+
+  a:hover {
+    border-bottom-color: var(--red);
+  }
+
+  .blob {
+    border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+    transition: border-radius 8s ease-in-out, box-shadow 0.6s ease;
+  }
+
+  .blob:hover {
+    border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%;
+  }
+
+  .blob-alt {
+    border-radius: 70% 30% 30% 70% / 60% 40% 60% 40%;
+    transition: border-radius 8s ease-in-out, box-shadow 0.6s ease;
+  }
+
+  .blob-alt:hover {
+    border-radius: 30% 70% 70% 30% / 40% 60% 40% 60%;
+  }
+
+  .blob-morph {
+    animation: morphBlob 12s ease-in-out infinite;
+  }
+
+  @keyframes morphBlob {
+    0%, 100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+    25% { border-radius: 58% 42% 36% 64% / 56% 64% 36% 44%; }
+    50% { border-radius: 50% 50% 33% 67% / 55% 27% 73% 45%; }
+    75% { border-radius: 33% 67% 58% 42% / 63% 68% 32% 37%; }
+  }
+
+  .blob-morph-alt {
+    animation: morphBlobAlt 15s ease-in-out infinite;
+  }
+
+  @keyframes morphBlobAlt {
+    0%, 100% { border-radius: 70% 30% 30% 70% / 60% 40% 60% 40%; }
+    25% { border-radius: 40% 60% 70% 30% / 30% 55% 45% 70%; }
+    50% { border-radius: 60% 40% 50% 50% / 65% 35% 65% 35%; }
+    75% { border-radius: 45% 55% 30% 70% / 50% 60% 40% 50%; }
+  }
+
+  .depth-1 {
+    box-shadow:
+      8px 8px 0px var(--muted),
+      16px 16px 0px var(--charcoal-deep);
+  }
+
+  .depth-2 {
+    box-shadow:
+      6px 6px 0px var(--muted),
+      12px 12px 24px rgba(0,0,0,0.4),
+      18px 18px 0px var(--charcoal-deep);
+  }
+
+  .depth-inset {
+    box-shadow:
+      inset 6px 6px 12px rgba(0,0,0,0.5),
+      inset -4px -4px 8px rgba(255,255,255,0.03);
+  }
+
+  .depth-float {
+    box-shadow:
+      12px 12px 32px rgba(0,0,0,0.6),
+      -4px -4px 12px rgba(74,111,165,0.08),
+      0 0 0 1px var(--muted);
+  }
+
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(15,15,30,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 3px solid var(--muted);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  nav .logo {
+    font-size: 1.4rem;
+    font-weight: bold;
+    letter-spacing: 0.3em;
+    color: var(--offwhite);
+  }
+
+  nav .logo span {
+    color: var(--red);
+  }
+
+  nav ul {
+    list-style: none;
+    display: flex;
+    gap: 2rem;
+  }
+
+  nav a {
+    color: var(--offwhite);
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 2px solid transparent;
+    padding-bottom: 2px;
+  }
+
+  nav a:hover {
+    color: var(--red);
+    border-bottom-color: var(--red);
+  }
+
+  .menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--offwhite);
+    font-family: inherit;
+    font-size: 1.2rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  section {
+    padding: 8rem 0;
+    position: relative;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 1rem;
+    display: block;
+  }
+
+  .section-title {
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-weight: bold;
+    line-height: 1.1;
+    margin-bottom: 2rem;
+    letter-spacing: -0.02em;
+  }
+
+  .section-title .red {
+    color: var(--red);
+  }
+
+  .section-divider {
+    width: 120px;
+    height: 4px;
+    background: var(--red);
+    margin-bottom: 3rem;
+    border-radius: 2px;
+  }
+
+  /* HERO */
+  #hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding-top: 6rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg-shape {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    opacity: 0.04;
+    pointer-events: none;
+  }
+
+  .hero-bg-shape-1 {
+    top: -200px;
+    right: -150px;
+    background: var(--red);
+    border-radius: 40% 60% 65% 35% / 55% 35% 65% 45%;
+    animation: floatShape 20s ease-in-out infinite;
+  }
+
+  .hero-bg-shape-2 {
+    bottom: -200px;
+    left: -150px;
+    background: var(--blue);
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    animation: floatShape 25s ease-in-out infinite reverse;
+  }
+
+  @keyframes floatShape {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(30px, -20px) rotate(5deg); }
+    66% { transform: translate(-20px, 15px) rotate(-3deg); }
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+  }
+
+  .hero-tag {
+    font-size: 0.8rem;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 2rem;
+  }
+
+  .hero-title {
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: bold;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin-bottom: 2rem;
+  }
+
+  .hero-title .line {
+    display: block;
+  }
+
+  .hero-title .line-accent {
+    color: var(--red);
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    color: var(--offwhite);
+    opacity: 0.7;
+    max-width: 640px;
+    margin: 0 auto 3rem;
+    line-height: 1.8;
+  }
+
+  .hero-cta-group {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-block;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 1rem 2.5rem;
+    border: 3px solid;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary {
+    background: var(--red);
+    color: var(--offwhite);
+    border-color: var(--red);
+  }
+
+  .btn-primary:hover {
+    background: transparent;
+    color: var(--red);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--offwhite);
+    border-color: var(--offwhite);
+  }
+
+  .btn-outline:hover {
+    background: var(--offwhite);
+    color: var(--charcoal);
+  }
+
+  .btn-blue {
+    background: var(--blue);
+    color: var(--offwhite);
+    border-color: var(--blue);
+  }
+
+  .btn-blue:hover {
+    background: transparent;
+    color: var(--blue);
+  }
+
+  /* FEATURES */
+  #features {
+    background: var(--charcoal-deep);
+    position: relative;
+  }
+
+  #features::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--red), var(--blue), var(--red));
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    margin-top: 1rem;
+  }
+
+  .feature-card {
+    background: var(--charcoal);
+    padding: 3rem 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--red);
+    transition: width 0.4s ease;
+  }
+
+  .feature-card:hover::before {
+    width: 8px;
+  }
+
+  .feature-number {
+    font-size: 4rem;
+    font-weight: bold;
+    color: var(--muted);
+    line-height: 1;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .feature-name {
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    letter-spacing: 0.05em;
+  }
+
+  .feature-desc {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    opacity: 0.75;
+  }
+
+  .feature-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--blue);
+    border: 1px solid var(--blue);
+    padding: 0.25rem 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  /* ARCHITECTURE */
+  #architecture {
+    position: relative;
+  }
+
+  .arch-intro {
+    max-width: 700px;
+    margin-bottom: 4rem;
+  }
+
+  .arch-intro p {
+    font-size: 1.05rem;
+    line-height: 1.9;
+    opacity: 0.8;
+    margin-bottom: 1.5rem;
+  }
+
+  .arch-layers {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .arch-layer {
+    padding: 2.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-layer-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .arch-layer-idx {
+    font-size: 0.75rem;
+    font-weight: bold;
+    letter-spacing: 0.2em;
+    color: var(--red);
+    background: rgba(199,62,29,0.12);
+    padding: 0.3rem 0.8rem;
+    flex-shrink: 0;
+  }
+
+  .arch-layer-name {
+    font-size: 1.3rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+  }
+
+  .arch-layer-desc {
+    font-size: 0.9rem;
+    line-height: 1.8;
+    opacity: 0.75;
+  }
+
+  .arch-layer-tech {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .tech-tag {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: var(--muted);
+    color: var(--offwhite);
+    padding: 0.3rem 0.8rem;
+    opacity: 0.8;
+  }
+
+  /* GETTING STARTED */
+  #getting-started {
+    background: var(--charcoal-deep);
+    position: relative;
+  }
+
+  #getting-started::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--blue), var(--red), var(--blue));
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 1rem;
+  }
+
+  .step-card {
+    background: var(--charcoal);
+    padding: 2.5rem 2rem;
+  }
+
+  .step-idx {
+    font-size: 5rem;
+    font-weight: bold;
+    color: var(--muted);
+    opacity: 0.3;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .step-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+  }
+
+  .step-content {
+    font-size: 0.88rem;
+    line-height: 1.8;
+    opacity: 0.75;
+  }
+
+  .code-block {
+    background: var(--charcoal-deep);
+    border-left: 3px solid var(--red);
+    padding: 1rem 1.5rem;
+    margin-top: 1rem;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: var(--offwhite);
+    opacity: 0.9;
+  }
+
+  .code-block .cmd {
+    color: var(--blue);
+  }
+
+  .code-block .flag {
+    color: var(--red);
+  }
+
+  /* LINKS */
+  #links {
+    position: relative;
+  }
+
+  .links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 2rem;
+    margin-top: 1rem;
+  }
+
+  .link-card {
+    background: var(--charcoal);
+    padding: 2.5rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .link-card:hover {
+    transform: translate(-4px, -4px);
+  }
+
+  .link-card-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .link-card-url {
+    font-size: 0.82rem;
+    color: var(--blue);
+    word-break: break-all;
+  }
+
+  /* FOOTER */
+  footer {
+    background: var(--charcoal-deep);
+    border-top: 3px solid var(--muted);
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+
+  .footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .footer-brand {
+    font-size: 1.2rem;
+    font-weight: bold;
+    letter-spacing: 0.3em;
+    margin-bottom: 1rem;
+  }
+
+  .footer-brand span {
+    color: var(--red);
+  }
+
+  .footer-copy {
+    font-size: 0.78rem;
+    opacity: 0.5;
+    letter-spacing: 0.1em;
+  }
+
+  .footer-line {
+    width: 60px;
+    height: 2px;
+    background: var(--muted);
+    margin: 1.5rem auto;
+  }
+
+  /* SVG DECORATIVE LINE */
+  .svg-wave {
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    line-height: 0;
+  }
+
+  .svg-wave svg {
+    display: block;
+    width: calc(100% + 1.3px);
+    height: 60px;
+  }
+
+  /* MOBILE */
+  @media (max-width: 768px) {
+    nav {
+      padding: 1rem 1.5rem;
+    }
+
+    nav ul {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(15,15,30,0.98);
+      flex-direction: column;
+      padding: 1.5rem;
+      gap: 1.2rem;
+      border-bottom: 3px solid var(--muted);
+    }
+
+    nav ul.open {
+      display: flex;
+    }
+
+    .menu-toggle {
+      display: block;
+    }
+
+    section {
+      padding: 5rem 0;
+    }
+
+    .container {
+      padding: 0 1.2rem;
+    }
+
+    .features-grid,
+    .steps-grid,
+    .links-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-cta-group {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .btn {
+      width: 100%;
+      max-width: 280px;
+      text-align: center;
+    }
+
+    .arch-layer-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-title {
+      font-size: 2.6rem;
+    }
+
+    .section-title {
+      font-size: 1.8rem;
+    }
+  }
+
+  /* Scroll reveal */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Pulse animation for accent elements */
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--red); }
+    50% { border-color: var(--blue); }
+  }
+
+  .pulse-border {
+    animation: pulse-border 4s ease-in-out infinite;
+  }
+
+  /* Typewriter cursor for hero */
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 3px;
+    height: 1em;
+    background: var(--red);
+    margin-left: 4px;
+    vertical-align: text-bottom;
+    animation: blink 1s step-end infinite;
+  }
+
+  /* Stats strip */
+  .stats-strip {
+    display: flex;
+    justify-content: center;
+    gap: 4rem;
+    flex-wrap: wrap;
+    margin: 4rem 0 2rem;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: bold;
+    color: var(--red);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">CIVIT<span>FORGE</span></div>
+  <button class="menu-toggle" aria-label="Toggle menu">MENU</button>
+  <ul id="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#getting-started">Start</a></li>
+    <li><a href="#links">Links</a></li>
+  </ul>
+</nav>
+
+<main>
+<section id="hero">
+  <div class="hero-bg-shape hero-bg-shape-1 blob-morph"></div>
+  <div class="hero-bg-shape hero-bg-shape-2 blob-morph-alt"></div>
+  <div class="hero-inner">
+    <div class="hero-tag">Federated Rust-native forge software</div>
+    <h1 class="hero-title">
+      <span class="line">BUILD</span>
+      <span class="line line-accent">WITHOUT</span>
+      <span class="line">BOUNDARIES<span class="cursor"></span></span>
+    </h1>
+    <p class="hero-subtitle">
+      Extreme-scale monorepos. Rootless CI/CD. Air-gapped AI.
+      CivitForge redefines what forge software can be.
+    </p>
+    <div class="hero-cta-group">
+      <a href="#getting-started" class="btn btn-primary">Get Started</a>
+      <a href="#architecture" class="btn btn-outline">Architecture</a>
+    </div>
+    <div class="stats-strip">
+      <div class="stat">
+        <div class="stat-value" aria-label="Rust native implementation">RUST</div>
+        <div class="stat-label">Native implementation</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" aria-label="Zero root privilege requirement">0-ROOT</div>
+        <div class="stat-label">Privilege requirement</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" aria-label="O2 air-gapped AI tier">O2</div>
+        <div class="stat-label">Air-gapped AI tier</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" aria-label="Federated protocol">FED</div>
+        <div class="stat-label">Federation protocol</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Capabilities</span>
+      <h2 class="section-title">FEATURE <span class="red">SET</span></h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card blob depth-1 reveal">
+        <div class="feature-number">01</div>
+        <h3 class="feature-name">Federated Architecture</h3>
+        <p class="feature-desc">
+          Decentralized forge instances communicate peer-to-peer.
+          No single point of failure. No central authority.
+          Your repo, your rules, your infrastructure.
+        </p>
+        <span class="feature-tag">Protocol: CIVIT-FED</span>
+      </div>
+
+      <div class="feature-card blob-alt depth-2 reveal">
+        <div class="feature-number">02</div>
+        <h3 class="feature-name">Extreme-Scale Monorepos</h3>
+        <p class="feature-desc">
+          Engineered for repositories with millions of files.
+          Incremental indexing, selective checkout, and
+          content-addressed storage handle what others cannot.
+        </p>
+        <span class="feature-tag">Storage: CAS-V2</span>
+      </div>
+
+      <div class="feature-card blob depth-float reveal">
+        <div class="feature-number">03</div>
+        <h3 class="feature-name">Rootless CI/CD</h3>
+        <p class="feature-desc">
+          Pipeline execution without root privileges.
+          Sandboxed, capability-based security model.
+          Containers run as the invoking user. Always.
+        </p>
+        <span class="feature-tag">Runtime: NSJAIL</span>
+      </div>
+
+      <div class="feature-card blob-alt depth-1 reveal">
+        <div class="feature-number">04</div>
+        <h3 class="feature-name">Air-Gapped AI</h3>
+        <p class="feature-desc">
+          On-premise AI assists that never phone home.
+          Code review, commit analysis, and issue triage
+          run entirely within your network perimeter.
+        </p>
+        <span class="feature-tag">Tier: O2-CLEARANCE</span>
+      </div>
+
+      <div class="feature-card blob depth-2 reveal">
+        <div class="feature-number">05</div>
+        <h3 class="feature-name">Zero-Trust Auth</h3>
+        <p class="feature-desc">
+          Every request authenticated. Every action authorized.
+          Cryptographic identity chains replace password-based trust.
+          Federated tokens work across instances.
+        </p>
+        <span class="feature-tag">Auth: SIGCHAIN-V1</span>
+      </div>
+
+      <div class="feature-card blob-alt depth-float reveal">
+        <div class="feature-number">06</div>
+        <h3 class="feature-name">Event Sourcing</h3>
+        <p class="feature-desc">
+          All state transitions captured as immutable events.
+          Full audit trail. Reproducible builds. Time-travel debugging.
+          Every operation is a signed, content-addressed fact.
+        </p>
+        <span class="feature-tag">Log: EVENTLOG-V3</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architecture">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// System design</span>
+      <h2 class="section-title">ARCHITECTURE <span class="red">OVERVIEW</span></h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="arch-intro reveal">
+      <p>
+        CivitForge is structured as a layered system. Each layer has
+        a single responsibility and communicates through typed message
+        passing. The entire stack is written in Rust with zero unsafe
+        code in production paths.
+      </p>
+      <p>
+        Federation is achieved through a gossip protocol layered on top
+        of libp2p. Each instance maintains a local event log that is
+        merged via conflict-free replicated data types (CRDTs).
+      </p>
+    </div>
+    <div class="arch-layers">
+      <div class="arch-layer blob depth-1 reveal">
+        <div class="arch-layer-header">
+          <span class="arch-layer-idx">LAYER 01</span>
+          <h3 class="arch-layer-name">TRANSPORT -- Federated Mesh</h3>
+        </div>
+        <p class="arch-layer-desc">
+          Peer discovery, encrypted channels, and replication
+          coordination. Built on libp2p with custom gossipsub
+          routing optimized for event-sourced state.
+        </p>
+        <div class="arch-layer-tech">
+          <span class="tech-tag">libp2p</span>
+          <span class="tech-tag">noise-protocol</span>
+          <span class="tech-tag">gossipsub</span>
+          <span class="tech-tag">quic</span>
+        </div>
+      </div>
+
+      <div class="arch-layer blob-alt depth-2 reveal">
+        <div class="arch-layer-header">
+          <span class="arch-layer-idx">LAYER 02</span>
+          <h3 class="arch-layer-name">STORAGE -- Content-Addressed Layer</h3>
+        </div>
+        <p class="arch-layer-desc">
+          All objects stored by their SHA-256 hash. Garbage collection
+          is trivial: unreferenced hashes are unreferenced bytes.
+          Supports pluggable backends: local FS, S3, and custom.
+        </p>
+        <div class="arch-layer-tech">
+          <span class="tech-tag">sha-256</span>
+          <span class="tech-tag">cas-v2</span>
+          <span class="tech-tag">merkle-trees</span>
+          <span class="tech-tag">pluggable-backend</span>
+        </div>
+      </div>
+
+      <div class="arch-layer blob-morph depth-float reveal">
+        <div class="arch-layer-header">
+          <span class="arch-layer-idx">LAYER 03</span>
+          <h3 class="arch-layer-name">RUNTIME -- Rootless Execution</h3>
+        </div>
+        <p class="arch-layer-desc">
+          Pipeline runner using namespace isolation without privilege
+          escalation. Builds execute as the invoking user identity
+          with capability-based resource limits.
+        </p>
+        <div class="arch-layer-tech">
+          <span class="tech-tag">nsjail</span>
+          <span class="tech-tag">landlock</span>
+          <span class="tech-tag">seccomp</span>
+          <span class="tech-tag">oci-runtime</span>
+        </div>
+      </div>
+
+      <div class="arch-layer blob-alt blob-morph-alt depth-1 reveal">
+        <div class="arch-layer-header">
+          <span class="arch-layer-idx">LAYER 04</span>
+          <h3 class="arch-layer-name">AI -- Air-Gapped Intelligence</h3>
+        </div>
+        <p class="arch-layer-desc">
+          Local inference engine for code analysis. Models run in
+          isolated sandboxes with no network egress. Results are
+          cached and versioned alongside code.
+        </p>
+        <div class="arch-layer-tech">
+          <span class="tech-tag">candle-rs</span>
+          <span class="tech-tag">onnx-runtime</span>
+          <span class="tech-tag">llama.cpp</span>
+          <span class="tech-tag">air-gap-enforced</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="getting-started">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Quick start</span>
+      <h2 class="section-title">GET <span class="red">STARTED</span></h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card blob depth-1 reveal">
+        <div class="step-idx">01</div>
+        <h3 class="step-title">Install</h3>
+        <div class="step-content">
+          <p>Clone and build from source. No runtime dependencies beyond the Rust toolchain.</p>
+          <div class="code-block">
+            <span class="cmd">git clone</span> https://github.com/WyattAu/CivitForge.git<br>
+            <span class="cmd">cd</span> CivitForge<br>
+            <span class="cmd">cargo build</span> <span class="flag">--release</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card blob-alt depth-2 reveal">
+        <div class="step-idx">02</div>
+        <h3 class="step-title">Configure</h3>
+        <div class="step-content">
+          <p>Initialize a new instance with default configuration.</p>
+          <div class="code-block">
+            <span class="cmd">civitforge init</span> <span class="flag">--name my-forge</span><br>
+            <span class="cmd">civitforge config</span> <span class="flag">edit</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card blob depth-float reveal">
+        <div class="step-idx">03</div>
+        <h3 class="step-title">Run</h3>
+        <div class="step-content">
+          <p>Start the forge server. Access the web UI at localhost:8080.</p>
+          <div class="code-block">
+            <span class="cmd">civitforge serve</span> <span class="flag">--port 8080</span><br>
+            <span class="cmd">open</span> http://localhost:8080
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="links">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-label">// Resources</span>
+      <h2 class="section-title">LINKS</h2>
+      <div class="section-divider"></div>
+    </div>
+    <div class="links-grid">
+      <a href="https://github.com/WyattAu/CivitForge" class="link-card blob depth-1 reveal">
+        <div class="link-card-title">Source Code</div>
+        <div class="link-card-url">github.com/WyattAu/CivitForge</div>
+      </a>
+      <a href="https://github.com/WyattAu/CivitForge/issues" class="link-card blob-alt depth-2 reveal">
+        <div class="link-card-title">Issue Tracker</div>
+        <div class="link-card-url">github.com/WyattAu/CivitForge/issues</div>
+      </a>
+      <a href="https://github.com/WyattAu/CivitForge/blob/main/CONTRIBUTING.md" class="link-card blob depth-float reveal">
+        <div class="link-card-title">Contributing</div>
+        <div class="link-card-url">CONTRIBUTING.md</div>
+      </a>
+      <a href="https://github.com/WyattAu/CivitForge/blob/main/LICENSE" class="link-card blob-alt depth-1 reveal">
+        <div class="link-card-title">License</div>
+        <div class="link-card-url">LICENSE</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">CIVIT<span>FORGE</span></div>
+    <div class="footer-line"></div>
+    <div class="footer-copy">Federated Rust-native forge software. Built for the next decade of development infrastructure.</div>
+  </div>
+</footer>
+
+<script>
+  (function() {
+    var toggle = document.querySelector('.menu-toggle');
+    var links = document.getElementById('nav-links');
+    if (toggle && links) {
+      toggle.addEventListener('click', function() {
+        links.classList.toggle('open');
+        toggle.textContent = links.classList.contains('open') ? 'CLOSE' : 'MENU';
+      });
+      var linkItems = links.querySelectorAll('a');
+      for (var i = 0; i < linkItems.length; i++) {
+        linkItems[i].addEventListener('click', function() {
+          links.classList.remove('open');
+          toggle.textContent = 'MENU';
+        });
+      }
+    }
+
+    var reveals = document.querySelectorAll('.reveal');
+    var observer = new IntersectionObserver(function(entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          entries[i].target.classList.add('visible');
+        }
+      }
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    for (var i = 0; i < reveals.length; i++) {
+      observer.observe(reveals[i]);
+    }
+  })();
+</script>
+
+</body>
+</html>

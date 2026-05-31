@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CivitForge -- Resource not found.">
+<meta name="robots" content="noindex, follow">
+<title>404 -- CIVITFORGE</title>
+<style>
+  *, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  :root {
+    --charcoal: #1a1a2e;
+    --offwhite: #e8e8e8;
+    --red: #c73e1d;
+    --blue: #4a6fa5;
+    --muted: #2d2d44;
+    --charcoal-deep: #0f0f1e;
+  }
+
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    background: var(--charcoal);
+    color: var(--offwhite);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  ::selection {
+    background: var(--red);
+    color: var(--offwhite);
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+
+  a:hover {
+    border-bottom-color: var(--red);
+  }
+
+  .bg-shape {
+    position: absolute;
+    opacity: 0.04;
+    pointer-events: none;
+  }
+
+  .bg-shape-1 {
+    width: 500px;
+    height: 500px;
+    top: -150px;
+    right: -100px;
+    background: var(--red);
+    border-radius: 40% 60% 65% 35% / 55% 35% 65% 45%;
+    animation: floatA 18s ease-in-out infinite;
+  }
+
+  .bg-shape-2 {
+    width: 400px;
+    height: 400px;
+    bottom: -100px;
+    left: -100px;
+    background: var(--blue);
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+    animation: floatA 22s ease-in-out infinite reverse;
+  }
+
+  .bg-shape-3 {
+    width: 300px;
+    height: 300px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--muted);
+    border-radius: 50% 50% 33% 67% / 55% 27% 73% 45%;
+    animation: floatA 15s ease-in-out infinite;
+  }
+
+  @keyframes floatA {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); border-radius: 40% 60% 65% 35% / 55% 35% 65% 45%; }
+    33% { transform: translate(25px, -15px) rotate(4deg); border-radius: 58% 42% 36% 64% / 56% 64% 36% 44%; }
+    66% { transform: translate(-15px, 10px) rotate(-3deg); border-radius: 50% 50% 33% 67% / 55% 27% 73% 45%; }
+  }
+
+  .error-container {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 4rem 2rem;
+    max-width: 600px;
+    border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+    background: var(--charcoal-deep);
+    box-shadow:
+      10px 10px 0px var(--muted),
+      20px 20px 0px var(--charcoal);
+    animation: morphError 10s ease-in-out infinite;
+  }
+
+  @keyframes morphError {
+    0%, 100% { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
+    25% { border-radius: 58% 42% 36% 64% / 56% 64% 36% 44%; }
+    50% { border-radius: 50% 50% 33% 67% / 55% 27% 73% 45%; }
+    75% { border-radius: 33% 67% 58% 42% / 63% 68% 32% 37%; }
+  }
+
+  .error-code {
+    font-size: clamp(6rem, 15vw, 12rem);
+    font-weight: bold;
+    line-height: 1;
+    color: var(--red);
+    letter-spacing: -0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .error-label {
+    font-size: 0.8rem;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--blue);
+    margin-bottom: 2rem;
+  }
+
+  .error-message {
+    font-size: 1rem;
+    line-height: 1.8;
+    opacity: 0.7;
+    margin-bottom: 2.5rem;
+  }
+
+  .error-path {
+    font-size: 0.82rem;
+    color: var(--muted);
+    background: var(--charcoal);
+    padding: 0.6rem 1.2rem;
+    border-left: 3px solid var(--red);
+    display: inline-block;
+    margin-bottom: 2.5rem;
+    word-break: break-all;
+  }
+
+  .error-actions {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-block;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: bold;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.8rem 2rem;
+    border: 3px solid;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .btn-primary {
+    background: var(--red);
+    color: var(--offwhite);
+    border-color: var(--red);
+  }
+
+  .btn-primary:hover {
+    background: transparent;
+    color: var(--red);
+  }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--offwhite);
+    border-color: var(--offwhite);
+  }
+
+  .btn-outline:hover {
+    background: var(--offwhite);
+    color: var(--charcoal);
+  }
+
+  .footer-ref {
+    position: relative;
+    z-index: 2;
+    margin-top: 3rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    opacity: 0.3;
+  }
+
+  .footer-ref span {
+    color: var(--red);
+  }
+
+  @media (max-width: 600px) {
+    .error-container {
+      margin: 1rem;
+      padding: 3rem 1.5rem;
+    }
+
+    .error-actions {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .btn {
+      width: 100%;
+      max-width: 240px;
+      text-align: center;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-shape bg-shape-1"></div>
+<div class="bg-shape bg-shape-2"></div>
+<div class="bg-shape bg-shape-3"></div>
+
+<div class="error-container">
+  <div class="error-code">404</div>
+  <div class="error-label">Resource not found</div>
+  <p class="error-message">
+    The requested resource does not exist on this forge instance.
+    If you believe this is an error, check the repository URL and try again.
+  </p>
+  <div class="error-path" id="req-path">-- unknown path --</div>
+  <div class="error-actions">
+    <a href="/" class="btn btn-primary">Return to Index</a>
+    <a href="https://github.com/WyattAu/CivitForge" class="btn btn-outline">Source Code</a>
+  </div>
+</div>
+
+<div class="footer-ref">CIVIT<span>FORGE</span> // federated rust-native forge</div>
+
+<script>
+  (function() {
+    var pathEl = document.getElementById('req-path');
+    if (pathEl && window.location.pathname !== '/') {
+      pathEl.textContent = window.location.pathname;
+    } else {
+      pathEl.textContent = '/undefined';
+    }
+  })();
+</script>
+
+</body>
+</html>

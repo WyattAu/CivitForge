@@ -1,0 +1,27 @@
+#!/bin/bash -e
+
+echo "==> Running cargo fmt --check --all"
+if cargo fmt --check --all; then
+    echo "==> [OK] Formatting check passed"
+else
+    echo "==> [FAIL] Formatting check failed -- run 'cargo fmt' to fix"
+    exit 1
+fi
+
+echo "==> Running cargo clippy --workspace --all-targets -- -D warnings"
+if cargo clippy --workspace --all-targets -- -D warnings; then
+    echo "==> [OK] Clippy lint passed"
+else
+    echo "==> [FAIL] Clippy lint failed"
+    exit 1
+fi
+
+echo "==> Running cargo test --workspace"
+if cargo test --workspace; then
+    echo "==> [OK] All tests passed"
+else
+    echo "==> [FAIL] Tests failed"
+    exit 1
+fi
+
+echo "==> Pre-commit checks passed"
