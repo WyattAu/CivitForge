@@ -1,0 +1,110 @@
+{{- range $component := list "api" "runner" "brain" "vfs" }}
+{{- $values := index .Values $component }}
+{{- if $values.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "civitforge.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "civitforge.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: {{ $values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "civitforge.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $component }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+      labels:
+        {{- include "civitforge.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $component }}
+    spec:
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with (index $.Values.affinity $component | default dict) }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $component }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          image: "{{ $values.image.repository }}:{{ $values.image.tag }}"
+          imagePullPolicy: {{ $values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $values.service.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "civitforge.fullname" $ }}
+            - secretRef:
+                name: {{ include "civitforge.fullname" $ }}
+          env:
+            - name: CIVIT_PORT
+              value: "{{ $values.service.port }}"
+            {{- range $values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml $values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            {{- if and (eq $component "vfs") $values.storage }}
+            - name: storage
+              mountPath: /data
+            {{- end }}
+            {{- if and (eq $component "runner") $values.sandboxRuntime }}
+            - name: sandbox
+              mountPath: /var/run/sandbox
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- if and (eq $component "vfs") $values.storage }}
+        - name: storage
+          persistentVolumeClaim:
+            claimName: {{ include "civitforge.fullname" $ }}-vfs
+        {{- end }}
+        {{- if and (eq $component "runner") $values.sandboxRuntime }}
+        - name: sandbox
+          emptyDir: {}
+        {{- end }}
+{{- end }}
+{{- end }}

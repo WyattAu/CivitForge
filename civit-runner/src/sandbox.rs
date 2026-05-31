@@ -116,6 +116,10 @@ impl SandboxManager {
     }
 }
 
+pub mod podman {
+    pub use crate::podman::*;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

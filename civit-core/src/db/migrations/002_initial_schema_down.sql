@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS audit_events;
+DROP TABLE IF EXISTS access_tokens;
+DROP TABLE IF EXISTS pipelines;
+DROP TABLE IF EXISTS pull_requests;
+DROP TABLE IF EXISTS issues;
+DROP TABLE IF EXISTS repositories;
+DROP TABLE IF EXISTS organizations;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS schema_migrations;

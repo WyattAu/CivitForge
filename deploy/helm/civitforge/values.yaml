@@ -1,0 +1,218 @@
+global:
+  imageRegistry: ghcr.io
+  imagePullSecrets: []
+  storageClass: ""
+
+api:
+  enabled: true
+  replicas: 3
+  image:
+    repository: civitforge/api
+    tag: "0.2.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8080
+  env: []
+  extraArgs: []
+
+runner:
+  enabled: true
+  replicas: 2
+  image:
+    repository: civitforge/runner
+    tag: "0.2.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8081
+  env: []
+  sandboxRuntime: firecracker
+
+brain:
+  enabled: true
+  replicas: 1
+  image:
+    repository: civitforge/brain
+    tag: "0.2.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8082
+  env: []
+
+vfs:
+  enabled: true
+  replicas: 2
+  image:
+    repository: civitforge/vfs
+    tag: "0.2.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8083
+  env: []
+  storage:
+    size: 50Gi
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    database: civitforge
+    username: civitforge
+    existingSecret: civitforge-postgres
+    secretKeys:
+      userKey: POSTGRES_USER
+      passwordKey: POSTGRES_PASSWORD
+  primary:
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+  metrics:
+    enabled: true
+
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    enabled: true
+    existingSecret: civitforge-redis
+    existingSecretPasswordKey: REDIS_PASSWORD
+  master:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  metrics:
+    enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "512m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/websocket-services: "civitforge-api"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: forge.example.com
+      paths:
+        - path: /
+          service: api
+          port: 8080
+  tls:
+    - secretName: civitforge-tls
+      hosts:
+        - forge.example.com
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  labels:
+    release: prometheus
+
+networkPolicy:
+  enabled: true
+  defaultDeny: true
+
+hpa:
+  enabled: true
+  api:
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilization: 70
+  runner:
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilization: 75
+  vfs:
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilization: 70
+
+tolerations: []
+affinity:
+  api:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: api
+            topologyKey: kubernetes.io/hostname
+  runner:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/component: runner
+            topologyKey: kubernetes.io/hostname
+
+configMap:
+  data:
+    CIVIT_HOST: "0.0.0.0"
+    CIVIT_PORT: "8080"
+    LOG_LEVEL: "info"
+    FEDERATION_ENABLED: "true"
+    DB_POOL_SIZE: "20"
+    DB_POOL_TIMEOUT: "30"
+    REDIS_POOL_SIZE: "10"
+    GIT_CACHE_DIR: "/data/git-cache"
+    SANDBOX_TIMEOUT: "600"
+    MAX_UPLOAD_SIZE: "536870912"
+
+secrets:
+  create: true
+  jwtSecret: ""
+  databaseUrl: ""
+  redisPassword: ""

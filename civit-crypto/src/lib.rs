@@ -1,8 +1,13 @@
 #![forbid(unsafe_code)]
 
+pub mod abac;
+pub mod audit;
+pub mod compliance;
 pub mod cosign;
+pub mod fips;
 pub mod hash;
 pub mod hmac;
+pub mod hsm;
 pub mod mtls;
 pub mod policy;
 pub mod sbom;

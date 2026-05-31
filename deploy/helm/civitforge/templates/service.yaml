@@ -1,0 +1,23 @@
+{{- range $component := list "api" "runner" "brain" "vfs" }}
+{{- $values := index .Values $component }}
+{{- if $values.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "civitforge.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "civitforge.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  type: {{ $values.service.type }}
+  ports:
+    - port: {{ $values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "civitforge.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+{{- end }}
+{{- end }}

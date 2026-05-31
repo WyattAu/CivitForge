@@ -1,0 +1,30 @@
+{{- if .Values.hpa.enabled }}
+{{- range $component := list "api" "runner" "vfs" }}
+{{- $hpa := index .Values.hpa $component }}
+{{- $values := index $.Values $component }}
+{{- if and $values.enabled $hpa }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "civitforge.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "civitforge.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "civitforge.fullname" $ }}-{{ $component }}
+  minReplicas: {{ $hpa.minReplicas }}
+  maxReplicas: {{ $hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $hpa.targetCPUUtilization }}
+{{- end }}
+{{- end }}
+{{- end }}
