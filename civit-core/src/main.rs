@@ -27,6 +27,42 @@ async fn main() -> Result<()> {
     let db_pool = DatabasePool::from_config(&config).await?;
     let pool = db_pool.pool().clone();
 
+    let migration_mgr = civit_core::db::migrations::MigrationManager::new();
+    let current_version: i64 =
+        sqlx::query_as::<_, (i64,)>("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
+            .fetch_one(&pool)
+            .await
+            .map(|r| r.0)
+            .unwrap_or(0);
+
+    let pending = migration_mgr.get_pending(current_version);
+    if !pending.is_empty() {
+        info!(
+            current = current_version,
+            pending = pending.len(),
+            "running pending migrations"
+        );
+        for migration in &pending {
+            info!(
+                version = migration.version,
+                name = %migration.name,
+                "applying migration"
+            );
+            sqlx::query(&migration.up_sql).execute(&pool).await?;
+            sqlx::query(
+                "INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, NOW())",
+            )
+            .bind(migration.version)
+            .bind(&migration.name)
+            .execute(&pool)
+            .await?;
+            info!(version = migration.version, "migration applied");
+        }
+        info!("all migrations applied");
+    } else {
+        info!(current = current_version, "database schema is up to date");
+    }
+
     let router = create_router(config.clone(), pool)?;
 
     let addr = format!("{}:{}", config.host, config.port);

@@ -1,17 +1,28 @@
 #![forbid(unsafe_code)]
 
+pub mod auth;
+pub mod auth_routes;
+pub mod orgs;
 pub mod repos;
+pub mod ssh_keys;
+pub mod users;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
 use crate::error::Result;
 use axum::Router;
-use axum::routing::get;
+use axum::extract::State;
+use axum::extract::ws::WebSocketUpgrade;
+use axum::response::IntoResponse;
+use axum::routing::{delete, get, post};
 use sqlx::postgres::PgPool;
+use std::sync::Arc;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
+    let state = AppState::new(config, db);
+
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -21,6 +32,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/healthz", get(health))
         .route("/ready", get(health))
         .route("/api/v1/health", get(health))
+        .route("/api/v1/ws", get(ws_handler))
+        .route("/api/v1/auth/login", post(auth_routes::login))
+        .route("/api/v1/auth/me", get(auth_routes::me))
         .route(
             "/api/v1/repos",
             get(repos::list_repos).post(repos::create_repo),
@@ -32,13 +46,36 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route(
             "/api/v1/repos/{owner}/{name}/commits",
             get(repos::list_commits),
+        )
+        .route(
+            "/api/v1/users",
+            get(users::list_users).post(users::create_user),
+        )
+        .route(
+            "/api/v1/users/{id}",
+            get(users::get_user)
+                .patch(users::update_user)
+                .delete(users::delete_user),
+        )
+        .route("/api/v1/orgs", get(orgs::list_orgs).post(orgs::create_org))
+        .route(
+            "/api/v1/orgs/{id}",
+            get(orgs::get_org).patch(orgs::update_org),
+        )
+        .route(
+            "/api/v1/users/{user_id}/ssh-keys",
+            get(ssh_keys::list_ssh_keys).post(ssh_keys::add_ssh_key),
+        )
+        .route(
+            "/api/v1/ssh-keys/{key_id}",
+            delete(ssh_keys::delete_ssh_key),
         );
 
     let router = Router::new()
         .merge(api)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        .with_state(AppState::new(config, db));
+        .with_state(state);
 
     Ok(router)
 }
@@ -47,19 +84,43 @@ async fn health() -> &'static str {
     "OK"
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppState {
     pub config: AppConfig,
     pub db: DbRepository,
+    pub jwt_service: Arc<crate::auth::jwt::JwtService>,
+    pub event_bus: Arc<crate::events::EventBus>,
+    pub ws_manager: Arc<tokio::sync::RwLock<crate::events::WebSocketManager>>,
+    pub session_manager: Arc<crate::db::SessionManager>,
 }
 
 impl AppState {
     pub fn new(config: AppConfig, db: PgPool) -> Self {
+        let jwt_service = Arc::new(crate::auth::jwt::JwtService::new(
+            &config.jwt_secret,
+            config.jwt_expiry_hours,
+        ));
+        let event_bus = Arc::new(crate::events::EventBus::new(1000));
+        let ws_manager = Arc::new(tokio::sync::RwLock::new(
+            crate::events::WebSocketManager::new(event_bus.clone()),
+        ));
+        let session_manager = Arc::new(crate::db::SessionManager::new(
+            db.clone(),
+            std::time::Duration::from_secs(config.jwt_expiry_hours * 3600),
+        ));
         Self {
             config,
             db: DbRepository::new(db),
+            jwt_service,
+            event_bus,
+            ws_manager,
+            session_manager,
         }
     }
+}
+
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl IntoResponse {
+    crate::events::websocket::ws_upgrade_handler(ws, State(state.ws_manager)).await
 }
 
 #[cfg(test)]
@@ -87,6 +148,23 @@ mod tests {
         let pool = opts.connect_lazy("postgres://localhost/test").unwrap();
         let state = AppState::new(test_config(), pool);
         assert_eq!(state.config.port, 8080);
+        assert!(Arc::strong_count(&state.event_bus) >= 1);
+        assert!(Arc::strong_count(&state.ws_manager) >= 1);
+        assert!(Arc::strong_count(&state.session_manager) >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_app_state_jwt_service_works() {
+        let opts = sqlx::postgres::PgPoolOptions::new().max_connections(1);
+        let pool = opts.connect_lazy("postgres://localhost/test").unwrap();
+        let state = AppState::new(test_config(), pool);
+        let token = state
+            .jwt_service
+            .generate_token("u1", "alice", "admin", None)
+            .unwrap();
+        let claims = state.jwt_service.validate_token(&token).unwrap();
+        assert_eq!(claims.sub, "u1");
+        assert_eq!(claims.username, "alice");
     }
 
     #[tokio::test]

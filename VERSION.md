@@ -1,18 +1,18 @@
-phase: 7
-version: 0.1.3
+phase: 8
+version: 0.2.0-alpha
 status: In Progress
 last_updated: 2026-05-31
 error_level: 0
-rollback_checkpoint: phase-7-audit-start
+rollback_checkpoint: phase-8-roadmap-start
 
 ## Artifact Summary
-- Rust source files: 115
-- Rust lines of code: 29,086
+- Rust source files: 120
+- Rust lines of code: 32,465
 - Spec artifacts (excl .lake): 42
 - Lean4 proof files: 6
 - Phase reports: 4
 - Cargo workspace crates: 5
-- Unit tests passing: 882
+- Unit tests passing: 976
 - Unit tests ignored: 0
 - Line coverage: 85.61%
 - Region coverage: 86.61%

@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::db::models::{Issue, Org, Pipeline, PullRequest, Repository, User};
+use crate::db::models::{Issue, Org, Pipeline, PullRequest, Repository, SshKey, User};
 use crate::error::{CoreError, Result};
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -610,6 +610,60 @@ impl DbRepository {
         .map_err(|e| CoreError::Database(format!("query_audit_events: {e}")))?;
         Ok(rows)
     }
+
+    // --- SSH Keys ---
+
+    pub async fn add_ssh_key(
+        &self,
+        user_id: Uuid,
+        key_type: &str,
+        public_key: &str,
+        fingerprint: &str,
+        label: &str,
+    ) -> Result<SshKey> {
+        let row = sqlx::query_as::<_, SshKey>(
+            r#"INSERT INTO ssh_keys (user_id, key_type, public_key, fingerprint, label)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(key_type)
+        .bind(public_key)
+        .bind(fingerprint)
+        .bind(label)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("add_ssh_key: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_ssh_keys(&self, user_id: Uuid) -> Result<Vec<SshKey>> {
+        let rows = sqlx::query_as::<_, SshKey>(
+            "SELECT * FROM ssh_keys WHERE user_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_ssh_keys: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn delete_ssh_key(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM ssh_keys WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("delete_ssh_key: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn get_ssh_key_by_fingerprint(&self, fingerprint: &str) -> Result<SshKey> {
+        sqlx::query_as::<_, SshKey>("SELECT * FROM ssh_keys WHERE fingerprint = $1")
+            .bind(fingerprint)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("get_ssh_key_by_fingerprint: {e}")))
+    }
 }
 
 #[cfg(test)]
@@ -844,6 +898,30 @@ mod tests {
     fn test_query_audit_events_error_message_format() {
         let err = CoreError::Database("query_audit_events: connection refused".into());
         assert!(err.to_string().contains("query_audit_events"));
+    }
+
+    #[test]
+    fn test_add_ssh_key_error_message_format() {
+        let err = CoreError::Database("add_ssh_key: duplicate key".into());
+        assert!(err.to_string().contains("add_ssh_key"));
+    }
+
+    #[test]
+    fn test_list_ssh_keys_error_message_format() {
+        let err = CoreError::Database("list_ssh_keys: connection refused".into());
+        assert!(err.to_string().contains("list_ssh_keys"));
+    }
+
+    #[test]
+    fn test_delete_ssh_key_error_message_format() {
+        let err = CoreError::Database("delete_ssh_key: relation not found".into());
+        assert!(err.to_string().contains("delete_ssh_key"));
+    }
+
+    #[test]
+    fn test_get_ssh_key_by_fingerprint_error_message_format() {
+        let err = CoreError::Database("get_ssh_key_by_fingerprint: no rows returned".into());
+        assert!(err.to_string().contains("get_ssh_key_by_fingerprint"));
     }
 
     #[test]

@@ -78,6 +78,17 @@ pub struct PullRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct SshKey {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub key_type: String,
+    pub public_key: String,
+    pub fingerprint: String,
+    pub label: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Pipeline {
     pub id: Uuid,
     pub repo_id: Uuid,
@@ -177,5 +188,23 @@ mod tests {
         let de: PullRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(de.source_branch, "feature");
         assert_eq!(de.target_branch, "main");
+    }
+
+    #[test]
+    fn test_ssh_key_serialization() {
+        let key = SshKey {
+            id: Uuid::nil(),
+            user_id: Uuid::nil(),
+            key_type: "ssh-ed25519".into(),
+            public_key: "AAAAC3NzaC1lZDI1NTE5AAAAI...".into(),
+            fingerprint: "SHA256:abc123".into(),
+            label: "my-laptop".into(),
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&key).unwrap();
+        let de: SshKey = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.key_type, "ssh-ed25519");
+        assert_eq!(de.fingerprint, "SHA256:abc123");
+        assert_eq!(de.label, "my-laptop");
     }
 }
