@@ -12,6 +12,7 @@ pub struct AppConfig {
     pub redis_url: String,
     pub jwt_secret: String,
     pub jwt_expiry_hours: u64,
+    pub storage_path: String,
     pub federation_enabled: bool,
     pub federation_instance_id: String,
     pub federation_instance_domain: String,
@@ -43,6 +44,8 @@ impl AppConfig {
                 .unwrap_or_else(|_| "default-instance".into()),
             federation_instance_domain: std::env::var("FEDERATION_INSTANCE_DOMAIN")
                 .unwrap_or_else(|_| "localhost".into()),
+            storage_path: std::env::var("CIVIT_STORAGE_PATH")
+                .unwrap_or_else(|_| "/var/lib/civit/repos".into()),
         })
     }
 }
@@ -108,6 +111,7 @@ mod tests {
         federation_enabled: &str,
         federation_instance_id: &str,
         federation_instance_domain: &str,
+        storage_path: &str,
     ) -> crate::error::Result<AppConfig> {
         let host = host.to_string();
         let port: u16 = port
@@ -124,6 +128,7 @@ mod tests {
             .map_err(|_| CoreError::Config("invalid federation flag".into()))?;
         let federation_instance_id = federation_instance_id.to_string();
         let federation_instance_domain = federation_instance_domain.to_string();
+        let storage_path = storage_path.to_string();
         Ok(AppConfig {
             host,
             port,
@@ -134,6 +139,7 @@ mod tests {
             federation_enabled,
             federation_instance_id,
             federation_instance_domain,
+            storage_path,
         })
     }
 
@@ -149,6 +155,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         );
         let config = result.unwrap();
         assert_eq!(config.database_url, "");
@@ -166,6 +173,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("invalid port"));
@@ -183,6 +191,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         );
         assert!(result.is_err());
         assert!(
@@ -205,6 +214,7 @@ mod tests {
             "yes",
             "default-instance",
             "localhost",
+            "/data/repos",
         );
         assert!(result.is_err());
         assert!(
@@ -227,6 +237,7 @@ mod tests {
             "true",
             "inst-1",
             "forge.example.com",
+            "/opt/repos",
         )
         .unwrap();
         assert_eq!(config.host, "0.0.0.0");
@@ -252,6 +263,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         )
         .unwrap();
         assert_eq!(config.host, "127.0.0.1");
@@ -275,6 +287,7 @@ mod tests {
             federation_enabled: false,
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
+            storage_path: "/data/repos".into(),
         };
         let json = serde_json::to_string(&config).unwrap();
         let de: AppConfig = serde_json::from_str(&json).unwrap();
@@ -295,6 +308,7 @@ mod tests {
             federation_enabled: false,
             federation_instance_id: String::new(),
             federation_instance_domain: String::new(),
+            storage_path: String::new(),
         };
         let _: String = config.host;
         let _: u16 = config.port;
@@ -314,6 +328,7 @@ mod tests {
             federation_enabled: true,
             federation_instance_id: "id".into(),
             federation_instance_domain: "domain".into(),
+            storage_path: "/data".into(),
         };
         let cloned = config.clone();
         assert_eq!(cloned.host, config.host);
@@ -352,6 +367,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         )
         .unwrap();
         assert_eq!(config.port, 0);
@@ -366,6 +382,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         )
         .unwrap();
         assert_eq!(config.port, 65535);
@@ -383,6 +400,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         );
         assert!(result.is_err());
     }
@@ -399,6 +417,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         )
         .unwrap();
         assert_eq!(config.jwt_expiry_hours, 0);
@@ -413,6 +432,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         )
         .unwrap();
         assert_eq!(config.jwt_expiry_hours, 999999);
@@ -430,6 +450,7 @@ mod tests {
             "false",
             "default-instance",
             "localhost",
+            "/data/repos",
         );
         assert!(result.is_err());
     }

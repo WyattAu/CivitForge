@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
 use uuid::Uuid;
 
+#[derive(Debug, Clone)]
 pub struct DbRepository {
     pool: PgPool,
 }

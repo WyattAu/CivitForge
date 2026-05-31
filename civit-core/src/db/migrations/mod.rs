@@ -2,6 +2,10 @@
 
 pub const M_001_INITIAL_SCHEMA_UP: &str = include_str!("001_initial_schema.sql");
 pub const M_001_INITIAL_SCHEMA_DOWN: &str = include_str!("002_initial_schema_down.sql");
+pub const M_003_PHASE1_UP: &str = include_str!("003_add_ssh_keys_branches_steps_events.sql");
+pub const M_003_PHASE1_DOWN: &str = include_str!("004_add_ssh_keys_branches_steps_events_down.sql");
+pub const M_005_AUTH_UP: &str = include_str!("005_add_auth_identity_tables.sql");
+pub const M_005_AUTH_DOWN: &str = include_str!("006_add_auth_identity_tables_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -31,6 +35,18 @@ impl MigrationManager {
             name: "initial_schema".into(),
             up_sql: M_001_INITIAL_SCHEMA_UP.into(),
             down_sql: M_001_INITIAL_SCHEMA_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 3,
+            name: "add_ssh_keys_branches_steps_events".into(),
+            up_sql: M_003_PHASE1_UP.into(),
+            down_sql: M_003_PHASE1_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 5,
+            name: "add_auth_identity_tables".into(),
+            up_sql: M_005_AUTH_UP.into(),
+            down_sql: M_005_AUTH_DOWN.into(),
         });
     }
 
@@ -73,22 +89,26 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 1);
+        assert_eq!(mgr.all().len(), 3);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
+        assert_eq!(mgr.all()[1].version, 3);
+        assert_eq!(mgr.all()[1].name, "add_ssh_keys_branches_steps_events");
+        assert_eq!(mgr.all()[2].version, 5);
+        assert_eq!(mgr.all()[2].name, "add_auth_identity_tables");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 2,
+            version: 6,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 2);
-        assert_eq!(mgr.all()[1].version, 2);
+        assert_eq!(mgr.all().len(), 4);
+        assert_eq!(mgr.all()[3].version, 6);
     }
 
     #[test]
@@ -107,14 +127,14 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 1);
+        assert_eq!(pending.len(), 3);
         assert_eq!(pending[0].version, 1);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(1);
+        let pending = mgr.get_pending(5);
         assert!(pending.is_empty());
     }
 
@@ -122,14 +142,14 @@ mod tests {
     fn test_get_pending_partial() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 2,
+            version: 6,
             name: "second".into(),
             up_sql: "".into(),
             down_sql: "".into(),
         });
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 1);
-        assert_eq!(pending[0].version, 2);
+        assert_eq!(pending.len(), 3);
+        assert_eq!(pending[0].version, 3);
     }
 
     #[test]
@@ -143,5 +163,30 @@ mod tests {
     fn test_initial_schema_down_sql_not_empty() {
         assert_ne!(M_001_INITIAL_SCHEMA_DOWN, "");
         assert!(M_001_INITIAL_SCHEMA_DOWN.contains("DROP TABLE IF EXISTS"));
+    }
+
+    #[test]
+    fn test_phase1_schema_sql_not_empty() {
+        assert_ne!(M_003_PHASE1_UP, "");
+        assert!(M_003_PHASE1_UP.contains("CREATE TABLE IF NOT EXISTS sessions"));
+        assert!(M_003_PHASE1_UP.contains("CREATE TABLE IF NOT EXISTS ssh_keys"));
+        assert!(M_003_PHASE1_UP.contains("CREATE TABLE IF NOT EXISTS branches"));
+        assert!(M_003_PHASE1_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_steps"));
+        assert!(M_003_PHASE1_UP.contains("CREATE TABLE IF NOT EXISTS event_log"));
+    }
+
+    #[test]
+    fn test_phase1_schema_down_sql_not_empty() {
+        assert_ne!(M_003_PHASE1_DOWN, "");
+        assert!(M_003_PHASE1_DOWN.contains("DROP TABLE IF EXISTS"));
+    }
+
+    #[test]
+    fn test_auth_schema_sql_not_empty() {
+        assert_ne!(M_005_AUTH_UP, "");
+        assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS oidc_identities"));
+        assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS webauthn_credentials"));
+        assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS devices"));
+        assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS refresh_tokens"));
     }
 }

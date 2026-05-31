@@ -127,6 +127,130 @@ impl SshKeyStore for InMemorySshKeyStore {
     }
 }
 
+/// Database-backed SSH key store using the ssh_keys table (migration 003).
+#[derive(Debug, Clone)]
+pub struct DbSshKeyStore {
+    db: sqlx::postgres::PgPool,
+}
+
+impl DbSshKeyStore {
+    pub fn new(db: sqlx::postgres::PgPool) -> Self {
+        Self { db }
+    }
+}
+
+/// Row type matching the ssh_keys table schema.
+#[derive(Debug, Clone, sqlx::FromRow)]
+struct SshKeyRow {
+    id: Uuid,
+    user_id: Uuid,
+    key_type: String,
+    public_key: String,
+    fingerprint: String,
+    created_at: DateTime<Utc>,
+}
+
+impl From<SshKeyRow> for SshKeyRecord {
+    fn from(r: SshKeyRow) -> Self {
+        Self {
+            id: r.id,
+            user_id: r.user_id,
+            key_type: r.key_type,
+            public_key: r.public_key,
+            fingerprint: r.fingerprint,
+            created_at: r.created_at,
+        }
+    }
+}
+
+impl SshKeyStore for DbSshKeyStore {
+    fn lookup_by_fingerprint(&self, _fingerprint: &str) -> Result<Option<SshKeyRecord>, String> {
+        // This is a sync trait method but we need async DB access.
+        // For now, return error indicating async context needed.
+        // The actual usage will be through async wrappers.
+        Err("DbSshKeyStore::lookup_by_fingerprint requires async context; use lookup_by_fingerprint_async instead".to_string())
+    }
+
+    fn lookup_by_user(&self, _user_id: Uuid) -> Result<Vec<SshKeyRecord>, String> {
+        Err("DbSshKeyStore::lookup_by_user requires async context; use lookup_by_user_async instead".to_string())
+    }
+
+    fn add_key(&self, _record: SshKeyRecord) -> Result<(), String> {
+        Err("DbSshKeyStore::add_key requires async context; use add_key_async instead".to_string())
+    }
+
+    fn remove_key(&self, _id: Uuid) -> Result<bool, String> {
+        Err(
+            "DbSshKeyStore::remove_key requires async context; use remove_key_async instead"
+                .to_string(),
+        )
+    }
+
+    fn list_keys(&self) -> Result<Vec<SshKeyRecord>, String> {
+        Err(
+            "DbSshKeyStore::list_keys requires async context; use list_keys_async instead"
+                .to_string(),
+        )
+    }
+}
+
+impl DbSshKeyStore {
+    pub async fn lookup_by_fingerprint_async(
+        &self,
+        fingerprint: &str,
+    ) -> Result<Option<SshKeyRecord>, String> {
+        let row = sqlx::query_as::<_, SshKeyRow>("SELECT * FROM ssh_keys WHERE fingerprint = $1")
+            .bind(fingerprint)
+            .fetch_optional(&self.db)
+            .await
+            .map_err(|e| format!("lookup fingerprint: {e}"))?;
+        Ok(row.map(Into::into))
+    }
+
+    pub async fn lookup_by_user_async(&self, user_id: Uuid) -> Result<Vec<SshKeyRecord>, String> {
+        let rows = sqlx::query_as::<_, SshKeyRow>("SELECT * FROM ssh_keys WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_all(&self.db)
+            .await
+            .map_err(|e| format!("lookup by user: {e}"))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
+    pub async fn add_key_async(&self, record: SshKeyRecord) -> Result<(), String> {
+        sqlx::query(
+            r#"INSERT INTO ssh_keys (id, user_id, key_type, public_key, fingerprint)
+               VALUES ($1, $2, $3, $4, $5)"#,
+        )
+        .bind(record.id)
+        .bind(record.user_id)
+        .bind(record.key_type)
+        .bind(record.public_key)
+        .bind(record.fingerprint)
+        .execute(&self.db)
+        .await
+        .map_err(|e| format!("add ssh key: {e}"))?;
+        Ok(())
+    }
+
+    pub async fn remove_key_async(&self, id: Uuid) -> Result<bool, String> {
+        let result = sqlx::query("DELETE FROM ssh_keys WHERE id = $1")
+            .bind(id)
+            .execute(&self.db)
+            .await
+            .map_err(|e| format!("remove ssh key: {e}"))?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn list_keys_async(&self) -> Result<Vec<SshKeyRecord>, String> {
+        let rows =
+            sqlx::query_as::<_, SshKeyRow>("SELECT * FROM ssh_keys ORDER BY created_at DESC")
+                .fetch_all(&self.db)
+                .await
+                .map_err(|e| format!("list ssh keys: {e}"))?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+}
+
 pub struct RateLimiter {
     attempts: DashMap<String, Vec<Instant>>,
     bans: DashMap<String, Instant>,

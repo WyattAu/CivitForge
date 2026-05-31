@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS event_log;
+DROP TABLE IF EXISTS pipeline_steps;
+DROP TABLE IF EXISTS branches;
+DROP TABLE IF EXISTS ssh_keys;
+DROP TABLE IF EXISTS sessions;
