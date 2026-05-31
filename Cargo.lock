@@ -589,6 +589,7 @@ dependencies = [
  "jsonwebtoken",
  "rand 0.10.1",
  "redis",
+ "regex",
  "reqwest",
  "ring",
  "russh",
