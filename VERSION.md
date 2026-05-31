@@ -6,13 +6,13 @@ error_level: 0
 rollback_checkpoint: phase-8-roadmap-start
 
 ## Artifact Summary
-- Rust source files: 120
-- Rust lines of code: 32,465
+- Rust source files: 124
+- Rust lines of code: 33,204
 - Spec artifacts (excl .lake): 42
 - Lean4 proof files: 6
 - Phase reports: 4
 - Cargo workspace crates: 5
-- Unit tests passing: 976
+- Unit tests passing: 1001
 - Unit tests ignored: 0
 - Line coverage: 85.61%
 - Region coverage: 86.61%

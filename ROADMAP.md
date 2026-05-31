@@ -12,10 +12,9 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 |---|---|
 | Version | 0.2.0-alpha |
 | Crates | 5 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto) |
-| Unit tests | 976 passing, 0 ignored |
-| Lean4 proofs | 5/5 compiling |
-| Rust source files | 120 |
-| Lines of code | 32,465 |
+| Unit tests | 1001 passing, 0 ignored |
+| Rust source files | 124 |
+| Lines of code | 33,204 |
 | Spec artifacts | 42 |
 | EARS requirements | 69 |
 | Clippy warnings | 0 |
@@ -92,9 +91,9 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 ### 1.3 Real Git Operations via gitoxide
 
 - [x] Replace all git operation stubs with gitoxide-backed implementations (GitService with gix)
-- [ ] Implement: clone (smart HTTP), fetch, push, ref advertisement, packfile negotiation
+- [x] Implement: clone (smart HTTP), fetch, push, ref advertisement, packfile negotiation (smart HTTP endpoints)
 - [ ] Add partial clone support (blobless and treeless) for monorepo performance
-- [ ] Implement server-side pre-receive hooks (async, non-blocking)
+- [x] Implement server-side pre-receive hooks (async, non-blocking)
 - [ ] Add git protocol v2 support
 
 ### 1.4 WebSocket Real-Time Event System
@@ -121,7 +120,7 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 - SSH git clone/push works end-to-end
 - OIDC login flow completes with session issuance
 - WebSocket events propagate within 100ms of source event
-- Zero regression in existing 976 tests
+- Zero regression in existing 1001 tests
 - Clippy warning-free, forbid(unsafe_code) maintained
 
 ---
@@ -406,13 +405,13 @@ The following stub and placeholder implementations must be replaced before their
 | Vector Database | In-memory HashMap with cosine similarity | Qdrant with hybrid search (dense + sparse) | Phase 3 |
 | gRPC Client | Stub client returning hardcoded responses | Real gRPC connection to core service | Phase 1 |
 | Pipeline Execution | `tokio::time::sleep` delay | Rootless Podman sandbox via K8s operator | Phase 2 |
-| Git Operations | gitoxide-backed (init_bare, list_commits, get_default_branch) | Full protocol v2 with fetch/push/packfile negotiation | Phase 1 |
+| Git Operations | gitoxide-backed (init_bare, list_commits, smart HTTP) | Full protocol v2 with partial clone support | Phase 1 |
 | Federation Engine | ActivityPub JSON generation (no network) | Production ForgeFed with HTTP delivery | Phase 4 |
 | FUSE Filesystem | In-memory HashMap simulating filesystem | `fuser` kernel-mounted FUSE daemon | Phase 4 |
-| Authentication | JWT + OIDC client + SAML parser + TOTP + WebAuthn + RBAC | Production IdP integration with refresh token rotation | Phase 1 |
+| Authentication | JWT + OIDC + SAML + TOTP + WebAuthn + RBAC + auth middleware | Production IdP integration with refresh token rotation | Phase 1 |
 | Database | sqlx with 17 tables, migration framework, auto-run on startup | CockroachDB with full migration suite | Phase 1 |
 | Event Bus | In-memory EventBus + WebSocketManager with pub/sub + replay | Redis-backed with persistence and cross-node broadcast | Phase 4 |
-| SSH Server | Key store + rate limiter + protocol handler trait (no russh) | russh-integrated SSH daemon on port 2222 | Phase 1 |
+| SSH Server | russh daemon (port 2222, feature-gated) + rate limiter | Full russh with git-upload-pack/receive-pack over SSH | Phase 1 |
 
 ---
 

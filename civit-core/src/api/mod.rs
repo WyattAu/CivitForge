@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod auth_routes;
+pub mod git_http;
 pub mod orgs;
 pub mod repos;
 pub mod ssh_keys;
@@ -69,6 +70,15 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route(
             "/api/v1/ssh-keys/{key_id}",
             delete(ssh_keys::delete_ssh_key),
+        )
+        .route("/{owner}/{name}.git/info/refs", get(git_http::info_refs))
+        .route(
+            "/{owner}/{name}.git/git-upload-pack",
+            post(git_http::upload_pack),
+        )
+        .route(
+            "/{owner}/{name}.git/git-receive-pack",
+            post(git_http::receive_pack),
         );
 
     let router = Router::new()
@@ -92,6 +102,7 @@ pub struct AppState {
     pub event_bus: Arc<crate::events::EventBus>,
     pub ws_manager: Arc<tokio::sync::RwLock<crate::events::WebSocketManager>>,
     pub session_manager: Arc<crate::db::SessionManager>,
+    pub git_service: Arc<crate::git::GitService>,
 }
 
 impl AppState {
@@ -108,6 +119,9 @@ impl AppState {
             db.clone(),
             std::time::Duration::from_secs(config.jwt_expiry_hours * 3600),
         ));
+        let git_service = Arc::new(crate::git::GitService::new(std::path::PathBuf::from(
+            &config.storage_path,
+        )));
         Self {
             config,
             db: DbRepository::new(db),
@@ -115,6 +129,7 @@ impl AppState {
             event_bus,
             ws_manager,
             session_manager,
+            git_service,
         }
     }
 }
