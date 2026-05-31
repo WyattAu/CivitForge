@@ -250,10 +250,9 @@
 <script>
   (function() {
     var pathEl = document.getElementById('req-path');
-    if (pathEl && window.location.pathname !== '/') {
-      pathEl.textContent = window.location.pathname;
-    } else {
-      pathEl.textContent = '/undefined';
+    if (pathEl) {
+      var pathname = window.location.pathname;
+      pathEl.textContent = pathname && pathname !== '/' ? pathname : '/unknown';
     }
   })();
 </script>

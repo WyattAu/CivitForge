@@ -162,7 +162,7 @@ impl WebSocketManager {
 ///
 /// The handler signature would be:
 ///
-/// ```ignore
+/// ```text
 /// async fn ws_handler(
 ///     ws: WebSocketUpgrade,
 ///     State(manager): State<Arc<WebSocketManager>>,
@@ -170,9 +170,6 @@ impl WebSocketManager {
 ///     ws.on_upgrade(move |socket| handle_socket(socket, manager))
 /// }
 /// ```
-///
-/// Where `handle_socket` manages the bidirectional message flow and integrates
-/// with the `EventBus` through the `WebSocketManager`.
 pub fn ws_upgrade_handler() {}
 
 #[cfg(test)]

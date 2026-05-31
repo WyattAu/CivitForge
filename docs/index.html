@@ -838,21 +838,21 @@
 
 <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<nav>
-  <div class="logo">CIVIT<span>FORGE</span></div>
-  <button class="menu-toggle" aria-label="Toggle menu">MENU</button>
-  <ul id="nav-links">
-    <li><a href="#features">Features</a></li>
-    <li><a href="#architecture">Architecture</a></li>
-    <li><a href="#getting-started">Start</a></li>
-    <li><a href="#links">Links</a></li>
+<nav aria-label="Primary navigation">
+  <div class="logo" aria-hidden="true">CIVIT<span>FORGE</span></div>
+  <button class="menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="nav-links">MENU</button>
+  <ul id="nav-links" role="menubar">
+    <li role="none"><a href="#features" role="menuitem">Features</a></li>
+    <li role="none"><a href="#architecture" role="menuitem">Architecture</a></li>
+    <li role="none"><a href="#getting-started" role="menuitem">Start</a></li>
+    <li role="none"><a href="#links" role="menuitem">Links</a></li>
   </ul>
 </nav>
 
 <main id="main-content">
 <section id="hero">
-  <div class="hero-bg-shape hero-bg-shape-1 blob-morph"></div>
-  <div class="hero-bg-shape hero-bg-shape-2 blob-morph-alt"></div>
+  <div class="hero-bg-shape hero-bg-shape-1 blob-morph" aria-hidden="true"></div>
+  <div class="hero-bg-shape hero-bg-shape-2 blob-morph-alt" aria-hidden="true"></div>
   <div class="hero-inner">
     <div class="hero-tag">Federated Rust-native forge software</div>
     <h1 class="hero-title">
@@ -1142,7 +1142,7 @@
 
 <footer>
   <div class="footer-inner">
-    <div class="footer-brand">CIVIT<span>FORGE</span></div>
+    <div class="footer-brand" aria-hidden="true">CIVIT<span>FORGE</span></div>
     <div class="footer-line"></div>
     <div class="footer-copy">Federated Rust-native forge software. Built for the next decade of development infrastructure.</div>
   </div>
@@ -1154,14 +1154,16 @@
     var links = document.getElementById('nav-links');
     if (toggle && links) {
       toggle.addEventListener('click', function() {
-        links.classList.toggle('open');
-        toggle.textContent = links.classList.contains('open') ? 'CLOSE' : 'MENU';
+        var isOpen = links.classList.toggle('open');
+        toggle.textContent = isOpen ? 'CLOSE' : 'MENU';
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
       });
       var linkItems = links.querySelectorAll('a');
       for (var i = 0; i < linkItems.length; i++) {
         linkItems[i].addEventListener('click', function() {
           links.classList.remove('open');
           toggle.textContent = 'MENU';
+          toggle.setAttribute('aria-expanded', 'false');
         });
       }
     }
