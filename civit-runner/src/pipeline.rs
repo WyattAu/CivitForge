@@ -1,17 +1,38 @@
 #![forbid(unsafe_code)]
 
 use crate::models::{PipelineSpec, PipelineStatus, PipelineStep, StepStatus};
+use crate::podman::{PodmanRunSpec, PodmanService};
+use std::collections::HashMap;
 use tracing::{debug, info};
 
-#[derive(Debug, Clone)]
 pub struct PipelineEngine {
     #[allow(dead_code)]
     namespace: String,
+    podman: Option<PodmanService>,
+}
+
+impl std::fmt::Debug for PipelineEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PipelineEngine")
+            .field("namespace", &self.namespace)
+            .field(
+                "podman",
+                &self.podman.as_ref().map(|_| "Some(PodmanService)"),
+            )
+            .finish()
+    }
 }
 
 impl PipelineEngine {
-    pub fn new(namespace: String) -> Self {
-        Self { namespace }
+    pub fn new(namespace: String, podman: Option<PodmanService>) -> Self {
+        Self { namespace, podman }
+    }
+
+    pub fn new_without_runner(namespace: String) -> Self {
+        Self {
+            namespace,
+            podman: None,
+        }
     }
 
     pub async fn run(&self, spec: &PipelineSpec) -> anyhow::Result<PipelineStatus> {
@@ -22,14 +43,14 @@ impl PipelineEngine {
         for step in &spec.steps {
             let result = self.execute_step(step, &step_results).await;
             let status = match result {
-                Ok(_) => {
+                Ok(output) => {
                     info!(step = %step.name, "step succeeded");
                     StepStatus {
                         name: step.name.clone(),
                         status: "success".into(),
                         started_at: chrono::Utc::now().to_rfc3339(),
                         finished_at: chrono::Utc::now().to_rfc3339(),
-                        output: String::new(),
+                        output,
                     }
                 }
                 Err(e) => {
@@ -71,11 +92,11 @@ impl PipelineEngine {
         &self,
         step: &PipelineStep,
         prior_results: &[StepStatus],
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<String> {
         if let Some(ref condition) = step.condition {
             if !self.evaluate_condition(condition, prior_results) {
                 info!(step = %step.name, "step skipped due to condition");
-                return Ok(());
+                return Ok(String::new());
             }
         }
 
@@ -86,8 +107,70 @@ impl PipelineEngine {
             "executing step"
         );
 
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-        Ok(())
+        let svc = match &self.podman {
+            Some(s) => s,
+            None => {
+                debug!(
+                    step = %step.name,
+                    "no podman service configured, using stub execution"
+                );
+                tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                return Ok(String::new());
+            }
+        };
+
+        let shell_cmd = step.commands.join("\n");
+        let spec = PodmanRunSpec {
+            image: step.image.clone(),
+            command: vec!["sh".into(), "-c".into(), shell_cmd],
+            env: step.env.clone(),
+            memory_mb: 512,
+            cpu_quota: 100_000,
+            network_disabled: true,
+            read_only_fs: true,
+            workdir: "/workspace".into(),
+            timeout_secs: 600,
+            labels: {
+                let mut labels = HashMap::new();
+                labels.insert("civit.pipeline".into(), self.namespace.clone());
+                labels.insert("civit.step".into(), step.name.clone());
+                labels
+            },
+        };
+
+        let container = svc.run(&spec).await?;
+
+        let logs = svc.logs(&container.id, None).await.unwrap_or_default();
+
+        let inspected = match svc.inspect(&container.id).await {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = svc.rm(&container.id).await;
+                anyhow::bail!(
+                    "failed to inspect container {} for step '{}': {}",
+                    container.id,
+                    step.name,
+                    e
+                );
+            }
+        };
+
+        let _ = svc.rm(&container.id).await;
+
+        match inspected.exit_code {
+            Some(code) if code != 0 => {
+                anyhow::bail!(
+                    "container {} exited with code {} for step '{}':\n{}",
+                    container.id,
+                    code,
+                    step.name,
+                    logs
+                );
+            }
+            _ => {}
+        }
+
+        Ok(logs)
     }
 
     fn evaluate_condition(
@@ -103,14 +186,10 @@ impl PipelineEngine {
             crate::models::StepCondition::OnFailure => {
                 prior_results.iter().any(|r| r.status == "failed")
             }
-            crate::models::StepCondition::Branch { branches } => {
-                // Check CI_BRANCH env var (set by trigger system) against allowed branches.
-                // If no env var set and branches non-empty, allow (backward compat).
-                match std::env::var("CI_BRANCH") {
-                    Ok(ref branch) => branches.iter().any(|b| b == branch),
-                    Err(_) => branches.is_empty(),
-                }
-            }
+            crate::models::StepCondition::Branch { branches } => match std::env::var("CI_BRANCH") {
+                Ok(ref branch) => branches.iter().any(|b| b == branch),
+                Err(_) => branches.is_empty(),
+            },
             crate::models::StepCondition::EnvVar { key, value } => {
                 std::env::var(key).map(|v| v == *value).unwrap_or(false)
             }
@@ -143,7 +222,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_pipeline_success() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let spec = PipelineSpec {
             name: "test-pipeline".into(),
             triggers: vec!["push".into()],
@@ -171,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_validate_empty_pipeline() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let spec = PipelineSpec {
             name: "empty".into(),
             triggers: vec![],
@@ -183,7 +262,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_evaluate_condition_on_failure_true_when_prior_failed() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let prior = vec![StepStatus {
             name: "step1".into(),
             status: "failed".into(),
@@ -197,7 +276,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_evaluate_condition_on_success_false_when_prior_failed() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let prior = vec![StepStatus {
             name: "step1".into(),
             status: "success".into(),
@@ -211,37 +290,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_evaluate_condition_on_failure_empty_prior() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let prior: Vec<StepStatus> = vec![];
-        // No prior failures -> OnFailure should not run
         assert!(!engine.evaluate_condition(&crate::models::StepCondition::OnFailure, &prior));
-        // No prior failures -> OnSuccess should run
         assert!(engine.evaluate_condition(&crate::models::StepCondition::OnSuccess, &prior));
     }
 
     #[tokio::test]
     async fn test_evaluate_condition_branch_empty_branches() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let prior: Vec<StepStatus> = vec![];
         let cond = crate::models::StepCondition::Branch { branches: vec![] };
-        // Empty branches + no CI_BRANCH env = allowed
         assert!(engine.evaluate_condition(&cond, &prior));
     }
 
     #[tokio::test]
     async fn test_evaluate_condition_branch_nonempty_no_env() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let prior: Vec<StepStatus> = vec![];
         let cond = crate::models::StepCondition::Branch {
             branches: vec!["main".into()],
         };
-        // Non-empty branches + no CI_BRANCH env = not matched
         assert!(!engine.evaluate_condition(&cond, &prior));
     }
 
     #[test]
     fn test_validate_step_warnings() {
-        let engine = PipelineEngine::new("default".into());
+        let engine = PipelineEngine::new_without_runner("default".into());
         let spec = PipelineSpec {
             name: "bad-steps".into(),
             triggers: vec![],

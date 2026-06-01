@@ -25,3 +25,4 @@ tokio = { workspace = true }
 hex = { workspace = true }
 tempfile = { workspace = true }
 dashmap = { workspace = true }
+regex = { workspace = true }

@@ -620,6 +620,7 @@ dependencies = [
  "hex",
  "hmac 0.12.1",
  "rcgen",
+ "regex",
  "reqwest",
  "ring",
  "serde",

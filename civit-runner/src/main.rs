@@ -16,7 +16,10 @@ async fn main() -> Result<()> {
 
     info!("CivitForge Runner starting");
 
-    let pipeline_engine = civit_runner::PipelineEngine::new("default".into());
+    let pipeline_engine = civit_runner::PipelineEngine::new(
+        "default".into(),
+        Some(civit_runner::PodmanService::new()),
+    );
 
     let spec = civit_runner::models::PipelineSpec {
         name: "ci-pipeline".into(),

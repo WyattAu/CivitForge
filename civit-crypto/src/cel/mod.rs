@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -570,7 +571,6 @@ impl CelEvaluator {
     }
 
     fn eval_function(&self, expr: &str) -> CelResult {
-        // Handle simple function calls: has(x.y), size(x.y), type(x)
         if expr.starts_with("has(") && expr.ends_with(')') {
             let path = expr[4..expr.len() - 1].trim();
             let val = self.env.resolve_path(path);
@@ -597,13 +597,65 @@ impl CelEvaluator {
             };
             return CelResult::ok(CelValue::String(type_name), expr);
         }
-        if expr.starts_with("matches(") && expr.ends_with(")") {
-            // matches(string, pattern) -- fail-closed: regex evaluation
-            // requires a proper regex engine; return error until implemented
-            return CelResult::err(
-                "matches() requires a regex engine not yet integrated into the CEL evaluator",
-                expr,
-            );
+        if expr.starts_with("startsWith(") && expr.ends_with(')') {
+            let args_str = expr[11..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("startsWith() requires exactly 2 arguments", expr);
+            }
+            let val = self.resolve_value(args[0].trim());
+            let prefix = self.resolve_value(args[1].trim());
+            match (&val, &prefix) {
+                (CelValue::String(s), CelValue::String(p)) => {
+                    return CelResult::ok(CelValue::Bool(s.starts_with(p)), expr);
+                }
+                _ => return CelResult::err("startsWith() requires string arguments", expr),
+            }
+        } else if expr.starts_with("endsWith(") && expr.ends_with(')') {
+            let args_str = expr[9..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("endsWith() requires exactly 2 arguments", expr);
+            }
+            let val = self.resolve_value(args[0].trim());
+            let suffix = self.resolve_value(args[1].trim());
+            match (&val, &suffix) {
+                (CelValue::String(s), CelValue::String(p)) => {
+                    return CelResult::ok(CelValue::Bool(s.ends_with(p)), expr);
+                }
+                _ => return CelResult::err("endsWith() requires string arguments", expr),
+            }
+        } else if expr.starts_with("contains(") && expr.ends_with(')') {
+            let args_str = expr[9..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("contains() requires exactly 2 arguments", expr);
+            }
+            let val = self.resolve_value(args[0].trim());
+            let substr = self.resolve_value(args[1].trim());
+            match (&val, &substr) {
+                (CelValue::String(s), CelValue::String(p)) => {
+                    return CelResult::ok(CelValue::Bool(s.contains(p)), expr);
+                }
+                _ => return CelResult::err("contains() requires string arguments", expr),
+            }
+        } else if expr.starts_with("matches(") && expr.ends_with(')') {
+            let args_str = expr[8..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("matches() requires exactly 2 arguments", expr);
+            }
+            let val = self.resolve_value(args[0].trim());
+            let pattern = self.resolve_value(args[1].trim());
+            match (&val, &pattern) {
+                (CelValue::String(s), CelValue::String(p)) => {
+                    return match Regex::new(p) {
+                        Ok(re) => CelResult::ok(CelValue::Bool(re.is_match(s)), expr),
+                        Err(e) => CelResult::err(format!("Invalid regex in matches(): {e}"), expr),
+                    };
+                }
+                _ => return CelResult::err("matches() requires string arguments", expr),
+            }
         }
         if expr.starts_with("now()") {
             return CelResult::ok(CelValue::Timestamp(chrono::Utc::now()), expr);
@@ -630,12 +682,35 @@ impl CelEvaluator {
     }
 
     fn eval_complex(&self, expr: &str) -> CelResult {
-        // Try as logical first
         if expr.contains("&&") || expr.contains("||") {
             return self.eval_logical(expr);
         }
         CelResult::err(format!("Cannot evaluate complex expression: {expr}"), expr)
     }
+}
+
+fn split_args(args_str: &str) -> Vec<&str> {
+    let mut args = Vec::new();
+    let mut depth = 0;
+    let mut start = 0;
+    let chars: Vec<char> = args_str.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        match chars[i] {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                args.push(args_str[start..i].trim());
+                start = i + 1;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    if start < args_str.len() {
+        args.push(args_str[start..].trim());
+    }
+    args
 }
 
 /// Policy rule binding a CEL expression to a decision effect.
@@ -1133,5 +1208,108 @@ mod tests {
         let mut m2 = HashMap::new();
         m2.insert("k".to_string(), CelValue::Int(1));
         assert_eq!(CelValue::Map(m1), CelValue::Map(m2));
+    }
+
+    #[test]
+    fn test_evaluate_function_starts_with() {
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello world".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse("startsWith(x, \"hello\")");
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(true));
+
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello world".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse("startsWith(x, \"world\")");
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(false));
+    }
+
+    #[test]
+    fn test_evaluate_function_ends_with() {
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello world".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse("endsWith(x, \"world\")");
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(true));
+
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello world".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse("endsWith(x, \"hello\")");
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(false));
+    }
+
+    #[test]
+    fn test_evaluate_function_contains() {
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello world".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse("contains(x, \"lo wo\")");
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(true));
+
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello world".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse("contains(x, \"xyz\")");
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(false));
+    }
+
+    #[test]
+    fn test_evaluate_function_matches() {
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello 123".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse(r#"matches(x, "hello \d+")"#);
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.as_bool(), Some(true));
+    }
+
+    #[test]
+    fn test_evaluate_function_matches_invalid_regex() {
+        let env = CelEnvironment::new().with_variable(
+            "x",
+            CelValue::String("hello".into()),
+            CelType::String,
+        );
+        let expr = CelExpression::parse(r#"matches(x, "[invalid")"#);
+        let evaluator = CelEvaluator::new(env);
+        let result = evaluator.evaluate(&expr);
+        assert!(!result.success);
+        assert!(result.error.unwrap().contains("Invalid regex"));
     }
 }

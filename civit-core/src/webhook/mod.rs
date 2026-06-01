@@ -1,7 +1,10 @@
 #![forbid(unsafe_code)]
 
 use chrono::{DateTime, Utc};
+use hmac::{Hmac, Mac};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -59,7 +62,10 @@ pub struct WebhookService {
     deliveries: Mutex<Vec<WebhookDelivery>>,
     max_retries: u32,
     retry_delay: Duration,
+    http_client: Client,
 }
+
+type HmacSha256 = Hmac<Sha256>;
 
 impl WebhookService {
     pub fn new(max_retries: u32, retry_delay: Duration) -> Self {
@@ -68,6 +74,10 @@ impl WebhookService {
             deliveries: Mutex::new(Vec::new()),
             max_retries,
             retry_delay,
+            http_client: Client::builder()
+                .timeout(Duration::from_secs(30))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
         }
     }
 
@@ -159,6 +169,96 @@ impl WebhookService {
             return true;
         }
         false
+    }
+
+    fn event_name(event: &WebhookEvent) -> &'static str {
+        match event {
+            WebhookEvent::Push => "push",
+            WebhookEvent::PullRequest => "pull_request",
+            WebhookEvent::PullRequestReview => "pull_request_review",
+            WebhookEvent::Issue => "issue",
+            WebhookEvent::IssueComment => "issue_comment",
+            WebhookEvent::Pipeline => "pipeline",
+            WebhookEvent::PipelineRun => "pipeline_run",
+            WebhookEvent::Repository => "repository",
+            WebhookEvent::Release => "release",
+            WebhookEvent::Star => "star",
+            WebhookEvent::Fork => "fork",
+        }
+    }
+
+    pub async fn dispatch_pending(&self) -> usize {
+        let pending_ids: Vec<(String, String)> = {
+            let deliveries = self.deliveries.lock().unwrap();
+            deliveries
+                .iter()
+                .filter(|d| d.status == DeliveryStatus::Pending)
+                .map(|d| (d.id.clone(), d.endpoint_id.clone()))
+                .collect()
+        };
+
+        let mut count = 0;
+        for (delivery_id, _endpoint_id) in pending_ids {
+            if self.dispatch_delivery(&delivery_id).await {
+                count += 1;
+            }
+        }
+        count
+    }
+
+    pub async fn dispatch_delivery(&self, delivery_id: &str) -> bool {
+        let (endpoint, delivery) = {
+            let endpoints = self.endpoints.lock().unwrap();
+            let deliveries = self.deliveries.lock().unwrap();
+            let delivery = match deliveries.iter().find(|d| d.id == delivery_id) {
+                Some(d) => d.clone(),
+                None => return false,
+            };
+            let endpoint = match endpoints.get(&delivery.endpoint_id) {
+                Some(ep) => ep.clone(),
+                None => return false,
+            };
+            (endpoint, delivery)
+        };
+
+        let body = serde_json::to_vec(&delivery.payload).unwrap_or_default();
+
+        let mut req = self
+            .http_client
+            .post(&endpoint.url)
+            .header("Content-Type", "application/json")
+            .header("X-Webhook-Delivery", &delivery.id)
+            .header("X-Webhook-Event", Self::event_name(&delivery.event))
+            .body(body.clone());
+
+        if let Some(secret) = &endpoint.secret {
+            let signature = Self::compute_signature(secret, &body);
+            req = req.header("X-Webhook-Signature", signature);
+        }
+
+        match req.send().await {
+            Ok(resp) if resp.status().is_success() => {
+                self.mark_success(delivery_id);
+                true
+            }
+            Ok(_) => {
+                self.mark_failed(delivery_id);
+                true
+            }
+            Err(_) => {
+                self.mark_failed(delivery_id);
+                true
+            }
+        }
+    }
+
+    pub fn compute_signature(secret: &str, body: &[u8]) -> String {
+        let mut mac =
+            HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
+        mac.update(body);
+        let result = mac.finalize();
+        let bytes = result.into_bytes();
+        format!("sha256={}", hex::encode(bytes))
     }
 }
 
@@ -354,5 +454,42 @@ mod tests {
     fn test_endpoint_count_empty() {
         let svc = WebhookService::new(3, Duration::from_secs(60));
         assert_eq!(svc.endpoint_count(), 0);
+    }
+
+    #[test]
+    fn test_dispatch_pending_no_endpoints() {
+        let svc = WebhookService::new(3, Duration::from_secs(60));
+        assert_eq!(svc.endpoint_count(), 0);
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let count = rt.block_on(svc.dispatch_pending());
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_dispatch_pending_creates_pending() {
+        let svc = WebhookService::new(3, Duration::from_secs(60));
+        svc.register_endpoint(make_endpoint("ep1", vec![WebhookEvent::Push]));
+        svc.trigger(WebhookEvent::Push, serde_json::json!({"ref": "main"}));
+        assert_eq!(svc.delivery_count(), 1);
+        let deliveries = svc.get_deliveries("ep1");
+        assert_eq!(deliveries[0].status, DeliveryStatus::Pending);
+    }
+
+    #[test]
+    fn test_hmac_signature_generation() {
+        let secret = "my_webhook_secret";
+        let body = b"hello world";
+        let sig = WebhookService::compute_signature(secret, body);
+        assert!(sig.starts_with("sha256="));
+        let hex_part = &sig[7..];
+        assert_eq!(hex_part.len(), 64);
+        assert!(hex::decode(hex_part).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_single_delivery_not_found() {
+        let svc = WebhookService::new(3, Duration::from_secs(60));
+        let result = svc.dispatch_delivery("nonexistent-id").await;
+        assert!(!result);
     }
 }
