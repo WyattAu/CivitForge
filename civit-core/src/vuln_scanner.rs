@@ -90,6 +90,218 @@ impl VulnerabilityScanner for StubVulnScanner {
     }
 }
 
+const OSV_API_URL: &str = "https://api.osv.dev/v1/query";
+
+#[derive(Debug, Serialize)]
+struct OsvRequest {
+    package: OsvPackage,
+    version: String,
+}
+
+#[derive(Debug, Serialize)]
+struct OsvPackage {
+    name: String,
+    ecosystem: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct OsvResponse {
+    vulns: Vec<OsvVuln>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+struct OsvVuln {
+    id: String,
+    #[serde(default)]
+    summary: Option<String>,
+    #[serde(default)]
+    details: Option<String>,
+    #[serde(default)]
+    aliases: Vec<String>,
+    #[serde(default)]
+    severity: Vec<OsvSeverityEntry>,
+    #[serde(default)]
+    references: Vec<OsvReference>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OsvSeverityEntry {
+    score: Option<String>,
+    #[serde(rename = "type")]
+    severity_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct OsvReference {
+    url: Option<String>,
+}
+
+pub struct OsvVulnScanner {
+    client: reqwest::Client,
+    scanner_version: String,
+}
+
+impl Default for OsvVulnScanner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OsvVulnScanner {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::Client::new(),
+            scanner_version: "osv-0.1.0".into(),
+        }
+    }
+
+    pub fn with_client(client: reqwest::Client) -> Self {
+        Self {
+            client,
+            scanner_version: "osv-0.1.0".into(),
+        }
+    }
+
+    pub fn with_version(mut self, version: &str) -> Self {
+        self.scanner_version = version.into();
+        self
+    }
+
+    fn parse_cvss_score(score_str: &str) -> Option<f64> {
+        let score_str = score_str.trim();
+        if score_str.starts_with("CVSS:") {
+            let parts: Vec<&str> = score_str.split('/').collect();
+            if let Some(last) = parts.last() {
+                if let Some((_, val)) = last.split_once(':') {
+                    return val.parse().ok();
+                }
+            }
+            None
+        } else {
+            score_str.parse().ok()
+        }
+    }
+
+    fn classify_severity(score: Option<f64>) -> VulnSeverity {
+        match score {
+            Some(s) if s >= 9.0 => VulnSeverity::Critical,
+            Some(s) if s >= 7.0 => VulnSeverity::High,
+            Some(s) if s >= 4.0 => VulnSeverity::Medium,
+            Some(_) => VulnSeverity::Low,
+            None => VulnSeverity::Low,
+        }
+    }
+
+    fn extract_max_severity(entries: &[OsvSeverityEntry]) -> VulnSeverity {
+        let mut max_score: Option<f64> = None;
+        for entry in entries {
+            if entry.severity_type.as_deref() == Some("CVSS_V3") {
+                if let Some(score_str) = &entry.score {
+                    if let Some(score) = Self::parse_cvss_score(score_str) {
+                        max_score = Some(max_score.map_or(score, |m| m.max(score)));
+                    }
+                }
+            }
+        }
+        Self::classify_severity(max_score)
+    }
+
+    fn parse_response_vulns(
+        response: &OsvResponse,
+        package_name: &str,
+        package_version: &str,
+    ) -> Vec<Vulnerability> {
+        let now = Utc::now();
+        response
+            .vulns
+            .iter()
+            .map(|v| Vulnerability {
+                id: v.id.clone(),
+                package_name: package_name.into(),
+                installed_version: package_version.into(),
+                fixed_version: None,
+                severity: Self::extract_max_severity(&v.severity),
+                title: v.summary.clone().unwrap_or_else(|| v.id.clone()),
+                description: v.details.clone().unwrap_or_default(),
+                references: v.references.iter().filter_map(|r| r.url.clone()).collect(),
+                detected_at: now,
+            })
+            .collect()
+    }
+
+    async fn query_package(&self, package: &PackageInfo) -> Result<Vec<Vulnerability>, String> {
+        let request_body = OsvRequest {
+            package: OsvPackage {
+                name: package.name.clone(),
+                ecosystem: package.ecosystem.clone(),
+            },
+            version: package.version.clone(),
+        };
+
+        let response = self
+            .client
+            .post(OSV_API_URL)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| format!("OSV API request failed for {}: {}", package.name, e))?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "OSV API returned {} for package {}",
+                response.status(),
+                package.name
+            ));
+        }
+
+        let osv_response: OsvResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse OSV response for {}: {}", package.name, e))?;
+
+        Ok(Self::parse_response_vulns(
+            &osv_response,
+            &package.name,
+            &package.version,
+        ))
+    }
+}
+
+impl VulnerabilityScanner for OsvVulnScanner {
+    fn scan(&self, packages: &[PackageInfo]) -> Result<VulnScanReport, String> {
+        let rt = tokio::runtime::Runtime::new()
+            .map_err(|e| format!("Failed to create tokio runtime: {e}"))?;
+        rt.block_on(self.scan_async(packages))
+    }
+}
+
+impl OsvVulnScanner {
+    async fn scan_async(&self, packages: &[PackageInfo]) -> Result<VulnScanReport, String> {
+        let mut all_vulns = Vec::new();
+
+        for package in packages {
+            match self.query_package(package).await {
+                Ok(vulns) => all_vulns.extend(vulns),
+                Err(e) => {
+                    tracing::warn!("Skipping package {}: {}", package.name, e);
+                }
+            }
+        }
+
+        let summary = VulnSummary::from_vulns(&all_vulns);
+
+        Ok(VulnScanReport {
+            id: uuid::Uuid::new_v4().to_string(),
+            scanned_at: Utc::now(),
+            scanner_version: self.scanner_version.clone(),
+            total_packages: packages.len(),
+            vulnerabilities: all_vulns,
+            summary,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -307,5 +519,110 @@ mod tests {
         let r1 = scanner.scan(&[]).unwrap();
         let r2 = scanner.scan(&[]).unwrap();
         assert_ne!(r1.id, r2.id);
+    }
+
+    #[test]
+    fn test_osv_scanner_empty_packages() {
+        let scanner = OsvVulnScanner::new();
+        let report = scanner.scan(&[]).unwrap();
+        assert_eq!(report.total_packages, 0);
+        assert!(report.vulnerabilities.is_empty());
+        assert_eq!(report.summary.critical, 0);
+        assert_eq!(report.summary.high, 0);
+        assert_eq!(report.summary.medium, 0);
+        assert_eq!(report.summary.low, 0);
+        assert!(!report.id.is_empty());
+        assert_eq!(report.scanner_version, "osv-0.1.0");
+    }
+
+    #[test]
+    fn test_osv_scanner_parse_vuln_response() {
+        let json = r#"{
+            "vulns": [
+                {
+                    "id": "CVE-2024-1234",
+                    "summary": "Buffer overflow in foo",
+                    "details": "A buffer overflow vulnerability exists...",
+                    "aliases": ["GHSA-xxxx-yyyy-zzzz"],
+                    "severity": [
+                        {"score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", "type": "CVSS_V3"}
+                    ],
+                    "references": [
+                        {"url": "https://github.com/example/foo/issues/1"}
+                    ]
+                },
+                {
+                    "id": "CVE-2024-5678",
+                    "summary": "XSS in bar",
+                    "details": "A cross-site scripting vulnerability...",
+                    "aliases": [],
+                    "severity": [
+                        {"score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N", "type": "CVSS_V3"}
+                    ],
+                    "references": []
+                }
+            ]
+        }"#;
+
+        let response: OsvResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.vulns.len(), 2);
+
+        let vulns = OsvVulnScanner::parse_response_vulns(&response, "test-pkg", "1.0.0");
+        assert_eq!(vulns.len(), 2);
+
+        assert_eq!(vulns[0].id, "CVE-2024-1234");
+        assert_eq!(vulns[0].package_name, "test-pkg");
+        assert_eq!(vulns[0].installed_version, "1.0.0");
+        assert_eq!(vulns[0].title, "Buffer overflow in foo");
+        assert_eq!(
+            vulns[0].description,
+            "A buffer overflow vulnerability exists..."
+        );
+        assert_eq!(vulns[0].references.len(), 1);
+        assert_eq!(
+            vulns[0].references[0],
+            "https://github.com/example/foo/issues/1"
+        );
+
+        assert_eq!(vulns[1].id, "CVE-2024-5678");
+        assert_eq!(vulns[1].title, "XSS in bar");
+        assert_eq!(vulns[1].references.len(), 0);
+    }
+
+    #[test]
+    fn test_osv_scanner_severity_classification() {
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(9.5)),
+            VulnSeverity::Critical
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(9.0)),
+            VulnSeverity::Critical
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(7.5)),
+            VulnSeverity::High
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(7.0)),
+            VulnSeverity::High
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(4.5)),
+            VulnSeverity::Medium
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(4.0)),
+            VulnSeverity::Medium
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(3.9)),
+            VulnSeverity::Low
+        );
+        assert_eq!(
+            OsvVulnScanner::classify_severity(Some(0.0)),
+            VulnSeverity::Low
+        );
+        assert_eq!(OsvVulnScanner::classify_severity(None), VulnSeverity::Low);
     }
 }

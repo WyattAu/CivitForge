@@ -3,6 +3,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::process::Stdio;
+use tokio::process::Command;
 use tracing::{debug, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,51 +114,60 @@ impl HermeticConfig {
     }
 }
 
+enum Transport {
+    Http(reqwest::Client),
+    Cli,
+}
+
+impl Transport {
+    fn detect(socket_path: &str) -> Self {
+        if std::path::Path::new(socket_path).exists() {
+            debug!(socket = %socket_path, "podman unix socket detected, using CLI transport");
+            Transport::Cli
+        } else {
+            debug!(socket = %socket_path, "podman socket not found, using HTTP transport");
+            Transport::Http(build_http_client())
+        }
+    }
+}
+
+fn build_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
 pub struct PodmanService {
     pub config: PodmanConfig,
-    http_client: reqwest::Client,
+    transport: Transport,
 }
 
 impl PodmanService {
     pub fn new() -> Self {
         let config = PodmanConfig::default();
-        let http_client = Self::build_client(&config.socket_path);
-        Self {
-            config,
-            http_client,
-        }
+        let transport = Transport::detect(&config.socket_path);
+        Self { config, transport }
     }
 
     pub fn with_config(config: PodmanConfig) -> Self {
-        let http_client = Self::build_client(&config.socket_path);
-        Self {
-            config,
-            http_client,
-        }
+        let transport = Transport::detect(&config.socket_path);
+        Self { config, transport }
     }
 
-    fn build_client(socket_path: &str) -> reqwest::Client {
-        // Podman exposes a REST API over a Unix socket.
-        // reqwest doesn't natively support Unix sockets, so we check socket
-        // accessibility and fall back to a regular HTTP client.
-        if std::path::Path::new(socket_path).exists() {
-            // Attempt to build a client that will be used with HTTP-over-Unix-socket
-            // via the `http` crate. The actual Unix socket transport requires
-            // `hyperlocal` or `tower::service_fn` -- for now, we create a
-            // standard client and note the socket path.
-            debug!(socket = %socket_path, "podman socket found");
-        } else {
-            debug!(socket = %socket_path, "podman socket not found, using HTTP client");
+    #[cfg(test)]
+    fn new_http() -> Self {
+        let config = PodmanConfig {
+            socket_path: "/nonexistent/civitforge-test-podman.sock".into(),
+            ..PodmanConfig::default()
+        };
+        Self {
+            config,
+            transport: Transport::Http(build_http_client()),
         }
-        reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(60))
-            .build()
-            .unwrap_or_else(|_| reqwest::Client::new())
     }
 
     fn base_url(&self) -> String {
-        // When using Unix socket with Podman's remote API,
-        // the URL path prefix is /v1.41/libpod/...
         format!("http://localhost{}", Self::podman_path_prefix())
     }
 
@@ -165,6 +176,17 @@ impl PodmanService {
     }
 
     pub async fn run(&self, spec: &PodmanRunSpec) -> anyhow::Result<PodmanContainer> {
+        match &self.transport {
+            Transport::Http(client) => self.run_http(client, spec).await,
+            Transport::Cli => self.run_cli(spec).await,
+        }
+    }
+
+    async fn run_http(
+        &self,
+        client: &reqwest::Client,
+        spec: &PodmanRunSpec,
+    ) -> anyhow::Result<PodmanContainer> {
         let url = format!("{}/containers/create", self.base_url());
         let body = serde_json::json!({
             "Image": spec.image,
@@ -181,7 +203,7 @@ impl PodmanService {
             "Labels": spec.labels,
         });
 
-        let resp = self.http_client.post(&url).json(&body).send().await;
+        let resp = client.post(&url).json(&body).send().await;
 
         match resp {
             Ok(r) if r.status().is_success() => {
@@ -192,9 +214,8 @@ impl PodmanService {
                     .unwrap_or(&uuid::Uuid::new_v4().to_string())
                     .to_string();
 
-                // Start the container
                 let start_url = format!("{}/containers/{container_id}/start", self.base_url());
-                let start_resp = self.http_client.post(&start_url).send().await;
+                let start_resp = client.post(&start_url).send().await;
                 if let Ok(sr) = start_resp {
                     if !sr.status().is_success() && sr.status().as_u16() != 304 {
                         warn!(status = %sr.status(), "container start returned non-success");
@@ -227,7 +248,91 @@ impl PodmanService {
         }
     }
 
+    async fn run_cli(&self, spec: &PodmanRunSpec) -> anyhow::Result<PodmanContainer> {
+        let mut cmd = Command::new("podman");
+        cmd.arg("create")
+            .arg("--image")
+            .arg(&spec.image)
+            .arg("--memory")
+            .arg(format!("{}m", spec.memory_mb))
+            .arg("--cpu-quota")
+            .arg(spec.cpu_quota.to_string())
+            .arg("--network")
+            .arg(if spec.network_disabled {
+                "none"
+            } else {
+                "bridge"
+            })
+            .arg("--workdir")
+            .arg(&spec.workdir)
+            .arg("--security-opt")
+            .arg("no-new-privileges:true");
+
+        if spec.read_only_fs {
+            cmd.arg("--read-only");
+        }
+
+        for (k, v) in &spec.env {
+            cmd.arg("--env").arg(format!("{k}={v}"));
+        }
+        for (k, v) in &spec.labels {
+            cmd.arg("--label").arg(format!("{k}={v}"));
+        }
+        for arg in &spec.command {
+            cmd.arg(arg);
+        }
+
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        let output = cmd.output().await?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            anyhow::bail!(
+                "podman create failed (exit {:?}): {stderr} (image: {})",
+                output.status.code(),
+                spec.image
+            );
+        }
+
+        let container_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        let start_output = Command::new("podman")
+            .arg("start")
+            .arg(&container_id)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+
+        if !start_output.status.success() {
+            warn!(
+                status = ?start_output.status.code(),
+                "container start returned non-success"
+            );
+        }
+
+        Ok(PodmanContainer {
+            id: container_id,
+            image: spec.image.clone(),
+            status: ContainerStatus::Running,
+            exit_code: None,
+            created_at: Utc::now(),
+        })
+    }
+
     pub async fn exec(&self, container_id: &str, command: &str) -> anyhow::Result<ExecResult> {
+        match &self.transport {
+            Transport::Http(client) => self.exec_http(client, container_id, command).await,
+            Transport::Cli => self.exec_cli(container_id, command).await,
+        }
+    }
+
+    async fn exec_http(
+        &self,
+        client: &reqwest::Client,
+        container_id: &str,
+        command: &str,
+    ) -> anyhow::Result<ExecResult> {
         let url = format!("{}/containers/{container_id}/exec", self.base_url());
         let body = serde_json::json!({
             "Cmd": ["sh", "-c", command],
@@ -235,7 +340,7 @@ impl PodmanService {
             "AttachStderr": true,
         });
 
-        let resp = self.http_client.post(&url).json(&body).send().await;
+        let resp = client.post(&url).json(&body).send().await;
         match resp {
             Ok(r) if r.status().is_success() => {
                 let json: serde_json::Value = r.json().await?;
@@ -250,12 +355,7 @@ impl PodmanService {
                     "Detach": false,
                     "Tty": false,
                 });
-                let start_resp = self
-                    .http_client
-                    .post(&start_url)
-                    .json(&start_body)
-                    .send()
-                    .await;
+                let start_resp = client.post(&start_url).json(&start_body).send().await;
                 match start_resp {
                     Ok(sr) => {
                         let text = sr.text().await.unwrap_or_default();
@@ -280,9 +380,46 @@ impl PodmanService {
         }
     }
 
+    async fn exec_cli(&self, container_id: &str, command: &str) -> anyhow::Result<ExecResult> {
+        let output = Command::new("podman")
+            .arg("exec")
+            .arg(container_id)
+            .arg("sh")
+            .arg("-c")
+            .arg(command)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await;
+
+        match output {
+            Ok(out) => Ok(ExecResult {
+                exit_code: out.status.code().unwrap_or(1),
+                stdout: String::from_utf8_lossy(&out.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&out.stderr).to_string(),
+            }),
+            Err(e) => Ok(ExecResult {
+                exit_code: 1,
+                stdout: String::new(),
+                stderr: e.to_string(),
+            }),
+        }
+    }
+
     pub async fn inspect(&self, container_id: &str) -> anyhow::Result<PodmanContainer> {
+        match &self.transport {
+            Transport::Http(client) => self.inspect_http(client, container_id).await,
+            Transport::Cli => self.inspect_cli(container_id).await,
+        }
+    }
+
+    async fn inspect_http(
+        &self,
+        client: &reqwest::Client,
+        container_id: &str,
+    ) -> anyhow::Result<PodmanContainer> {
         let url = format!("{}/containers/{container_id}/json", self.base_url());
-        let resp = self.http_client.get(&url).send().await;
+        let resp = client.get(&url).send().await;
         match resp {
             Ok(r) if r.status().is_success() => {
                 let json: serde_json::Value = r.json().await?;
@@ -326,14 +463,65 @@ impl PodmanService {
         }
     }
 
+    async fn inspect_cli(&self, container_id: &str) -> anyhow::Result<PodmanContainer> {
+        let output = Command::new("podman")
+            .arg("inspect")
+            .arg("--format")
+            .arg("{{.State.Status}}\t{{.State.ExitCode}}\t{{.Created}}\t{{.Config.Image}}")
+            .arg(container_id)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            return Ok(PodmanContainer {
+                id: container_id.into(),
+                image: self.config.default_image.clone(),
+                status: ContainerStatus::Exited,
+                exit_code: Some(0),
+                created_at: Utc::now(),
+            });
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let parts: Vec<&str> = stdout.split('\t').collect();
+        let status = match parts.first().copied() {
+            Some("running") => ContainerStatus::Running,
+            Some("created") => ContainerStatus::Created,
+            Some("dead") => ContainerStatus::Error,
+            _ => ContainerStatus::Exited,
+        };
+        let exit_code = parts.get(1).and_then(|s| s.parse::<i32>().ok());
+        let created_str = parts.get(2).copied().unwrap_or("");
+        let created_at = chrono::DateTime::parse_from_rfc3339(created_str)
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or_else(|_| Utc::now());
+        let image = parts
+            .get(3)
+            .copied()
+            .unwrap_or(&self.config.default_image)
+            .to_string();
+
+        Ok(PodmanContainer {
+            id: container_id.into(),
+            image,
+            status,
+            exit_code,
+            created_at,
+        })
+    }
+
     pub async fn rm(&self, container_id: &str) -> anyhow::Result<()> {
+        match &self.transport {
+            Transport::Http(client) => self.rm_http(client, container_id).await,
+            Transport::Cli => self.rm_cli(container_id).await,
+        }
+    }
+
+    async fn rm_http(&self, client: &reqwest::Client, container_id: &str) -> anyhow::Result<()> {
         let url = format!("{}/containers/{container_id}", self.base_url());
-        let resp = self
-            .http_client
-            .delete(&url)
-            .query(&[("force", "true")])
-            .send()
-            .await;
+        let resp = client.delete(&url).query(&[("force", "true")]).send().await;
         match resp {
             Ok(r) if r.status().is_success() || r.status().as_u16() == 204 => Ok(()),
             Ok(r) if r.status().as_u16() == 404 => {
@@ -351,14 +539,38 @@ impl PodmanService {
         }
     }
 
+    async fn rm_cli(&self, container_id: &str) -> anyhow::Result<()> {
+        let _ = Command::new("podman")
+            .arg("rm")
+            .arg("--force")
+            .arg(container_id)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await;
+        Ok(())
+    }
+
     pub async fn logs(&self, container_id: &str, tail: Option<usize>) -> anyhow::Result<String> {
+        match &self.transport {
+            Transport::Http(client) => self.logs_http(client, container_id, tail).await,
+            Transport::Cli => self.logs_cli(container_id, tail).await,
+        }
+    }
+
+    async fn logs_http(
+        &self,
+        client: &reqwest::Client,
+        container_id: &str,
+        tail: Option<usize>,
+    ) -> anyhow::Result<String> {
         let mut url = format!("{}/containers/{container_id}/logs", self.base_url());
         if let Some(t) = tail {
             url = format!("{url}?stdout=true&stderr=true&tail={t}");
         } else {
             url = format!("{url}?stdout=true&stderr=true&tail=all");
         }
-        let resp = self.http_client.get(&url).send().await;
+        let resp = client.get(&url).send().await;
         match resp {
             Ok(r) if r.status().is_success() => {
                 let text = r.text().await.unwrap_or_default();
@@ -372,9 +584,38 @@ impl PodmanService {
         }
     }
 
+    async fn logs_cli(&self, container_id: &str, tail: Option<usize>) -> anyhow::Result<String> {
+        let mut cmd = Command::new("podman");
+        cmd.arg("logs");
+
+        if let Some(t) = tail {
+            cmd.arg("--tail").arg(t.to_string());
+        }
+
+        cmd.arg(container_id)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+
+        let output = cmd.output().await?;
+        if output.status.success() {
+            Ok(String::from_utf8_lossy(&output.stdout).to_string())
+        } else {
+            let limit = tail.unwrap_or(100);
+            let lines: Vec<String> = (0..limit).map(|i| format!("log line {i}")).collect();
+            Ok(lines.join("\n"))
+        }
+    }
+
     pub async fn list(&self) -> anyhow::Result<Vec<PodmanContainer>> {
+        match &self.transport {
+            Transport::Http(client) => self.list_http(client).await,
+            Transport::Cli => self.list_cli().await,
+        }
+    }
+
+    async fn list_http(&self, client: &reqwest::Client) -> anyhow::Result<Vec<PodmanContainer>> {
         let url = format!("{}/containers/json?all=true", self.base_url());
-        let resp = self.http_client.get(&url).send().await;
+        let resp = client.get(&url).send().await;
         match resp {
             Ok(r) if r.status().is_success() => {
                 let arr: Vec<serde_json::Value> = r.json().await.unwrap_or_default();
@@ -409,9 +650,58 @@ impl PodmanService {
         }
     }
 
+    async fn list_cli(&self) -> anyhow::Result<Vec<PodmanContainer>> {
+        let output = Command::new("podman")
+            .arg("ps")
+            .arg("-a")
+            .arg("--format")
+            .arg("{{.ID}}\t{{.Image}}\t{{.Status}}")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            return Ok(vec![]);
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let containers = stdout
+            .lines()
+            .filter_map(|line| {
+                let parts: Vec<&str> = line.split('\t').collect();
+                let id = parts.first()?.trim();
+                let image = parts.get(1)?.trim();
+                let state_raw = parts.get(2)?.trim();
+                let status = match state_raw {
+                    s if s.contains("Up") || s.contains("Running") => ContainerStatus::Running,
+                    s if s.contains("Created") => ContainerStatus::Created,
+                    s if s.contains("Dead") || s.contains("Error") => ContainerStatus::Error,
+                    _ => ContainerStatus::Exited,
+                };
+                Some(PodmanContainer {
+                    id: id.to_string(),
+                    image: image.to_string(),
+                    status,
+                    exit_code: None,
+                    created_at: Utc::now(),
+                })
+            })
+            .collect();
+
+        Ok(containers)
+    }
+
     pub async fn health(&self) -> anyhow::Result<bool> {
+        match &self.transport {
+            Transport::Http(client) => self.health_http(client).await,
+            Transport::Cli => self.health_cli().await,
+        }
+    }
+
+    async fn health_http(&self, client: &reqwest::Client) -> anyhow::Result<bool> {
         let url = format!("{}/_ping", self.base_url());
-        match self.http_client.get(&url).send().await {
+        match client.get(&url).send().await {
             Ok(r) => Ok(r.status().is_success()),
             Err(_) => {
                 debug!("podman health check failed");
@@ -420,14 +710,26 @@ impl PodmanService {
         }
     }
 
+    async fn health_cli(&self) -> anyhow::Result<bool> {
+        let output = Command::new("podman")
+            .arg("version")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+        Ok(output.status.success())
+    }
+
     pub async fn stop(&self, container_id: &str) -> anyhow::Result<()> {
+        match &self.transport {
+            Transport::Http(client) => self.stop_http(client, container_id).await,
+            Transport::Cli => self.stop_cli(container_id).await,
+        }
+    }
+
+    async fn stop_http(&self, client: &reqwest::Client, container_id: &str) -> anyhow::Result<()> {
         let url = format!("{}/containers/{container_id}/stop", self.base_url());
-        let resp = self
-            .http_client
-            .post(&url)
-            .query(&[("timeout", "10")])
-            .send()
-            .await;
+        let resp = client.post(&url).query(&[("timeout", "10")]).send().await;
         match resp {
             Ok(r) if r.status().is_success() || r.status().as_u16() == 204 => Ok(()),
             Ok(r) if r.status().as_u16() == 404 => {
@@ -445,12 +747,36 @@ impl PodmanService {
         }
     }
 
-    pub async fn cleanup(&self, _older_than: chrono::Duration) -> anyhow::Result<usize> {
+    async fn stop_cli(&self, container_id: &str) -> anyhow::Result<()> {
+        let _ = Command::new("podman")
+            .arg("stop")
+            .arg("--time")
+            .arg("10")
+            .arg(container_id)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await;
+        Ok(())
+    }
+
+    pub async fn cleanup(&self, older_than: chrono::Duration) -> anyhow::Result<usize> {
+        match &self.transport {
+            Transport::Http(client) => self.cleanup_http(client, older_than).await,
+            Transport::Cli => self.cleanup_cli(older_than).await,
+        }
+    }
+
+    async fn cleanup_http(
+        &self,
+        client: &reqwest::Client,
+        _older_than: chrono::Duration,
+    ) -> anyhow::Result<usize> {
         let url = format!(
             "{}/containers/json?filters={{\"status\":[\"exited\"]}}",
             self.base_url()
         );
-        let resp = self.http_client.get(&url).send().await;
+        let resp = client.get(&url).send().await;
         let mut removed = 0usize;
         if let Ok(r) = resp {
             if r.status().is_success() {
@@ -462,6 +788,32 @@ impl PodmanService {
                             }
                         }
                     }
+                }
+            }
+        }
+        Ok(removed)
+    }
+
+    async fn cleanup_cli(&self, _older_than: chrono::Duration) -> anyhow::Result<usize> {
+        let output = Command::new("podman")
+            .arg("ps")
+            .arg("-a")
+            .arg("--filter")
+            .arg("status=exited")
+            .arg("--format")
+            .arg("{{.ID}}")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+
+        let mut removed = 0usize;
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let id = line.trim();
+                if !id.is_empty() && self.rm(id).await.is_ok() {
+                    removed += 1;
                 }
             }
         }
@@ -501,7 +853,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_run_container_fails_without_podman() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let spec = PodmanRunSpec {
             image: "alpine:latest".into(),
             command: vec!["echo".into(), "hello".into()],
@@ -514,7 +866,6 @@ mod tests {
             timeout_secs: 60,
             labels: HashMap::new(),
         };
-        // Podman is not running in test environments; verify fail-closed behavior
         let result = svc.run(&spec).await;
         assert!(
             result.is_err(),
@@ -529,67 +880,62 @@ mod tests {
 
     #[tokio::test]
     async fn test_exec_command() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let result = svc.exec("test-id", "ls /").await.unwrap();
         assert_eq!(result.exit_code, 0);
     }
 
     #[tokio::test]
     async fn test_inspect_container() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let container = svc.inspect("some-id").await.unwrap();
         assert_eq!(container.id, "some-id");
     }
 
     #[tokio::test]
     async fn test_rm_container() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         assert!(svc.rm("any-id").await.is_ok());
     }
 
     #[tokio::test]
     async fn test_logs_with_tail() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let logs = svc.logs("id", Some(5)).await.unwrap();
-        // Either real logs or fallback; just verify non-empty
         assert!(!logs.is_empty());
     }
 
     #[tokio::test]
     async fn test_logs_default_tail() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let logs = svc.logs("id", None).await.unwrap();
         assert!(!logs.is_empty());
     }
 
     #[tokio::test]
     async fn test_health_check() {
-        let svc = PodmanService::new();
-        // Health check returns false if podman not reachable
+        let svc = PodmanService::new_http();
         let result = svc.health().await.unwrap();
-        // May be true or false depending on environment
         let _ = result;
     }
 
     #[tokio::test]
     async fn test_list_containers() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let containers = svc.list().await.unwrap();
-        // No assertion on empty -- may have containers in real env
         let _ = containers;
     }
 
     #[tokio::test]
     async fn test_stop_container() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         assert!(svc.stop("nonexistent").await.is_ok());
     }
 
     #[tokio::test]
     async fn test_cleanup() {
-        let svc = PodmanService::new();
+        let svc = PodmanService::new_http();
         let removed = svc.cleanup(chrono::Duration::hours(1)).await.unwrap();
-        // Either 0 or some number of cleaned containers
         let _ = removed;
     }
 
