@@ -212,25 +212,17 @@ impl PodmanService {
             Ok(r) => {
                 let status = r.status();
                 let text = r.text().await.unwrap_or_default();
-                // Fall back to stub behavior if Podman not reachable
-                debug!(%status, %text, "podman create failed, returning stub container");
-                Ok(PodmanContainer {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    image: spec.image.clone(),
-                    status: ContainerStatus::Created,
-                    exit_code: None,
-                    created_at: Utc::now(),
-                })
+                anyhow::bail!(
+                    "podman create failed with status {status}: {text} (image: {})",
+                    spec.image
+                );
             }
             Err(e) => {
-                debug!(%e, "podman unreachable, returning stub container");
-                Ok(PodmanContainer {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    image: spec.image.clone(),
-                    status: ContainerStatus::Created,
-                    exit_code: None,
-                    created_at: Utc::now(),
-                })
+                anyhow::bail!(
+                    "podman unreachable at {} -- cannot create container (image: {}): {e}",
+                    self.base_url(),
+                    spec.image
+                );
             }
         }
     }
@@ -508,7 +500,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_run_container() {
+    async fn test_run_container_fails_without_podman() {
         let svc = PodmanService::new();
         let spec = PodmanRunSpec {
             image: "alpine:latest".into(),
@@ -522,9 +514,17 @@ mod tests {
             timeout_secs: 60,
             labels: HashMap::new(),
         };
-        let container = svc.run(&spec).await.unwrap();
-        assert!(!container.id.is_empty());
-        assert_eq!(container.image, "alpine:latest");
+        // Podman is not running in test environments; verify fail-closed behavior
+        let result = svc.run(&spec).await;
+        assert!(
+            result.is_err(),
+            "run() must fail when Podman is unreachable"
+        );
+        let err_msg = format!("{:#}", result.unwrap_err());
+        assert!(
+            err_msg.contains("podman unreachable"),
+            "error message should mention Podman unreachability: {err_msg}"
+        );
     }
 
     #[tokio::test]

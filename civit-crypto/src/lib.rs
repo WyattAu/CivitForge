@@ -2,14 +2,19 @@
 
 pub mod abac;
 pub mod audit;
+pub mod audit_trail;
+pub mod cel;
+pub mod cmdb;
 pub mod compliance;
 pub mod cosign;
 pub mod fips;
+pub mod fips_selftest;
 pub mod hash;
 pub mod hmac;
 pub mod hsm;
 pub mod mtls;
 pub mod policy;
+pub mod policy_versioning;
 pub mod sbom;
 
 pub use hash::{HashAlgorithm, HashService};

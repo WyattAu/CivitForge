@@ -1,8 +1,12 @@
 #![forbid(unsafe_code)]
 
+pub mod affinity;
 pub mod crd;
 pub mod crds;
 pub mod dedup;
+pub mod grafana;
+pub mod helm;
+pub mod leader_election;
 pub mod models;
 pub mod oci;
 pub mod operator;
@@ -14,6 +18,7 @@ pub mod reconciler;
 pub mod sandbox;
 pub mod scheduling;
 pub mod slsa;
+pub mod storage;
 
 pub use crd::{
     CrdStep, PipelineRunSpec, PipelineRunStatus, ResourceRequirements, RunPhase, StepPhaseStatus,

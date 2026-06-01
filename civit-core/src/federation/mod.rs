@@ -2,6 +2,8 @@
 
 pub mod activitypub;
 pub mod forgefed;
+pub mod http_signatures;
+pub mod inbox_outbox;
 pub mod multimaster;
 pub mod sync;
 pub mod webfinger;
