@@ -49,6 +49,7 @@ COPY crates/civit-brain/ crates/civit-brain/
 COPY crates/civit-crypto/ crates/civit-crypto/
 COPY crates/civit-runner/ crates/civit-runner/
 COPY crates/civit-vfs/ crates/civit-vfs/
+COPY crates/civit-ui/ crates/civit-ui/
 
 # Build release binaries
 RUN cargo build --release --locked \

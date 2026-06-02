@@ -84,7 +84,7 @@ services:
       FEDERATION_INSTANCE_DOMAIN: "localhost"
       RUST_LOG: civit_core=info,tower_http=debug
     ports:
-      - "8080:8080"   # API
+      - "9091:8080"   # API (host:9091 → container:8080)
       - "2222:2222"   # SSH (git)
       - "9090:9090"   # gRPC/VFS
     volumes:

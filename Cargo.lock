@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "civit-brain"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -755,7 +755,7 @@ dependencies = [
 
 [[package]]
 name = "civit-core"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "axum 0.8.9",
@@ -799,7 +799,7 @@ dependencies = [
 
 [[package]]
 name = "civit-crypto"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -824,7 +824,7 @@ dependencies = [
 
 [[package]]
 name = "civit-pipeline"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "regex",
@@ -835,7 +835,7 @@ dependencies = [
 
 [[package]]
 name = "civit-runner"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -862,7 +862,7 @@ dependencies = [
 
 [[package]]
 name = "civit-shared"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "serde",
@@ -873,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "civit-ui"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "civit-shared",
@@ -891,7 +891,7 @@ dependencies = [
 
 [[package]]
 name = "civit-vfs"
-version = "1.0.0-rc.3"
+version = "1.1.0"
 dependencies = [
  "anyhow",
  "bytes",
