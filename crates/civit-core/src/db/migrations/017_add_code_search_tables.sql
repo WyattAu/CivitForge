@@ -3,8 +3,8 @@
 
 -- File index entries (updated on git push)
 CREATE TABLE IF NOT EXISTS code_search_index (
-    id              BIGSERIAL PRIMARY KEY,
-    repo_id         BIGINT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    repo_id         UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     file_path       TEXT NOT NULL,               -- relative path from repo root
     language        TEXT,                        -- programming language
     content         TEXT,                        -- file content (for small files, truncated at 100KB)
@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS code_search_index (
 
 -- Search tokens (trigram index for substring search)
 CREATE TABLE IF NOT EXISTS code_search_tokens (
-    id              BIGSERIAL PRIMARY KEY,
-    index_id        BIGINT NOT NULL REFERENCES code_search_index(id) ON DELETE CASCADE,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    index_id        UUID NOT NULL REFERENCES code_search_index(id) ON DELETE CASCADE,
     token           TEXT NOT NULL,               -- word/token
     line_number     INT NOT NULL,
     line_content    TEXT NOT NULL                -- the actual line

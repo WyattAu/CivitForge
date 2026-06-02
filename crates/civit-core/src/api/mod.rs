@@ -55,7 +55,6 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             "/api/v1/repos/{owner}/{name}/commits",
             get(repos::list_commits),
         )
-        .route("/api/v1/pipelines", get(pipelines::list_all_pipelines))
         .merge(pipelines::pipeline_routes())
         .merge(runners::runner_routes())
         .merge(oci::registry_routes())

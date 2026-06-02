@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS pipeline_definitions (
     version VARCHAR(10) NOT NULL DEFAULT '1',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     -- No UNIQUE on (repo_id, ref_name) since different refs can have different configs
-    INDEX idx_pipeline_defs_repo_ref (repo_id, ref_name)
+    UNIQUE(repo_id, ref_name)
 );
 
 -- -----------------------------------------------------------------------
@@ -153,11 +153,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     queued_at TIMESTAMPTZ,
     started_at TIMESTAMPTZ,
-    finished_at TIMESTAMPTZ,
-    INDEX idx_pipeline_runs_def (definition_id),
-    INDEX idx_pipeline_runs_repo (repo_id),
-    INDEX idx_pipeline_runs_status (status),
-    INDEX idx_pipeline_runs_trigger (trigger)
+    finished_at TIMESTAMPTZ
 );
 
 -- -----------------------------------------------------------------------
@@ -211,13 +207,18 @@ CREATE TABLE IF NOT EXISTS pipeline_run_steps (
 -- -----------------------------------------------------------------------
 -- Indexes for performance
 -- -----------------------------------------------------------------------
-CREATE INDEX idx_runners_scope_org ON runners(scope, org_id);
-CREATE INDEX idx_runners_scope_repo ON runners(scope, repo_id);
-CREATE INDEX idx_runners_status ON runners(status);
-CREATE INDEX idx_runners_group ON runners(runner_group);
-CREATE INDEX idx_pipeline_jobs_def ON pipeline_jobs(definition_id);
-CREATE INDEX idx_pipeline_job_steps_job ON pipeline_job_steps(job_id);
-CREATE INDEX idx_pipeline_run_jobs_run ON pipeline_run_jobs(run_id);
-CREATE INDEX idx_pipeline_run_jobs_status ON pipeline_run_jobs(status);
-CREATE INDEX idx_pipeline_run_steps_run_job ON pipeline_run_steps(run_job_id);
-CREATE INDEX idx_pipeline_run_steps_status ON pipeline_run_steps(status);
+CREATE INDEX IF NOT EXISTS idx_pipeline_defs_repo_ref ON pipeline_definitions(repo_id, ref_name);
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_def ON pipeline_runs(definition_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_repo ON pipeline_runs(repo_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_status ON pipeline_runs(status);
+CREATE INDEX IF NOT EXISTS idx_pipeline_runs_trigger ON pipeline_runs(trigger);
+CREATE INDEX IF NOT EXISTS idx_runners_scope_org ON runners(scope, org_id);
+CREATE INDEX IF NOT EXISTS idx_runners_scope_repo ON runners(scope, repo_id);
+CREATE INDEX IF NOT EXISTS idx_runners_status ON runners(status);
+CREATE INDEX IF NOT EXISTS idx_runners_group ON runners(runner_group);
+CREATE INDEX IF NOT EXISTS idx_pipeline_jobs_def ON pipeline_jobs(definition_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_job_steps_job ON pipeline_job_steps(job_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_run_jobs_run ON pipeline_run_jobs(run_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_run_jobs_status ON pipeline_run_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_pipeline_run_steps_run_job ON pipeline_run_steps(run_job_id);
+CREATE INDEX IF NOT EXISTS idx_pipeline_run_steps_status ON pipeline_run_steps(status);

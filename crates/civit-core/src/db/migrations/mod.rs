@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_issues_schema_sql_not_empty() {
         assert_ne!(M_013_ISSUES_UP, "");
-        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issues"));
+        // issues table already exists from migration 001, so 013 only adds the related tables
         assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_comments"));
         assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS labels"));
         assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_labels"));

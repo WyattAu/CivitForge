@@ -178,11 +178,17 @@ pub async fn create_repo(
     let owner_uuid = match Uuid::parse_str(&req.owner) {
         Ok(id) => id,
         Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CoreError::Config("owner must be a valid UUID".into()).error_response()),
-            )
-                .into_response();
+            // Try username lookup
+            match state.db.get_user_by_username(&req.owner).await {
+                Ok(user) => user.id,
+                Err(_) => {
+                    return (
+                        StatusCode::NOT_FOUND,
+                        Json(CoreError::NotFound("owner user not found".into()).error_response()),
+                    )
+                        .into_response();
+                }
+            }
         }
     };
 
@@ -228,13 +234,16 @@ pub async fn delete_repo(
 
     let owner_uuid = match Uuid::parse_str(&owner) {
         Ok(id) => id,
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CoreError::Config("owner must be a valid UUID".into()).error_response()),
-            )
-                .into_response();
-        }
+        Err(_) => match state.db.get_user_by_username(&owner).await {
+            Ok(user) => user.id,
+            Err(_) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("owner user not found".into()).error_response()),
+                )
+                    .into_response();
+            }
+        },
     };
 
     match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
@@ -263,15 +272,17 @@ pub async fn list_commits(
 ) -> impl IntoResponse {
     let owner_uuid = match Uuid::parse_str(&owner) {
         Ok(id) => id,
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CoreError::Config("owner must be a valid UUID".into()).error_response()),
-            )
-                .into_response();
-        }
+        Err(_) => match state.db.get_user_by_username(&owner).await {
+            Ok(user) => user.id,
+            Err(_) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("owner user not found".into()).error_response()),
+                )
+                    .into_response();
+            }
+        },
     };
-
     match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
         Ok(_) => {
             let git_svc =

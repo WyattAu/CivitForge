@@ -199,7 +199,7 @@ impl DbRepository {
         let row = sqlx::query_as::<_, Repository>(
             r#"INSERT INTO repositories (name, description, owner_id, org_id, visibility, default_branch)
                VALUES ($1, $2, $3, $4, $5, $6)
-               RETURNING *"#,
+               RETURNING id, name, description, owner_id, org_id, visibility, default_branch, is_fork, parent_repo_id, created_at, updated_at"#,
         )
         .bind(name)
         .bind(description)

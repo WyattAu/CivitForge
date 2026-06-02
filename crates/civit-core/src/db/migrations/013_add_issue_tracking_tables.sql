@@ -1,33 +1,14 @@
 -- CivitForge Phase 11: Issue Tracking
 -- Migration 013
--- Adds issues, comments, labels, milestones, issue_labels, issue_assignees,
+-- Adds issue_comments, labels, milestones, issue_labels, issue_assignees,
 -- and timeline/change tracking tables.
-
--- Issues (the core entity)
-CREATE TABLE IF NOT EXISTS issues (
-    id              BIGSERIAL PRIMARY KEY,
-    repo_id         BIGINT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-    number          INT NOT NULL,                -- per-repo sequential number (e.g. #1, #2)
-    title           TEXT NOT NULL,
-    description     TEXT DEFAULT '',
-    state           TEXT NOT NULL DEFAULT 'open', -- 'open', 'in_progress', 'closed'
-    priority        TEXT NOT NULL DEFAULT 'none', -- 'none', 'low', 'medium', 'high', 'critical'
-    author_id       TEXT NOT NULL,                -- user_id of the creator
-    assignee_id     TEXT,                        -- user_id of the assignee (single for v1.0)
-    milestone_id    BIGINT,                      -- FK to milestones
-    is_locked       BOOLEAN NOT NULL DEFAULT FALSE,
-    locked_reason   TEXT,                        -- 'resolved', 'off_topic', 'spam', 'too_heated'
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    closed_at       TIMESTAMPTZ,
-    UNIQUE(repo_id, number)
-);
+-- NOTE: issues table already exists from migration 001 with UUID id.
 
 -- Issue Comments
 CREATE TABLE IF NOT EXISTS issue_comments (
-    id              BIGSERIAL PRIMARY KEY,
-    issue_id        BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    author_id       TEXT NOT NULL,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    issue_id        UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    author_id       UUID NOT NULL REFERENCES users(id),
     body            TEXT NOT NULL,
     is_edited       BOOLEAN NOT NULL DEFAULT FALSE,
     edited_at       TIMESTAMPTZ,
@@ -36,8 +17,8 @@ CREATE TABLE IF NOT EXISTS issue_comments (
 
 -- Labels (global per-repo)
 CREATE TABLE IF NOT EXISTS labels (
-    id              BIGSERIAL PRIMARY KEY,
-    repo_id         BIGINT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    repo_id         UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
     color           TEXT NOT NULL DEFAULT '#808080',  -- hex color code
     description     TEXT DEFAULT '',
@@ -47,23 +28,23 @@ CREATE TABLE IF NOT EXISTS labels (
 
 -- Issue ↔ Label many-to-many
 CREATE TABLE IF NOT EXISTS issue_labels (
-    issue_id        BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    label_id        BIGINT NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    issue_id        UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    label_id        UUID NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
     PRIMARY KEY (issue_id, label_id)
 );
 
 -- Issue ↔ Assignee (v1.0: single assignee, but table supports multiple)
 CREATE TABLE IF NOT EXISTS issue_assignees (
-    issue_id        BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    user_id         TEXT NOT NULL,
+    issue_id        UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id),
     assigned_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (issue_id, user_id)
 );
 
 -- Milestones (per-repo)
 CREATE TABLE IF NOT EXISTS milestones (
-    id              BIGSERIAL PRIMARY KEY,
-    repo_id         BIGINT NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    repo_id         UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
     title           TEXT NOT NULL,
     description     TEXT DEFAULT '',
     state           TEXT NOT NULL DEFAULT 'open', -- 'open', 'closed'
@@ -75,9 +56,9 @@ CREATE TABLE IF NOT EXISTS milestones (
 
 -- Issue Timeline (tracks all state changes for audit trail)
 CREATE TABLE IF NOT EXISTS issue_timeline (
-    id              BIGSERIAL PRIMARY KEY,
-    issue_id        BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    actor_id        TEXT NOT NULL,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    issue_id        UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    actor_id        UUID NOT NULL REFERENCES users(id),
     event_type      TEXT NOT NULL,               -- 'opened', 'closed', 'reopened', 'assigned',
                                             -- 'unassigned', 'labeled', 'unlabeled',
                                             -- 'milestoned', 'demilestoned', 'edited',
@@ -88,21 +69,16 @@ CREATE TABLE IF NOT EXISTS issue_timeline (
 
 -- Issue Reactions (emoji reactions on comments/issues)
 CREATE TABLE IF NOT EXISTS issue_reactions (
-    id              BIGSERIAL PRIMARY KEY,
-    issue_id        BIGINT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    comment_id      BIGINT REFERENCES issue_comments(id) ON DELETE CASCADE,
-    user_id         TEXT NOT NULL,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    issue_id        UUID NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    comment_id      UUID REFERENCES issue_comments(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES users(id),
     emoji           TEXT NOT NULL,               -- e.g. "thumbs_up", "heart", "rocket"
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(issue_id, COALESCE(comment_id, 0), user_id, emoji)
+    UNIQUE(issue_id, user_id, emoji)
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_issues_repo ON issues(repo_id);
-CREATE INDEX IF NOT EXISTS idx_issues_state ON issues(repo_id, state);
-CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(repo_id, assignee_id);
-CREATE INDEX IF NOT EXISTS idx_issues_milestone ON issues(repo_id, milestone_id);
-CREATE INDEX IF NOT EXISTS idx_issues_created ON issues(repo_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_issue_comments_issue ON issue_comments(issue_id);
 CREATE INDEX IF NOT EXISTS idx_labels_repo ON labels(repo_id);
 CREATE INDEX IF NOT EXISTS idx_issue_labels_issue ON issue_labels(issue_id);
