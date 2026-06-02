@@ -61,12 +61,17 @@ pub async fn login(
 async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<LoginResponse> {
     let user = match state.db.get_user_by_username(&req.username).await {
         Ok(u) => u,
-        Err(_) => {
-            state
-                .db
-                .create_user(&req.username, &req.email, &req.display_name, "member")
-                .await?
-        }
+        Err(_) => match state
+            .db
+            .create_user(&req.username, &req.email, &req.display_name, "member")
+            .await
+        {
+            Ok(u) => u,
+            Err(_) => {
+                // Username differs but email exists — return existing user by email
+                state.db.get_user_by_email(&req.email).await?
+            }
+        },
     };
 
     let token =
