@@ -41,6 +41,7 @@ flate2 = { workspace = true }
 regex = { workspace = true }
 lettre = { workspace = true }
 civit-shared = { path = "../civit-shared" }
+civit-pipeline = { path = "../civit-pipeline" }
 
 [features]
 default = []

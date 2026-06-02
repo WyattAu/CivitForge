@@ -85,17 +85,32 @@ pub async fn receive_pack(
 
     let repo_path = state.git_service.repo_path(&owner, &name);
     match crate::git::http::receive_pack(&repo_path, &body) {
-        Ok(data) => Response::builder()
-            .status(StatusCode::OK)
-            .header(
-                header::CONTENT_TYPE,
-                "application/x-git-receive-pack-result",
-            )
-            .header(header::CACHE_CONTROL, "no-cache")
-            .body(axum::body::Body::from(data))
-            .unwrap_or_else(|_| {
-                (StatusCode::INTERNAL_SERVER_ERROR, "response build error").into_response()
-            }),
+        Ok(data) => {
+            // Fire-and-forget: trigger CI/CD pipelines on push
+            let state_clone = state.clone();
+            let owner_clone = owner.clone();
+            let name_clone = name.clone();
+            tokio::spawn(async move {
+                crate::api::pipelines::trigger_pipelines_on_push(
+                    &state_clone,
+                    &owner_clone,
+                    &name_clone,
+                )
+                .await;
+            });
+
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(
+                    header::CONTENT_TYPE,
+                    "application/x-git-receive-pack-result",
+                )
+                .header(header::CACHE_CONTROL, "no-cache")
+                .body(axum::body::Body::from(data))
+                .unwrap_or_else(|_| {
+                    (StatusCode::INTERNAL_SERVER_ERROR, "response build error").into_response()
+                })
+        }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("git error: {e}")).into_response(),
     }
 }

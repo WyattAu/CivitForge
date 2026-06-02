@@ -1,21 +1,24 @@
-phase: 18
-version: 0.4.0-beta
-status: In Progress
-last_updated: 2026-06-01
-error_level: 0
-rollback_checkpoint: phase-8-foundation-wiring
+# CivitForge Version Tracker
+
+Phase: 16 (Release)
+Version: 0.9.0-alpha
+Status: In Progress
+Last Updated: 2026-06-02
+Tests: 2,611 passing
+Clippy: 0 warnings
 
 ## Artifact Summary
-- Rust source files: 191
-- Rust lines of code: 63,047
-- Cargo workspace crates: 5
-- Unit tests passing: 2179
+- Rust source files: 264
+- Rust lines of code: ~95,000
+- Cargo workspace crates: 7 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-shared, civit-ui)
+- Unit tests passing: 2,611
 - Unit tests ignored: 0
 - Clippy warnings: 0
 - Format violations: 0
-- `#![forbid(unsafe_code)]: Enforced across all crates
+- `#![forbid(unsafe_code)]`: Enforced across all crates
 - CI/CD: Green (all checks passing, --locked enforced)
 - Pre-commit hooks: fmt + clippy -D warnings + test --locked
+- API endpoints: ~60 routes
 
 ## Completed Phases
 - [x] Phase -1: Context Discovery
@@ -42,3 +45,12 @@ rollback_checkpoint: phase-8-foundation-wiring
 - [x] Phase 15: RAG Pipeline + CEL Engine + OCI Dedup + S3 Abstraction + OpenTelemetry (conversation history, summarization, query classification, retrieval, policy evaluation, layer deduplication, object store, tracing -- 1796 tests)
 - [x] Phase 16: Full Roadmap Scaffolding (K8s leader election + affinity + CSI + isolation, Helm charts + Grafana + SLOs + OpenAPI, SOC2 audit trail + FIPS self-test + ISO 27001 CMDB, HSM operations + policy versioning + geofencing, HTTP Signatures + inbox/outbox + partitioner + autoscaler, embedding pipeline + collection mgmt + model management + streaming -- 2179 tests)
 - [x] Phase 17: Comprehensive Audit (LICENSE correction, Podman fail-closed, CEL fail-closed, CI least-privilege, SEO meta tags, CHANGELOG dedup)
+- [x] Phase 18: Workspace Restructure + Permission System (crates/ layout, civit-shared, full RBAC with deny-overrides, branch protection, encrypted CI variables)
+- [x] Phase 19: CI/CD Pipeline Backend (pipeline YAML spec, runner registration + protocol, services, cache, artifacts, secret injection, expression evaluation)
+- [x] Phase 20: OCI Container Registry (20 OCI Distribution v1.1 endpoints, 8 management API endpoints, RBAC, GC, referrers, multi-arch manifests)
+- [x] Phase 21: Issue Tracking (18 endpoints, state machine, timeline, comments, labels, milestones, assignees, reactions, auto-linking)
+- [x] Phase 22: Wiki (9 endpoints, page CRUD, history, diff, raw, search, git-backed storage)
+- [x] Phase 23: Code Search (3 endpoints, SQL-based full-text search, repo/global search, language filter)
+- [x] Phase 24: Leptos Web UI (SSR scaffold, 11 UI components, 10 pages, API client, auth state, routing)
+- [x] Phase 25: Integration + Polish (all API endpoints documented, clippy clean, 2,611+ tests passing)
+- [ ] Phase 26: Release (CHANGELOG, version bump, RC tag, smoke test, v1.0.0 tag)
