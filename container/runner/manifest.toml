@@ -1,17 +1,16 @@
 [metadata]
-name = "civitforge-runner-action"
+name = "civitforge-runner"
 version = "0.8.0-alpha"
-description = "CivitForge CI runner action image for Rust pipelines"
+description = "CivitForge CI/CD pipeline daemon. Polls for jobs and executes step containers via Podman."
 vendor = "CivitForge"
 source = "https://github.com/WyattAu/CivitForge"
 license = "AGPL-3.0-or-later"
-tier = "community"
+tier = "standard"
 
 [build]
 base = "cgr.dev/chainguard/wolfi-base:latest"
 user = "65532:65532"
 stopsignal = "SIGTERM"
-multiarch = false
 
 [source]
 type = "binary"
@@ -25,16 +24,16 @@ cmd = []
 expose = [8088, 9101]
 
 [labels]
-"org.opencontainers.image.title" = "civitforge-runner-action"
+"org.opencontainers.image.title" = "civitforge-runner"
 "org.opencontainers.image.vendor" = "CivitForge"
 "org.opencontainers.image.version" = "0.8.0-alpha"
 "org.opencontainers.image.source" = "https://github.com/WyattAu/CivitForge"
-"org.opencontainers.image.description" = "CivitForge CI runner action image for Rust pipelines"
+"org.opencontainers.image.description" = "CivitForge CI/CD pipeline daemon. Polls for jobs and executes step containers via Podman. Toolchains come from user-specified pipeline images, not this image."
 "org.opencontainers.image.licenses" = "AGPL-3.0-or-later"
 "evergreen.base.image" = "wolfi"
 "evergreen.constraint.nonroot" = "true"
 "evergreen.constraint.wolfi" = "true"
-"evergreen.image.tier" = "community"
+"evergreen.image.tier" = "standard"
 "evergreen.health.type" = "http"
 "evergreen.image.category" = "ci"
 "evergreen.image.status" = "functional"

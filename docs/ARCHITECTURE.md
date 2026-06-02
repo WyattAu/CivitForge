@@ -183,8 +183,7 @@ CivitForge/
 ├── docker-compose.yml      # Full-stack local deployment
 ├── container/
 │   ├── civitforge/         # Main server image (tier: critical)
-│   ├── runner-base/         # CI runner base (tier: standard)
-│   └── runner-action/       # Rust CI runner (tier: community)
+│   ├── runner/              # CI pipeline daemon (tier: standard)
 ├── civit-core/             # API server, auth, DB, events
 ├── civit-brain/            # AI/ML, RAG, AST parsing
 ├── civit-crypto/           # Crypto primitives, CEL, enterprise auth

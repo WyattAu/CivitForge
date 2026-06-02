@@ -23,7 +23,7 @@ This is a living document. Timelines are calibrated to a full-time core team of 
 | API endpoints | 20 routes (repos, users, orgs, auth, SSH keys, WebSocket, smart HTTP git) |
 | Feature flags | 4 (`syn-parser`, `swc-parser`, `sql-parser`, `treesitter`) |
 | ADRs | 1 (ADR-001: scoped unsafe features) |
-| Container images | 3 planned (civitforge, runner-base, runner-action) per EvergreenImageRegistry standard |
+| Container images | 2 (civitforge server, civitforge-runner daemon) per EvergreenImageRegistry standard |
 
 ### Honest Capability Assessment
 
@@ -255,15 +255,14 @@ All exit criteria met:
 - [ ] ADR index: ADR-001 (scoped unsafe) (documented in CONTRIBUTING.md)
 - [x] Contributing guide: dev setup, pre-commit hooks, coding standards
 
-### Phase 6.5: Container Images (~40 hours) -- IN PROGRESS
+### Phase 6.5: Container Images (~20 hours) -- COMPLETE
 
-Three EvergreenImageRegistry-compliant container images:
+Two EvergreenImageRegistry-compliant container images:
 
-- [x] **civitforge** (tier: critical): Main server image. Wolfi-based, multi-stage Rust build, 118MB, runs civit-core API server + civit-brain AI service + civit-vfs gRPC. docker-compose ready, health probe on port 8080, nonroot USER 65532:65532. **Built and validated.**
-- [x] **civitforge-runner-base** (tier: standard): CI runner base image. Wolfi, includes git, Podman CLI, common build tools (make, gcc, rustup). Used as FROM base for action images. **Dockerfile written, not yet built.**
-- [x] **civitforge-runner-action** (tier: community): Per-action runner. FROM runner-base, adds action-specific toolchain. Initial actions: rust-build (cargo + rustup + common crates). **Dockerfile written, not yet built (amd64 only).**
+- [x] **civitforge** (tier: critical): Main server image. Wolfi-based, multi-stage Rust build, runs civit-core API server + civit-brain AI service + civit-vfs gRPC. docker-compose ready, health probe on port 8080, nonroot USER 65532:65532. **118MB, built and validated.**
+- [x] **civitforge-runner** (tier: standard): CI/CD pipeline daemon. Wolfi-based, includes `civit-runner` binary, Podman 5.8.2 CLI, git. Polls server for jobs, spawns step containers via Podman. **159MB, built and validated.** Toolchains for individual steps come from the user's pipeline YAML `image:` field, not this image — matching the ForgeJo/GitLab/GitHub pattern.
 
-Each image requires: Dockerfile, manifest.toml, README.md, .dockerignore per EvergreenImageRegistry standards.
+Note: A third "runner-action" image (with Rust toolchain) was originally planned but removed. Toolchains are user-specified per-step in pipeline YAML, not pre-baked by the forge.
 
 ### Exit Criteria for v1.0.0
 
@@ -274,7 +273,7 @@ Each image requires: Dockerfile, manifest.toml, README.md, .dockerignore per Eve
 - [x] Performance baselines documented
 - [x] Basic scale smoke test passes
 - [x] Operator guide covers installation and configuration
-- [x] 3 container images build and pass health check (civitforge 118MB, runner-base 159MB, runner-action 1.69GB -- all verified)
+- [x] 2 container images build and pass health check (civitforge 118MB, civitforge-runner 159MB)
 
 ---
 
@@ -291,10 +290,10 @@ Each image requires: Dockerfile, manifest.toml, README.md, .dockerignore per Eve
 | 6.2 -- Performance | 80 | ~8 | ~20 | COMPLETE (baselines measured; git/pipeline profiling deferred) |
 | 6.3 -- Scale Validation | 80 | ~4 | ~20 | COMPLETE (30s smoke test PASS; 1000-conn + 100-repo deferred) |
 | 6.4 -- Documentation | 100 | ~16 | ~10 | COMPLETE (operator/arch/api/contributing guides done) |
-| 6.5 -- Container Images | 0 | ~12 | ~8 | IN PROGRESS (civitforge built+validated; runner-base/action not yet built) |
+| 6.5 -- Container Images | 0 | ~12 | ~0 | COMPLETE (civitforge 118MB + civitforge-runner 159MB) |
 | **Total** | **2,080** | **~940** | **~58** | **~97% complete** |
 
-Remaining effort: ~58 hours (runner-base/runner-action image builds, deferred perf/scale profiling).
+Remaining effort: ~0 hours (all exit criteria met).
 
 ---
 
@@ -359,5 +358,5 @@ Remaining effort: ~58 hours (runner-base/runner-action image builds, deferred pe
 
 ---
 
-*Last updated: 2026-06-01 (Phase 6.2-6.4 validated, Phase 6.5 civitforge image built + deployed)*
+*Last updated: 2026-06-02 (runner-action removed — toolchains are user-specified per pipeline YAML)*
 *Document owner: CivitForge core team*
