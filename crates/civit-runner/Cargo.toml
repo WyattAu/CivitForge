@@ -26,3 +26,9 @@ reqwest = { workspace = true }
 hex = { workspace = true }
 dashmap = { workspace = true }
 schemars = { workspace = true }
+clap = { version = "4", features = ["derive", "env"] }
+rand = "0.10"
+
+[[bin]]
+name = "civit-runner-exec"
+path = "src/bin/civit_runner_exec.rs"

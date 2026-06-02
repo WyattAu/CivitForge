@@ -136,6 +136,7 @@ impl PipelineEngine {
                 labels.insert("civit.step".into(), step.name.clone());
                 labels
             },
+            volumes: vec![],
         };
 
         let container = svc.run(&spec).await?;

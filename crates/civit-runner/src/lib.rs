@@ -4,6 +4,7 @@ pub mod affinity;
 pub mod crd;
 pub mod crds;
 pub mod dedup;
+pub mod exec;
 pub mod grafana;
 pub mod helm;
 pub mod kube_controller;
@@ -33,7 +34,7 @@ pub use pod_builder::{
 };
 pub use podman::{
     ExecResult, HermeticConfig, NetworkPolicy, PodmanConfig, PodmanContainer, PodmanRunSpec,
-    PodmanService,
+    PodmanService, VolumeMount,
 };
 pub use reconciler::{CompletedRun, ReconcileAction, ReconcileResult, Reconciler};
 pub use scheduling::{NodePool, ScheduleDecision, Scheduler};

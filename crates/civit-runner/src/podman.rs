@@ -49,7 +49,7 @@ pub struct PodmanContainer {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PodmanRunSpec {
     pub image: String,
     pub command: Vec<String>,
@@ -61,6 +61,20 @@ pub struct PodmanRunSpec {
     pub workdir: String,
     pub timeout_secs: u64,
     pub labels: HashMap<String, String>,
+    /// Bind-mount volumes: (host_path, container_path, options)
+    /// e.g. ("/tmp/workspace", "/workspace", "rw,z")
+    pub volumes: Vec<VolumeMount>,
+}
+
+/// A bind-mount volume specification for Podman containers.
+#[derive(Debug, Clone)]
+pub struct VolumeMount {
+    /// Host path (source)
+    pub host_path: String,
+    /// Container path (destination)
+    pub container_path: String,
+    /// Mount options (e.g. "rw,z", "ro")
+    pub options: String,
 }
 
 #[derive(Debug, Clone)]
@@ -188,6 +202,19 @@ impl PodmanService {
         spec: &PodmanRunSpec,
     ) -> anyhow::Result<PodmanContainer> {
         let url = format!("{}/containers/create", self.base_url());
+        let mounts: Vec<serde_json::Value> = spec
+            .volumes
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "Type": "bind",
+                    "Source": v.host_path,
+                    "Destination": v.container_path,
+                    "Options": v.options.split(',').collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+
         let body = serde_json::json!({
             "Image": spec.image,
             "Cmd": spec.command,
@@ -198,6 +225,7 @@ impl PodmanService {
                 "NetworkMode": if spec.network_disabled { "none" } else { "bridge" },
                 "ReadonlyRootfs": spec.read_only_fs,
                 "SecurityOpt": ["no-new-privileges:true"],
+                "Mounts": mounts,
             },
             "WorkingDir": spec.workdir,
             "Labels": spec.labels,
@@ -278,6 +306,15 @@ impl PodmanService {
         for (k, v) in &spec.labels {
             cmd.arg("--label").arg(format!("{k}={v}"));
         }
+
+        // Bind-mount volumes
+        for vol in &spec.volumes {
+            cmd.arg("--volume").arg(format!(
+                "{}:{}:{}",
+                vol.host_path, vol.container_path, vol.options
+            ));
+        }
+
         for arg in &spec.command {
             cmd.arg(arg);
         }
@@ -865,6 +902,7 @@ mod tests {
             workdir: "/workspace".into(),
             timeout_secs: 60,
             labels: HashMap::new(),
+            volumes: vec![],
         };
         let result = svc.run(&spec).await;
         assert!(
