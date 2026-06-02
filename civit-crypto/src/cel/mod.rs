@@ -16,7 +16,7 @@ pub struct CelExpression {
 pub enum CelKind {
     /// Simple boolean comparison: `request.time < "2025-01-01"`
     Comparison,
-    /// Logical operator: `user.role == "admin" && source.ip.startsWith("10.")`
+    /// Logical operator: `user.role == "admin" && source.ip.startsWith("10.")
     Logical,
     /// Membership test: `"read" in user.permissions`
     Membership,
@@ -28,6 +28,8 @@ pub enum CelKind {
     Negation,
     /// Type check: `user.age > 18`
     TypeCheck,
+    /// Arithmetic: `user.age + 1`, `price * 0.9`
+    Arithmetic,
     /// Complex expression with multiple operators
     Complex,
     /// Unknown or unsupported expression
@@ -62,6 +64,29 @@ impl CelExpression {
         // Negation
         if trimmed.starts_with('!') {
             return CelKind::Negation;
+        }
+        // Arithmetic operators (check before comparison to avoid `+` inside string literals)
+        let arith_ops = ["+", "-", "*", "/", "%"];
+        let has_arith = arith_ops.iter().any(|op| {
+            let pos = trimmed.find(*op).unwrap_or(0);
+            // Skip if it's inside a comparison operator like `>=` or `<=` or `!=`
+            if *op == "-" {
+                // Avoid matching `-` inside `!=` or at start of negative number after operator
+                if pos > 0 {
+                    let prev = trimmed.as_bytes()[pos - 1];
+                    if prev == b'!' || prev == b'>' || prev == b'<' || prev == b'=' {
+                        return false;
+                    }
+                }
+            }
+            pos > 0
+                && !trimmed.contains("==")
+                && !trimmed.contains("!=")
+                && !trimmed.contains(">=")
+                && !trimmed.contains("<=")
+        });
+        if has_arith {
+            return CelKind::Arithmetic;
         }
         // Comparison operators
         if trimmed.contains("==")
@@ -368,8 +393,8 @@ impl CelResult {
     }
 }
 
-/// Stub CEL evaluator. In production, this would use a real CEL parser.
-/// The stub evaluates a limited subset of expressions for testing and policy scaffolding.
+/// CEL evaluator. Supports comparison, logical, arithmetic, membership,
+/// ternary, negation, type checks, and 20+ built-in functions.
 pub struct CelEvaluator {
     env: CelEnvironment,
 }
@@ -391,14 +416,26 @@ impl CelEvaluator {
             CelKind::FunctionCall => self.eval_function(raw),
             CelKind::Ternary => self.eval_ternary(raw),
             CelKind::TypeCheck => self.eval_comparison(raw),
+            CelKind::Arithmetic => self.eval_arithmetic(raw),
             CelKind::Complex => self.eval_complex(raw),
             CelKind::Unknown => CelResult::err(format!("Unsupported expression: {raw}"), &expr.raw),
         }
     }
 
     fn resolve_value(&self, token: &str) -> CelValue {
+        let trimmed = token.trim();
+        // Handle parenthesized sub-expressions
+        if trimmed.starts_with('(') && trimmed.ends_with(')') {
+            let inner = &trimmed[1..trimmed.len() - 1];
+            let sub_expr = CelExpression::parse(inner);
+            let result = self.evaluate(&sub_expr);
+            if result.success {
+                return result.value;
+            }
+            return CelValue::Null;
+        }
         // Try literal parsing first
-        if token == "true" {
+        if trimmed == "true" {
             return CelValue::Bool(true);
         }
         if token == "false" {
@@ -660,7 +697,320 @@ impl CelEvaluator {
         if expr.starts_with("now()") {
             return CelResult::ok(CelValue::Timestamp(chrono::Utc::now()), expr);
         }
+        // Math functions
+        if expr.starts_with("abs(") && expr.ends_with(')') {
+            let arg = expr[4..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::Int(n) => return CelResult::ok(CelValue::Int(n.abs()), expr),
+                CelValue::Double(n) => return CelResult::ok(CelValue::Double(n.abs()), expr),
+                _ => return CelResult::err("abs() requires numeric argument", expr),
+            }
+        }
+        if expr.starts_with("ceil(") && expr.ends_with(')') {
+            let arg = expr[5..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::Double(n) => return CelResult::ok(CelValue::Double(n.ceil()), expr),
+                CelValue::Int(n) => {
+                    return CelResult::ok(CelValue::Double((n as f64).ceil()), expr);
+                }
+                _ => return CelResult::err("ceil() requires numeric argument", expr),
+            }
+        }
+        if expr.starts_with("floor(") && expr.ends_with(')') {
+            let arg = expr[6..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::Double(n) => return CelResult::ok(CelValue::Double(n.floor()), expr),
+                CelValue::Int(n) => {
+                    return CelResult::ok(CelValue::Double((n as f64).floor()), expr);
+                }
+                _ => return CelResult::err("floor() requires numeric argument", expr),
+            }
+        }
+        if expr.starts_with("max(") && expr.ends_with(')') {
+            let args_str = expr[4..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("max() requires exactly 2 arguments", expr);
+            }
+            let a = self.resolve_value(args[0].trim());
+            let b = self.resolve_value(args[1].trim());
+            match (&a, &b) {
+                (CelValue::Int(x), CelValue::Int(y)) => {
+                    return CelResult::ok(CelValue::Int((*x).max(*y)), expr);
+                }
+                (CelValue::Double(x), CelValue::Double(y)) => {
+                    return CelResult::ok(CelValue::Double(x.max(*y)), expr);
+                }
+                _ => return CelResult::err("max() requires matching numeric arguments", expr),
+            }
+        }
+        if expr.starts_with("min(") && expr.ends_with(')') {
+            let args_str = expr[4..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("min() requires exactly 2 arguments", expr);
+            }
+            let a = self.resolve_value(args[0].trim());
+            let b = self.resolve_value(args[1].trim());
+            match (&a, &b) {
+                (CelValue::Int(x), CelValue::Int(y)) => {
+                    return CelResult::ok(CelValue::Int((*x).min(*y)), expr);
+                }
+                (CelValue::Double(x), CelValue::Double(y)) => {
+                    return CelResult::ok(CelValue::Double(x.min(*y)), expr);
+                }
+                _ => return CelResult::err("min() requires matching numeric arguments", expr),
+            }
+        }
+        // String functions
+        if expr.starts_with("indexOf(") && expr.ends_with(')') {
+            let args_str = expr[8..expr.len() - 1].trim();
+            let args: Vec<&str> = split_args(args_str);
+            if args.len() != 2 {
+                return CelResult::err("indexOf() requires exactly 2 arguments", expr);
+            }
+            let val = self.resolve_value(args[0].trim());
+            let substr = self.resolve_value(args[1].trim());
+            match (&val, &substr) {
+                (CelValue::String(s), CelValue::String(p)) => {
+                    return CelResult::ok(
+                        CelValue::Int(s.find(p).map(|i| i as i64).unwrap_or(-1)),
+                        expr,
+                    );
+                }
+                _ => return CelResult::err("indexOf() requires string arguments", expr),
+            }
+        }
+        if expr.starts_with("lower(") && expr.ends_with(')') {
+            let arg = expr[6..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::String(s) => {
+                    return CelResult::ok(CelValue::String(s.to_lowercase()), expr);
+                }
+                _ => return CelResult::err("lower() requires string argument", expr),
+            }
+        }
+        if expr.starts_with("upper(") && expr.ends_with(')') {
+            let arg = expr[6..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::String(s) => {
+                    return CelResult::ok(CelValue::String(s.to_uppercase()), expr);
+                }
+                _ => return CelResult::err("upper() requires string argument", expr),
+            }
+        }
+        // Type conversion functions
+        if expr.starts_with("int(") && expr.ends_with(')') {
+            let arg = expr[4..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::Int(n) => return CelResult::ok(CelValue::Int(n), expr),
+                CelValue::Double(n) => return CelResult::ok(CelValue::Int(n as i64), expr),
+                CelValue::String(ref s) => {
+                    if let Ok(n) = s.parse::<i64>() {
+                        return CelResult::ok(CelValue::Int(n), expr);
+                    }
+                    if let Ok(f) = s.parse::<f64>() {
+                        return CelResult::ok(CelValue::Int(f as i64), expr);
+                    }
+                    return CelResult::err(format!("Cannot convert to int: {s}"), expr);
+                }
+                CelValue::Uint(n) => return CelResult::ok(CelValue::Int(n as i64), expr),
+                CelValue::Bool(b) => {
+                    return CelResult::ok(CelValue::Int(if b { 1 } else { 0 }), expr);
+                }
+                _ => return CelResult::err("int() requires compatible argument", expr),
+            }
+        }
+        if expr.starts_with("double(") && expr.ends_with(')') {
+            let arg = expr[7..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::Double(n) => return CelResult::ok(CelValue::Double(n), expr),
+                CelValue::Int(n) => return CelResult::ok(CelValue::Double(n as f64), expr),
+                CelValue::String(ref s) => {
+                    if let Ok(f) = s.parse::<f64>() {
+                        return CelResult::ok(CelValue::Double(f), expr);
+                    }
+                    return CelResult::err(format!("Cannot convert to double: {s}"), expr);
+                }
+                CelValue::Uint(n) => return CelResult::ok(CelValue::Double(n as f64), expr),
+                CelValue::Bool(b) => {
+                    return CelResult::ok(CelValue::Double(if b { 1.0 } else { 0.0 }), expr);
+                }
+                _ => return CelResult::err("double() requires compatible argument", expr),
+            }
+        }
+        if expr.starts_with("bool(") && expr.ends_with(')') {
+            let arg = expr[5..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            match val {
+                CelValue::Bool(b) => return CelResult::ok(CelValue::Bool(b), expr),
+                CelValue::String(ref s) => {
+                    if s == "true" {
+                        return CelResult::ok(CelValue::Bool(true), expr);
+                    }
+                    if s == "false" {
+                        return CelResult::ok(CelValue::Bool(false), expr);
+                    }
+                    return CelResult::err(format!("Cannot convert to bool: {s}"), expr);
+                }
+                _ => return CelResult::err("bool() requires string or bool argument", expr),
+            }
+        }
+        if expr.starts_with("string(") && expr.ends_with(')') {
+            let arg = expr[7..expr.len() - 1].trim();
+            let val = self.resolve_value(arg);
+            let s = match &val {
+                CelValue::String(s) => s.clone(),
+                CelValue::Int(n) => n.to_string(),
+                CelValue::Double(n) => n.to_string(),
+                CelValue::Bool(b) => b.to_string(),
+                _ => String::new(),
+            };
+            return CelResult::ok(CelValue::String(s), expr);
+        }
         CelResult::err(format!("Unsupported function: {expr}"), expr)
+    }
+
+    fn eval_arithmetic(&self, expr: &str) -> CelResult {
+        // Find arithmetic operator: +, -, *, /
+        // Order: find * and / first (higher precedence), then + and -
+        let mul_div = [("*", false), ("/", false), ("%", false)];
+        let add_sub = [("+", false), ("-", false)];
+
+        // First pass: multiply, divide, modulo
+        for (op, _) in &mul_div {
+            // Find rightmost occurrence of this operator (left-to-right evaluation)
+            if let Some(pos) = expr.rfind(*op) {
+                // Make sure it's not part of a comparison or logical operator
+                if pos + 1 < expr.len() {
+                    let next = expr.as_bytes()[pos + 1];
+                    if next == b'=' {
+                        continue;
+                    }
+                }
+                if pos > 0 {
+                    let prev = expr.as_bytes()[pos - 1];
+                    if prev == b'!' || prev == b'>' || prev == b'<' {
+                        continue;
+                    }
+                }
+                let left_str = expr[..pos].trim();
+                let right_str = expr[pos + 1..].trim();
+                let left = self.resolve_value(left_str);
+                let right = self.resolve_value(right_str);
+                let op_str = *op;
+                let result = match (&left, &right, op_str) {
+                    (CelValue::Int(a), CelValue::Int(b), "*") => CelValue::Int(a * b),
+                    (CelValue::Int(a), CelValue::Int(b), "/") => {
+                        if *b == 0 {
+                            return CelResult::err("Division by zero", expr);
+                        }
+                        CelValue::Int(a / b)
+                    }
+                    (CelValue::Int(a), CelValue::Int(b), "%") => {
+                        if *b == 0 {
+                            return CelResult::err("Modulo by zero", expr);
+                        }
+                        CelValue::Int(a % b)
+                    }
+                    (CelValue::Double(a), CelValue::Double(b), "*") => CelValue::Double(a * b),
+                    (CelValue::Double(a), CelValue::Double(b), "/") => {
+                        if *b == 0.0 {
+                            return CelResult::err("Division by zero", expr);
+                        }
+                        CelValue::Double(a / b)
+                    }
+                    (CelValue::Double(a), CelValue::Double(b), "%") => {
+                        if *b == 0.0 {
+                            return CelResult::err("Modulo by zero", expr);
+                        }
+                        CelValue::Double(a % b)
+                    }
+                    // Int op Double → Double
+                    (CelValue::Int(a), CelValue::Double(b), "*") => CelValue::Double(*a as f64 * b),
+                    (CelValue::Int(a), CelValue::Double(b), "/") => {
+                        if *b == 0.0 {
+                            return CelResult::err("Division by zero", expr);
+                        }
+                        CelValue::Double(*a as f64 / b)
+                    }
+                    (CelValue::Int(a), CelValue::Double(b), "%") => {
+                        if *b == 0.0 {
+                            return CelResult::err("Modulo by zero", expr);
+                        }
+                        CelValue::Double(*a as f64 % b)
+                    }
+                    (CelValue::Double(a), CelValue::Int(b), "*") => CelValue::Double(a * *b as f64),
+                    (CelValue::Double(a), CelValue::Int(b), "/") => {
+                        let bf = *b as f64;
+                        if bf == 0.0 {
+                            return CelResult::err("Division by zero", expr);
+                        }
+                        CelValue::Double(a / bf)
+                    }
+                    (CelValue::Double(a), CelValue::Int(b), "%") => {
+                        let bf = *b as f64;
+                        if bf == 0.0 {
+                            return CelResult::err("Modulo by zero", expr);
+                        }
+                        CelValue::Double(a % bf)
+                    }
+                    _ => return CelResult::err("Type mismatch in arithmetic", expr),
+                };
+                return CelResult::ok(result, expr);
+            }
+        }
+
+        // Second pass: add, subtract
+        for (op, _) in &add_sub {
+            if let Some(pos) = expr.rfind(*op) {
+                // Skip if it's part of comparison
+                if pos + 1 < expr.len() {
+                    let next = expr.as_bytes()[pos + 1];
+                    if next == b'=' || next == b'>' {
+                        continue;
+                    }
+                }
+                if pos > 0 {
+                    let prev = expr.as_bytes()[pos - 1];
+                    if prev == b'!' || prev == b'>' || prev == b'<' || prev == b'=' {
+                        continue;
+                    }
+                }
+                let left_str = expr[..pos].trim();
+                let right_str = expr[pos + 1..].trim();
+                let left = self.resolve_value(left_str);
+                let right = self.resolve_value(right_str);
+                let op_str = *op;
+                let result = match (&left, &right, op_str) {
+                    (CelValue::Int(a), CelValue::Int(b), "+") => CelValue::Int(a + b),
+                    (CelValue::Int(a), CelValue::Int(b), "-") => CelValue::Int(a - b),
+                    (CelValue::Double(a), CelValue::Double(b), "+") => CelValue::Double(a + b),
+                    (CelValue::Double(a), CelValue::Double(b), "-") => CelValue::Double(a - b),
+                    // String concatenation with +
+                    (CelValue::String(a), CelValue::String(b), "+") => {
+                        CelValue::String(format!("{a}{b}"))
+                    }
+                    // Int op Double → Double
+                    (CelValue::Int(a), CelValue::Double(b), "+") => CelValue::Double(*a as f64 + b),
+                    (CelValue::Int(a), CelValue::Double(b), "-") => CelValue::Double(*a as f64 - b),
+                    // Double op Int → Double
+                    (CelValue::Double(a), CelValue::Int(b), "+") => CelValue::Double(a + *b as f64),
+                    (CelValue::Double(a), CelValue::Int(b), "-") => CelValue::Double(a - *b as f64),
+                    _ => return CelResult::err("Type mismatch in arithmetic", expr),
+                };
+                return CelResult::ok(result, expr);
+            }
+        }
+
+        CelResult::err("No arithmetic operator found", expr)
     }
 
     fn eval_ternary(&self, expr: &str) -> CelResult {
@@ -804,6 +1154,7 @@ pub struct CelPolicyDecision {
 }
 
 #[cfg(test)]
+#[allow(clippy::approx_constant)]
 mod tests {
     use super::*;
 
@@ -1311,5 +1662,330 @@ mod tests {
         let result = evaluator.evaluate(&expr);
         assert!(!result.success);
         assert!(result.error.unwrap().contains("Invalid regex"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Arithmetic tests
+    // -----------------------------------------------------------------------
+
+    fn make_env() -> CelEnvironment {
+        CelEnvironment::new()
+            .with_variable("x", CelValue::Int(10), CelType::Int)
+            .with_variable("y", CelValue::Int(3), CelType::Int)
+            .with_variable("pi", CelValue::Double(3.14159), CelType::Double)
+            .with_variable("name", CelValue::String("hello".into()), CelType::String)
+    }
+
+    #[test]
+    fn test_arithmetic_int_add() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("x + y");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(13));
+    }
+
+    #[test]
+    fn test_arithmetic_int_subtract() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("x - y");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(7));
+    }
+
+    #[test]
+    fn test_arithmetic_int_multiply() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("x * y");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(30));
+    }
+
+    #[test]
+    fn test_arithmetic_int_divide() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("x / y");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(3));
+    }
+
+    #[test]
+    fn test_arithmetic_int_modulo() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("10 % 3");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(1));
+    }
+
+    #[test]
+    fn test_arithmetic_divide_by_zero() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("x / 0");
+        let result = evaluator.evaluate(&expr);
+        assert!(!result.success);
+        assert!(result.error.unwrap().contains("Division by zero"));
+    }
+
+    #[test]
+    fn test_arithmetic_double() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("pi * 2");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 6.28318).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_arithmetic_int_double_mix() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("x + pi");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 13.14159).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_arithmetic_string_concat() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"name + " world""#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::String("hello world".into()));
+    }
+
+    #[test]
+    fn test_arithmetic_parens() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("(x + y) * 2");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(26));
+    }
+
+    // -----------------------------------------------------------------------
+    // Math function tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_function_abs_int() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("abs(-5)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(5));
+    }
+
+    #[test]
+    fn test_function_abs_double() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("abs(-3.7)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 3.7).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_function_ceil() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("ceil(3.2999)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 4.0).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_function_floor() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("floor(3.9001)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 3.0).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_function_max() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("max(x, y)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(10));
+    }
+
+    #[test]
+    fn test_function_min() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("min(x, y)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(3));
+    }
+
+    // -----------------------------------------------------------------------
+    // String function tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_function_indexof_found() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"indexOf(name, "ll")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(2));
+    }
+
+    #[test]
+    fn test_function_indexof_not_found() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"indexOf(name, "xyz")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(-1));
+    }
+
+    #[test]
+    fn test_function_lower() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"lower("HELLO")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::String("hello".into()));
+    }
+
+    #[test]
+    fn test_function_upper() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"upper("hello")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::String("HELLO".into()));
+    }
+
+    // -----------------------------------------------------------------------
+    // Type conversion function tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_function_int_from_string() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"int("42")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(42));
+    }
+
+    #[test]
+    fn test_function_int_from_double() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("int(pi)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(3));
+    }
+
+    #[test]
+    fn test_function_int_from_bool() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("int(true)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Int(1));
+    }
+
+    #[test]
+    fn test_function_double_from_int() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("double(x)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 10.0).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_function_double_from_string() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"double("3.14159")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        match result.value {
+            CelValue::Double(v) => assert!((v - 3.14159).abs() < 0.01),
+            _ => panic!("expected Double"),
+        }
+    }
+
+    #[test]
+    fn test_function_bool_from_string() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"bool("true")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Bool(true));
+    }
+
+    #[test]
+    fn test_function_bool_from_string_false() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse(r#"bool("false")"#);
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::Bool(false));
+    }
+
+    #[test]
+    fn test_function_string_from_int() {
+        let env = make_env();
+        let evaluator = CelEvaluator::new(env);
+        let expr = CelExpression::parse("string(x)");
+        let result = evaluator.evaluate(&expr);
+        assert!(result.success);
+        assert_eq!(result.value, CelValue::String("10".into()));
     }
 }
