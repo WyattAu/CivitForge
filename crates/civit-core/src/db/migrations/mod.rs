@@ -8,6 +8,16 @@ pub const M_005_AUTH_UP: &str = include_str!("005_add_auth_identity_tables.sql")
 pub const M_005_AUTH_DOWN: &str = include_str!("006_add_auth_identity_tables_down.sql");
 pub const M_007_PERMISSIONS_UP: &str = include_str!("007_add_permissions_tables.sql");
 pub const M_007_PERMISSIONS_DOWN: &str = include_str!("007_add_permissions_tables_down.sql");
+pub const M_009_PIPELINE_UP: &str = include_str!("009_add_ci_cd_pipeline_tables.sql");
+pub const M_009_PIPELINE_DOWN: &str = include_str!("010_add_ci_cd_pipeline_tables_down.sql");
+pub const M_011_OCI_REGISTRY_UP: &str = include_str!("011_add_oci_registry_tables.sql");
+pub const M_011_OCI_REGISTRY_DOWN: &str = include_str!("012_add_oci_registry_tables_down.sql");
+pub const M_013_ISSUES_UP: &str = include_str!("013_add_issue_tracking_tables.sql");
+pub const M_013_ISSUES_DOWN: &str = include_str!("014_add_issue_tracking_tables_down.sql");
+pub const M_015_WIKI_UP: &str = include_str!("015_add_wiki_tables.sql");
+pub const M_015_WIKI_DOWN: &str = include_str!("016_add_wiki_tables_down.sql");
+pub const M_017_SEARCH_UP: &str = include_str!("017_add_code_search_tables.sql");
+pub const M_017_SEARCH_DOWN: &str = include_str!("018_add_code_search_tables_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -56,6 +66,36 @@ impl MigrationManager {
             up_sql: M_007_PERMISSIONS_UP.into(),
             down_sql: M_007_PERMISSIONS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 9,
+            name: "add_ci_cd_pipeline_tables".into(),
+            up_sql: M_009_PIPELINE_UP.into(),
+            down_sql: M_009_PIPELINE_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 11,
+            name: "add_oci_registry_tables".into(),
+            up_sql: M_011_OCI_REGISTRY_UP.into(),
+            down_sql: M_011_OCI_REGISTRY_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 13,
+            name: "add_issue_tracking_tables".into(),
+            up_sql: M_013_ISSUES_UP.into(),
+            down_sql: M_013_ISSUES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 15,
+            name: "add_wiki_tables".into(),
+            up_sql: M_015_WIKI_UP.into(),
+            down_sql: M_015_WIKI_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 17,
+            name: "add_code_search_tables".into(),
+            up_sql: M_017_SEARCH_UP.into(),
+            down_sql: M_017_SEARCH_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -97,7 +137,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 4);
+        assert_eq!(mgr.all().len(), 9);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -106,19 +146,29 @@ mod tests {
         assert_eq!(mgr.all()[2].name, "add_auth_identity_tables");
         assert_eq!(mgr.all()[3].version, 7);
         assert_eq!(mgr.all()[3].name, "add_permissions_tables");
+        assert_eq!(mgr.all()[4].version, 9);
+        assert_eq!(mgr.all()[4].name, "add_ci_cd_pipeline_tables");
+        assert_eq!(mgr.all()[5].version, 11);
+        assert_eq!(mgr.all()[5].name, "add_oci_registry_tables");
+        assert_eq!(mgr.all()[6].version, 13);
+        assert_eq!(mgr.all()[6].name, "add_issue_tracking_tables");
+        assert_eq!(mgr.all()[7].version, 15);
+        assert_eq!(mgr.all()[7].name, "add_wiki_tables");
+        assert_eq!(mgr.all()[8].version, 17);
+        assert_eq!(mgr.all()[8].name, "add_code_search_tables");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 9,
+            version: 19,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 5);
-        assert_eq!(mgr.all()[4].version, 9);
+        assert_eq!(mgr.all().len(), 10);
+        assert_eq!(mgr.all()[9].version, 19);
     }
 
     #[test]
@@ -137,14 +187,14 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 4);
+        assert_eq!(pending.len(), 9);
         assert_eq!(pending[0].version, 1);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(7);
+        let pending = mgr.get_pending(17);
         assert!(pending.is_empty());
     }
 
@@ -152,7 +202,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 3);
+        assert_eq!(pending.len(), 8);
         assert_eq!(pending[0].version, 3);
     }
 
@@ -192,5 +242,95 @@ mod tests {
         assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS webauthn_credentials"));
         assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS devices"));
         assert!(M_005_AUTH_UP.contains("CREATE TABLE IF NOT EXISTS refresh_tokens"));
+    }
+
+    #[test]
+    fn test_pipeline_schema_sql_not_empty() {
+        assert_ne!(M_009_PIPELINE_UP, "");
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS runners"));
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_definitions"));
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_jobs"));
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_job_steps"));
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_runs"));
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_run_jobs"));
+        assert!(M_009_PIPELINE_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_run_steps"));
+    }
+
+    #[test]
+    fn test_pipeline_schema_down_sql_not_empty() {
+        assert_ne!(M_009_PIPELINE_DOWN, "");
+        assert!(M_009_PIPELINE_DOWN.contains("DROP TABLE IF EXISTS"));
+    }
+
+    #[test]
+    fn test_oci_registry_schema_sql_not_empty() {
+        assert_ne!(M_011_OCI_REGISTRY_UP, "");
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_repositories"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_blobs"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_manifests"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_tags"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_manifest_layers"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_image_signatures"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_vuln_scans"));
+        assert!(M_011_OCI_REGISTRY_UP.contains("CREATE TABLE IF NOT EXISTS oci_policies"));
+    }
+
+    #[test]
+    fn test_oci_registry_down_sql_not_empty() {
+        assert_ne!(M_011_OCI_REGISTRY_DOWN, "");
+        assert!(M_011_OCI_REGISTRY_DOWN.contains("DROP TABLE IF EXISTS"));
+    }
+
+    #[test]
+    fn test_issues_schema_sql_not_empty() {
+        assert_ne!(M_013_ISSUES_UP, "");
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issues"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_comments"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS labels"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_labels"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_assignees"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS milestones"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_timeline"));
+        assert!(M_013_ISSUES_UP.contains("CREATE TABLE IF NOT EXISTS issue_reactions"));
+    }
+
+    #[test]
+    fn test_issues_down_sql_not_empty() {
+        assert_ne!(M_013_ISSUES_DOWN, "");
+        assert!(M_013_ISSUES_DOWN.contains("DROP TABLE IF EXISTS"));
+    }
+
+    #[test]
+    fn test_wiki_schema_sql_not_empty() {
+        assert_ne!(M_015_WIKI_UP, "");
+        assert!(M_015_WIKI_UP.contains("CREATE TABLE IF NOT EXISTS wiki_pages"));
+        assert!(M_015_WIKI_UP.contains("CREATE TABLE IF NOT EXISTS wiki_revisions"));
+        assert!(M_015_WIKI_UP.contains("content"));
+        assert!(M_015_WIKI_UP.contains("latest_commit"));
+        assert!(M_015_WIKI_UP.contains("idx_wiki_pages_repo"));
+        assert!(M_015_WIKI_UP.contains("idx_wiki_revisions_page"));
+    }
+
+    #[test]
+    fn test_wiki_down_sql_not_empty() {
+        assert_ne!(M_015_WIKI_DOWN, "");
+        assert!(M_015_WIKI_DOWN.contains("DROP TABLE IF EXISTS wiki_revisions"));
+        assert!(M_015_WIKI_DOWN.contains("DROP TABLE IF EXISTS wiki_pages"));
+    }
+
+    #[test]
+    fn test_search_schema_sql_not_empty() {
+        assert_ne!(M_017_SEARCH_UP, "");
+        assert!(M_017_SEARCH_UP.contains("CREATE TABLE IF NOT EXISTS code_search_index"));
+        assert!(M_017_SEARCH_UP.contains("CREATE TABLE IF NOT EXISTS code_search_tokens"));
+        assert!(M_017_SEARCH_UP.contains("idx_code_search_repo"));
+        assert!(M_017_SEARCH_UP.contains("idx_code_tokens_token"));
+    }
+
+    #[test]
+    fn test_search_down_sql_not_empty() {
+        assert_ne!(M_017_SEARCH_DOWN, "");
+        assert!(M_017_SEARCH_DOWN.contains("DROP TABLE IF EXISTS code_search_tokens"));
+        assert!(M_017_SEARCH_DOWN.contains("DROP TABLE IF EXISTS code_search_index"));
     }
 }

@@ -3,10 +3,16 @@
 pub mod auth;
 pub mod auth_routes;
 pub mod git_http;
+pub mod issues;
+pub mod oci;
 pub mod orgs;
+pub mod pipelines;
 pub mod repos;
+pub mod runners;
+pub mod search;
 pub mod ssh_keys;
 pub mod users;
+pub mod wiki;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -48,6 +54,13 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             "/api/v1/repos/{owner}/{name}/commits",
             get(repos::list_commits),
         )
+        .route("/api/v1/pipelines", get(pipelines::list_all_pipelines))
+        .merge(pipelines::pipeline_routes())
+        .merge(runners::runner_routes())
+        .merge(oci::registry_routes())
+        .merge(issues::issue_routes())
+        .merge(wiki::wiki_routes())
+        .merge(search::search_routes())
         .route(
             "/api/v1/users",
             get(users::list_users).post(users::create_user),
