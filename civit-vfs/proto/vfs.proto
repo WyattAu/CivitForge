@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+package vfs;
+
+// Virtual File System gRPC service for remote block operations.
+service VfsService {
+  // Read a block by content hash.
+  rpc ReadBlock(ReadBlockRequest) returns (ReadBlockResponse);
+
+  // Write a block, returning its content-addressed ID.
+  rpc WriteBlock(WriteBlockRequest) returns (WriteBlockResponse);
+
+  // Delete a block by content hash.
+  rpc DeleteBlock(DeleteBlockRequest) returns (DeleteBlockResponse);
+
+  // Stat a block: check existence and return size.
+  rpc StatBlock(StatBlockRequest) returns (StatBlockResponse);
+
+  // Store a complete file as a sequence of blocks.
+  rpc StoreFile(StoreFileRequest) returns (StoreFileResponse);
+
+  // Read a file (range read across blocks).
+  rpc ReadFile(ReadFileRequest) returns (ReadFileResponse);
+
+  // List entries in a virtual directory.
+  rpc ListDirectory(ListDirectoryRequest) returns (ListDirectoryResponse);
+
+  // Health check.
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message ReadBlockRequest {
+  string block_id = 1;
+}
+
+message ReadBlockResponse {
+  bytes data = 1;
+  bool found = 2;
+}
+
+message WriteBlockRequest {
+  bytes data = 1;
+}
+
+message WriteBlockResponse {
+  string block_id = 1;
+  uint64 size = 2;
+}
+
+message DeleteBlockRequest {
+  string block_id = 1;
+}
+
+message DeleteBlockResponse {
+  bool deleted = 1;
+}
+
+message StatBlockRequest {
+  string block_id = 1;
+}
+
+message StatBlockResponse {
+  bool exists = 1;
+  uint64 size = 2;
+}
+
+message BlockEntry {
+  uint64 offset = 1;
+  uint32 size = 2;
+  string block_id = 3;
+}
+
+message BlockRef {
+  string repo_id = 1;
+  string commit_sha = 2;
+  string path = 3;
+  uint64 size = 4;
+  repeated BlockEntry block_map = 5;
+}
+
+message StoreFileRequest {
+  BlockRef file_ref = 1;
+  bytes data = 2;
+}
+
+message StoreFileResponse {
+  repeated BlockEntry block_map = 1;
+  uint64 total_size = 2;
+  int32 block_count = 3;
+}
+
+message ReadFileRequest {
+  BlockRef file_ref = 1;
+  uint64 offset = 2;
+  uint64 size = 3;
+}
+
+message ReadFileResponse {
+  bytes data = 1;
+  uint64 actual_size = 2;
+}
+
+message ListDirectoryRequest {
+  string repo_id = 1;
+  string commit_sha = 2;
+  string path = 3;
+}
+
+message DirEntry {
+  string name = 1;
+  bool is_directory = 2;
+  uint64 size = 3;
+  uint64 modified = 4;
+}
+
+message ListDirectoryResponse {
+  repeated DirEntry entries = 1;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  string version = 2;
+  uint64 block_count = 3;
+}

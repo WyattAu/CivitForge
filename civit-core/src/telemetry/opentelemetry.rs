@@ -65,7 +65,7 @@ impl TraceContext {
 }
 
 /// Span kind for OpenTelemetry.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SpanKind {
     Internal,
     Client,
@@ -393,7 +393,7 @@ impl InstrumentationProvider {
         let parent = self.active_spans.get(parent_key)?;
         let span_id = self.next_span_id();
         let mut span = OtSpan::new(name, &parent.trace_id, &span_id).with_parent(&parent.span_id);
-        span.kind = parent.kind.clone();
+        span.kind = parent.kind;
         let key = format!("{}:{span_id}", parent.trace_id);
         self.active_spans.insert(key.clone(), span);
         Some(key)

@@ -1,0 +1,107 @@
+# =============================================================================
+# CivitForge - Full Stack Local Development
+# =============================================================================
+# Usage:
+#   docker compose up -d        # Start all services
+#   docker compose logs -f      # Follow logs
+#   docker compose down -v      # Stop and remove volumes
+#
+# Default credentials (development only):
+#   JWT_SECRET: change-me-change-me (>=16 chars)
+#   PostgreSQL: civit/civit on port 5432
+#   Redis:    no auth on port 6379
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - Primary database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: civit-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: civit
+      POSTGRES_USER: civit
+      POSTGRES_PASSWORD: civit
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civit -d civit"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Redis - Session cache, edge cache, pub/sub
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: civit-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # CivitForge - Main server
+  # ---------------------------------------------------------------------------
+  civitforge:
+    build:
+      context: .
+      dockerfile: container/civitforge/Dockerfile
+    container_name: civit-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Required
+      DATABASE_URL: postgres://civit:civit@postgres:5432/civit
+      JWT_SECRET: change-me-change-me-dev-secret
+      # Optional (defaults shown)
+      CIVIT_HOST: "0.0.0.0"
+      CIVIT_PORT: "8080"
+      REDIS_URL: redis://redis:6379
+      JWT_EXPIRY_HOURS: "24"
+      CIVIT_STORAGE_PATH: /var/lib/civit/repos
+      FEDERATION_ENABLED: "false"
+      FEDERATION_INSTANCE_ID: "local-dev"
+      FEDERATION_INSTANCE_DOMAIN: "localhost"
+      RUST_LOG: civit_core=info,tower_http=debug
+    ports:
+      - "8080:8080"   # API
+      - "2222:2222"   # SSH (git)
+      - "9090:9090"   # gRPC/VFS
+    volumes:
+      - civit-data:/var/lib/civit/repos
+      - civit-logs:/var/log/civit
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  civit-data:
+    driver: local
+  civit-logs:
+    driver: local

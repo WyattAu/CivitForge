@@ -39,7 +39,16 @@ russh = { workspace = true, optional = true }
 rand = "0.10"
 flate2 = { workspace = true }
 regex = { workspace = true }
+lettre = { workspace = true }
 
 [features]
 default = []
 ssh-server = ["dep:russh"]
+
+[[bin]]
+name = "civit-bench"
+path = "src/bin/civit_bench.rs"
+
+[[bin]]
+name = "civit-scale"
+path = "src/bin/civit_scale.rs"

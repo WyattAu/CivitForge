@@ -6,6 +6,7 @@ pub mod crds;
 pub mod dedup;
 pub mod grafana;
 pub mod helm;
+pub mod kube_controller;
 pub mod leader_election;
 pub mod models;
 pub mod oci;

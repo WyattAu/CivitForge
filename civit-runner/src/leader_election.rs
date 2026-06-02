@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+use tracing::{error, info};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeaderElectionConfig {
@@ -195,6 +196,154 @@ impl LeaderElector {
 
     fn lock_key(&self) -> String {
         format!("{}/{}", self.config.namespace, self.config.lock_name)
+    }
+}
+
+// =============================================================================
+// Kubernetes-backed Leader Election (via coordination.k8s.io/v1 Lease)
+// =============================================================================
+
+use k8s_openapi::api::coordination::v1::{Lease as K8sLease, LeaseSpec};
+use k8s_openapi::apimachinery::pkg::apis::meta::v1::MicroTime;
+use kube::Api;
+
+/// Run leader election backed by the Kubernetes Lease CRD (coordination.k8s.io/v1).
+///
+/// Acquires a Lease named `lock_name` in the given namespace. If the Lease is
+/// unexpired and held by another identity, this instance waits as a follower.
+///
+/// The `elected` callback is invoked once when this instance becomes the leader.
+/// It receives a cancellation token; the callback should run the controller
+/// and return when the token fires.
+///
+/// # Arguments
+/// * `client` — authenticated `kube::Client`
+/// * `config` — election parameters (identity, lock_name, namespace, durations)
+/// * `elected` — async closure invoked on leader election
+pub async fn run_k8s_leader_election<F, Fut>(
+    client: kube::Client,
+    config: LeaderElectionConfig,
+    elected: F,
+) -> anyhow::Result<()>
+where
+    F: FnOnce(tokio::sync::watch::Receiver<bool>) -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    let (cancel_tx, cancel_rx) = tokio::sync::watch::channel(false);
+    let identity = config.identity.clone();
+    let lock_name = config.lock_name.clone();
+
+    info!(
+        identity = %identity,
+        lock = %lock_name,
+        namespace = %config.namespace,
+        "starting K8s leader election"
+    );
+
+    // Attempt to acquire the lease
+    match try_acquire_lease(&client, &config).await {
+        Ok(true) => {
+            // We acquired the lease — start the controller
+            info!(%identity, "acquired leadership, starting controller");
+            elected(cancel_rx.clone()).await;
+            info!(%identity, "controller stopped");
+        }
+        Ok(false) => {
+            info!(%identity, "another leader holds the lease");
+        }
+        Err(e) => {
+            error!(%identity, error = %e, "failed to acquire lease");
+        }
+    }
+
+    // Signal shutdown
+    let _ = cancel_tx.send(true);
+    Ok(())
+}
+
+/// Try to acquire the Lease. Returns:
+/// - `Ok(true)` if we acquired (created or took over expired lease)
+/// - `Ok(false)` if another identity holds it
+/// - `Err` on API errors
+async fn try_acquire_lease(
+    client: &kube::Client,
+    config: &LeaderElectionConfig,
+) -> anyhow::Result<bool> {
+    let lease_api: Api<K8sLease> = Api::namespaced(client.clone(), &config.namespace);
+    let identity = config.identity.clone();
+    let lock_name = config.lock_name.clone();
+    let now = chrono::Utc::now();
+    let now_micros = MicroTime(now);
+    let duration_secs = config.lease_duration.as_secs() as i32;
+
+    match lease_api.get(&lock_name).await {
+        Ok(existing) => {
+            let spec = match &existing.spec {
+                Some(s) => s,
+                None => return Ok(true), // No spec — treat as acquirable
+            };
+
+            let holder = spec.holder_identity.as_deref().unwrap_or("");
+            let acquire_time = match &spec.acquire_time {
+                Some(t) => {
+                    let dt: chrono::DateTime<chrono::Utc> = t.0;
+                    dt
+                }
+                None => return Ok(true), // No acquire time — expired
+            };
+
+            let lease_seconds = spec.lease_duration_seconds.unwrap_or(duration_secs);
+            let lease_expires = acquire_time
+                + chrono::Duration::try_seconds(lease_seconds as i64)
+                    .unwrap_or(chrono::Duration::zero());
+
+            if now >= lease_expires || holder == identity {
+                // Lease expired or we already hold it — acquire/renew
+                let transitions = spec.lease_transitions.unwrap_or(0);
+                let patch = serde_json::json!({
+                    "spec": {
+                        "holderIdentity": identity,
+                        "leaseDurationSeconds": duration_secs,
+                        "acquireTime": now_micros.0,
+                        "renewTime": now_micros.0,
+                        "leaseTransitions": if holder == identity { transitions } else { transitions + 1 },
+                    }
+                });
+
+                let pp = kube::api::PatchParams::apply("civit-operator");
+                lease_api
+                    .patch(&lock_name, &pp, &kube::api::Patch::Merge(&patch))
+                    .await?;
+                return Ok(true);
+            }
+
+            // Someone else holds a valid lease
+            Ok(false)
+        }
+        Err(kube::Error::Api(ae)) if ae.code == 404 => {
+            // Lease doesn't exist — create it
+            let new_lease = K8sLease {
+                metadata: kube::core::ObjectMeta {
+                    name: Some(lock_name),
+                    namespace: Some(config.namespace.clone()),
+                    ..Default::default()
+                },
+                spec: Some(LeaseSpec {
+                    holder_identity: Some(identity),
+                    lease_duration_seconds: Some(duration_secs),
+                    acquire_time: Some(now_micros.clone()),
+                    renew_time: Some(now_micros),
+                    lease_transitions: Some(0),
+                }),
+            };
+
+            lease_api
+                .create(&kube::api::PostParams::default(), &new_lease)
+                .await?;
+
+            Ok(true)
+        }
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -414,5 +563,19 @@ mod tests {
     fn test_get_lease_none_before_campaign() {
         let elector = LeaderElector::new(make_config("node-1"));
         assert!(elector.get_lease().is_none());
+    }
+
+    // === Tests for K8s leader election (structural only, no cluster) ===
+
+    #[test]
+    fn test_leader_election_config_for_k8s() {
+        let config = LeaderElectionConfig::new("pod-abc123", "civit-operator-lock", "civit-system")
+            .with_lease_duration(Duration::from_secs(30))
+            .with_renew_deadline(Duration::from_secs(20))
+            .with_retry_period(Duration::from_secs(5));
+        assert_eq!(config.identity, "pod-abc123");
+        assert_eq!(config.lock_name, "civit-operator-lock");
+        assert_eq!(config.namespace, "civit-system");
+        assert_eq!(config.lease_duration, Duration::from_secs(30));
     }
 }

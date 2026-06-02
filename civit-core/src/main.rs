@@ -48,7 +48,12 @@ async fn main() -> Result<()> {
                 name = %migration.name,
                 "applying migration"
             );
-            sqlx::query(&migration.up_sql).execute(&pool).await?;
+            for stmt in migration.up_sql.split(';') {
+                let s = stmt.trim();
+                if !s.is_empty() {
+                    sqlx::query(s).execute(&pool).await?;
+                }
+            }
             sqlx::query(
                 "INSERT INTO schema_migrations (version, name, applied_at) VALUES ($1, $2, NOW())",
             )

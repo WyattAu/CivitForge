@@ -71,13 +71,13 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             "/api/v1/ssh-keys/{key_id}",
             delete(ssh_keys::delete_ssh_key),
         )
-        .route("/{owner}/{name}.git/info/refs", get(git_http::info_refs))
+        .route("/{owner}/{name}/info/refs", get(git_http::info_refs))
         .route(
-            "/{owner}/{name}.git/git-upload-pack",
+            "/{owner}/{name}/git-upload-pack",
             post(git_http::upload_pack),
         )
         .route(
-            "/{owner}/{name}.git/git-receive-pack",
+            "/{owner}/{name}/git-receive-pack",
             post(git_http::receive_pack),
         );
 

@@ -3,6 +3,7 @@
 pub mod cache;
 pub mod fuse;
 pub mod grpc;
+pub mod grpc_server;
 pub mod mount;
 pub mod store;
 

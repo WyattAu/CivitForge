@@ -1,8 +1,14 @@
 #![forbid(unsafe_code)]
 
+mod signing;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+// ---------------------------------------------------------------------------
+// SLSA Provenance data model (in-toto Statement v0.1)
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlsaProvenance {
@@ -69,6 +75,10 @@ pub struct Material {
     pub annotations: Option<HashMap<String, String>>,
 }
 
+// ---------------------------------------------------------------------------
+// ProvenanceGenerator — builds unsigned SLSA provenance
+// ---------------------------------------------------------------------------
+
 pub struct ProvenanceGenerator {
     builder_id: String,
     builder_version: Option<String>,
@@ -114,6 +124,7 @@ impl ProvenanceGenerator {
         }
     }
 
+    /// Structural verification: checks required fields are present.
     pub fn verify(provenance: &SlsaProvenance) -> Result<VerificationResult, String> {
         let mut checks = Vec::new();
 
@@ -168,6 +179,48 @@ impl ProvenanceGenerator {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Digest helpers — compute material digests
+// ---------------------------------------------------------------------------
+
+/// Compute SHA-256 hex digest of `data`.
+pub fn sha256_digest(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    hex::encode(hasher.finalize())
+}
+
+/// Convenience: create a `Material` with a pre-computed SHA-256 digest.
+pub fn material_with_digest(uri: impl Into<String>, data: &[u8]) -> Material {
+    let mut digest = HashMap::new();
+    digest.insert("sha256".to_string(), sha256_digest(data));
+    Material {
+        uri: uri.into(),
+        digest,
+        annotations: None,
+    }
+}
+
+/// Verify that a material's `sha256` digest matches `data`.
+pub fn verify_material_digest(material: &Material, data: &[u8]) -> Result<bool, String> {
+    match material.digest.get("sha256") {
+        Some(expected) => {
+            let actual = sha256_digest(data);
+            if expected == &actual {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+        None => Err("material has no sha256 digest".into()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Verification result types
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VerificationResult {
     pub passed: bool,
@@ -181,18 +234,26 @@ pub struct VerificationCheck {
     pub message: String,
 }
 
+// ---------------------------------------------------------------------------
+// Re-export signing types
+// ---------------------------------------------------------------------------
+
+pub use signing::{ProvenanceSigner, SignatureVerificationError, SignedProvenance, SigningKeyPair};
+
+// ---------------------------------------------------------------------------
+// Tests — structural (unsigned) provenance
+// ---------------------------------------------------------------------------
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn make_material(uri: &str, alg: &str, digest: &str) -> Material {
+        let mut digest_map = HashMap::new();
+        digest_map.insert(alg.to_string(), digest.to_string());
         Material {
             uri: uri.to_string(),
-            digest: {
-                let mut m = HashMap::new();
-                m.insert(alg.to_string(), digest.to_string());
-                m
-            },
+            digest: digest_map,
             annotations: None,
         }
     }
@@ -330,5 +391,56 @@ mod tests {
         let materials = vec![make_material("git://repo", "sha256", "abc")];
         let prov = generator.generate("inv-4", materials, Utc::now(), None, true);
         assert_eq!(prov.builder.version.as_deref(), Some("1.0.0"));
+    }
+
+    // -- digest helpers --
+
+    #[test]
+    fn test_sha256_digest_known() {
+        // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        assert_eq!(
+            sha256_digest(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+    }
+
+    #[test]
+    fn test_sha256_digest_hello() {
+        // SHA-256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+        assert_eq!(
+            sha256_digest(b"hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn test_material_with_digest() {
+        let mat = material_with_digest("git+https://example.com/repo", b"hello");
+        assert_eq!(
+            mat.digest.get("sha256").unwrap(),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+    }
+
+    #[test]
+    fn test_verify_material_digest_ok() {
+        let mat = material_with_digest("git://repo", b"hello");
+        assert!(verify_material_digest(&mat, b"hello").unwrap());
+    }
+
+    #[test]
+    fn test_verify_material_digest_mismatch() {
+        let mat = material_with_digest("git://repo", b"hello");
+        assert!(!verify_material_digest(&mat, b"world").unwrap());
+    }
+
+    #[test]
+    fn test_verify_material_digest_missing_alg() {
+        let mat = Material {
+            uri: "git://repo".into(),
+            digest: HashMap::new(),
+            annotations: None,
+        };
+        assert!(verify_material_digest(&mat, b"hello").is_err());
     }
 }

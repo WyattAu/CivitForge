@@ -1,0 +1,53 @@
+# =============================================================================
+# CivitForge .dockerignore
+# Excludes build artifacts and development files from Docker build context
+# =============================================================================
+
+# Build artifacts
+target/
+**/target/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Specs and reports (not needed for build)
+.specs/
+.reports/
+.knowledge_graph/
+.patterns/
+.adrs/
+.docs/
+
+# Documentation (not needed for build)
+ROADMAP.md
+CHANGELOG.md
+VERSION.md
+CLAUDE.md
+TRACEABILITY_MATRIX.md
+STANDARD_CONFLICTS.md
+CAPABILITY_MATRIX.md
+INSTRUCTION_VERSIONS.md
+
+# Container build context (prevent nesting)
+container/
+
+# Test and bench files
+*.test
+*.bench
+
+# Temporary files
+*.tmp
+*.bak
+*.log

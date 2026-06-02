@@ -72,6 +72,8 @@ impl Default for BackoffStrategy {
 }
 
 impl BackoffStrategy {
+    /// Compute delay for the given attempt number.
+    /// For exponential backoff, `delay = min(base * 2^attempt, max)`.
     pub fn compute_delay(&self, attempt: u32) -> chrono::Duration {
         match self {
             BackoffStrategy::Exponential { base_ms, max_ms } => {
@@ -83,6 +85,23 @@ impl BackoffStrategy {
                 chrono::Duration::milliseconds(*interval_ms as i64)
             }
         }
+    }
+
+    /// Compute delay with jitter (±25% of the base delay).
+    /// Used for federation delivery where jitter prevents thundering herd.
+    pub fn compute_delay_with_jitter(&self, attempt: u32) -> chrono::Duration {
+        let base = self.compute_delay(attempt);
+        // ±25% jitter
+        let jitter_ms = (base.num_milliseconds() as f64 * 0.25) as i64;
+        let base_ms = base.num_milliseconds();
+        let rand_ms = if jitter_ms > 0 {
+            // Simple deterministic jitter using attempt as seed approximation
+            ((attempt as i64 * 7919 + 104729) % (2 * jitter_ms + 1)) - jitter_ms
+        } else {
+            0
+        };
+        let final_ms = (base_ms + rand_ms).max(0);
+        chrono::Duration::milliseconds(final_ms)
     }
 }
 
@@ -350,6 +369,35 @@ impl OutboxProcessor {
 
     pub fn entry_count(&self) -> usize {
         self.outbox.len()
+    }
+
+    /// Drain pending entries for delivery. Returns (activity_id, target_instance) pairs.
+    pub fn drain_pending(&mut self, limit: usize) -> Vec<(String, String)> {
+        self.outbox
+            .iter()
+            .filter(|e| matches!(e.delivery_status, DeliveryStatus::Pending))
+            .map(|e| (e.activity.id.clone(), e.target_instance.clone()))
+            .take(limit)
+            .collect()
+    }
+
+    /// Drain retry-ready entries for redelivery.
+    pub fn drain_retry_ready(&mut self, limit: usize) -> Vec<(String, String)> {
+        let ready: Vec<(String, String)> = self
+            .retry_ready()
+            .iter()
+            .map(|e| (e.activity.id.clone(), e.target_instance.clone()))
+            .take(limit)
+            .collect();
+        ready
+    }
+
+    /// Get a reference to the raw_json of an activity by ID.
+    pub fn get_activity_json(&self, activity_id: &str) -> Option<String> {
+        self.outbox
+            .iter()
+            .find(|e| e.activity.id == activity_id)
+            .map(|e| e.activity.raw_json.clone())
     }
 }
 

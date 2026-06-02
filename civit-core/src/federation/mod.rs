@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod activitypub;
+pub mod delivery;
 pub mod forgefed;
 pub mod http_signatures;
 pub mod inbox_outbox;
@@ -9,6 +10,7 @@ pub mod sync;
 pub mod webfinger;
 
 pub use activitypub::{Activity, Actor, InboxHandler};
+pub use delivery::{DeliveryResult, FederationDeliveryConfig, FederationDeliveryService};
 pub use forgefed::{
     CrossInstanceIdentityResolver, FederatedFork, FederatedIssue, FederatedPR, FederatedPRReview,
     FederatedRepo, FederatedStar, ForgeFedActivity, ForgeFedProcessor, IdempotencyTracker,

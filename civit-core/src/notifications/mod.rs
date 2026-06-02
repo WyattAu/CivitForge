@@ -1,6 +1,10 @@
 #![forbid(unsafe_code)]
 
 use chrono::{DateTime, Utc};
+use lettre::{
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, message::header::ContentType,
+    transport::smtp::authentication::Credentials,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -53,9 +57,18 @@ pub struct SmtpConfig {
     pub use_tls: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlackConfig {
+    /// Bot OAuth token (starts with "xoxb-")
+    pub bot_token: String,
+    /// Default channel (e.g. "#alerts")
+    pub default_channel: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NotificationChannelConfig {
     pub slack_webhook_url: Option<String>,
+    pub slack: Option<SlackConfig>,
     pub mattermost_webhook_url: Option<String>,
     pub default_webhook_url: Option<String>,
     pub smtp: Option<SmtpConfig>,
@@ -192,14 +205,128 @@ impl NotificationService {
         })
     }
 
-    fn dispatch_email(notification: &Notification) {
-        tracing::info!(
-            notification_id = %notification.id,
-            recipient = %notification.recipient,
-            subject = %notification.subject,
-            body = %notification.body,
-            "dispatching email notification"
-        );
+    async fn dispatch_email(
+        smtp_config: Option<SmtpConfig>,
+        notification: &Notification,
+    ) -> Option<String> {
+        let Some(smtp) = smtp_config else {
+            // No SMTP configured — log-only mode (backward compatible with stub behavior)
+            tracing::info!(
+                notification_id = %notification.id,
+                recipient = %notification.recipient,
+                subject = %notification.subject,
+                "email dispatched (log-only, no SMTP configured)"
+            );
+            return None;
+        };
+
+        let from_addr = smtp
+            .from_address
+            .parse::<lettre::Address>()
+            .ok()
+            .unwrap_or_else(|| {
+                lettre::Address::new(String::from("noreply"), String::from("localhost")).unwrap()
+            });
+        let to_addr = notification
+            .recipient
+            .parse::<lettre::Address>()
+            .ok()
+            .unwrap_or_else(|| {
+                lettre::Address::new(String::from("unknown"), String::from("localhost")).unwrap()
+            });
+
+        let email = match Message::builder()
+            .from(lettre::message::Mailbox::new(None, from_addr))
+            .to(lettre::message::Mailbox::new(None, to_addr))
+            .subject(&notification.subject)
+            .header(ContentType::TEXT_PLAIN)
+            .body(notification.body.clone())
+        {
+            Ok(m) => m,
+            Err(e) => return Some(format!("email build error: {e}")),
+        };
+
+        let creds = Credentials::new(smtp.username.clone(), smtp.password.clone());
+
+        let transport = if smtp.use_tls {
+            match AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&smtp.host) {
+                Ok(t) => t.port(smtp.port).credentials(creds).build(),
+                Err(e) => return Some(format!("SMTP TLS relay error: {e}")),
+            }
+        } else {
+            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&smtp.host)
+                .port(smtp.port)
+                .credentials(creds)
+                .build()
+        };
+
+        match transport.send(email).await {
+            Ok(_) => {
+                tracing::info!(
+                    notification_id = %notification.id,
+                    recipient = %notification.recipient,
+                    subject = %notification.subject,
+                    "email dispatched via SMTP"
+                );
+                None
+            }
+            Err(e) => Some(format!(
+                "SMTP send to {} failed: {e}",
+                notification.recipient
+            )),
+        }
+    }
+
+    async fn post_slack(
+        client: &reqwest::Client,
+        slack_config: SlackConfig,
+        notification: &Notification,
+    ) -> Result<(), String> {
+        let channel = notification
+            .metadata
+            .as_ref()
+            .and_then(|m| m.get("slack_channel"))
+            .and_then(|v| v.as_str())
+            .unwrap_or(&slack_config.default_channel);
+
+        let payload = serde_json::json!({
+            "channel": channel,
+            "text": format!("{}: {}", notification.subject, notification.body),
+            "attachments": [{
+                "title": notification.subject.clone(),
+                "text": notification.body.clone(),
+                "footer": format!("id: {}", notification.id),
+                "color": match notification.priority {
+                    NotificationPriority::Low => "#36a64f",
+                    NotificationPriority::Normal => "#36a64f",
+                    NotificationPriority::High => "#f2c744",
+                    NotificationPriority::Urgent => "#e01e5a",
+                },
+            }]
+        });
+
+        let resp = client
+            .post("https://slack.com/api/chat.postMessage")
+            .header(
+                "Authorization",
+                format!("Bearer {}", slack_config.bot_token),
+            )
+            .json(&payload)
+            .send()
+            .await
+            .map_err(|e| format!("Slack API request failed: {e}"))?;
+
+        let status = resp.status();
+        let body: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("Slack API response parse failed: {e}"))?;
+
+        if !status.is_success() || body["ok"].as_bool() != Some(true) {
+            let err_msg = body["error"].as_str().unwrap_or("unknown error");
+            return Err(format!("Slack API error: {err_msg}"));
+        }
+        Ok(())
     }
 
     async fn post_webhook(
@@ -254,8 +381,8 @@ impl NotificationService {
             };
         }
 
-        // Resolve all URLs before any async work to avoid MutexGuard across await
-        let (_smtp_available, slack_url, mattermost_url, webhook_url) = {
+        // Resolve all config before any async work to avoid MutexGuard across await
+        let (smtp_config, slack_config, slack_webhook_url, mattermost_url, webhook_url) = {
             let config = self.config.lock().unwrap();
             let slack = Self::resolve_webhook_url(
                 &notification,
@@ -275,14 +402,17 @@ impl NotificationService {
                         .and_then(|v| v.as_str().map(String::from))
                 })
                 .or(config.default_webhook_url.clone());
-            (config.smtp.is_some(), slack, mattermost, webhook)
+            (
+                config.smtp.clone(),
+                config.slack.clone(),
+                slack,
+                mattermost,
+                webhook,
+            )
         };
 
         let error = match notification.channel {
-            NotificationChannel::Email => {
-                Self::dispatch_email(&notification);
-                None
-            }
+            NotificationChannel::Email => Self::dispatch_email(smtp_config, &notification).await,
             NotificationChannel::InApp => {
                 tracing::debug!(
                     notification_id = %id,
@@ -291,10 +421,18 @@ impl NotificationService {
                 );
                 None
             }
-            NotificationChannel::Slack => match slack_url {
-                Some(url) => Self::post_webhook(client, &url, &notification).await.err(),
-                None => Some("no slack webhook URL configured".to_string()),
-            },
+            NotificationChannel::Slack => {
+                // Prefer Slack Web API (bot token) over legacy webhook URL
+                if let Some(slack_cfg) = slack_config {
+                    Self::post_slack(client, slack_cfg, &notification)
+                        .await
+                        .err()
+                } else if let Some(url) = slack_webhook_url {
+                    Self::post_webhook(client, &url, &notification).await.err()
+                } else {
+                    Some("no slack configuration (bot_token or webhook_url) available".to_string())
+                }
+            }
             NotificationChannel::Mattermost => match mattermost_url {
                 Some(url) => Self::post_webhook(client, &url, &notification).await.err(),
                 None => Some("no mattermost webhook URL configured".to_string()),
@@ -682,7 +820,7 @@ mod tests {
         assert!(!result.success);
         assert_eq!(
             result.error.as_deref(),
-            Some("no slack webhook URL configured")
+            Some("no slack configuration (bot_token or webhook_url) available")
         );
         assert!(!svc.get_for_user("user-1", 10)[0].dispatched);
     }
@@ -774,7 +912,7 @@ mod tests {
         assert!(!slack.success);
         assert_eq!(
             slack.error.as_deref(),
-            Some("no slack webhook URL configured")
+            Some("no slack configuration (bot_token or webhook_url) available")
         );
         assert_eq!(svc.pending_count(), 1);
     }
@@ -917,6 +1055,7 @@ mod tests {
     fn test_channel_config_roundtrip() {
         let config = NotificationChannelConfig {
             slack_webhook_url: Some("https://hooks.slack.com/xxx".to_string()),
+            slack: None,
             mattermost_webhook_url: Some("https://mattermost.example.com/hooks/xxx".to_string()),
             default_webhook_url: Some("https://example.com/webhook".to_string()),
             smtp: Some(SmtpConfig {
@@ -936,5 +1075,171 @@ mod tests {
         );
         assert_eq!(de.smtp.as_ref().unwrap().port, 587);
         assert!(de.smtp.as_ref().unwrap().use_tls);
+    }
+
+    #[test]
+    fn test_slack_config_serialization() {
+        let config = SlackConfig {
+            bot_token: "xoxb-test-token".to_string(),
+            default_channel: "#alerts".to_string(),
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let de: SlackConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.bot_token, "xoxb-test-token");
+        assert_eq!(de.default_channel, "#alerts");
+    }
+
+    #[test]
+    fn test_smtp_config_serialization() {
+        let config = SmtpConfig {
+            host: "smtp.gmail.com".to_string(),
+            port: 587,
+            username: "user@example.com".to_string(),
+            password: "secret".to_string(),
+            from_address: "bot@example.com".to_string(),
+            use_tls: true,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let de: SmtpConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.host, "smtp.gmail.com");
+        assert_eq!(de.port, 587);
+        assert!(de.use_tls);
+    }
+
+    #[test]
+    fn test_channel_config_with_slack_api() {
+        let config = NotificationChannelConfig {
+            slack: Some(SlackConfig {
+                bot_token: "xoxb-123".to_string(),
+                default_channel: "#ops".to_string(),
+            }),
+            slack_webhook_url: Some("https://hooks.slack.com/old".to_string()),
+            ..Default::default()
+        };
+        assert!(config.slack.is_some());
+        assert_eq!(config.slack.as_ref().unwrap().default_channel, "#ops");
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_email_with_smtp_config_rejects_invalid_host() {
+        let svc = NotificationService::with_config(NotificationChannelConfig {
+            smtp: Some(SmtpConfig {
+                host: "invalid-smtp-host-that-does-not-exist.invalid".to_string(),
+                port: 587,
+                username: "user".to_string(),
+                password: "pass".to_string(),
+                from_address: "noreply@example.com".to_string(),
+                use_tls: true,
+            }),
+            ..Default::default()
+        });
+        let mut notif = make_notification("e-smtp", "user@example.com", NotificationChannel::Email);
+        notif.subject = "Test SMTP".to_string();
+        notif.body = "Test body".to_string();
+        svc.send(notif);
+        let client = reqwest::Client::new();
+        let result = svc.dispatch_single("e-smtp", &client).await;
+        // Should fail because the SMTP host doesn't exist
+        assert!(!result.success);
+        assert!(result.error.is_some());
+        assert!(result.error.as_ref().unwrap().contains("SMTP"));
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_email_log_only_when_no_smtp_config() {
+        let svc = NotificationService::new(); // no SMTP config
+        svc.send(make_notification(
+            "e-log",
+            "user@example.com",
+            NotificationChannel::Email,
+        ));
+        let client = reqwest::Client::new();
+        let result = svc.dispatch_single("e-log", &client).await;
+        // Without SMTP config, email dispatch succeeds in log-only mode
+        assert!(result.success);
+        assert!(result.error.is_none());
+        assert_eq!(svc.pending_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_slack_no_config() {
+        let svc = NotificationService::new();
+        svc.send(make_notification(
+            "s-no-config",
+            "user-1",
+            NotificationChannel::Slack,
+        ));
+        let client = reqwest::Client::new();
+        let result = svc.dispatch_single("s-no-config", &client).await;
+        assert!(!result.success);
+        assert!(
+            result
+                .error
+                .as_ref()
+                .unwrap()
+                .contains("no slack configuration")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_result_equality() {
+        let r1 = DispatchResult {
+            notification_id: "n1".to_string(),
+            channel: NotificationChannel::Email,
+            success: true,
+            error: None,
+        };
+        let r2 = DispatchResult {
+            notification_id: "n1".to_string(),
+            channel: NotificationChannel::Email,
+            success: true,
+            error: None,
+        };
+        assert_eq!(r1, r2);
+    }
+
+    #[test]
+    fn test_notification_channel_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(NotificationChannel::Email);
+        set.insert(NotificationChannel::Slack);
+        set.insert(NotificationChannel::Webhook);
+        assert_eq!(set.len(), 3);
+        // Inserting duplicate should not increase size
+        set.insert(NotificationChannel::Email);
+        assert_eq!(set.len(), 3);
+    }
+
+    #[test]
+    fn test_multiple_smtp_configs_independent() {
+        let svc1 = NotificationService::with_config(NotificationChannelConfig {
+            smtp: Some(SmtpConfig {
+                host: "smtp1.example.com".to_string(),
+                port: 25,
+                username: "u1".to_string(),
+                password: "p1".to_string(),
+                from_address: "from1@example.com".to_string(),
+                use_tls: false,
+            }),
+            ..Default::default()
+        });
+        let svc2 = NotificationService::with_config(NotificationChannelConfig {
+            smtp: Some(SmtpConfig {
+                host: "smtp2.example.com".to_string(),
+                port: 465,
+                username: "u2".to_string(),
+                password: "p2".to_string(),
+                from_address: "from2@example.com".to_string(),
+                use_tls: true,
+            }),
+            ..Default::default()
+        });
+        let cfg1 = svc1.get_config();
+        let cfg2 = svc2.get_config();
+        assert_eq!(cfg1.smtp.as_ref().unwrap().host, "smtp1.example.com");
+        assert_eq!(cfg2.smtp.as_ref().unwrap().host, "smtp2.example.com");
+        assert_eq!(cfg1.smtp.as_ref().unwrap().port, 25);
+        assert_eq!(cfg2.smtp.as_ref().unwrap().port, 465);
     }
 }
