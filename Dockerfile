@@ -21,11 +21,12 @@ WORKDIR /app
 
 # Cache dependencies by copying Cargo files first
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY civit-core/   civit-core/
-COPY civit-brain/  civit-brain/
-COPY civit-crypto/ civit-crypto/
-COPY civit-runner/ civit-runner/
-COPY civit-vfs/    civit-vfs/
+COPY crates/civit-shared/ crates/civit-shared/
+COPY crates/civit-core/   crates/civit-core/
+COPY crates/civit-brain/  crates/civit-brain/
+COPY crates/civit-crypto/ crates/civit-crypto/
+COPY crates/civit-runner/ crates/civit-runner/
+COPY crates/civit-vfs/    crates/civit-vfs/
 
 # Build all workspace binaries
 RUN cargo build --release --locked \

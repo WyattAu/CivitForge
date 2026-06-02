@@ -1,11 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-    "civit-core",
-    "civit-runner",
-    "civit-brain",
-    "civit-vfs",
-    "civit-crypto",
+    "crates/civit-shared",
+    "crates/civit-core",
+    "crates/civit-runner",
+    "crates/civit-brain",
+    "crates/civit-vfs",
+    "crates/civit-crypto",
 ]
 
 [workspace.package]

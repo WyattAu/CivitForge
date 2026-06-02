@@ -184,11 +184,14 @@ CivitForge/
 ├── container/
 │   ├── civitforge/         # Main server image (tier: critical)
 │   ├── runner/              # CI pipeline daemon (tier: standard)
-├── civit-core/             # API server, auth, DB, events
-├── civit-brain/            # AI/ML, RAG, AST parsing
-├── civit-crypto/           # Crypto primitives, CEL, enterprise auth
-├── civit-runner/           # CI execution, K8s operator, Podman
-├── civit-vfs/              # gRPC filesystem
+├── crates/
+│   ├── civit-shared/        # Shared types (backend + frontend)
+│   ├── civit-core/          # API server, auth, DB, events
+│   ├── civit-runner/        # CI execution, K8s operator, Podman
+│   ├── civit-brain/         # AI/ML, RAG, AST parsing
+│   ├── civit-crypto/        # Crypto primitives, CEL, enterprise auth
+│   ├── civit-vfs/           # gRPC filesystem
+│   └── (future: civit-ui)  # Leptos web frontend
 ├── docs/                   # Operator guide, API reference
 ├── .specs/                 # Architecture specs, tests, constraints
 └── .adrs/                  # Architecture Decision Records
