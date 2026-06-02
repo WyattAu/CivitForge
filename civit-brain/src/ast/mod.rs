@@ -1,6 +1,10 @@
 #![forbid(unsafe_code)]
 
+pub mod dispatcher;
 pub mod engine;
+pub mod native_parsers;
+#[cfg(feature = "treesitter")]
+pub mod treesitter_backend;
 
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +20,15 @@ pub enum Language {
     Kotlin,
     Swift,
     JavaScript,
+    Sql,
+    Json,
+    Toml,
+    Shell,
+    Ruby,
+    Php,
+    Haskell,
+    Scala,
+    Zig,
 }
 
 impl Language {
@@ -31,6 +44,15 @@ impl Language {
             Language::Kotlin => "kotlin",
             Language::Swift => "swift",
             Language::JavaScript => "javascript",
+            Language::Sql => "sql",
+            Language::Json => "json",
+            Language::Toml => "toml",
+            Language::Shell => "shell",
+            Language::Ruby => "ruby",
+            Language::Php => "php",
+            Language::Haskell => "haskell",
+            Language::Scala => "scala",
+            Language::Zig => "zig",
         }
     }
 
@@ -46,6 +68,41 @@ impl Language {
             Language::Kotlin => ".kt",
             Language::Swift => ".swift",
             Language::JavaScript => ".js",
+            Language::Sql => ".sql",
+            Language::Json => ".json",
+            Language::Toml => ".toml",
+            Language::Shell => ".sh",
+            Language::Ruby => ".rb",
+            Language::Php => ".php",
+            Language::Haskell => ".hs",
+            Language::Scala => ".scala",
+            Language::Zig => ".zig",
+        }
+    }
+
+    /// Reverse lookup: grammar name string → Language enum.
+    pub fn grammar_name_to_enum(name: &str) -> Option<Self> {
+        match name {
+            "rust" => Some(Language::Rust),
+            "go" => Some(Language::Go),
+            "python" => Some(Language::Python),
+            "typescript" => Some(Language::TypeScript),
+            "c" => Some(Language::C),
+            "cpp" => Some(Language::Cpp),
+            "java" => Some(Language::Java),
+            "kotlin" => Some(Language::Kotlin),
+            "swift" => Some(Language::Swift),
+            "javascript" => Some(Language::JavaScript),
+            "sql" => Some(Language::Sql),
+            "json" => Some(Language::Json),
+            "toml" => Some(Language::Toml),
+            "shell" => Some(Language::Shell),
+            "ruby" => Some(Language::Ruby),
+            "php" => Some(Language::Php),
+            "haskell" => Some(Language::Haskell),
+            "scala" => Some(Language::Scala),
+            "zig" => Some(Language::Zig),
+            _ => None,
         }
     }
 }
@@ -64,6 +121,8 @@ pub enum NodeKind {
     Variable,
     Module,
     Comment,
+    Loop,
+    Condition,
     Unknown,
 }
 
@@ -118,8 +177,18 @@ impl AstParser for RegexAstParser {
                 ("fn ", NodeKind::Function),
                 ("pub struct ", NodeKind::Struct),
                 ("pub enum ", NodeKind::Enum),
+                ("struct ", NodeKind::Struct),
+                ("enum ", NodeKind::Enum),
                 ("impl ", NodeKind::Impl),
                 ("use ", NodeKind::Import),
+                ("pub trait ", NodeKind::Interface),
+                ("trait ", NodeKind::Interface),
+                ("let ", NodeKind::Variable),
+                ("for ", NodeKind::Loop),
+                ("while ", NodeKind::Loop),
+                ("loop {", NodeKind::Loop),
+                ("if ", NodeKind::Condition),
+                ("match ", NodeKind::Condition),
             ],
             Language::Python => &[
                 ("def ", NodeKind::Function),
@@ -131,11 +200,89 @@ impl AstParser for RegexAstParser {
                 ("type ", NodeKind::Struct),
                 ("package ", NodeKind::Module),
             ],
-            _ => &[
-                ("fn ", NodeKind::Function),
+            Language::TypeScript | Language::JavaScript => &[
+                ("function ", NodeKind::Function),
                 ("class ", NodeKind::Class),
+                ("interface ", NodeKind::Interface),
+                ("import ", NodeKind::Import),
+                ("export ", NodeKind::Import),
+            ],
+            Language::Java => &[
+                ("class ", NodeKind::Class),
+                ("interface ", NodeKind::Interface),
+                ("void ", NodeKind::Function),
                 ("import ", NodeKind::Import),
             ],
+            Language::Kotlin => &[
+                ("fun ", NodeKind::Function),
+                ("class ", NodeKind::Class),
+                ("object ", NodeKind::Class),
+                ("interface ", NodeKind::Interface),
+                ("import ", NodeKind::Import),
+            ],
+            Language::Swift => &[
+                ("func ", NodeKind::Function),
+                ("class ", NodeKind::Class),
+                ("struct ", NodeKind::Struct),
+                ("protocol ", NodeKind::Interface),
+                ("import ", NodeKind::Import),
+            ],
+            Language::C => &[
+                ("void ", NodeKind::Function),
+                ("int ", NodeKind::Function),
+                ("struct ", NodeKind::Struct),
+                ("#include", NodeKind::Import),
+            ],
+            Language::Cpp => &[
+                ("void ", NodeKind::Function),
+                ("class ", NodeKind::Class),
+                ("struct ", NodeKind::Struct),
+                ("namespace ", NodeKind::Module),
+                ("#include", NodeKind::Import),
+            ],
+            Language::Ruby => &[
+                ("def ", NodeKind::Function),
+                ("class ", NodeKind::Class),
+                ("module ", NodeKind::Module),
+                ("require ", NodeKind::Import),
+            ],
+            Language::Php => &[
+                ("function ", NodeKind::Function),
+                ("class ", NodeKind::Class),
+                ("namespace ", NodeKind::Module),
+                ("require ", NodeKind::Import),
+            ],
+            Language::Haskell => &[
+                ("module ", NodeKind::Module),
+                ("import ", NodeKind::Import),
+                ("data ", NodeKind::Struct),
+                ("type ", NodeKind::Struct),
+            ],
+            Language::Scala => &[
+                ("def ", NodeKind::Function),
+                ("class ", NodeKind::Class),
+                ("object ", NodeKind::Class),
+                ("trait ", NodeKind::Interface),
+                ("import ", NodeKind::Import),
+            ],
+            Language::Shell => &[
+                ("function ", NodeKind::Function),
+                ("() {", NodeKind::Function),
+            ],
+            Language::Zig => &[
+                ("fn ", NodeKind::Function),
+                ("pub fn ", NodeKind::Function),
+                ("const ", NodeKind::Variable),
+            ],
+            Language::Sql => &[
+                ("CREATE TABLE", NodeKind::Struct),
+                ("CREATE VIEW", NodeKind::Struct),
+                ("CREATE INDEX", NodeKind::Struct),
+                ("SELECT ", NodeKind::Function),
+                ("INSERT ", NodeKind::Function),
+                ("ALTER TABLE", NodeKind::Class),
+            ],
+            Language::Json | Language::Toml => &[],
         };
 
         let start = std::time::Instant::now();
@@ -183,12 +330,21 @@ impl AstParser for RegexAstParser {
             Language::Go,
             Language::Python,
             Language::TypeScript,
+            Language::JavaScript,
             Language::C,
             Language::Cpp,
             Language::Java,
             Language::Kotlin,
             Language::Swift,
-            Language::JavaScript,
+            Language::Sql,
+            Language::Json,
+            Language::Toml,
+            Language::Shell,
+            Language::Ruby,
+            Language::Php,
+            Language::Haskell,
+            Language::Scala,
+            Language::Zig,
         ]
     }
 }
@@ -493,12 +649,18 @@ mod tests {
     fn test_regex_parser_supported_languages() {
         let parser = RegexAstParser::new();
         let langs = parser.supported_languages();
-        assert_eq!(langs.len(), 10);
+        assert_eq!(langs.len(), 19);
         assert!(langs.contains(&Language::Rust));
         assert!(langs.contains(&Language::Python));
         assert!(langs.contains(&Language::Go));
         assert!(langs.contains(&Language::TypeScript));
         assert!(langs.contains(&Language::JavaScript));
+        assert!(langs.contains(&Language::Sql));
+        assert!(langs.contains(&Language::Json));
+        assert!(langs.contains(&Language::Toml));
+        assert!(langs.contains(&Language::Shell));
+        assert!(langs.contains(&Language::Ruby));
+        assert!(langs.contains(&Language::Php));
     }
 
     #[test]

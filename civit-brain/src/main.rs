@@ -43,7 +43,7 @@ fn main() {
         );
     }
 
-    let worker = civit_brain::EmbeddingWorker::new(384);
+    let worker = civit_brain::EmbeddingWorker::with_dimensions(384);
     let text = "This is a code review comment for a Rust function";
     let vector = worker.embed_text(text).await?;
     info!(dimensions = vector.data.len(), "generated embedding");

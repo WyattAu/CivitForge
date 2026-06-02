@@ -6,10 +6,31 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+default = []
+# Native Rust AST parser via `syn` (zero unsafe)
+syn-parser = ["dep:syn", "dep:proc-macro2"]
+# TypeScript/JavaScript parser via `swc` (zero unsafe)
+swc-parser = [
+    "dep:swc_ecma_parser", "dep:swc_ecma_ast", "dep:swc_ecma_visit",
+    "dep:swc_common",
+]
+# SQL parser via `sqlparser` (zero unsafe)
+sql-parser = ["dep:sqlparser"]
+# Tree-sitter C FFI parsers for 12+ languages (requires C compiler at build time)
+treesitter = [
+    "dep:tree-sitter", "dep:tree-sitter-python", "dep:tree-sitter-go",
+    "dep:tree-sitter-c", "dep:tree-sitter-cpp", "dep:tree-sitter-java",
+    "dep:tree-sitter-kotlin", "dep:tree-sitter-bash", "dep:tree-sitter-ruby",
+    "dep:tree-sitter-php", "dep:tree-sitter-swift", "dep:tree-sitter-haskell",
+    "dep:tree-sitter-scala",
+]
+
 [dependencies]
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+toml = "0.8"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 thiserror = { workspace = true }
@@ -20,3 +41,27 @@ bytes = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
 reqwest = { workspace = true, features = ["stream"] }
+
+# Optional native parsers (feature-gated, zero unsafe)
+syn = { version = "2", features = ["full", "parsing", "visit", "extra-traits"], optional = true }
+proc-macro2 = { version = "1", optional = true }
+swc_ecma_parser = { version = "12", optional = true }
+swc_ecma_ast = { version = "12", optional = true }
+swc_ecma_visit = { version = "12", optional = true }
+swc_common = { version = "12", optional = true }
+sqlparser = { version = "0.62", optional = true }
+
+# Optional tree-sitter parsers (feature-gated, requires C compiler)
+tree-sitter = { version = "0.24", optional = true }
+tree-sitter-python = { version = "0.25", optional = true }
+tree-sitter-go = { version = "0.25", optional = true }
+tree-sitter-c = { version = "0.24", optional = true }
+tree-sitter-cpp = { version = "0.23", optional = true }
+tree-sitter-java = { version = "0.23", optional = true }
+tree-sitter-kotlin = { version = "0.3", optional = true }
+tree-sitter-bash = { version = "0.25", optional = true }
+tree-sitter-ruby = { version = "0.23", optional = true }
+tree-sitter-php = { version = "0.24", optional = true }
+tree-sitter-swift = { version = "0.7", optional = true }
+tree-sitter-haskell = { version = "0.23", optional = true }
+tree-sitter-scala = { version = "0.26", optional = true }

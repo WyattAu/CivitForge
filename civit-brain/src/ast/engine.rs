@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+use crate::ast::Language;
+use crate::ast::dispatcher::UnifiedAstParser;
 use crate::models::CodeEntity;
 use std::collections::HashMap;
 use tracing::debug;
@@ -39,58 +41,59 @@ pub enum AstNodeType {
     Unknown,
 }
 
+/// Parse engine backed by the tiered `UnifiedAstParser`.
+///
+/// Supports all 19 registered languages. Routes to the best available
+/// backend: native parser (syn/swc/sqlparser/json/toml) > tree-sitter
+/// (if feature enabled) > regex fallback.
 pub struct ParseEngine {
-    language_map: HashMap<String, Vec<AstNodeType>>,
-    ts_parser: crate::treesitter::parser::TreeSitterParser,
+    /// Track which languages have been explicitly registered (backward compat).
+    registered_languages: std::collections::HashSet<String>,
+    /// The tiered parser dispatcher.
+    unified: UnifiedAstParser,
 }
 
 impl ParseEngine {
     pub fn new() -> Self {
-        let mut language_map = HashMap::new();
-        language_map.insert(
-            "rust".into(),
-            vec![
-                AstNodeType::Function,
-                AstNodeType::Struct,
-                AstNodeType::Enum,
-                AstNodeType::Trait,
-                AstNodeType::ImplBlock,
-                AstNodeType::Module,
-                AstNodeType::UseStatement,
-                AstNodeType::Variable,
-                AstNodeType::IfExpression,
-                AstNodeType::LoopExpression,
-                AstNodeType::MatchExpression,
-                AstNodeType::CallExpression,
-                AstNodeType::Attribute,
-                AstNodeType::Comment,
-            ],
-        );
-        language_map.insert(
-            "python".into(),
-            vec![
-                AstNodeType::Function,
-                AstNodeType::Variable,
-                AstNodeType::IfExpression,
-                AstNodeType::LoopExpression,
-                AstNodeType::Comment,
-            ],
-        );
-        language_map.insert(
-            "go".into(),
-            vec![
-                AstNodeType::Function,
-                AstNodeType::Struct,
-                AstNodeType::Variable,
-                AstNodeType::IfExpression,
-                AstNodeType::LoopExpression,
-                AstNodeType::Comment,
-            ],
-        );
+        // Register the 3 original languages for backward compatibility.
+        // The unified parser handles all 19 regardless; this set controls
+        // which languages the `parse()` method accepts.
+        let mut registered_languages = std::collections::HashSet::new();
+        registered_languages.insert("rust".into());
+        registered_languages.insert("python".into());
+        registered_languages.insert("go".into());
+
         Self {
-            language_map,
-            ts_parser: crate::treesitter::parser::TreeSitterParser::new(),
+            registered_languages,
+            unified: UnifiedAstParser::new(),
         }
+    }
+
+    /// Create a ParseEngine that accepts all 19 known languages.
+    pub fn new_with_all_languages() -> Self {
+        Self {
+            registered_languages: std::collections::HashSet::new(),
+            unified: UnifiedAstParser::new(),
+        }
+    }
+
+    /// Register an additional language as accepted by `parse()`.
+    pub fn register_language(&mut self, language: &str) {
+        self.registered_languages.insert(language.to_string());
+    }
+
+    /// Query which backend would be used for a language.
+    pub fn backend_for(&self, language: &str) -> &'static str {
+        let lang = match Language::grammar_name_to_enum(language) {
+            Some(l) => l,
+            None => return "none",
+        };
+        self.unified.backend_for(lang)
+    }
+
+    /// List all language names the unified dispatcher can handle.
+    pub fn supported_language_names(&self) -> Vec<String> {
+        self.unified.supported_language_names()
     }
 }
 
@@ -101,34 +104,34 @@ impl Default for ParseEngine {
 }
 
 impl ParseEngine {
+    /// Parse source code into AST nodes using the best available backend.
+    ///
+    /// Returns an error only if the language is not registered.
+    /// Parse errors within the source return an empty node list (the
+    /// dispatcher tries all available backends before falling through).
     pub fn parse(&self, source: &str, language: &str) -> anyhow::Result<Vec<AstNode>> {
-        let supported = self.language_map.contains_key(language);
-        if !supported {
+        // Backward compat: reject unregistered languages
+        if !self.registered_languages.is_empty() && !self.registered_languages.contains(language) {
             anyhow::bail!("unsupported language: {language}");
         }
 
-        let ts_result = self.ts_parser.parse(source, language);
-        let mut nodes = Vec::new();
-        let mut id_counter = 0usize;
+        let lang = Language::grammar_name_to_enum(language)
+            .ok_or_else(|| anyhow::anyhow!("unknown language: {language}"))?;
 
-        for ts_node in &ts_result.root {
-            let node_type = map_ts_kind_to_ast(&ts_node.kind);
-            let node = AstNode {
-                id: format!("node-{id_counter}"),
-                node_type,
-                name: ts_node.name.clone(),
-                line_range: (ts_node.start_line, ts_node.end_line.max(ts_node.start_line)),
-                children: convert_ts_children(&ts_node.children, &mut id_counter),
-                metadata: ts_node.metadata.clone(),
-            };
-            id_counter += 1;
-            nodes.push(node);
-        }
+        let result = self.unified.parse(source, lang);
 
-        debug!(language = %language, nodes = nodes.len(), errors = ts_result.error_count, "parsed source via tree-sitter");
-        Ok(nodes)
+        debug!(
+            language = %language,
+            backend = %result.backend,
+            nodes = result.nodes.len(),
+            error = ?result.error,
+            "parsed source"
+        );
+
+        Ok(result.to_engine_nodes())
     }
 
+    /// Convert AST nodes to CodeEntity format for downstream consumers.
     pub fn nodes_to_entities(&self, nodes: &[AstNode], file_path: &str) -> Vec<CodeEntity> {
         nodes
             .iter()
@@ -144,75 +147,9 @@ impl ParseEngine {
     }
 }
 
-fn map_ts_kind_to_ast(kind: &crate::treesitter::parser::TsNodeKind) -> AstNodeType {
-    match kind {
-        crate::treesitter::parser::TsNodeKind::Function => AstNodeType::Function,
-        crate::treesitter::parser::TsNodeKind::Method => AstNodeType::Method,
-        crate::treesitter::parser::TsNodeKind::Struct => AstNodeType::Struct,
-        crate::treesitter::parser::TsNodeKind::Enum => AstNodeType::Enum,
-        crate::treesitter::parser::TsNodeKind::Trait
-        | crate::treesitter::parser::TsNodeKind::Interface => AstNodeType::Trait,
-        crate::treesitter::parser::TsNodeKind::Class => AstNodeType::Struct,
-        crate::treesitter::parser::TsNodeKind::Module => AstNodeType::Module,
-        crate::treesitter::parser::TsNodeKind::Import => AstNodeType::UseStatement,
-        crate::treesitter::parser::TsNodeKind::Variable
-        | crate::treesitter::parser::TsNodeKind::Constant => AstNodeType::Variable,
-        crate::treesitter::parser::TsNodeKind::IfStatement => AstNodeType::IfExpression,
-        crate::treesitter::parser::TsNodeKind::LoopStatement => AstNodeType::LoopExpression,
-        crate::treesitter::parser::TsNodeKind::MatchStatement => AstNodeType::MatchExpression,
-        crate::treesitter::parser::TsNodeKind::CallExpression => AstNodeType::CallExpression,
-        crate::treesitter::parser::TsNodeKind::Comment => AstNodeType::Comment,
-        crate::treesitter::parser::TsNodeKind::Attribute
-        | crate::treesitter::parser::TsNodeKind::Annotation => AstNodeType::Attribute,
-        crate::treesitter::parser::TsNodeKind::Macro => AstNodeType::Attribute,
-        _ => AstNodeType::Unknown,
-    }
-}
-
-fn convert_ts_children(
-    children: &[crate::treesitter::parser::TsNode],
-    id_counter: &mut usize,
-) -> Vec<AstNode> {
-    children
-        .iter()
-        .map(|c| {
-            let node = AstNode {
-                id: format!("node-{id_counter}"),
-                node_type: map_ts_kind_to_ast(&c.kind),
-                name: c.name.clone(),
-                line_range: (c.start_line, c.end_line.max(c.start_line)),
-                children: convert_ts_children(&c.children, id_counter),
-                metadata: c.metadata.clone(),
-            };
-            *id_counter += 1;
-            node
-        })
-        .collect()
-}
-
-#[allow(dead_code)]
-fn extract_identifier(line: &str, prefixes: &[&str]) -> String {
-    for prefix in prefixes {
-        if let Some(rest) = line.strip_prefix(prefix) {
-            let rest = rest.trim();
-            let end = rest.find(['(', '<', ':', ' ', '{']).unwrap_or(rest.len());
-            return rest[..end].to_string();
-        }
-    }
-    "unknown".into()
-}
-
-#[allow(dead_code)]
-fn extract_impl_name(line: &str) -> String {
-    let rest = line.strip_prefix("impl").unwrap_or(line).trim();
-    let end = rest.find([' ', '{', '<']).unwrap_or(rest.len());
-    let name = rest[..end].trim();
-    if name.is_empty() || name == "for" {
-        "impl_block".into()
-    } else {
-        name.to_string()
-    }
-}
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -286,11 +223,115 @@ mod tests {
         );
     }
 
+    // --- New tests for the unified backend ---
+
     #[test]
-    fn test_extract_identifier() {
-        let name = extract_identifier("fn main() {", &["fn "]);
-        assert_eq!(name, "main");
-        let name = extract_identifier("pub async fn handle_request(", &["pub async fn "]);
-        assert_eq!(name, "handle_request");
+    fn test_parse_json_via_native_backend() {
+        let mut engine = ParseEngine::new();
+        engine.register_language("json");
+        let code = r#"{"name": "Alice", "age": 30}"#;
+        let nodes = engine.parse(code, "json").unwrap();
+        // JSON fields are extracted as Identifier/Variable nodes
+        assert!(nodes.iter().any(|n| n.name == "name"));
+        assert!(nodes.iter().any(|n| n.name == "age"));
+    }
+
+    #[test]
+    fn test_parse_toml_via_native_backend() {
+        let mut engine = ParseEngine::new();
+        engine.register_language("toml");
+        let code = "[package]\nname = \"civitforge\"\nversion = \"0.1.0\"";
+        let nodes = engine.parse(code, "toml").unwrap();
+        assert!(nodes.iter().any(|n| n.name == "package"));
+        assert!(nodes.iter().any(|n| n.name == "name"));
+        assert!(nodes.iter().any(|n| n.name == "version"));
+    }
+
+    #[test]
+    fn test_new_with_all_languages_accepts_python() {
+        let engine = ParseEngine::new_with_all_languages();
+        let code = "def hello():\n    print('world')";
+        let nodes = engine.parse(code, "python").unwrap();
+        let funcs: Vec<&AstNode> = nodes
+            .iter()
+            .filter(|n| n.node_type == AstNodeType::Function)
+            .collect();
+        assert!(funcs.iter().any(|f| f.name == "hello"));
+    }
+
+    #[test]
+    fn test_new_with_all_languages_accepts_go() {
+        let engine = ParseEngine::new_with_all_languages();
+        let code = "package main\n\nfunc Add(a int, b int) int { return a + b }";
+        let nodes = engine.parse(code, "go").unwrap();
+        let funcs: Vec<&AstNode> = nodes
+            .iter()
+            .filter(|n| n.node_type == AstNodeType::Function)
+            .collect();
+        assert!(funcs.iter().any(|f| f.name == "Add"));
+    }
+
+    #[test]
+    fn test_backend_for_rust() {
+        let engine = ParseEngine::new();
+        // Without syn-parser feature, Rust uses regex
+        assert!(engine.backend_for("rust") == "regex" || engine.backend_for("rust") == "native");
+    }
+
+    #[test]
+    fn test_backend_for_json() {
+        let engine = ParseEngine::new();
+        assert_eq!(engine.backend_for("json"), "native");
+    }
+
+    #[test]
+    fn test_supported_language_names() {
+        let engine = ParseEngine::new();
+        let langs = engine.supported_language_names();
+        assert!(langs.len() >= 19);
+        assert!(langs.contains(&"json".into()));
+        assert!(langs.contains(&"toml".into()));
+        assert!(langs.contains(&"rust".into()));
+    }
+
+    #[test]
+    fn test_register_language_expansion() {
+        let mut engine = ParseEngine::new();
+        assert!(engine.parse("SELECT 1", "sql").is_err());
+        engine.register_language("sql");
+        // Should succeed now
+        let result = engine.parse("SELECT 1", "sql");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_empty_source() {
+        let engine = ParseEngine::new();
+        let result = engine.parse("", "rust").unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_impl_block() {
+        let engine = ParseEngine::new();
+        let code = "impl Point {\n    fn new() -> Self { Self { x: 0, y: 0 } }\n}";
+        let nodes = engine.parse(code, "rust").unwrap();
+        let impls: Vec<&AstNode> = nodes
+            .iter()
+            .filter(|n| n.node_type == AstNodeType::ImplBlock)
+            .collect();
+        assert!(impls.iter().any(|i| i.name == "Point"));
+    }
+
+    #[test]
+    fn test_parse_use_statement() {
+        let engine = ParseEngine::new();
+        let code = "use std::collections::HashMap;\nuse anyhow::Result;";
+        let nodes = engine.parse(code, "rust").unwrap();
+        let imports: Vec<&AstNode> = nodes
+            .iter()
+            .filter(|n| n.node_type == AstNodeType::UseStatement)
+            .collect();
+        assert!(!imports.is_empty());
     }
 }

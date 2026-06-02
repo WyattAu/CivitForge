@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::rag::RAGPipeline;
+use crate::vectordb::VectorDb;
 
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -29,12 +30,12 @@ pub struct ReviewResult {
     pub summary: String,
 }
 
-pub struct ReviewAgent {
-    rag: RAGPipeline,
+pub struct ReviewAgent<T: VectorDb = crate::vectordb::VectorDbClient> {
+    rag: RAGPipeline<T>,
 }
 
-impl ReviewAgent {
-    pub fn new(rag: RAGPipeline) -> Self {
+impl<T: VectorDb> ReviewAgent<T> {
+    pub fn new(rag: RAGPipeline<T>) -> Self {
         Self { rag }
     }
 
@@ -220,7 +221,7 @@ mod tests {
     use crate::vectordb::{DistanceMetric, VectorDbClient, VectorDbConfig};
 
     fn make_agent() -> ReviewAgent {
-        let worker = EmbeddingWorker::new(8);
+        let worker = EmbeddingWorker::with_dimensions(8);
         let db = VectorDbClient::new(VectorDbConfig {
             collection_name: "test".into(),
             dimension: 8,

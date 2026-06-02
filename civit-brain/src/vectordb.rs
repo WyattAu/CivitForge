@@ -3,7 +3,54 @@
 use crate::embedding::{EmbeddingVector, EmbeddingWorker};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::future::Future;
 use tracing::debug;
+
+// ---------------------------------------------------------------------------
+// VectorDb trait — async abstraction over any vector store backend
+// ---------------------------------------------------------------------------
+
+/// Async interface that both in-memory and Qdrant backends implement.
+/// All methods are async so callers never need to know the backend.
+///
+/// Uses `impl Future` return types (RPITIT) for explicit `Send` bounds.
+/// Not object-safe — use via generics `T: VectorDb`, not `dyn VectorDb`.
+pub trait VectorDb: Send + Sync {
+    /// Insert or replace a single vector with associated metadata.
+    fn upsert(
+        &self,
+        vector: &EmbeddingVector,
+        metadata: serde_json::Value,
+    ) -> impl Future<Output = anyhow::Result<()>> + Send;
+
+    /// Bulk insert vectors. Returns the count actually upserted.
+    fn upsert_batch(
+        &self,
+        vectors: &[(EmbeddingVector, serde_json::Value)],
+    ) -> impl Future<Output = anyhow::Result<usize>> + Send;
+
+    /// Similarity search. Returns up to `top_k` results sorted by score descending.
+    fn search(
+        &self,
+        query: &[f32],
+        top_k: usize,
+    ) -> impl Future<Output = Vec<VectorSearchResult>> + Send;
+
+    /// Remove a vector by id. Returns true if it existed.
+    fn delete(&self, id: &str) -> impl Future<Output = anyhow::Result<bool>> + Send;
+
+    /// Total number of stored vectors.
+    fn count(&self) -> impl Future<Output = anyhow::Result<usize>> + Send;
+
+    /// Health check (connectivity / liveness). Returns true if backend is reachable.
+    fn health(&self) -> impl Future<Output = bool> + Send {
+        async move { self.count().await.is_ok() }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared types
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VectorSearchResult {
@@ -30,6 +77,16 @@ pub enum DistanceMetric {
 pub struct VectorDbClient {
     config: VectorDbConfig,
     store: DashMap<String, (EmbeddingVector, serde_json::Value)>,
+}
+
+impl Default for VectorDbClient {
+    fn default() -> Self {
+        Self::new(VectorDbConfig {
+            collection_name: "default".into(),
+            dimension: 384,
+            distance_metric: DistanceMetric::Cosine,
+        })
+    }
 }
 
 impl VectorDbClient {
@@ -133,10 +190,47 @@ impl VectorDbClient {
     }
 }
 
+impl VectorDb for VectorDbClient {
+    async fn upsert(
+        &self,
+        vector: &EmbeddingVector,
+        metadata: serde_json::Value,
+    ) -> anyhow::Result<()> {
+        // Delegate to existing sync implementation.
+        Self::upsert(self, vector, metadata)
+    }
+
+    async fn upsert_batch(
+        &self,
+        vectors: &[(EmbeddingVector, serde_json::Value)],
+    ) -> anyhow::Result<usize> {
+        Self::upsert_batch(self, vectors)
+    }
+
+    async fn search(&self, query: &[f32], top_k: usize) -> Vec<VectorSearchResult> {
+        Self::search(self, query, top_k)
+    }
+
+    async fn delete(&self, id: &str) -> anyhow::Result<bool> {
+        Ok(Self::delete(self, id))
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        Ok(Self::count(self))
+    }
+}
+
 /// Adapter that delegates to a QdrantClient, implementing the same interface
 /// as the in-memory VectorDbClient but backed by a remote Qdrant instance.
+#[derive(Clone)]
 pub struct QdrantVectorDbAdapter {
     client: crate::qdrant::client::QdrantClient,
+}
+
+impl Default for QdrantVectorDbAdapter {
+    fn default() -> Self {
+        Self::from_env()
+    }
 }
 
 impl QdrantVectorDbAdapter {
@@ -219,6 +313,65 @@ impl QdrantVectorDbAdapter {
 
     pub async fn health(&self) -> anyhow::Result<bool> {
         self.client.health().await
+    }
+
+    /// Convenience constructor that reads Qdrant config from environment variables:
+    /// - `CIVITFORGE_QDRANT_URL` (default: `http://localhost:6333`)
+    /// - `CIVITFORGE_QDRANT_API_KEY` (optional)
+    /// - `CIVITFORGE_QDRANT_COLLECTION` (default: `civitforge`)
+    /// - `CIVITFORGE_QDRANT_VECTOR_SIZE` (default: `384`)
+    pub fn from_env() -> Self {
+        let url = std::env::var("CIVITFORGE_QDRANT_URL")
+            .unwrap_or_else(|_| "http://localhost:6333".into());
+        let api_key = std::env::var("CIVITFORGE_QDRANT_API_KEY").ok();
+        let collection_name =
+            std::env::var("CIVITFORGE_QDRANT_COLLECTION").unwrap_or_else(|_| "civitforge".into());
+        let vector_size: usize = std::env::var("CIVITFORGE_QDRANT_VECTOR_SIZE")
+            .unwrap_or_else(|_| "384".into())
+            .parse()
+            .unwrap_or(384);
+
+        let config = crate::qdrant::client::QdrantConfig {
+            url,
+            api_key,
+            collection_name,
+            vector_size,
+            timeout: std::time::Duration::from_secs(30),
+        };
+        Self::new(config)
+    }
+}
+
+impl VectorDb for QdrantVectorDbAdapter {
+    async fn upsert(
+        &self,
+        vector: &EmbeddingVector,
+        metadata: serde_json::Value,
+    ) -> anyhow::Result<()> {
+        Self::upsert(self, vector, metadata).await
+    }
+
+    async fn upsert_batch(
+        &self,
+        vectors: &[(EmbeddingVector, serde_json::Value)],
+    ) -> anyhow::Result<usize> {
+        Self::upsert_batch(self, vectors).await
+    }
+
+    async fn search(&self, query: &[f32], top_k: usize) -> Vec<VectorSearchResult> {
+        Self::search(self, query, top_k).await
+    }
+
+    async fn delete(&self, id: &str) -> anyhow::Result<bool> {
+        Self::delete(self, id).await
+    }
+
+    async fn count(&self) -> anyhow::Result<usize> {
+        Self::count(self).await
+    }
+
+    async fn health(&self) -> bool {
+        Self::health(self).await.unwrap_or(false)
     }
 }
 
@@ -348,5 +501,103 @@ mod tests {
         assert_eq!(results[0].id, "v1");
         let expected_score = 1.0 / (1.0 + 5.0);
         assert!((results[0].score - expected_score).abs() < 0.01);
+    }
+
+    // -----------------------------------------------------------------------
+    // VectorDb trait tests (in-memory backend)
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn test_trait_upsert_and_search() {
+        let client = make_client();
+        let vec = make_vector("tv1", vec![1.0, 0.0, 0.0, 0.0]);
+        VectorDb::upsert(&client, &vec, serde_json::json!({"name": "trait-test"}))
+            .await
+            .unwrap();
+        assert_eq!(VectorDb::count(&client).await.unwrap(), 1);
+
+        let results = VectorDb::search(&client, &[1.0, 0.0, 0.0, 0.0], 5).await;
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "tv1");
+    }
+
+    #[tokio::test]
+    async fn test_trait_upsert_batch() {
+        let client = make_client();
+        let batch = vec![
+            (
+                make_vector("tb1", vec![1.0, 0.0, 0.0, 0.0]),
+                serde_json::json!({}),
+            ),
+            (
+                make_vector("tb2", vec![0.0, 1.0, 0.0, 0.0]),
+                serde_json::json!({}),
+            ),
+        ];
+        let count = VectorDb::upsert_batch(&client, &batch).await.unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(VectorDb::count(&client).await.unwrap(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_trait_delete() {
+        let client = make_client();
+        VectorDb::upsert(
+            &client,
+            &make_vector("td1", vec![1.0, 0.0, 0.0, 0.0]),
+            serde_json::json!({}),
+        )
+        .await
+        .unwrap();
+        assert!(VectorDb::delete(&client, "td1").await.unwrap());
+        assert_eq!(VectorDb::count(&client).await.unwrap(), 0);
+        assert!(!VectorDb::delete(&client, "nonexistent").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_trait_health() {
+        let client = make_client();
+        assert!(VectorDb::health(&client).await);
+    }
+
+    #[tokio::test]
+    async fn test_trait_search_empty() {
+        let client = make_client();
+        let results = VectorDb::search(&client, &[1.0, 0.0, 0.0, 0.0], 5).await;
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_trait_search_filters_by_dimension() {
+        let client = make_client();
+        VectorDb::upsert(
+            &client,
+            &make_vector("dim4", vec![1.0, 0.0, 0.0, 0.0]),
+            serde_json::json!({}),
+        )
+        .await
+        .unwrap();
+        let results = VectorDb::search(&client, &[1.0, 0.0], 5).await;
+        assert!(
+            results.is_empty(),
+            "mismatched dimensions should yield no results"
+        );
+    }
+
+    #[test]
+    fn test_qdrant_adapter_from_env() {
+        // from_env should not panic with default env vars
+        let _adapter = QdrantVectorDbAdapter::from_env();
+    }
+
+    #[test]
+    fn test_qdrant_adapter_default() {
+        let _adapter = QdrantVectorDbAdapter::default();
+    }
+
+    #[test]
+    fn test_vector_db_client_default() {
+        let client = VectorDbClient::default();
+        assert_eq!(client.count(), 0);
     }
 }

@@ -16,3 +16,5 @@ pub mod vectordb;
 pub use ast::engine::{AstNode, AstNodeType, ParseEngine};
 pub use embedding::{EmbeddingVector, EmbeddingWorker};
 pub use models::CodeEntity;
+pub use rag::{InMemoryRagPipeline, RAGPipeline};
+pub use vectordb::{QdrantVectorDbAdapter, VectorDb, VectorDbClient};

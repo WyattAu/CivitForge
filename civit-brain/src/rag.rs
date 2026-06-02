@@ -2,7 +2,7 @@
 
 use crate::embedding::EmbeddingWorker;
 use crate::models::CodeEntity;
-use crate::vectordb::VectorDbClient;
+use crate::vectordb::{VectorDb, VectorDbClient};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
@@ -23,18 +23,22 @@ pub struct CodeChunk {
     pub relevance_score: f32,
 }
 
-#[derive(Debug, Clone)]
-pub struct RAGPipeline {
+/// RAG pipeline generic over any vector database backend.
+/// Use `InMemoryRagPipeline` for tests or `RAGPipeline<QdrantVectorDbAdapter>` for production.
+pub struct RAGPipeline<T: VectorDb> {
     embedding_worker: EmbeddingWorker,
-    vector_db: VectorDbClient,
+    vector_db: T,
     max_context_chunks: usize,
     min_relevance_score: f32,
 }
 
-impl RAGPipeline {
+/// Convenience alias: RAG pipeline backed by the in-memory DashMap vector store.
+pub type InMemoryRagPipeline = RAGPipeline<VectorDbClient>;
+
+impl<T: VectorDb> RAGPipeline<T> {
     pub fn new(
         embedding_worker: EmbeddingWorker,
-        vector_db: VectorDbClient,
+        vector_db: T,
         max_context_chunks: usize,
         min_relevance_score: f32,
     ) -> Self {
@@ -46,11 +50,28 @@ impl RAGPipeline {
         }
     }
 
+    /// Build a RAG pipeline from environment variables.
+    ///
+    /// Vector backend selection:
+    /// - `CIVITFORGE_VECTOR_BACKEND=inmemory` (default) — DashMap-based, no external deps
+    /// - `CIVITFORGE_VECTOR_BACKEND=qdrant` — Qdrant HTTP client (reads QDRANT_URL, etc.)
+    ///
+    /// Embedding config: reads `CIVITFORGE_EMBEDDING_*` vars (see `EmbeddingWorker::new()`).
+    pub fn from_env() -> Self
+    where
+        T: VectorDb + Default,
+    {
+        let db = T::default();
+        let worker = EmbeddingWorker::new();
+        Self::new(worker, db, 10, 0.5)
+    }
+
     pub async fn retrieve(&self, query: &str) -> anyhow::Result<RAGContext> {
         let query_embedding = self.embedding_worker.embed_text(query).await?;
         let search_results = self
             .vector_db
-            .search(&query_embedding.data, self.max_context_chunks);
+            .search(&query_embedding.data, self.max_context_chunks)
+            .await;
 
         let chunks: Vec<CodeChunk> = search_results
             .into_iter()
@@ -123,7 +144,7 @@ impl RAGPipeline {
             "end_line": entity.end_line,
             "content": content,
         });
-        self.vector_db.upsert(&embedding, metadata)?;
+        self.vector_db.upsert(&embedding, metadata).await?;
         Ok(())
     }
 }
@@ -132,19 +153,134 @@ fn estimate_tokens(text: &str) -> usize {
     (text.len() as f32 / 4.0).ceil() as usize
 }
 
+// ---------------------------------------------------------------------------
+// LlmCodeReviewer — end-to-end RAG → LLM code review
+// ---------------------------------------------------------------------------
+
+use crate::llm::provider::{ChatMessage, LlmProvider, ModelConfig};
+
+/// End-to-end code reviewer: retrieves context via RAG, sends to LLM for review.
+///
+/// ```text
+/// Diff/Code → RAG retrieve() → context prompt → LlmProvider.infer() → ReviewResult
+/// ```
+pub struct LlmCodeReviewer<T: VectorDb, P: LlmProvider> {
+    rag: RAGPipeline<T>,
+    llm: P,
+    model_config: ModelConfig,
+    max_response_tokens: u32,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct LlmReviewResult {
+    pub review_text: String,
+    pub context_chunks: Vec<CodeChunk>,
+    pub tokens_used: u32,
+    pub model: String,
+    pub duration_ms: u64,
+}
+
+impl<T: VectorDb, P: LlmProvider> LlmCodeReviewer<T, P> {
+    pub fn new(
+        rag: RAGPipeline<T>,
+        llm: P,
+        model_config: ModelConfig,
+        max_response_tokens: u32,
+    ) -> Self {
+        Self {
+            rag,
+            llm,
+            model_config,
+            max_response_tokens,
+        }
+    }
+
+    /// Review a diff or code snippet end-to-end: RAG retrieve → LLM infer.
+    pub async fn review(
+        &self,
+        diff_content: &str,
+        file_path: &str,
+    ) -> anyhow::Result<LlmReviewResult> {
+        let start = std::time::Instant::now();
+
+        // 1. Retrieve relevant context from vector DB
+        let context = self.rag.retrieve(diff_content).await?;
+
+        // 2. Build prompt with RAG context + diff
+        let prompt = self.rag.build_prompt(
+            &context,
+            &format!("Review this diff for {file_path}:\n{diff_content}"),
+        );
+
+        // 3. Send to LLM
+        let messages = vec![ChatMessage {
+            role: "user".into(),
+            content: prompt,
+        }];
+
+        let result = self
+            .llm
+            .infer(&messages, &self.model_config, self.max_response_tokens)
+            .map_err(|e| anyhow::anyhow!("LLM inference failed: {e}"))?;
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        Ok(LlmReviewResult {
+            review_text: result.content,
+            context_chunks: context.chunks,
+            tokens_used: result.tokens_used,
+            model: result.model,
+            duration_ms,
+        })
+    }
+
+    /// Index a code entity into the vector DB for future retrieval.
+    pub async fn index_entity(&self, entity: &CodeEntity, content: &str) -> anyhow::Result<()> {
+        self.rag.index_entity(entity, content).await
+    }
+
+    /// Check if both the vector DB and LLM are available.
+    pub async fn health(&self) -> (bool, bool) {
+        let db_health = self.rag.vector_db.health().await;
+        let llm_health = self.llm.is_available();
+        (db_health, llm_health)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::provider::{ModelConfig, StubLlmProvider};
     use crate::vectordb::{DistanceMetric, VectorDbConfig};
 
-    fn make_rag() -> RAGPipeline {
-        let worker = EmbeddingWorker::new(16);
+    fn make_rag() -> InMemoryRagPipeline {
+        let worker = EmbeddingWorker::with_dimensions(16);
         let db = VectorDbClient::new(VectorDbConfig {
             collection_name: "test".into(),
             dimension: 16,
             distance_metric: DistanceMetric::Cosine,
         });
         RAGPipeline::new(worker, db, 5, 0.0)
+    }
+
+    fn make_review_config() -> ModelConfig {
+        ModelConfig {
+            name: "test-code-reviewer".into(),
+            parameter_count: 7_000_000_000,
+            context_window: 8192,
+            max_tokens: 2048,
+            endpoint: None,
+            quantization: None,
+        }
+    }
+
+    fn make_llm_reviewer() -> LlmCodeReviewer<VectorDbClient, StubLlmProvider> {
+        LlmCodeReviewer::new(
+            make_rag(),
+            StubLlmProvider::new(),
+            make_review_config(),
+            1024,
+        )
     }
 
     #[tokio::test]
@@ -199,5 +335,83 @@ mod tests {
         assert_eq!(estimate_tokens("hello"), 2);
         assert_eq!(estimate_tokens(""), 0);
         assert!(estimate_tokens(&("a".repeat(100))) >= 25);
+    }
+
+    // -----------------------------------------------------------------------
+    // LlmCodeReviewer tests
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn test_llm_reviewer_empty_db() {
+        let reviewer = make_llm_reviewer();
+        let result = reviewer.review("+let x = 5;", "src/main.rs").await.unwrap();
+        // Stub LLM should return something
+        assert!(!result.review_text.is_empty());
+        assert!(result.review_text.contains("[STUB]"));
+        assert_eq!(result.model, "test-code-reviewer");
+        assert!(result.context_chunks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_llm_reviewer_with_indexed_entity() {
+        let reviewer = make_llm_reviewer();
+        let entity = CodeEntity {
+            id: "e1".into(),
+            entity_type: "Function".into(),
+            name: "authenticate".into(),
+            file_path: "src/auth.rs".into(),
+            start_line: 1,
+            end_line: 10,
+        };
+        reviewer
+            .index_entity(
+                &entity,
+                "fn authenticate(token: &str) -> bool { token == \"secret\" }",
+            )
+            .await
+            .unwrap();
+
+        let result = reviewer
+            .review("+let auth = authenticate(&token);", "src/main.rs")
+            .await
+            .unwrap();
+        assert!(!result.review_text.is_empty());
+        // The indexed entity should be retrieved as context
+        assert!(!result.context_chunks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_llm_reviewer_health() {
+        let reviewer = make_llm_reviewer();
+        let (db_health, llm_health) = reviewer.health().await;
+        assert!(db_health, "in-memory DB should be healthy");
+        assert!(llm_health, "stub LLM should be available");
+    }
+
+    #[test]
+    fn test_llm_review_result_serialization() {
+        let result = LlmReviewResult {
+            review_text: "LGTM".into(),
+            context_chunks: vec![],
+            tokens_used: 42,
+            model: "test".into(),
+            duration_ms: 10,
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let de: LlmReviewResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.review_text, "LGTM");
+        assert_eq!(de.tokens_used, 42);
+    }
+
+    #[test]
+    fn test_in_memory_rag_pipeline_type_alias() {
+        // Verify the type alias compiles correctly
+        let worker = EmbeddingWorker::with_dimensions(8);
+        let db = VectorDbClient::new(VectorDbConfig {
+            collection_name: "alias-test".into(),
+            dimension: 8,
+            distance_metric: DistanceMetric::Cosine,
+        });
+        let _: InMemoryRagPipeline = RAGPipeline::new(worker, db, 5, 0.0);
     }
 }
