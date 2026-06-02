@@ -133,6 +133,15 @@ enum Transport {
     Cli,
 }
 
+impl Clone for Transport {
+    fn clone(&self) -> Self {
+        match self {
+            Transport::Http(client) => Transport::Http(client.clone()),
+            Transport::Cli => Transport::Cli,
+        }
+    }
+}
+
 impl Transport {
     fn detect(socket_path: &str) -> Self {
         if std::path::Path::new(socket_path).exists() {
@@ -152,6 +161,7 @@ fn build_http_client() -> reqwest::Client {
         .unwrap_or_else(|_| reqwest::Client::new())
 }
 
+#[derive(Clone)]
 pub struct PodmanService {
     pub config: PodmanConfig,
     transport: Transport,
@@ -613,11 +623,12 @@ impl PodmanService {
                 let text = r.text().await.unwrap_or_default();
                 Ok(text)
             }
-            _ => {
-                let limit = tail.unwrap_or(100);
-                let lines: Vec<String> = (0..limit).map(|i| format!("log line {i}")).collect();
-                Ok(lines.join("\n"))
+            Ok(r) => {
+                let status = r.status();
+                let body = r.text().await.unwrap_or_default();
+                Err(anyhow::anyhow!("podman logs HTTP error {status}: {body}"))
             }
+            Err(e) => Err(anyhow::anyhow!("podman logs HTTP request failed: {e}")),
         }
     }
 
@@ -637,9 +648,11 @@ impl PodmanService {
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
-            let limit = tail.unwrap_or(100);
-            let lines: Vec<String> = (0..limit).map(|i| format!("log line {i}")).collect();
-            Ok(lines.join("\n"))
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(anyhow::anyhow!(
+                "podman logs CLI failed (exit {:?}): {stderr}",
+                output.status.code()
+            ))
         }
     }
 
@@ -939,15 +952,15 @@ mod tests {
     #[tokio::test]
     async fn test_logs_with_tail() {
         let svc = PodmanService::new_http();
-        let logs = svc.logs("id", Some(5)).await.unwrap();
-        assert!(!logs.is_empty());
+        // No real podman running — should return an error
+        assert!(svc.logs("id", Some(5)).await.is_err());
     }
 
     #[tokio::test]
     async fn test_logs_default_tail() {
         let svc = PodmanService::new_http();
-        let logs = svc.logs("id", None).await.unwrap();
-        assert!(!logs.is_empty());
+        // No real podman running — should return an error
+        assert!(svc.logs("id", None).await.is_err());
     }
 
     #[tokio::test]

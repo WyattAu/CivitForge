@@ -75,8 +75,10 @@ pub struct PackageInfo {
     pub ecosystem: String,
 }
 
+#[cfg(test)]
 pub struct StubVulnScanner;
 
+#[cfg(test)]
 impl VulnerabilityScanner for StubVulnScanner {
     fn scan(&self, packages: &[PackageInfo]) -> Result<VulnScanReport, String> {
         Ok(VulnScanReport {

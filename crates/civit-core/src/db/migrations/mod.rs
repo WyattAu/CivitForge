@@ -18,6 +18,10 @@ pub const M_015_WIKI_UP: &str = include_str!("015_add_wiki_tables.sql");
 pub const M_015_WIKI_DOWN: &str = include_str!("016_add_wiki_tables_down.sql");
 pub const M_017_SEARCH_UP: &str = include_str!("017_add_code_search_tables.sql");
 pub const M_017_SEARCH_DOWN: &str = include_str!("018_add_code_search_tables_down.sql");
+pub const M_019_WIKI_SNAPSHOT_UP: &str = include_str!("019_add_wiki_content_snapshot.sql");
+pub const M_019_WIKI_SNAPSHOT_DOWN: &str = include_str!("020_add_wiki_content_snapshot_down.sql");
+pub const M_021_FTS_UP: &str = include_str!("021_add_fulltext_search.sql");
+pub const M_021_FTS_DOWN: &str = include_str!("022_add_fulltext_search_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -96,6 +100,18 @@ impl MigrationManager {
             up_sql: M_017_SEARCH_UP.into(),
             down_sql: M_017_SEARCH_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 19,
+            name: "add_wiki_content_snapshot".into(),
+            up_sql: M_019_WIKI_SNAPSHOT_UP.into(),
+            down_sql: M_019_WIKI_SNAPSHOT_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 21,
+            name: "add_fulltext_search".into(),
+            up_sql: M_021_FTS_UP.into(),
+            down_sql: M_021_FTS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -137,7 +153,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 9);
+        assert_eq!(mgr.all().len(), 11);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -156,19 +172,23 @@ mod tests {
         assert_eq!(mgr.all()[7].name, "add_wiki_tables");
         assert_eq!(mgr.all()[8].version, 17);
         assert_eq!(mgr.all()[8].name, "add_code_search_tables");
+        assert_eq!(mgr.all()[9].version, 19);
+        assert_eq!(mgr.all()[9].name, "add_wiki_content_snapshot");
+        assert_eq!(mgr.all()[10].version, 21);
+        assert_eq!(mgr.all()[10].name, "add_fulltext_search");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 19,
+            version: 23,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 10);
-        assert_eq!(mgr.all()[9].version, 19);
+        assert_eq!(mgr.all().len(), 12);
+        assert_eq!(mgr.all()[11].version, 23);
     }
 
     #[test]
@@ -187,14 +207,14 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 9);
+        assert_eq!(pending.len(), 11);
         assert_eq!(pending[0].version, 1);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(17);
+        let pending = mgr.get_pending(21);
         assert!(pending.is_empty());
     }
 
@@ -202,7 +222,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 8);
+        assert_eq!(pending.len(), 10);
         assert_eq!(pending[0].version, 3);
     }
 

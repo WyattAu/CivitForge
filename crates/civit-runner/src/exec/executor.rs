@@ -48,6 +48,7 @@ impl StepExecutor {
     /// Execute a single step in a container.
     ///
     /// The workspace directory is mounted at `/workspace` inside the container.
+    /// Special action steps (checkout, cache, artifact) are handled without containers.
     pub async fn execute_step(
         &self,
         step: &JobStepSpec,
@@ -58,6 +59,15 @@ impl StepExecutor {
         step_id: &str,
     ) -> anyhow::Result<StepResult> {
         let start = std::time::Instant::now();
+
+        // Handle built-in actions without spawning containers
+        if let Some(ref action) = step.action {
+            if action != "run" {
+                return self
+                    .execute_action(step, workspace, env, secrets, client, step_id, action)
+                    .await;
+            }
+        }
 
         // Determine the image (step-level overrides job-level)
         let image = step.image.as_deref().unwrap_or(&self.default_image);
@@ -167,6 +177,266 @@ impl StepExecutor {
         })
     }
 
+    /// Execute a built-in action step (checkout, cache, artifact).
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_action(
+        &self,
+        step: &JobStepSpec,
+        workspace: &Path,
+        env: &HashMap<String, String>,
+        _secrets: &HashMap<String, String>,
+        client: &crate::exec::client::RunnerClient,
+        step_id: &str,
+        action: &str,
+    ) -> anyhow::Result<StepResult> {
+        let start = std::time::Instant::now();
+
+        let result = match action {
+            "checkout" => self.action_checkout(step, workspace, env).await,
+            "cache" => self.action_cache(step, workspace).await,
+            "artifact" => self.action_artifact(step, workspace).await,
+            other => {
+                // Let _ = client.update_step(step_id, "running", None, Some(format!("Unknown action: {other}"))).await;
+                Err(anyhow::anyhow!("unknown action: {other}"))
+            }
+        };
+
+        let (status, exit_code, output) = match result {
+            Ok(output) => ("success", 0i32, output),
+            Err(e) => ("failure", -1, format!("{e:#}")),
+        };
+
+        let _ = client
+            .update_step(step_id, status, Some(exit_code), Some(output.clone()))
+            .await;
+
+        Ok(StepResult {
+            step_name: step.name.clone(),
+            status: status.to_string(),
+            exit_code,
+            output,
+            duration: start.elapsed(),
+        })
+    }
+
+    /// Checkout: clone or fetch the repo into the workspace.
+    async fn action_checkout(
+        &self,
+        step: &JobStepSpec,
+        workspace: &Path,
+        env: &HashMap<String, String>,
+    ) -> anyhow::Result<String> {
+        let repo_url = env.get("CIVIT_REPO_URL").map(|s| s.as_str()).unwrap_or("");
+        let commit_sha = env
+            .get("CIVIT_COMMIT_SHA")
+            .map(|s| s.as_str())
+            .unwrap_or("HEAD");
+        let fetch_depth = step
+            .action_params
+            .as_ref()
+            .and_then(|p| p.get("fetch_depth"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1);
+
+        // Build git clone command
+        let mut cmd_parts = vec!["git".to_string(), "clone".to_string()];
+
+        if fetch_depth > 0 {
+            cmd_parts.push("--depth".to_string());
+            cmd_parts.push(fetch_depth.to_string());
+        }
+
+        // Check for submodules flag
+        if step
+            .action_params
+            .as_ref()
+            .and_then(|p| p.get("submodules"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            cmd_parts.push("--recurse-submodules".to_string());
+        }
+
+        cmd_parts.push(repo_url.to_string());
+        cmd_parts.push(workspace.to_string_lossy().to_string());
+
+        let output = tokio::process::Command::new(&cmd_parts[0])
+            .args(&cmd_parts[1..])
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            // If clone failed, try fetch into existing dir
+            if workspace.exists() {
+                let fetch_output = tokio::process::Command::new("git")
+                    .args([
+                        "fetch",
+                        "--depth",
+                        &fetch_depth.to_string(),
+                        "origin",
+                        commit_sha,
+                    ])
+                    .current_dir(workspace)
+                    .output()
+                    .await?;
+                if !fetch_output.status.success() {
+                    return Err(anyhow::anyhow!(
+                        "git fetch failed: {}",
+                        String::from_utf8_lossy(&fetch_output.stderr)
+                    ));
+                }
+                let checkout_output = tokio::process::Command::new("git")
+                    .args(["checkout", "FETCH_HEAD"])
+                    .current_dir(workspace)
+                    .output()
+                    .await?;
+                if !checkout_output.status.success() {
+                    return Err(anyhow::anyhow!(
+                        "git checkout failed: {}",
+                        String::from_utf8_lossy(&checkout_output.stderr)
+                    ));
+                }
+                return Ok(format!("fetched {commit_sha} (depth={fetch_depth})"));
+            }
+            return Err(anyhow::anyhow!("git clone failed: {stderr}"));
+        }
+
+        Ok(format!("cloned {repo_url} (depth={fetch_depth})"))
+    }
+
+    /// Cache: upload or download cached files.
+    async fn action_cache(&self, step: &JobStepSpec, workspace: &Path) -> anyhow::Result<String> {
+        let cache_action = step
+            .action_params
+            .as_ref()
+            .and_then(|p| p.get("action"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("upload");
+
+        let cache_key = step
+            .action_params
+            .as_ref()
+            .and_then(|p| p.get("key"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("default");
+
+        let cache_dir = workspace.join(".civit-cache");
+
+        match cache_action {
+            "upload" => {
+                // Save workspace state to cache directory (simplified: record timestamp)
+                std::fs::create_dir_all(&cache_dir)?;
+                std::fs::write(cache_dir.join("cache_key"), cache_key)?;
+                std::fs::write(cache_dir.join("timestamp"), chrono::Utc::now().to_rfc3339())?;
+                Ok(format!("cache uploaded: {cache_key}"))
+            }
+            "download" => {
+                if cache_dir.join("cache_key").exists() {
+                    let ts =
+                        std::fs::read_to_string(cache_dir.join("timestamp")).unwrap_or_default();
+                    Ok(format!("cache restored: {cache_key} (cached at {ts})"))
+                } else {
+                    Ok(format!("cache miss: {cache_key}"))
+                }
+            }
+            _ => Err(anyhow::anyhow!("unknown cache action: {cache_action}")),
+        }
+    }
+
+    /// Artifact: upload or download build artifacts.
+    async fn action_artifact(
+        &self,
+        step: &JobStepSpec,
+        workspace: &Path,
+    ) -> anyhow::Result<String> {
+        let artifact_action = step
+            .action_params
+            .as_ref()
+            .and_then(|p| p.get("action"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("upload");
+
+        let artifact_name = step
+            .action_params
+            .as_ref()
+            .and_then(|p| p.get("name"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("artifact");
+
+        let artifact_dir = workspace.join(".civit-artifacts").join(artifact_name);
+
+        match artifact_action {
+            "upload" => {
+                let paths: Vec<String> = step
+                    .action_params
+                    .as_ref()
+                    .and_then(|p| p.get("path"))
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+
+                std::fs::create_dir_all(&artifact_dir)?;
+
+                // Copy specified paths to artifact directory
+                let mut uploaded = Vec::new();
+                for path in &paths {
+                    let src = workspace.join(path);
+                    if src.exists() {
+                        let dest = artifact_dir.join(path);
+                        if let Some(parent) = dest.parent() {
+                            std::fs::create_dir_all(parent)?;
+                        }
+                        if src.is_dir() {
+                            copy_dir_recursive(&src, &dest)?;
+                        } else {
+                            std::fs::copy(&src, &dest)?;
+                        }
+                        uploaded.push(path.clone());
+                    }
+                }
+
+                if uploaded.is_empty() && !paths.is_empty() {
+                    let if_none = step
+                        .action_params
+                        .as_ref()
+                        .and_then(|p| p.get("if_no_files_found"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("warn");
+                    if if_none == "ignore" {
+                        return Ok(format!(
+                            "artifact '{artifact_name}': no files found (ignored)"
+                        ));
+                    }
+                    return Ok(format!("artifact '{artifact_name}': no files found"));
+                }
+
+                Ok(format!(
+                    "artifact uploaded: {artifact_name} ({} files)",
+                    uploaded.len()
+                ))
+            }
+            "download" => {
+                if artifact_dir.exists() {
+                    // Copy artifact files back to workspace
+                    if artifact_dir.is_dir() {
+                        copy_dir_recursive(&artifact_dir, workspace)?;
+                    }
+                    Ok(format!("artifact downloaded: {artifact_name}"))
+                } else {
+                    Ok(format!("artifact not found: {artifact_name}"))
+                }
+            }
+            _ => Err(anyhow::anyhow!(
+                "unknown artifact action: {artifact_action}"
+            )),
+        }
+    }
+
     /// Run a container, stream logs to API, return exit code + final output.
     async fn run_container(
         &self,
@@ -254,6 +524,22 @@ fn parse_timeout(s: Option<&str>) -> Option<Duration> {
     }
 
     None
+}
+
+/// Recursively copy a directory.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

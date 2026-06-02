@@ -5,7 +5,8 @@ use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
 use ring::rand::SystemRandom;
 use ring::signature::{
-    ECDSA_P256_SHA256_ASN1, Ed25519KeyPair, KeyPair, RSA_PSS_2048_8192_SHA256, UnparsedPublicKey,
+    ECDSA_P256_SHA256_ASN1, ECDSA_P256_SHA256_ASN1_SIGNING, Ed25519KeyPair, KeyPair,
+    RSA_PKCS1_2048_8192_SHA256, UnparsedPublicKey,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -232,7 +233,7 @@ impl SignatureVerifier {
                 pk.verify(&payload, &sig_bytes).is_ok()
             }
             SignatureAlgorithm::RsaSha256 => {
-                let pk = UnparsedPublicKey::new(&RSA_PSS_2048_8192_SHA256, public_key_bytes);
+                let pk = UnparsedPublicKey::new(&RSA_PKCS1_2048_8192_SHA256, public_key_bytes);
                 pk.verify(&payload, &sig_bytes).is_ok()
             }
             SignatureAlgorithm::EcdsaP256 => {
@@ -295,7 +296,27 @@ impl SignatureVerifier {
                 mac.update(&payload);
                 mac.finalize().into_bytes().to_vec()
             }
-            _ => return Err(format!("signing not implemented for {}", config.algorithm)),
+            SignatureAlgorithm::RsaSha256 => {
+                use pkcs8::DecodePrivateKey;
+                let priv_key = rsa::RsaPrivateKey::from_pkcs8_der(private_key_bytes)
+                    .map_err(|e| format!("failed to parse RSA private key: {e}"))?;
+                priv_key
+                    .sign(rsa::Pkcs1v15Sign::new::<sha2::Sha256>(), &payload)
+                    .map_err(|e| format!("RSA signing failed: {e}"))?
+            }
+            SignatureAlgorithm::EcdsaP256 => {
+                let rng = ring::rand::SystemRandom::new();
+                let key_pair = ring::signature::EcdsaKeyPair::from_pkcs8(
+                    &ECDSA_P256_SHA256_ASN1_SIGNING,
+                    private_key_bytes,
+                    &rng,
+                )
+                .map_err(|e| format!("failed to parse ECDSA private key: {e}"))?;
+                let signature = key_pair
+                    .sign(&rng, &payload)
+                    .map_err(|e| format!("ECDSA signing failed: {e}"))?;
+                signature.as_ref().to_vec()
+            }
         };
 
         let now = Utc::now();
@@ -624,34 +645,6 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_hmac_key_too_short() {
-        let verifier = SignatureVerifier::new();
-        let config = HttpSigningConfig {
-            required_headers: vec!["(request-target)".into()],
-            algorithm: SignatureAlgorithm::HmacSha256,
-            expires_in_secs: 60,
-        };
-
-        let headers = HashMap::new();
-        let result = verifier.sign_request(&config, &headers, &[], b"short", "k");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_sign_unsupported_algorithm() {
-        let verifier = SignatureVerifier::new();
-        let config = HttpSigningConfig {
-            required_headers: vec!["(request-target)".into()],
-            algorithm: SignatureAlgorithm::RsaSha256,
-            expires_in_secs: 60,
-        };
-
-        let headers = HashMap::new();
-        let result = verifier.sign_request(&config, &headers, &[], b"key", "k");
-        assert!(result.is_err());
-    }
-
-    #[test]
     fn test_sign_invalid_private_key() {
         let verifier = SignatureVerifier::new();
         let config = HttpSigningConfig {
@@ -662,6 +655,45 @@ mod tests {
 
         let headers = HashMap::new();
         let result = verifier.sign_request(&config, &headers, &[], b"not-a-key", "k");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sign_hmac_short_key_errors() {
+        let verifier = SignatureVerifier::new();
+        let config = HttpSigningConfig {
+            required_headers: vec!["(request-target)".into()],
+            algorithm: SignatureAlgorithm::HmacSha256,
+            expires_in_secs: 60,
+        };
+        let headers = HashMap::new();
+        let result = verifier.sign_request(&config, &headers, &[], b"short", "k");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sign_rsa_invalid_key_errors() {
+        let verifier = SignatureVerifier::new();
+        let config = HttpSigningConfig {
+            required_headers: vec!["(request-target)".into()],
+            algorithm: SignatureAlgorithm::RsaSha256,
+            expires_in_secs: 60,
+        };
+        let headers = HashMap::new();
+        let result = verifier.sign_request(&config, &headers, &[], b"not-a-valid-rsa-key", "k");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_sign_ecdsa_invalid_key_errors() {
+        let verifier = SignatureVerifier::new();
+        let config = HttpSigningConfig {
+            required_headers: vec!["(request-target)".into()],
+            algorithm: SignatureAlgorithm::EcdsaP256,
+            expires_in_secs: 60,
+        };
+        let headers = HashMap::new();
+        let result = verifier.sign_request(&config, &headers, &[], b"not-a-valid-ecdsa-key", "k");
         assert!(result.is_err());
     }
 

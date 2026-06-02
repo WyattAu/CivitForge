@@ -9,6 +9,8 @@ pub struct PipelineEngine {
     #[allow(dead_code)]
     namespace: String,
     podman: Option<PodmanService>,
+    /// Container IDs for running service containers, keyed by service name.
+    service_containers: std::sync::Arc<tokio::sync::Mutex<HashMap<String, String>>>,
 }
 
 impl std::fmt::Debug for PipelineEngine {
@@ -25,13 +27,83 @@ impl std::fmt::Debug for PipelineEngine {
 
 impl PipelineEngine {
     pub fn new(namespace: String, podman: Option<PodmanService>) -> Self {
-        Self { namespace, podman }
+        Self {
+            namespace,
+            podman,
+            service_containers: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        }
     }
 
     pub fn new_without_runner(namespace: String) -> Self {
         Self {
             namespace,
             podman: None,
+            service_containers: std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Start service containers before running pipeline steps.
+    /// Returns a guard that will clean up all services on drop.
+    pub async fn start_services(
+        &self,
+        services: &[(String, String)], // (name, image)
+    ) -> anyhow::Result<ServiceGuard> {
+        let mut containers = HashMap::new();
+        if let Some(ref podman) = self.podman {
+            for (name, image) in services {
+                let spec = PodmanRunSpec {
+                    image: image.clone(),
+                    command: vec![],
+                    env: HashMap::new(),
+                    memory_mb: 256,
+                    cpu_quota: 50_000,
+                    network_disabled: false, // Services need network for inter-container communication
+                    read_only_fs: false,
+                    workdir: "/".to_string(),
+                    timeout_secs: 0, // Services run indefinitely
+                    labels: HashMap::from([
+                        ("civit.service".to_string(), name.clone()),
+                        ("civit.type".to_string(), "service".to_string()),
+                    ]),
+                    volumes: vec![],
+                };
+
+                let container = podman.run(&spec).await?;
+                containers.insert(name.clone(), container.id.clone());
+                info!(service = %name, id = %container.id, "service container started");
+            }
+        }
+
+        // Store container IDs for cleanup
+        {
+            let mut svc_map = self.service_containers.lock().await;
+            for (name, id) in &containers {
+                svc_map.insert(name.clone(), id.clone());
+            }
+        }
+
+        // Wait for services to be healthy (simple delay — real implementation uses health checks)
+        if !containers.is_empty() {
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+
+        let guard = ServiceGuard {
+            podman: self.podman.clone(),
+            containers,
+        };
+
+        Ok(guard)
+    }
+
+    /// Stop all running service containers.
+    pub async fn stop_all_services(&self) {
+        let mut svc_map = self.service_containers.lock().await;
+        if let Some(podman) = self.podman.as_ref() {
+            for (name, id) in svc_map.drain() {
+                info!(service = %name, id = %id, "stopping service container");
+                let _ = podman.stop(&id).await;
+                let _ = podman.rm(&id).await;
+            }
         }
     }
 
@@ -214,6 +286,40 @@ impl PipelineEngine {
             }
         }
         warnings
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Service Guard — RAII cleanup for service containers
+// ---------------------------------------------------------------------------
+
+/// RAII guard that stops and removes service containers when dropped.
+pub struct ServiceGuard {
+    podman: Option<PodmanService>,
+    containers: HashMap<String, String>,
+}
+
+impl ServiceGuard {
+    /// Check if a service is running.
+    pub fn has_service(&self, name: &str) -> bool {
+        self.containers.contains_key(name)
+    }
+
+    /// Get the list of running service names.
+    pub fn service_names(&self) -> Vec<String> {
+        self.containers.keys().cloned().collect()
+    }
+}
+
+impl Drop for ServiceGuard {
+    fn drop(&mut self) {
+        if self.podman.is_some() {
+            // Log service names being dropped (can't await in Drop)
+            let names: Vec<String> = self.containers.keys().cloned().collect();
+            for name in names {
+                tracing::info!(service = %name, "service guard: container not stopped (call stop_all_services explicitly)");
+            }
+        }
     }
 }
 

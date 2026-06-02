@@ -30,16 +30,19 @@ base64 = { workspace = true }
 gix = { workspace = true }
 tempfile = { workspace = true }
 hex = { workspace = true }
-sha2 = { workspace = true }
+sha2 = { workspace = true, features = ["oid"] }
 hmac = { workspace = true }
 sha1 = { workspace = true }
 ring = { workspace = true }
+rsa = { version = "0.9", features = ["pem"] }
+pkcs8 = { version = "0.10", features = ["alloc"] }
 zstd = { workspace = true }
 russh = { workspace = true, optional = true }
 rand = "0.10"
 flate2 = { workspace = true }
 regex = { workspace = true }
 lettre = { workspace = true }
+tar = "0.4"
 civit-shared = { path = "../civit-shared" }
 civit-pipeline = { path = "../civit-pipeline" }
 

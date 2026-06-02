@@ -54,7 +54,7 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 
 ARG APP_UID=65532
 ARG APP_GID=65532
-ARG VERSION=1.0.0-rc.3
+ARG VERSION=1.1.0
 
 # Install runtime tools via wolfi apk
 RUN apk add --no-cache \

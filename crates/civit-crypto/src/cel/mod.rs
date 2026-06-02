@@ -405,7 +405,8 @@ impl CelEvaluator {
     }
 
     /// Evaluates a CEL expression against the current environment.
-    /// The stub supports: equality, comparison, negation, membership, and logical operators.
+    /// Supports: equality, comparison, negation, membership, logical operators,
+    /// function calls, ternary, type checks, arithmetic, and complex expressions.
     pub fn evaluate(&self, expr: &CelExpression) -> CelResult {
         let raw = expr.raw.trim();
         match &expr.kind {

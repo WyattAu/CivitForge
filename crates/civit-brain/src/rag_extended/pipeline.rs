@@ -207,35 +207,51 @@ impl RetrievalResult {
     }
 }
 
-/// Mock retriever for testing and development without a real vector DB.
-#[derive(Debug, Clone)]
-pub struct MockRetriever {
-    chunks: Vec<ContextChunk>,
+/// Trait for retrieval backends. Implement this to swap in vector DB, full-text
+/// search, or any other retrieval strategy.
+pub trait Retriever: Send + Sync {
+    fn retrieve(&self, query: &ParsedQuery, config: &RetrievalConfig) -> RetrievalResult;
+    fn add_chunk(&self, chunk: ContextChunk);
 }
 
-impl MockRetriever {
+/// Keyword-based retriever that scores chunks by word overlap, file path, and
+/// symbol mention.  Suitable for development / single-node deployments without
+/// a dedicated vector database.
+#[derive(Debug)]
+pub struct KeywordRetriever {
+    chunks: std::sync::RwLock<Vec<ContextChunk>>,
+}
+
+impl KeywordRetriever {
     pub fn new() -> Self {
-        Self { chunks: Vec::new() }
+        Self {
+            chunks: std::sync::RwLock::new(Vec::new()),
+        }
     }
 
     pub fn with_chunks(chunks: Vec<ContextChunk>) -> Self {
-        Self { chunks }
+        Self {
+            chunks: std::sync::RwLock::new(chunks),
+        }
     }
+}
 
-    pub fn add_chunk(&mut self, chunk: ContextChunk) {
-        self.chunks.push(chunk);
+impl Default for KeywordRetriever {
+    fn default() -> Self {
+        Self::new()
     }
+}
 
-    /// Simple keyword-based retrieval that simulates semantic search.
-    pub fn retrieve(&self, query: &ParsedQuery, config: &RetrievalConfig) -> RetrievalResult {
+impl Retriever for KeywordRetriever {
+    fn retrieve(&self, query: &ParsedQuery, config: &RetrievalConfig) -> RetrievalResult {
         let start = std::time::Instant::now();
         let query_lower = query.raw.to_lowercase();
+        let chunks = self.chunks.read().expect("retriever lock poisoned");
         let mut scored: Vec<(usize, f32)> = Vec::new();
 
-        for (idx, chunk) in self.chunks.iter().enumerate() {
+        for (idx, chunk) in chunks.iter().enumerate() {
             let mut score = 0.0f32;
             let chunk_lower = chunk.content.to_lowercase();
-            // Keyword overlap scoring
             let query_words: Vec<&str> = query_lower.split_whitespace().collect();
             let chunk_words: std::collections::HashSet<&str> =
                 chunk_lower.split_whitespace().collect();
@@ -246,13 +262,11 @@ impl MockRetriever {
             if !query_words.is_empty() {
                 score += (matches as f32) / (query_words.len() as f32);
             }
-            // File path bonus
             for file in &query.mentioned_files {
                 if chunk.source.file_path.to_lowercase().contains(file) {
                     score += 0.3;
                 }
             }
-            // Symbol bonus
             for symbol in &query.mentioned_symbols {
                 if chunk.source.entity_name.to_lowercase().contains(symbol) {
                     score += 0.4;
@@ -264,51 +278,65 @@ impl MockRetriever {
         }
         scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         let top_k = scored.into_iter().take(config.top_k);
-        let chunks: Vec<ContextChunk> = top_k
+        let result_chunks: Vec<ContextChunk> = top_k
             .map(|(idx, score)| {
-                let mut c = self.chunks[idx].clone();
+                let mut c = chunks[idx].clone();
                 c.relevance = c.relevance.max(score);
                 c
             })
             .collect();
-        let total_candidates = self.chunks.len();
+        let total_candidates = chunks.len();
         let retrieval_latency_ms = start.elapsed().as_millis() as u64;
         RetrievalResult {
-            chunks,
+            chunks: result_chunks,
             query_type: query.query_type.clone(),
             total_candidates,
             retrieval_latency_ms,
         }
     }
-}
 
-impl Default for MockRetriever {
-    fn default() -> Self {
-        Self::new()
+    fn add_chunk(&self, chunk: ContextChunk) {
+        self.chunks
+            .write()
+            .expect("retriever lock poisoned")
+            .push(chunk);
     }
 }
 
+/// Type alias for backward compatibility with existing tests and call sites.
+#[cfg(test)]
+pub type MockRetriever = KeywordRetriever;
+
 /// Orchestrates retrieval, context window management, and history for multi-turn RAG.
-#[derive(Debug)]
 pub struct RagOrchestrator {
     context_config: ContextConfig,
-    retriever: MockRetriever,
+    retriever: Box<dyn Retriever>,
+}
+
+impl std::fmt::Debug for RagOrchestrator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RagOrchestrator")
+            .field("context_config", &self.context_config)
+            .finish()
+    }
 }
 
 impl RagOrchestrator {
+    /// Create a new orchestrator with the default keyword-based retriever.
     pub fn new(context_config: ContextConfig) -> Self {
         Self {
             context_config,
-            retriever: MockRetriever::new(),
+            retriever: Box::new(KeywordRetriever::new()),
         }
     }
 
-    pub fn with_retriever(mut self, retriever: MockRetriever) -> Self {
-        self.retriever = retriever;
+    /// Create an orchestrator with a custom retrieval backend (e.g. vector DB).
+    pub fn with_retriever<R: Retriever + 'static>(mut self, retriever: R) -> Self {
+        self.retriever = Box::new(retriever);
         self
     }
 
-    pub fn add_retrievable_chunk(&mut self, chunk: ContextChunk) {
+    pub fn add_retrievable_chunk(&self, chunk: ContextChunk) {
         self.retriever.add_chunk(chunk);
     }
 
@@ -480,7 +508,7 @@ mod tests {
 
     #[test]
     fn test_mock_retriever_basic() {
-        let mut retriever = MockRetriever::new();
+        let retriever = MockRetriever::new();
         retriever.add_chunk(make_chunk(
             "c1",
             "how does authenticate user verification work function",
@@ -506,7 +534,7 @@ mod tests {
 
     #[test]
     fn test_mock_retriever_respects_top_k() {
-        let mut retriever = MockRetriever::new();
+        let retriever = MockRetriever::new();
         for i in 0..20 {
             retriever.add_chunk(make_chunk(
                 &format!("c{i}"),
@@ -526,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_mock_retriever_respects_min_relevance() {
-        let mut retriever = MockRetriever::new();
+        let retriever = MockRetriever::new();
         retriever.add_chunk(make_chunk(
             "c1",
             "completely unrelated content about gardening",
@@ -544,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_rag_orchestrator_process_query() {
-        let mut orchestrator = RagOrchestrator::new(ContextConfig::default());
+        let orchestrator = RagOrchestrator::new(ContextConfig::default());
         orchestrator.add_retrievable_chunk(make_chunk(
             "c1",
             "fn main() { println!(\"hello\"); }",
@@ -565,7 +593,7 @@ mod tests {
 
     #[test]
     fn test_rag_orchestrator_context_limiting() {
-        let mut orchestrator = RagOrchestrator::new(ContextConfig {
+        let orchestrator = RagOrchestrator::new(ContextConfig {
             max_tokens: 100,
             max_chunks: 2,
             ..Default::default()

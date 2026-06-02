@@ -58,10 +58,12 @@ impl OnDemandFetcher {
     }
 }
 
+#[cfg(test)]
 pub struct MockRemoteProvider {
     blocks: std::collections::HashMap<String, Vec<u8>>,
 }
 
+#[cfg(test)]
 impl MockRemoteProvider {
     pub fn new() -> Self {
         Self {
@@ -74,6 +76,7 @@ impl MockRemoteProvider {
     }
 }
 
+#[cfg(test)]
 impl RemoteBlockProvider for MockRemoteProvider {
     fn fetch_block(&self, request: &BlockFetchRequest) -> Result<BlockFetchResult, String> {
         if let Some(data) = self.blocks.get(&request.block_id) {
@@ -105,6 +108,7 @@ impl RemoteBlockProvider for MockRemoteProvider {
     }
 }
 
+#[cfg(test)]
 impl Default for MockRemoteProvider {
     fn default() -> Self {
         Self::new()

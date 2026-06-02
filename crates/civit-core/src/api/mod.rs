@@ -42,6 +42,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/api/v1/ws", get(ws_handler))
         .route("/api/v1/auth/login", post(auth_routes::login))
         .route("/api/v1/auth/me", get(auth_routes::me))
+        .route("/api/v1/auth/refresh", post(auth_routes::refresh))
         .route(
             "/api/v1/repos",
             get(repos::list_repos).post(repos::create_repo),

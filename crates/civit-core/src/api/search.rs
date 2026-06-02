@@ -144,16 +144,15 @@ pub async fn global_search(
         "SELECT DISTINCT i.file_path, i.language, t.line_number, t.line_content \
          FROM code_search_tokens t \
          INNER JOIN code_search_index i ON i.id = t.index_id \
-         WHERE t.line_content ILIKE $1",
+         WHERE i.search_vector @@ plainto_tsquery($1)",
     );
     let mut count_str = String::from(
         "SELECT COUNT(DISTINCT i.file_path) \
          FROM code_search_tokens t \
          INNER JOIN code_search_index i ON i.id = t.index_id \
-         WHERE t.line_content ILIKE $1",
+         WHERE i.search_vector @@ plainto_tsquery($1)",
     );
 
-    let pattern = format!("%{q}%");
     let mut bind_idx = 2i32;
 
     if let Some(ref lang) = params.language {
@@ -185,8 +184,8 @@ pub async fn global_search(
         idx2 = bind_idx + 1,
     ));
 
-    let mut query = sqlx::query_as::<_, SearchHitRow>(&query_str).bind(&pattern);
-    let mut count_query = sqlx::query_scalar::<_, i64>(&count_str).bind(&pattern);
+    let mut query = sqlx::query_as::<_, SearchHitRow>(&query_str).bind(&q);
+    let mut count_query = sqlx::query_scalar::<_, i64>(&count_str).bind(&q);
 
     if let Some(ref lang) = params.language {
         if !lang.is_empty() {
@@ -280,16 +279,15 @@ pub async fn repo_search(
         "SELECT DISTINCT i.file_path, i.language, t.line_number, t.line_content \
          FROM code_search_tokens t \
          INNER JOIN code_search_index i ON i.id = t.index_id \
-         WHERE i.repo_id = $1 AND t.line_content ILIKE $2",
+         WHERE i.repo_id = $1 AND i.search_vector @@ plainto_tsquery($2)",
     );
     let mut count_str = String::from(
         "SELECT COUNT(DISTINCT i.file_path) \
          FROM code_search_tokens t \
          INNER JOIN code_search_index i ON i.id = t.index_id \
-         WHERE i.repo_id = $1 AND t.line_content ILIKE $2",
+         WHERE i.repo_id = $1 AND i.search_vector @@ plainto_tsquery($2)",
     );
 
-    let pattern = format!("%{q}%");
     let mut bind_idx = 3i32;
 
     if let Some(ref lang) = params.language {
@@ -318,10 +316,10 @@ pub async fn repo_search(
 
     let mut query = sqlx::query_as::<_, SearchHitRow>(&query_str)
         .bind(repo_id)
-        .bind(&pattern);
+        .bind(&q);
     let mut count_query = sqlx::query_scalar::<_, i64>(&count_str)
         .bind(repo_id)
-        .bind(&pattern);
+        .bind(&q);
 
     if let Some(ref lang) = params.language {
         if !lang.is_empty() {

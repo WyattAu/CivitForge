@@ -414,23 +414,48 @@ async fn get_repo_id(
     Ok(row.map(|r| r.0))
 }
 
-/// Read pipeline YAML from repository working copy.
+/// Read pipeline YAML from the repository at the specified git ref.
+/// Tries `git archive` first (ref-aware), falls back to filesystem read.
 async fn read_pipeline_yaml(
     state: &AppState,
     _repo_id: &Uuid,
     owner: &str,
     repo_name: &str,
-    _ref_name: &str,
+    ref_name: &str,
     yaml_path: &str,
 ) -> std::result::Result<Option<String>, CoreError> {
-    // For now, read from filesystem. In production, this would use the VFS
-    // or git archive to extract the file at a specific ref.
     let base = &state.config.storage_path;
     let repo_path = std::path::Path::new(base)
         .join(owner)
         .join(format!("{repo_name}.git"));
-    let file_path = repo_path.join(yaml_path);
 
+    // Try git archive (ref-aware extraction)
+    let output = tokio::process::Command::new("git")
+        .arg("archive")
+        .arg("--format=tar")
+        .arg(ref_name)
+        .arg(yaml_path)
+        .current_dir(&repo_path)
+        .output()
+        .await;
+
+    if let Ok(out) = output {
+        if out.status.success() && !out.stdout.is_empty() {
+            // Extract single file from tar archive
+            let cursor = std::io::Cursor::new(&out.stdout);
+            if let Ok(mut archive) = tar::Archive::new(cursor).entries() {
+                while let Some(Ok(mut entry)) = archive.next() {
+                    let mut content = String::new();
+                    if std::io::Read::read_to_string(&mut entry, &mut content).is_ok() {
+                        return Ok(Some(content));
+                    }
+                }
+            }
+        }
+    }
+
+    // Fallback: read from filesystem (working tree or bare repo)
+    let file_path = repo_path.join(yaml_path);
     if file_path.exists() {
         tokio::fs::read_to_string(&file_path)
             .await

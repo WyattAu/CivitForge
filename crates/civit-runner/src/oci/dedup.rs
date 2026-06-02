@@ -93,17 +93,16 @@ impl LayerDedupManager {
         if self.layer_exists(digest) {
             return false; // Already stored, no-op
         }
-        self.chunk_store.put(data);
+        // Store data keyed by the layer digest so get_layer() can retrieve it.
+        self.chunk_store.put_direct(digest, data);
         true
     }
 
-    /// Retrieve a layer blob.
+    /// Retrieve a layer blob by its digest.
     pub fn get_layer(&self, digest: &str) -> Option<Vec<u8>> {
         if !self.layer_exists(digest) {
             return None;
         }
-        // In a real implementation, we would look up the chunk ID from the digest
-        // For now, return None since we don't have a direct digest-to-chunk mapping
         self.chunk_store.get(digest)
     }
 

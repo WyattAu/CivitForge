@@ -38,7 +38,7 @@ RUN cargo build --release --locked \
 # ---------------------------------------------------------------------------
 FROM cgr.dev/chainguard/wolfi-base:latest
 
-ARG VERSION=1.0.0-rc.3
+ARG VERSION=1.1.0
 
 # Runtime dependencies
 RUN apk add --no-cache ca-certificates git su-exec wget

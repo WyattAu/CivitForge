@@ -42,20 +42,24 @@ pub struct ReviewContext {
     pub max_findings: u32,
 }
 
+#[cfg(test)]
 pub struct StubReviewAgent;
 
+#[cfg(test)]
 impl StubReviewAgent {
     pub fn new() -> Self {
         Self
     }
 }
 
+#[cfg(test)]
 impl Default for StubReviewAgent {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(test)]
 impl ReviewAgent for StubReviewAgent {
     fn review(&self, diff: &str, context: &ReviewContext) -> Result<PullRequestReview, String> {
         let line_count = diff.lines().count();

@@ -23,6 +23,97 @@ use civit_shared::id::{RepoId, UserId};
 use civit_shared::permissions::{Action, PermissionCheck, PipelineVariableResponse, Resource};
 use civit_shared::user::UserRole;
 
+use ring::aead::{AES_256_GCM, LessSafeKey, Nonce, UnboundKey};
+use ring::rand::SecureRandom;
+
+// ---------------------------------------------------------------------------
+// AES-256-GCM encryption for pipeline variables
+// ---------------------------------------------------------------------------
+
+/// Derive the AES-256-GCM encryption key.
+/// Reads `CIVIT_ENCRYPTION_KEY` env var (64-char hex = 32 bytes).
+/// Falls back to a deterministic key for backward compatibility with existing plaintext data.
+/// Production deployments **MUST** set `CIVIT_ENCRYPTION_KEY` — a warning is logged at init.
+pub fn get_encryption_key() -> Vec<u8> {
+    // Try environment variable first
+    if let Ok(key_hex) = std::env::var("CIVIT_ENCRYPTION_KEY") {
+        if key_hex.len() == 64 {
+            // 32 bytes = 256 bits, hex-encoded
+            if let Ok(key_bytes) = hex_decode(&key_hex) {
+                return key_bytes;
+            }
+        }
+    }
+
+    // Fallback: deterministic key — only for development / migration.
+    tracing::warn!(
+        "CIVIT_ENCRYPTION_KEY not set — using built-in fallback key. \
+         Production deployments MUST set a 64-char hex key in CIVIT_ENCRYPTION_KEY."
+    );
+    b"civitforge-pipeline-variable-encryption-key-01!".to_vec()
+}
+
+fn hex_decode(hex: &str) -> Result<Vec<u8>, &'static str> {
+    if hex.len() % 2 != 0 {
+        return Err("hex string must have even length");
+    }
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| "invalid hex"))
+        .collect()
+}
+
+/// Encrypt plaintext using AES-256-GCM. Returns (ciphertext_with_tag, nonce).
+/// The nonce is 12 bytes, prepended to the ciphertext.
+fn encrypt_value(plaintext: &str) -> Result<(Vec<u8>, Vec<u8>), CoreError> {
+    let key_bytes = get_encryption_key();
+    let key = UnboundKey::new(&AES_256_GCM, &key_bytes)
+        .map_err(|_| CoreError::Internal("failed to create AES key".into()))?;
+    let less_safe_key = LessSafeKey::new(key);
+
+    // Generate random nonce
+    let rng = ring::rand::SystemRandom::new();
+    let mut nonce_bytes = [0u8; 12];
+    rng.fill(&mut nonce_bytes)
+        .map_err(|_| CoreError::Internal("nonce generation failed".into()))?;
+    let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+
+    // Encrypt in-place: prefix with 128 bytes for tag
+    let plaintext_bytes = plaintext.as_bytes();
+    let mut ciphertext = vec![0u8; plaintext_bytes.len() + 16]; // 16 byte tag
+    ciphertext[..plaintext_bytes.len()].copy_from_slice(plaintext_bytes);
+
+    less_safe_key
+        .seal_in_place_append_tag(nonce, ring::aead::Aad::empty(), &mut ciphertext)
+        .map_err(|_| CoreError::Internal("AES-256-GCM encryption failed".into()))?;
+
+    Ok((ciphertext, nonce_bytes.to_vec()))
+}
+
+/// Decrypt AES-256-GCM ciphertext. Expects nonce as separate parameter.
+pub(crate) fn decrypt_value(ciphertext: &[u8], nonce: &[u8]) -> Result<String, CoreError> {
+    // If nonce is all zeros, this is legacy plaintext data
+    if nonce.iter().all(|&b| b == 0) {
+        return Ok(String::from_utf8_lossy(ciphertext).into_owned());
+    }
+
+    let key_bytes = get_encryption_key();
+    let key = UnboundKey::new(&AES_256_GCM, &key_bytes)
+        .map_err(|_| CoreError::Internal("failed to create AES key".into()))?;
+    let less_safe_key = LessSafeKey::new(key);
+
+    let nonce = Nonce::try_assume_unique_for_key(nonce)
+        .map_err(|_| CoreError::Internal("invalid nonce length".into()))?;
+
+    let mut data = ciphertext.to_vec();
+    let plaintext = less_safe_key
+        .open_in_place(nonce, ring::aead::Aad::empty(), &mut data)
+        .map_err(|_| CoreError::Internal("AES-256-GCM decryption failed (wrong key?)".into()))?;
+
+    String::from_utf8(plaintext.to_vec())
+        .map_err(|_| CoreError::Internal("decrypted value is not valid UTF-8".into()))
+}
+
 // ---------------------------------------------------------------------------
 // Database models for permission tables
 // ---------------------------------------------------------------------------
@@ -587,11 +678,8 @@ impl PermissionEngine {
             ));
         }
 
-        // TODO: Phase 8.5 — upgrade to AES-256-GCM with per-repo key.
-        // Store as plaintext for now; encryption will be added when we have
-        // the key management infrastructure.
-        let value_bytes = value.as_bytes().to_vec();
-        let nonce = vec![0u8; 12]; // placeholder nonce
+        // AES-256-GCM encrypt the variable value
+        let (value_enc, nonce) = encrypt_value(value)?;
 
         let id = sqlx::query_scalar::<_, Option<i64>>(
             "INSERT INTO pipeline_variables (repo_id, name, value_enc, nonce, masked)
@@ -602,7 +690,7 @@ impl PermissionEngine {
         )
         .bind(repo_id)
         .bind(name)
-        .bind(&value_bytes)
+        .bind(&value_enc)
         .bind(&nonce)
         .bind(masked)
         .fetch_one(pool)

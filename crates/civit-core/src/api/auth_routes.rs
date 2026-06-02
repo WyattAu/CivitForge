@@ -6,7 +6,7 @@ use crate::api::users::UserResponse;
 use crate::error::CoreError;
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
 };
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,11 @@ pub struct LoginRequest {
 pub struct LoginResponse {
     pub token: String,
     pub user: UserResponse,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RefreshResponse {
+    pub token: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,12 +84,74 @@ pub async fn me(auth: AuthUser) -> impl IntoResponse {
     (StatusCode::OK, Json(MeResponse::from(auth))).into_response()
 }
 
-pub async fn refresh() -> impl IntoResponse {
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(CoreError::Internal("refresh not implemented".into()).error_response()),
-    )
-        .into_response()
+pub async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
+    let auth_header = match headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| crate::auth::jwt::JwtService::extract_bearer(v))
+    {
+        Some(h) => h.to_string(),
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Forbidden("missing authorization header".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let claims = match state.jwt_service.validate_token(&auth_header) {
+        Ok(c) => c,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Forbidden("invalid or expired token".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user_id = match uuid::Uuid::parse_str(&claims.sub) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(
+                    CoreError::Forbidden("invalid user id in token claims".into()).error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let user = match state.db.get_user_by_id(user_id).await {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("user not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let token = match state.jwt_service.generate_token(
+        &user.id.to_string(),
+        &user.username,
+        &user.role,
+        None,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    (StatusCode::OK, Json(RefreshResponse { token })).into_response()
 }
 
 #[cfg(test)]

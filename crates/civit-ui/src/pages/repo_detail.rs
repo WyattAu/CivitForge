@@ -47,7 +47,7 @@ pub fn RepoDetailPage() -> impl IntoView {
                         <Badge color=BadgeColor::Success text="public".to_string() />
                     </h1>
                     <p class="mt-2 text-gray-600 dark:text-gray-400">
-                        "A placeholder repository description."
+                        {move || format!("{} / {}", owner(), name())}
                     </p>
                 </div>
                 <div class="flex gap-2">

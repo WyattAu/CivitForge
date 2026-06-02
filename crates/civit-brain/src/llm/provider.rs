@@ -38,20 +38,24 @@ pub trait LlmProvider: Send + Sync {
     fn supported_models(&self) -> Vec<ModelConfig>;
 }
 
+#[cfg(test)]
 pub struct StubLlmProvider;
 
+#[cfg(test)]
 impl StubLlmProvider {
     pub fn new() -> Self {
         Self
     }
 }
 
+#[cfg(test)]
 impl Default for StubLlmProvider {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(test)]
 impl LlmProvider for StubLlmProvider {
     fn infer(
         &self,

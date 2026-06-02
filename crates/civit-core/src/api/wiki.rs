@@ -145,6 +145,239 @@ fn internal_err(msg: &str) -> axum::response::Response {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: generate unified diff between two text contents
+// ---------------------------------------------------------------------------
+
+/// Generate a unified diff between old and new content.
+/// Uses a simple line-based diff algorithm (longest common subsequence of lines).
+fn unified_diff(old: &str, new: &str) -> String {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+
+    let hunks = compute_line_diff(&old_lines, &new_lines);
+
+    let mut output = String::new();
+    for hunk in &hunks {
+        output.push_str(&hunk.to_string());
+    }
+
+    if output.is_empty() {
+        output.push_str("--- No differences ---\n");
+    }
+
+    output
+}
+
+/// A single line in a diff hunk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum DiffLine<'a> {
+    Context(&'a str),
+    Added(&'a str),
+    Removed(&'a str),
+}
+
+/// A contiguous block of changes.
+#[derive(Debug)]
+struct DiffHunk<'a> {
+    old_start: usize,
+    old_count: usize,
+    new_start: usize,
+    new_count: usize,
+    lines: Vec<DiffLine<'a>>,
+}
+
+impl<'a> std::fmt::Display for DiffHunk<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(
+            f,
+            "@@ -{},{} +{},{} @@",
+            self.old_start + 1,
+            self.old_count,
+            self.new_start + 1,
+            self.new_count
+        )?;
+        for line in &self.lines {
+            match line {
+                DiffLine::Context(s) => writeln!(f, " {s}")?,
+                DiffLine::Added(s) => writeln!(f, "+{s}")?,
+                DiffLine::Removed(s) => writeln!(f, "-{s}")?,
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Simple LCS-based line diff. Groups changes into hunks with up to 3 lines
+/// of context between changes.
+fn compute_line_diff<'a>(old: &[&'a str], new: &[&'a str]) -> Vec<DiffHunk<'a>> {
+    if old.is_empty() && new.is_empty() {
+        return vec![];
+    }
+
+    // Build edit script via LCS
+    let lcs = lcs_lines(old, new);
+    let mut hunks: Vec<DiffHunk<'a>> = Vec::new();
+    let mut current_hunk: Option<DiffHunk<'a>> = None;
+
+    let mut oi = 0usize;
+    let mut ni = 0usize;
+    let mut li = 0usize; // index into LCS
+
+    while oi < old.len() || ni < new.len() {
+        let old_done = oi >= old.len();
+        let new_done = ni >= new.len();
+        let lcs_done = li >= lcs.len();
+
+        if !old_done && !new_done && !lcs_done && old[oi] == lcs[li] && new[ni] == lcs[li] {
+            // Common line
+            let line = DiffLine::Context(old[oi]);
+            if let Some(ref mut h) = current_hunk {
+                h.lines.push(line);
+                h.old_count += 1;
+                h.new_count += 1;
+            }
+            oi += 1;
+            ni += 1;
+            li += 1;
+        } else {
+            // Divergence
+            let removed_start = oi;
+            let added_start = ni;
+
+            // Count removed lines (in old but not in LCS going forward)
+            while oi < old.len() && (li >= lcs.len() || old[oi] != lcs[li]) {
+                oi += 1;
+            }
+
+            // Count added lines (in new but not in LCS going forward)
+            while ni < new.len() && (li >= lcs.len() || new[ni] != lcs[li]) {
+                ni += 1;
+            }
+
+            // Advance LCS pointer past consumed common lines
+            if li < lcs.len() {
+                li += 1;
+            }
+
+            // Create or extend hunk
+            if current_hunk.is_none() {
+                current_hunk = Some(DiffHunk {
+                    old_start: removed_start.saturating_sub(3).min(removed_start),
+                    old_count: 0,
+                    new_start: added_start.saturating_sub(3).min(added_start),
+                    new_count: 0,
+                    lines: Vec::new(),
+                });
+            }
+
+            if let Some(ref mut h) = current_hunk {
+                for line in &old[removed_start..oi] {
+                    h.lines.push(DiffLine::Removed(line));
+                    h.old_count += 1;
+                }
+                for line in &new[added_start..ni] {
+                    h.lines.push(DiffLine::Added(line));
+                    h.new_count += 1;
+                }
+            }
+        }
+    }
+
+    if let Some(h) = current_hunk {
+        hunks.push(h);
+    }
+
+    hunks
+}
+
+/// Compute the Longest Common Subsequence of two slices of string references.
+fn lcs_lines<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
+    let m = a.len();
+    let n = b.len();
+
+    // For very large files, cap to avoid O(m*n) memory blowup
+    if m > 5000 || n > 5000 {
+        // Fall back to simple matching for large files
+        let mut result = Vec::new();
+        let mut bi = 0usize;
+        for line in a {
+            if bi < n && b[bi] == *line {
+                result.push(*line);
+                bi += 1;
+            }
+        }
+        return result;
+    }
+
+    // Standard DP LCS
+    let mut dp = vec![vec![0usize; n + 1]; m + 1];
+
+    for i in 1..=m {
+        for j in 1..=n {
+            if a[i - 1] == b[j - 1] {
+                dp[i][j] = dp[i - 1][j - 1] + 1;
+            } else {
+                dp[i][j] = dp[i - 1][j].max(dp[i][j - 1]);
+            }
+        }
+    }
+
+    // Backtrack to find the actual LCS
+    let mut result = Vec::new();
+    let (mut i, mut j) = (m, n);
+    while i > 0 && j > 0 {
+        if a[i - 1] == b[j - 1] {
+            result.push(a[i - 1]);
+            i -= 1;
+            j -= 1;
+        } else if dp[i - 1][j] > dp[i][j - 1] {
+            i -= 1;
+        } else {
+            j -= 1;
+        }
+    }
+    result.reverse();
+    result
+}
+
+/// Apply diff hunks to reconstruct content at revision sha2 from sha1.
+#[allow(dead_code)]
+fn apply_diff_hunks(old: &str, hunks: &[DiffHunk]) -> String {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let mut new_lines = Vec::new();
+    let mut old_idx = 0;
+
+    for hunk in hunks {
+        // Copy context lines before changes
+        while old_idx < hunk.old_start && old_idx < old_lines.len() {
+            new_lines.push(old_lines[old_idx].to_string());
+            old_idx += 1;
+        }
+
+        for line in &hunk.lines {
+            match line {
+                DiffLine::Context(s) => new_lines.push((*s).to_string()),
+                DiffLine::Removed(_) => {
+                    old_idx += 1;
+                }
+                DiffLine::Added(s) => new_lines.push((*s).to_string()),
+            }
+        }
+
+        // Advance old_idx past the consumed lines
+        old_idx = hunk.old_start + hunk.old_count;
+    }
+
+    // Copy remaining lines
+    while old_idx < old_lines.len() {
+        new_lines.push(old_lines[old_idx].to_string());
+        old_idx += 1;
+    }
+
+    new_lines.join("\n")
+}
+
+// ---------------------------------------------------------------------------
 // Helper: generate pseudo SHA (since no git backend for v1.0)
 // ---------------------------------------------------------------------------
 
@@ -323,11 +556,12 @@ pub async fn update_wiki_page(
     };
 
     let _ = sqlx::query(
-        "INSERT INTO wiki_revisions (page_id, commit_sha, author_id, edit_message, created_at) VALUES ($1, $2, 'system', $3, NOW())",
+        "INSERT INTO wiki_revisions (page_id, commit_sha, author_id, edit_message, content_snapshot, created_at) VALUES ($1, $2, 'system', $3, $4, NOW())",
     )
     .bind(existing.id)
     .bind(&sha)
     .bind(edit_msg)
+    .bind(content) // snapshot of content AFTER this edit
     .execute(pool)
     .await;
 
@@ -469,44 +703,54 @@ pub async fn wiki_page_diff(
         }
     };
 
-    let rev1 = match sqlx::query_scalar::<_, String>(
-        "SELECT commit_sha FROM wiki_revisions WHERE page_id = $1 AND commit_sha = $2",
+    let rev1_content: String = match sqlx::query_scalar::<_, Option<String>>(
+        "SELECT content_snapshot FROM wiki_revisions WHERE page_id = $1 AND commit_sha = $2",
     )
     .bind(page_id)
     .bind(&sha1)
     .fetch_optional(pool)
     .await
     {
-        Ok(Some(_)) => true,
+        Ok(Some(Some(c))) => c,
+        Ok(Some(None)) => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                "revision sha1 has no content snapshot",
+            );
+        }
         Ok(None) => {
             return err_response(StatusCode::NOT_FOUND, "revision sha1 not found");
         }
         Err(e) => return internal_err(&e.to_string()),
     };
 
-    let _ = rev1;
-
-    let rev2 = match sqlx::query_scalar::<_, String>(
-        "SELECT commit_sha FROM wiki_revisions WHERE page_id = $1 AND commit_sha = $2",
+    let rev2_content: String = match sqlx::query_scalar::<_, Option<String>>(
+        "SELECT content_snapshot FROM wiki_revisions WHERE page_id = $1 AND commit_sha = $2",
     )
     .bind(page_id)
     .bind(&sha2)
     .fetch_optional(pool)
     .await
     {
-        Ok(Some(_)) => true,
+        Ok(Some(Some(c))) => c,
+        Ok(Some(None)) => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                "revision sha2 has no content snapshot",
+            );
+        }
         Ok(None) => {
             return err_response(StatusCode::NOT_FOUND, "revision sha2 not found");
         }
         Err(e) => return internal_err(&e.to_string()),
     };
 
-    let _ = rev2;
+    let diff = unified_diff(&rev1_content, &rev2_content);
 
     let diff_response = DiffResponse {
         sha1: sha1.clone(),
         sha2: sha2.clone(),
-        diff: format!("diff between {sha1} and {sha2} (git-backed diff deferred to v2)"),
+        diff,
     };
 
     (StatusCode::OK, Json(diff_response)).into_response()
@@ -573,13 +817,11 @@ pub async fn search_wiki_pages(
         _ => return err_response(StatusCode::BAD_REQUEST, "query param 'q' is required"),
     };
 
-    let pattern = format!("%{query}%");
-
     match sqlx::query_as::<_, WikiPageSummary>(
-        "SELECT slug, title, updated_at FROM wiki_pages WHERE repo_id = $1 AND (title ILIKE $2 OR slug ILIKE $2 OR content ILIKE $2) ORDER BY updated_at DESC",
+        "SELECT slug, title, updated_at FROM wiki_pages WHERE repo_id = $1 AND search_vector @@ plainto_tsquery($2) ORDER BY ts_rank(search_vector, plainto_tsquery($2)) DESC",
     )
     .bind(repo_id)
-    .bind(&pattern)
+    .bind(query)
     .fetch_all(pool)
     .await
     {
@@ -753,5 +995,104 @@ mod tests {
     fn test_search_query_pattern() {
         let pattern = format!("%{query}%", query = "install");
         assert_eq!(pattern, "%install%");
+    }
+
+    #[test]
+    fn test_unified_diff_no_changes() {
+        let diff = unified_diff("line1\nline2\nline3", "line1\nline2\nline3");
+        assert!(diff.contains("No differences"));
+    }
+
+    #[test]
+    fn test_unified_diff_added_lines() {
+        let old = "line1\nline3";
+        let new = "line1\nline2\nline3";
+        let diff = unified_diff(old, new);
+        assert!(diff.contains("+line2"));
+        assert!(diff.contains("@@"));
+    }
+
+    #[test]
+    fn test_unified_diff_removed_lines() {
+        let old = "line1\nline2\nline3";
+        let new = "line1\nline3";
+        let diff = unified_diff(old, new);
+        assert!(diff.contains("-line2"));
+    }
+
+    #[test]
+    fn test_unified_diff_replaced_lines() {
+        let old = "line1\nold\nline3";
+        let new = "line1\nnew\nline3";
+        let diff = unified_diff(old, new);
+        assert!(diff.contains("-old"));
+        assert!(diff.contains("+new"));
+    }
+
+    #[test]
+    fn test_unified_diff_empty_old() {
+        let diff = unified_diff("", "hello\nworld");
+        assert!(diff.contains("+hello"));
+        assert!(diff.contains("+world"));
+    }
+
+    #[test]
+    fn test_unified_diff_empty_new() {
+        let diff = unified_diff("hello\nworld", "");
+        assert!(diff.contains("-hello"));
+        assert!(diff.contains("-world"));
+    }
+
+    #[test]
+    fn test_unified_diff_both_empty() {
+        let diff = unified_diff("", "");
+        assert!(diff.contains("No differences"));
+    }
+
+    #[test]
+    fn test_lcs_basic() {
+        let a: Vec<&str> = vec!["a", "b", "c", "d"];
+        let b: Vec<&str> = vec!["a", "c", "d", "e"];
+        let lcs = lcs_lines(&a, &b);
+        assert_eq!(lcs, vec!["a", "c", "d"]);
+    }
+
+    #[test]
+    fn test_lcs_empty() {
+        let a: Vec<&str> = vec![];
+        let b: Vec<&str> = vec!["x", "y"];
+        let lcs = lcs_lines(&a, &b);
+        assert!(lcs.is_empty());
+    }
+
+    #[test]
+    fn test_lcs_identical() {
+        let a: Vec<&str> = vec!["a", "b", "c"];
+        let b: Vec<&str> = vec!["a", "b", "c"];
+        let lcs = lcs_lines(&a, &b);
+        assert_eq!(lcs, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_lcs_large_fallback() {
+        let a: Vec<&str> = (0..6000).map(|_| "line").collect();
+        let b: Vec<&str> = (0..6000).map(|_| "line").collect();
+        let lcs = lcs_lines(&a, &b);
+        assert!(!lcs.is_empty());
+    }
+
+    #[test]
+    fn test_diff_hunk_format() {
+        let hunk = DiffHunk {
+            old_start: 0,
+            old_count: 1,
+            new_start: 0,
+            new_count: 1,
+            lines: vec![DiffLine::Removed("old"), DiffLine::Added("new")],
+        };
+        let s = format!("{hunk}");
+        assert!(s.starts_with("@@"));
+        assert!(s.contains("-old"));
+        assert!(s.contains("+new"));
     }
 }

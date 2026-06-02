@@ -69,6 +69,28 @@ impl ChunkStore {
         id
     }
 
+    /// Store data keyed by a caller-specified id (for layer dedup where the
+    /// layer digest is the canonical key).
+    pub fn put_direct(&self, id: &str, data: &[u8]) {
+        if let Some(mut entry) = self.chunks.get_mut(id) {
+            *entry.value_mut() = data.to_vec();
+            self.references
+                .entry(id.to_string())
+                .and_modify(|r| *r += 1)
+                .or_insert(1);
+            self.dedup_savings
+                .fetch_add(data.len() as u64, Ordering::Relaxed);
+        } else {
+            self.chunks.insert(id.to_string(), data.to_vec());
+            self.references
+                .entry(id.to_string())
+                .and_modify(|r| *r += 1)
+                .or_insert(1);
+            self.total_bytes
+                .fetch_add(data.len() as u64, Ordering::Relaxed);
+        }
+    }
+
     pub fn get(&self, id: &str) -> Option<Vec<u8>> {
         self.chunks.get(id).map(|v| v.value().clone())
     }

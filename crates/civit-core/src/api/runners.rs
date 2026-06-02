@@ -658,21 +658,25 @@ pub async fn resolve_secrets(
             .ok()
             .flatten();
 
-    // Fetch secrets (plaintext for now — AES-256-GCM deferred)
+    // Fetch and decrypt secrets (AES-256-GCM)
     let mut secrets = serde_json::Map::new();
     for name in &secret_names {
-        let row: Option<(Vec<u8>,)> = sqlx::query_as(
-            "SELECT value_enc FROM pipeline_variables WHERE repo_id = $1 AND name = $2",
+        let row: Option<(Vec<u8>, Vec<u8>)> = sqlx::query_as(
+            "SELECT value_enc, nonce FROM pipeline_variables WHERE repo_id = $1 AND name = $2",
         )
         .bind(repo_id)
         .bind(name)
         .fetch_optional(pool)
         .await
         .unwrap_or(None);
-        if let Some((bytes,)) = row {
-            // TODO: AES-256-GCM decryption with nonce column
-            if let Ok(plaintext) = String::from_utf8(bytes) {
-                secrets.insert(name.clone(), serde_json::Value::String(plaintext));
+        if let Some((ciphertext, nonce)) = row {
+            match crate::auth::permission_engine::decrypt_value(&ciphertext, &nonce) {
+                Ok(plaintext) => {
+                    secrets.insert(name.clone(), serde_json::Value::String(plaintext));
+                }
+                Err(e) => {
+                    tracing::warn!(secret = %name, error = %e, "failed to decrypt secret");
+                }
             }
         }
     }
@@ -741,15 +745,15 @@ async fn find_available_job(
         None => return Ok(None),
     };
 
-    // Get run info
-    let run: Option<(String, String, String)> = sqlx::query_as(
-        "SELECT pr.ref_name, pr.commit_sha, r.name FROM pipeline_runs pr JOIN repositories r ON r.id = pr.repo_id WHERE pr.id = $1",
+    // Get run info including repo owner
+    let run: Option<(String, String, String, String)> = sqlx::query_as(
+        "SELECT pr.ref_name, pr.commit_sha, r.name, u.username FROM pipeline_runs pr JOIN repositories r ON r.id = pr.repo_id JOIN users u ON u.id = r.owner_id WHERE pr.id = $1",
     )
     .bind(run_id)
     .fetch_optional(pool)
     .await?;
 
-    let (ref_name, commit_sha, repo_name) = match run {
+    let (ref_name, commit_sha, repo_name, repo_owner) = match run {
         Some(r) => r,
         None => return Ok(None),
     };
@@ -767,7 +771,7 @@ async fn find_available_job(
         run_id: run_id.to_string(),
         name: job_name,
         steps: steps.into_iter().map(|s| s.into()).collect(),
-        repo_url: format!("/{}/{}.git", "todo", repo_name), // TODO: resolve owner
+        repo_url: format!("/{repo_owner}/{repo_name}.git"),
         commit_sha,
         ref_name,
         env: serde_json::json!({}),

@@ -11,6 +11,42 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [1.1.0] - 2026-06-02
+
+### Added
+- **Token refresh endpoint** (`POST /api/v1/auth/refresh`) — validates existing JWT, looks up user, issues new token
+- **RSA-SHA256 and ECDSA-P256 signing** in federation HTTP signatures — all 4 algorithms now fully supported (Ed25519, HMAC-SHA256, RSA-SHA256, ECDSA-P256)
+- **Retriever trait** for RAG pipeline — `RagOrchestrator` accepts `Box<dyn Retriever>` for swappable backends
+- **KeywordRetriever** — production-ready keyword-based retrieval with thread-safe `RwLock` internals
+- **Real unified diff** for wiki via LCS algorithm — `unified_diff()`, `DiffHunk`, `DiffLine`, `lcs_lines()`, `apply_diff_hunks()`
+- **Wiki content snapshot** — stores page content in `wiki_revisions.content_snapshot` (migration 019/020)
+- **AES-256-GCM encryption** for pipeline variables using `ring::aead` (`encrypt_value`, `decrypt_value`, `get_encryption_key`)
+- **Checkout/cache/artifact action handlers** in CI executor — `action_checkout`, `action_cache`, `action_artifact`
+- **Service container lifecycle** — `start_services()`, `stop_all_services()`, `ServiceGuard` RAII struct
+- **Real CEL expression evaluator** — `civit-pipeline::expr` supports `==`, `!=`, `contains`, `startsWith`, `endsWith`, `matches`, `&&`, `||`, `!`, `${{ var }}` expansion (20+ unit tests)
+- **PostgreSQL full-text search** — `tsvector`/`tsquery` columns, GIN indexes, auto-update triggers on `code_search_index` and `wiki_pages` (migration 021/022)
+- **Git archive-based pipeline YAML reading** — tries `git archive --format=tar <ref> <path>` first, falls back to filesystem
+
+### Changed
+- **Runner owner lookup** — fixed hardcoded "todo" owner, now joins `users` table for real username
+- **Code search** — ILIKE replaced with `plainto_tsquery` for ranked full-text results
+- **Wiki search** — ILIKE replaced with `search_vector @@ plainto_tsquery` with `ts_rank` ordering
+
+### Fixed
+- **Podman log errors** — both HTTP and CLI log paths now return proper `Err` instead of fake "log line N" text
+- **OCI dedup `get_layer()`** — was broken due to digest/chunk mismatch; added `ChunkStore::put_direct()` for correct storage by layer digest
+- **Test stubs gated** behind `#[cfg(test)]` — `StubLlmProvider`, `StubReviewAgent`, `StubVulnScanner`, `MockRemoteProvider` no longer exported in production
+- **Stale "stub" doc comment** on CEL evaluator updated to reflect actual 9-expression-kind implementation
+- **Encryption key warning** — `tracing::warn!` logged when `CIVIT_ENCRYPTION_KEY` env var not set
+
+### Dependencies
+- Added `rsa 0.9` (RSA PKCS1v15 signing) to `civit-core`
+- Added `pkcs8 0.10` (PKCS#8 DER key parsing) to `civit-core`
+- Added `tar 0.4` (tar archive extraction) to `civit-core`
+- Added `sha2` `oid` feature (OID support for pkcs8 ecosystem)
+
+---
+
 ## [1.0.0-rc.3] - 2026-06-02
 
 ### Added
