@@ -1,8 +1,8 @@
 # CivitForge Version Tracker
 
-Phase: 16 (Release)
-Version: 0.9.0-alpha
-Status: In Progress
+Phase: 16 (Release) — COMPLETE
+Version: 1.0.0-rc.3
+Status: RC3 Released
 Last Updated: 2026-06-02
 Tests: 2,611 passing
 Clippy: 0 warnings
@@ -10,7 +10,7 @@ Clippy: 0 warnings
 ## Artifact Summary
 - Rust source files: 264
 - Rust lines of code: ~95,000
-- Cargo workspace crates: 7 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-shared, civit-ui)
+- Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
 - Unit tests passing: 2,611
 - Unit tests ignored: 0
 - Clippy warnings: 0
@@ -19,6 +19,7 @@ Clippy: 0 warnings
 - CI/CD: Green (all checks passing, --locked enforced)
 - Pre-commit hooks: fmt + clippy -D warnings + test --locked
 - API endpoints: ~60 routes
+- Migrations: 9 (001-018, odd-numbered)
 
 ## Completed Phases
 - [x] Phase -1: Context Discovery
@@ -53,4 +54,8 @@ Clippy: 0 warnings
 - [x] Phase 23: Code Search (3 endpoints, SQL-based full-text search, repo/global search, language filter)
 - [x] Phase 24: Leptos Web UI (SSR scaffold, 11 UI components, 10 pages, API client, auth state, routing)
 - [x] Phase 25: Integration + Polish (all API endpoints documented, clippy clean, 2,611+ tests passing)
-- [ ] Phase 26: Release (CHANGELOG, version bump, RC tag, smoke test, v1.0.0 tag)
+- [x] Phase 26: Release (CHANGELOG, version bump to 1.0.0-rc.3, tagged)
+
+## Next: v1.0.0
+- Smoke test in production-like environment (docker-compose full stack)
+- Tag v1.0.0

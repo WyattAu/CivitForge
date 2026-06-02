@@ -19,12 +19,12 @@ CivitForge is not "a Git server with extras." It is a **full-featured forge plat
 
 ---
 
-## Current State: v0.9.0-alpha (Feature-Complete, Pre-Release)
+## Current State: v1.0.0-rc.3 (Feature-Complete, Release Candidate)
 
 | Metric | Value |
 |---|---|
-| Version | 0.9.0-alpha |
-| Crates | 7 (civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-shared, civit-ui) |
+| Version | 1.0.0-rc.3 |
+| Crates | 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui) |
 | Unit tests | 2,611 passing, 0 ignored |
 | Rust source files | 264 |
 | Lines of code | ~95,000 |
@@ -37,7 +37,7 @@ CivitForge is not "a Git server with extras." It is a **full-featured forge plat
 | Feature flags | 4 (`syn-parser`, `swc-parser`, `sql-parser`, `treesitter`) |
 | ADRs | 3 (ADR-001: scoped unsafe features, ADR-002: Leptos SSR, ADR-003: Tailwind standalone) |
 | Container images | 2 (civitforge server 118MB, civitforge-runner daemon 159MB) |
-| Tags | v1.0.0-rc.2 |
+| Tags | v1.0.0-rc.1, v1.0.0-rc.2, v1.0.0-rc.3 |
 
 ### Honest Capability Assessment
 
@@ -178,7 +178,7 @@ Layer 12: Web UI (Leptos SSR, all views, design system, responsive)             
     |
 Layer 13: Integration + Polish (E2E tests, performance re-baseline, docs)        [DONE]
     |
-Layer 14: Release                                                               [IN PROGRESS]
+Layer 14: Release                                                               [DONE]
 ```
 
 ---
@@ -508,7 +508,7 @@ End-to-end system testing, performance validation, documentation. **All API endp
 | 15.4 | Full system E2E test: register → create org → create repo → push → CI runs → view pipeline → view logs → merge PR → close issue → edit wiki → push image to registry → view SBOM | 10h | Automated test covers entire user journey |
 | 15.5 | Documentation finalization: operator guide (web UI section), API reference (all new endpoints), deployment guide | 7h | All docs reflect v1.0 state |
 
-### Phase 16: Release (~10h) -- IN PROGRESS
+### Phase 16: Release (~10h) -- DONE
 
 | # | Task | Effort |
 |---|------|--------|
@@ -546,8 +546,8 @@ End-to-end system testing, performance validation, documentation. **All API endp
 | 13 -- Code Search | tantivy index, cross-repo search | 40 | DONE |
 | 14 -- Web UI | Leptos SSR, all views, design system, responsive | 300 | DONE |
 | 15 -- Integration + Polish | E2E tests, perf re-baseline, docs | 40 | DONE |
-| 16 -- Release | Tag, smoke test | 10 | IN PROGRESS |
-| **Subtotal** | | **~835** | **95% COMPLETE** |
+| 16 -- Release | Tag, CHANGELOG | 10 | DONE |
+| **Subtotal** | | **~835** | **100% COMPLETE** |
 
 ### Grand Total
 
@@ -558,7 +558,7 @@ End-to-end system testing, performance validation, documentation. **All API endp
 | Actual spent (Phases 7-15) | ~825h |
 | Remaining (Phase 16) | ~10h |
 | **Project total** | **~1,775h** |
-| Completion | 95% |
+| Completion | 100% |
 
 ### Version Targets
 
@@ -567,7 +567,7 @@ End-to-end system testing, performance validation, documentation. **All API endp
 | `v0.9.0-alpha` | Phases 7-10 (permissions + CI/CD + registry) | COMPLETE |
 | `v0.9.0-beta` | + Phases 11-13 (issues, wiki, search) | COMPLETE |
 | `v1.0.0-rc.3` | + Phase 14 (web UI functional) | COMPLETE |
-| `v1.0.0` | Phases 15-16 (integration + release) | Phase 15 complete, Phase 16 in progress |
+| `v1.0.0` | Phases 15-16 (integration + release) | Phase 15+16 complete, smoke test pending |
 
 ---
 
@@ -671,5 +671,5 @@ End-to-end system testing, performance validation, documentation. **All API endp
 
 ---
 
-*Last updated: 2026-06-02 (Phases 7-15 complete, Phase 16 in progress — 95% completion)*
+*Last updated: 2026-06-02 (Phases 7-16 complete — 100% completion, tagged v1.0.0-rc.3)*
 *Document owner: CivitForge core team*
