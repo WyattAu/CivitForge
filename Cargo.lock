@@ -652,6 +652,7 @@ dependencies = [
  "base64",
  "bytes",
  "chrono",
+ "civit-shared",
  "dashmap",
  "flate2",
  "futures",

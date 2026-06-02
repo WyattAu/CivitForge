@@ -6,6 +6,8 @@ pub const M_003_PHASE1_UP: &str = include_str!("003_add_ssh_keys_branches_steps_
 pub const M_003_PHASE1_DOWN: &str = include_str!("004_add_ssh_keys_branches_steps_events_down.sql");
 pub const M_005_AUTH_UP: &str = include_str!("005_add_auth_identity_tables.sql");
 pub const M_005_AUTH_DOWN: &str = include_str!("006_add_auth_identity_tables_down.sql");
+pub const M_007_PERMISSIONS_UP: &str = include_str!("007_add_permissions_tables.sql");
+pub const M_007_PERMISSIONS_DOWN: &str = include_str!("007_add_permissions_tables_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -48,6 +50,12 @@ impl MigrationManager {
             up_sql: M_005_AUTH_UP.into(),
             down_sql: M_005_AUTH_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 7,
+            name: "add_permissions_tables".into(),
+            up_sql: M_007_PERMISSIONS_UP.into(),
+            down_sql: M_007_PERMISSIONS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -89,26 +97,28 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 3);
+        assert_eq!(mgr.all().len(), 4);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
         assert_eq!(mgr.all()[1].name, "add_ssh_keys_branches_steps_events");
         assert_eq!(mgr.all()[2].version, 5);
         assert_eq!(mgr.all()[2].name, "add_auth_identity_tables");
+        assert_eq!(mgr.all()[3].version, 7);
+        assert_eq!(mgr.all()[3].name, "add_permissions_tables");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 6,
+            version: 9,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 4);
-        assert_eq!(mgr.all()[3].version, 6);
+        assert_eq!(mgr.all().len(), 5);
+        assert_eq!(mgr.all()[4].version, 9);
     }
 
     #[test]
@@ -127,26 +137,20 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 3);
+        assert_eq!(pending.len(), 4);
         assert_eq!(pending[0].version, 1);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(5);
+        let pending = mgr.get_pending(7);
         assert!(pending.is_empty());
     }
 
     #[test]
     fn test_get_pending_partial() {
-        let mut mgr = MigrationManager::new();
-        mgr.add_migration(Migration {
-            version: 6,
-            name: "second".into(),
-            up_sql: "".into(),
-            down_sql: "".into(),
-        });
+        let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
         assert_eq!(pending.len(), 3);
         assert_eq!(pending[0].version, 3);

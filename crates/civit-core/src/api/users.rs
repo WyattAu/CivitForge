@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, OptionalAuthUser, require_admin};
 use crate::error::CoreError;
 use axum::{
     extract::{Path, Query, State},
@@ -71,6 +72,7 @@ fn default_offset() -> i64 {
 pub async fn list_users(
     State(state): State<AppState>,
     Query(params): Query<PaginationParams>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     match state.db.list_users(params.limit, params.offset).await {
         Ok(users) => {
@@ -85,7 +87,11 @@ pub async fn list_users(
     }
 }
 
-pub async fn get_user(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
     let user_uuid = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {
@@ -109,8 +115,13 @@ pub async fn get_user(State(state): State<AppState>, Path(id): Path<String>) -> 
 
 pub async fn create_user(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<CreateUserRequest>,
 ) -> impl IntoResponse {
+    // Admin-only: user creation
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     if req.username.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -145,8 +156,13 @@ pub async fn create_user(
 pub async fn update_user(
     State(state): State<AppState>,
     Path(id): Path<String>,
+    auth: AuthUser,
     Json(req): Json<UpdateUserRequest>,
 ) -> impl IntoResponse {
+    // Admin-only: user update (changing roles etc.)
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let user_uuid = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {
@@ -180,7 +196,12 @@ pub async fn update_user(
 pub async fn delete_user(
     State(state): State<AppState>,
     Path(id): Path<String>,
+    auth: AuthUser,
 ) -> impl IntoResponse {
+    // Admin-only: user deletion
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let user_uuid = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {

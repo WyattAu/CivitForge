@@ -3,6 +3,7 @@
 pub mod jwt;
 pub mod mfa;
 pub mod oidc;
+pub mod permission_engine;
 pub mod rbac;
 pub mod redis_session;
 pub mod saml;
@@ -12,6 +13,7 @@ pub mod token_rotation;
 pub use jwt::{Claims, JwtService};
 pub use mfa::{TotpService, WebAuthnService};
 pub use oidc::OidcService;
+pub use permission_engine::PermissionEngine;
 pub use rbac::{Action, Permission, Policy, PolicyEngine, Role};
 pub use redis_session::RedisTokenRotationService;
 pub use saml::SamlService;

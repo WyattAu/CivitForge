@@ -16,6 +16,11 @@ impl DbRepository {
         Self { pool }
     }
 
+    /// Expose the underlying pool for permission engine queries.
+    pub fn pool(&self) -> &PgPool {
+        &self.pool
+    }
+
     // --- Users ---
 
     pub async fn create_user(

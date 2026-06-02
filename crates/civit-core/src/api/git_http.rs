@@ -1,15 +1,18 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, OptionalAuthUser, require_permission};
 use axum::{
     extract::{Path, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
 };
+use civit_shared::permissions::{Action, Resource};
 
 pub async fn info_refs(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     if !state.git_service.repo_exists(&owner, &name) {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
@@ -35,6 +38,7 @@ pub async fn info_refs(
 pub async fn upload_pack(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: OptionalAuthUser,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
     if !state.git_service.repo_exists(&owner, &name) {
@@ -58,8 +62,23 @@ pub async fn upload_pack(
 pub async fn receive_pack(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
+    // Require push permission on the repository
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Push,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
     if !state.git_service.repo_exists(&owner, &name) {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }

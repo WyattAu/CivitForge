@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, OptionalAuthUser};
 use crate::error::CoreError;
 use axum::{
     extract::{Path, State},
@@ -46,6 +47,7 @@ pub struct AddSshKeyRequest {
 pub async fn list_ssh_keys(
     State(state): State<AppState>,
     Path(user_id): Path<String>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     let user_uuid = match Uuid::parse_str(&user_id) {
         Ok(id) => id,
@@ -74,6 +76,7 @@ pub async fn list_ssh_keys(
 pub async fn add_ssh_key(
     State(state): State<AppState>,
     Path(user_id): Path<String>,
+    _auth: AuthUser,
     Json(req): Json<AddSshKeyRequest>,
 ) -> impl IntoResponse {
     let user_uuid = match Uuid::parse_str(&user_id) {
@@ -128,6 +131,7 @@ pub async fn add_ssh_key(
 pub async fn delete_ssh_key(
     State(state): State<AppState>,
     Path(key_id): Path<String>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let key_uuid = match Uuid::parse_str(&key_id) {
         Ok(id) => id,

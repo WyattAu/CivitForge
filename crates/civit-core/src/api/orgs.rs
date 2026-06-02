@@ -1,12 +1,14 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, OptionalAuthUser, require_permission};
 use crate::error::CoreError;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
+use civit_shared::permissions::{Action, Resource};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -61,6 +63,7 @@ pub struct ListOrgsParams {
 pub async fn list_orgs(
     State(state): State<AppState>,
     Query(params): Query<ListOrgsParams>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     let owner_uuid = match Uuid::parse_str(&params.owner_id) {
         Ok(id) => id,
@@ -86,7 +89,11 @@ pub async fn list_orgs(
     }
 }
 
-pub async fn get_org(State(state): State<AppState>, Path(id): Path<String>) -> impl IntoResponse {
+pub async fn get_org(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
     let org_uuid = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {
@@ -110,8 +117,22 @@ pub async fn get_org(State(state): State<AppState>, Path(id): Path<String>) -> i
 
 pub async fn create_org(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<CreateOrgRequest>,
 ) -> impl IntoResponse {
+    // Require create permission on organizations
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Organization,
+        Action::Create,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
     if req.name.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -154,8 +175,22 @@ pub async fn create_org(
 pub async fn update_org(
     State(state): State<AppState>,
     Path(id): Path<String>,
+    auth: AuthUser,
     Json(req): Json<UpdateOrgRequest>,
 ) -> impl IntoResponse {
+    // Require update permission on organizations
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Organization,
+        Action::Update,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
     let org_uuid = match Uuid::parse_str(&id) {
         Ok(id) => id,
         Err(_) => {

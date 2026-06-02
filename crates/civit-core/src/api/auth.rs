@@ -2,6 +2,7 @@
 
 use crate::api::AppState;
 use crate::auth::jwt::JwtService;
+use crate::auth::permission_engine::PermissionEngine;
 use crate::auth::rbac::Role;
 use crate::error::{CoreError, ErrorResponse};
 use axum::extract::FromRequestParts;
@@ -9,6 +10,8 @@ use axum::http::StatusCode;
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
 use axum::response::Json;
+use civit_shared::id::{RepoId, UserId};
+use civit_shared::permissions::{Action, PermissionCheck, Resource};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -67,6 +70,58 @@ impl FromRequestParts<AppState> for OptionalAuthUser {
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         Ok(OptionalAuthUser(extract_auth_user(parts, state).ok()))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Permission check helpers for route handlers
+// ---------------------------------------------------------------------------
+
+/// Check that the authenticated user has permission on a resource.
+/// Returns `Ok(())` on success, or a (StatusCode, Json) rejection tuple on failure.
+pub async fn require_permission(
+    state: &AppState,
+    user: &AuthUser,
+    resource: Resource,
+    action: Action,
+    repo_id: Option<RepoId>,
+    org_id: Option<i64>,
+) -> Result<PermissionCheck, (StatusCode, Json<ErrorResponse>)> {
+    let user_id = user
+        .user_id
+        .parse::<i64>()
+        .map(UserId::new)
+        .unwrap_or_else(|_| UserId::new(0));
+
+    match PermissionEngine::check(
+        state.db.pool(),
+        user_id,
+        resource,
+        action,
+        repo_id,
+        org_id,
+        None,
+    )
+    .await
+    {
+        Ok(check) if check.allowed => Ok(check),
+        Ok(check) => {
+            let reason = check.reason.unwrap_or_default();
+            Err(to_rejection(CoreError::Forbidden(reason)))
+        }
+        Err(e) => Err(to_rejection(e)),
+    }
+}
+
+/// Check that the authenticated user is an admin.
+/// Returns `Ok(())` on success, or a (StatusCode, Json) rejection tuple on failure.
+pub fn require_admin(user: &AuthUser) -> Result<(), (StatusCode, Json<ErrorResponse>)> {
+    if user.role == Role::Admin {
+        Ok(())
+    } else {
+        Err(to_rejection(CoreError::Forbidden(
+            "admin access required".into(),
+        )))
     }
 }
 

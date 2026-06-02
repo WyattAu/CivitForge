@@ -1,12 +1,14 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, OptionalAuthUser, require_permission};
 use crate::error::CoreError;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
 };
+use civit_shared::permissions::{Action, Resource};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -87,6 +89,7 @@ impl Visibility {
 pub async fn list_repos(
     State(state): State<AppState>,
     Query(params): Query<PaginationParams>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     match state.db.list_repos(params.limit, params.offset).await {
         Ok(repos) => {
@@ -104,6 +107,7 @@ pub async fn list_repos(
 pub async fn get_repo(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     // Resolve owner string to UUID (username lookup)
     let owner_uuid = match Uuid::parse_str(&owner) {
@@ -135,8 +139,23 @@ pub async fn get_repo(
 
 pub async fn create_repo(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<CreateRepoRequest>,
 ) -> impl IntoResponse {
+    // Require authenticated user with create permission
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Create,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
     if req.name.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
@@ -191,7 +210,22 @@ pub async fn create_repo(
 pub async fn delete_repo(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
 ) -> impl IntoResponse {
+    // Require authenticated user with delete permission
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Delete,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
     let owner_uuid = match Uuid::parse_str(&owner) {
         Ok(id) => id,
         Err(_) => {
@@ -225,6 +259,7 @@ pub async fn delete_repo(
 pub async fn list_commits(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     let owner_uuid = match Uuid::parse_str(&owner) {
         Ok(id) => id,

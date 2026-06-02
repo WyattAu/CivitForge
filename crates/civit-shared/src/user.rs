@@ -60,6 +60,22 @@ impl std::fmt::Display for UserRole {
     }
 }
 
+impl std::str::FromStr for UserRole {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "owner" => Ok(Self::Owner),
+            "admin" => Ok(Self::Admin),
+            "maintainer" => Ok(Self::Maintainer),
+            "developer" => Ok(Self::Developer),
+            "reporter" => Ok(Self::Reporter),
+            "guest" => Ok(Self::Guest),
+            _ => Err(format!("unknown role: '{s}'")),
+        }
+    }
+}
+
 /// User representation for API responses.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserResponse {
