@@ -1,10 +1,11 @@
 # =============================================================================
-# CivitForge - Full Stack Local Development
+# CivitForge - Full Stack (Production-Like Smoke Test)
 # =============================================================================
 # Usage:
 #   docker compose up -d        # Start all services
 #   docker compose logs -f      # Follow logs
 #   docker compose down -v      # Stop and remove volumes
+#   ./smoke-test.sh             # Run smoke test against running stack
 #
 # Default credentials (development only):
 #   JWT_SECRET: change-me-change-me (>=16 chars)
@@ -96,6 +97,37 @@ services:
       retries: 3
       start_period: 15s
 
+  # ---------------------------------------------------------------------------
+  # CivitForge Runner - CI/CD pipeline daemon
+  # ---------------------------------------------------------------------------
+  runner:
+    build:
+      context: .
+      dockerfile: container/runner/Dockerfile
+    container_name: civit-runner
+    restart: unless-stopped
+    depends_on:
+      civitforge:
+        condition: service_healthy
+    environment:
+      CIVIT_RUNNER_API_URL: http://civitforge:8080
+      CIVIT_RUNNER_NAME: local-docker-runner
+      CIVIT_RUNNER_TAGS: docker,linux
+      CIVIT_RUNNER_WORKDIR: /home/runner/work
+      PODMAN_HOST: unix:///run/podman/podman.sock
+      RUST_LOG: civit_runner=info
+    ports:
+      - "8088:8088"   # Runner HTTP
+    volumes:
+      - runner-work:/home/runner/work
+      - /run/podman:/run/podman:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8088/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
 volumes:
   postgres-data:
     driver: local
@@ -104,4 +136,6 @@ volumes:
   civit-data:
     driver: local
   civit-logs:
+    driver: local
+  runner-work:
     driver: local

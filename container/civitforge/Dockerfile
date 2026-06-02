@@ -43,11 +43,12 @@ RUN touch /out/usr/local/bin/civitforge
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates/civit-shared/ crates/civit-shared/
-COPY crates/civit-core/   crates/civit-core/
-COPY crates/civit-brain/  crates/civit-brain/
+COPY crates/civit-pipeline/ crates/civit-pipeline/
+COPY crates/civit-core/ crates/civit-core/
+COPY crates/civit-brain/ crates/civit-brain/
 COPY crates/civit-crypto/ crates/civit-crypto/
 COPY crates/civit-runner/ crates/civit-runner/
-COPY crates/civit-vfs/    crates/civit-vfs/
+COPY crates/civit-vfs/ crates/civit-vfs/
 
 # Build release binaries
 RUN cargo build --release --locked \
@@ -98,7 +99,7 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 
 ARG APP_UID=65532
 ARG APP_GID=65532
-ARG VERSION=0.8.0-alpha
+ARG VERSION=1.0.0-rc.3
 
 # Install runtime dependencies
 RUN apk add --no-cache \

@@ -512,10 +512,12 @@ End-to-end system testing, performance validation, documentation. **All API endp
 
 | # | Task | Effort |
 |---|------|--------|
-| 16.1 | CHANGELOG, VERSION bump to 1.0.0 | 2h |
-| 16.2 | Tag v1.0.0-rc.3 | 1h |
-| 16.3 | Smoke test in production-like environment (docker-compose full stack) | 5h |
-| 16.4 | Tag v1.0.0 | 2h |
+| 16.1 | CHANGELOG, VERSION bump to 1.0.0-rc.3 | 1h |
+| 16.2 | Tag v1.0.0-rc.3 | 0.5h |
+| 16.3 | Dockerfile updates (add civit-pipeline, bump VERSION arg) | 1h |
+| 16.4 | docker-compose: add runner service | 1h |
+| 16.5 | Smoke test script (healthz, ready, API, runner, git HTTP) | 2h |
+| 16.6 | Tag v1.0.0 | 1h |
 
 ---
 
