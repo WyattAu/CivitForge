@@ -134,6 +134,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/tmp/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         let opts = sqlx::postgres::PgPoolOptions::new().max_connections(1);
         let pool = opts.connect_lazy("postgres://localhost/test").unwrap();

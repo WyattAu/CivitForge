@@ -18,6 +18,10 @@ pub struct AppConfig {
     pub federation_instance_id: String,
     pub federation_instance_domain: String,
     pub cors_allowed_origins: Vec<String>,
+    pub rate_limit_max_requests: Option<u32>,
+    pub rate_limit_window_secs: Option<u32>,
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
 }
 
 impl AppConfig {
@@ -61,6 +65,10 @@ impl AppConfig {
         Ok(())
     }
 
+    pub fn tls_enabled(&self) -> bool {
+        self.tls_cert_path.is_some() && self.tls_key_path.is_some()
+    }
+
     pub fn from_env() -> crate::error::Result<Self> {
         Ok(Self {
             host: std::env::var("CIVIT_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
@@ -102,6 +110,16 @@ impl AppConfig {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
+            rate_limit_max_requests: std::env::var("RATE_LIMIT_MAX_REQUESTS")
+                .ok()
+                .and_then(|v| v.parse::<u32>().ok()),
+            rate_limit_window_secs: std::env::var("RATE_LIMIT_WINDOW_SECS")
+                .ok()
+                .and_then(|v| v.parse::<u32>().ok()),
+            tls_cert_path: std::env::var("TLS_CERT_PATH")
+                .ok()
+                .filter(|s| !s.is_empty()),
+            tls_key_path: std::env::var("TLS_KEY_PATH").ok().filter(|s| !s.is_empty()),
         })
     }
 }
@@ -197,6 +215,10 @@ mod tests {
             federation_instance_domain,
             storage_path,
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         })
     }
 
@@ -346,6 +368,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         let json = serde_json::to_string(&config).unwrap();
         let de: AppConfig = serde_json::from_str(&json).unwrap();
@@ -368,6 +394,10 @@ mod tests {
             federation_instance_domain: String::new(),
             storage_path: String::new(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         let _: String = config.host;
         let _: u16 = config.port;
@@ -389,6 +419,10 @@ mod tests {
             federation_instance_domain: "domain".into(),
             storage_path: "/data".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         let cloned = config.clone();
         assert_eq!(cloned.host, config.host);
@@ -529,6 +563,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }
@@ -547,6 +585,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }
@@ -565,6 +607,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }
@@ -583,6 +629,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }
@@ -601,6 +651,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: String::new(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }
@@ -619,6 +673,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }
@@ -637,6 +695,10 @@ mod tests {
             federation_instance_domain: String::new(),
             storage_path: "/data/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         };
         assert!(config.validate().is_err());
     }

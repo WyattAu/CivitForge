@@ -17,13 +17,18 @@ pub mod wiki;
 use crate::config::AppConfig;
 use crate::db::DbRepository;
 use crate::error::Result;
+use crate::middleware::csrf::csrf_middleware;
+use crate::middleware::rate_limit::{RateLimitConfig, RateLimiter, rate_limit_middleware};
 use axum::Router;
 use axum::extract::State;
 use axum::extract::ws::WebSocketUpgrade;
+use axum::http::{HeaderName, HeaderValue};
+use axum::middleware;
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, post};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
+use std::time::Duration;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -106,23 +111,46 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             post(git_http::receive_pack),
         );
 
+    let rate_limiter = Arc::new(RateLimiter::new(RateLimitConfig {
+        max_requests: state.config.rate_limit_max_requests.unwrap_or(100),
+        window: Duration::from_secs(state.config.rate_limit_window_secs.unwrap_or(60) as u64),
+    }));
+
     let router = Router::new()
         .merge(api)
         .layer(cors)
+        .layer(middleware::from_fn(rate_limit_middleware))
+        .layer(middleware::from_fn(csrf_middleware))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::header::X_FRAME_OPTIONS,
-            axum::http::HeaderValue::from_static("DENY"),
+            HeaderValue::from_static("DENY"),
         ))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::header::X_CONTENT_TYPE_OPTIONS,
-            axum::http::HeaderValue::from_static("nosniff"),
+            HeaderValue::from_static("nosniff"),
         ))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::header::REFERRER_POLICY,
-            axum::http::HeaderValue::from_static("strict-origin-when-cross-origin"),
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
+        .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            axum::http::header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(
+                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
+                 img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+            ),
+        ))
+        .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            axum::http::header::STRICT_TRANSPORT_SECURITY,
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ))
+        .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("permissions-policy"),
+            HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
         ))
         .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .with_state(state)
+        .layer(axum::Extension(rate_limiter));
 
     Ok(router)
 }
@@ -192,6 +220,10 @@ mod tests {
             federation_instance_domain: "localhost".into(),
             storage_path: "/tmp/repos".into(),
             cors_allowed_origins: Vec::new(),
+            rate_limit_max_requests: None,
+            rate_limit_window_secs: None,
+            tls_cert_path: None,
+            tls_key_path: None,
         }
     }
 

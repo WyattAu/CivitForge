@@ -1,12 +1,33 @@
+//! IP-based rate limiting middleware using a sliding window counter.
+//!
+//! Each IP address gets a configurable number of requests per window.
+//! When exceeded, returns 429 Too Many Requests with `Retry-After` header.
+
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use axum::body::Body;
+use axum::{
+    extract::Request,
+    http::{StatusCode, header},
+    middleware::Next,
+    response::{IntoResponse, Response},
+};
+use std::{
+    collections::HashMap,
+    net::IpAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use tokio::sync::Mutex;
+use tracing::warn;
 
+/// Configuration for rate limiting.
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
+    /// Max requests per window per IP.
     pub max_requests: u32,
+    /// Window duration.
     pub window: Duration,
 }
 
@@ -19,281 +40,222 @@ impl Default for RateLimitConfig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RateLimitDecision {
-    Allowed { remaining: u32, reset_at: Instant },
-    Rejected { retry_after: Duration },
-}
-
 #[derive(Debug, Clone)]
-struct RateLimitBucket {
+struct Bucket {
     count: u32,
     window_start: Instant,
 }
 
+/// Per-IP sliding window state. Thread-safe via tokio Mutex.
+#[derive(Debug, Clone)]
 pub struct RateLimiter {
     config: RateLimitConfig,
-    buckets: Mutex<HashMap<String, RateLimitBucket>>,
+    buckets: Arc<Mutex<HashMap<IpAddr, Bucket>>>,
 }
 
 impl RateLimiter {
     pub fn new(config: RateLimitConfig) -> Self {
         Self {
             config,
-            buckets: Mutex::new(HashMap::new()),
+            buckets: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
-    pub fn check(&self, key: &str) -> RateLimitDecision {
+    /// Check if request is allowed. Returns `(allowed, retry_after_seconds)`.
+    pub async fn check(&self, ip: IpAddr) -> (bool, u32) {
+        let mut buckets = self.buckets.lock().await;
         let now = Instant::now();
-        let mut buckets = self.buckets.lock().unwrap();
 
-        let bucket = buckets.entry(key.to_string()).or_insert(RateLimitBucket {
+        let bucket = buckets.entry(ip).or_insert(Bucket {
             count: 0,
             window_start: now,
         });
 
+        // Sliding window: reset if window expired
         if now.duration_since(bucket.window_start) >= self.config.window {
             bucket.count = 0;
             bucket.window_start = now;
         }
 
         if bucket.count >= self.config.max_requests {
-            let reset_at = bucket.window_start + self.config.window;
-            let retry_after = reset_at.duration_since(now);
-            RateLimitDecision::Rejected { retry_after }
-        } else {
-            bucket.count += 1;
-            let remaining = self.config.max_requests - bucket.count;
-            RateLimitDecision::Allowed {
-                remaining,
-                reset_at: bucket.window_start + self.config.window,
+            let elapsed = now.duration_since(bucket.window_start);
+            let remaining = self.config.window.saturating_sub(elapsed);
+            let retry_after = remaining.as_secs() as u32 + u32::from(remaining.subsec_nanos() > 0);
+            return (false, retry_after);
+        }
+
+        bucket.count += 1;
+        (true, 0)
+    }
+}
+
+/// Extract client IP from request. Checks `X-Forwarded-For`, `X-Real-Ip`,
+/// then falls back to loopback.
+fn extract_client_ip(req: &Request) -> IpAddr {
+    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+        if let Ok(val) = forwarded.to_str() {
+            if let Some(first_ip) = val.split(',').next().map(|s| s.trim()) {
+                if let Ok(ip) = first_ip.parse::<IpAddr>() {
+                    return ip;
+                }
             }
         }
     }
 
-    pub fn reset(&self, key: &str) {
-        let mut buckets = self.buckets.lock().unwrap();
-        buckets.remove(key);
+    if let Some(real_ip) = req.headers().get("x-real-ip") {
+        if let Ok(val) = real_ip.to_str() {
+            if let Ok(ip) = val.parse::<IpAddr>() {
+                return ip;
+            }
+        }
     }
 
-    pub fn bucket_count(&self) -> usize {
-        self.buckets.lock().unwrap().len()
+    IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
+}
+
+/// Rate limiting middleware function for axum.
+pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
+    let state = req.extensions().get::<Arc<RateLimiter>>().cloned();
+
+    let limiter = match state {
+        Some(l) => l,
+        None => return next.run(req).await,
+    };
+
+    let ip = extract_client_ip(&req);
+    let (allowed, retry_after) = limiter.check(ip).await;
+
+    if !allowed {
+        warn!(ip = %ip, retry_after = retry_after, "Rate limit exceeded");
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [(header::RETRY_AFTER, retry_after.to_string())],
+            axum::Json(serde_json::json!({
+                "error": "rate_limit_exceeded",
+                "message": "Too many requests. Please retry later."
+            })),
+        )
+            .into_response();
     }
 
-    pub fn cleanup_expired(&self) -> usize {
-        let now = Instant::now();
-        let mut buckets = self.buckets.lock().unwrap();
-        let before = buckets.len();
-        buckets.retain(|_, b| now.duration_since(b.window_start) < self.config.window);
-        before - buckets.len()
-    }
+    next.run(req).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[tokio::test]
+    async fn test_rate_limiter_allows_under_limit() {
+        let config = RateLimitConfig {
+            max_requests: 5,
+            window: Duration::from_secs(60),
+        };
+        let limiter = RateLimiter::new(config);
+        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+
+        for _ in 0..5 {
+            let (allowed, _) = limiter.check(ip).await;
+            assert!(allowed);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_blocks_over_limit() {
+        let config = RateLimitConfig {
+            max_requests: 3,
+            window: Duration::from_secs(60),
+        };
+        let limiter = RateLimiter::new(config);
+        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+
+        for _ in 0..3 {
+            let (allowed, _) = limiter.check(ip).await;
+            assert!(allowed);
+        }
+
+        let (allowed, retry) = limiter.check(ip).await;
+        assert!(!allowed);
+        assert!(retry > 0);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_independent_ips() {
+        let config = RateLimitConfig {
+            max_requests: 2,
+            window: Duration::from_secs(60),
+        };
+        let limiter = RateLimiter::new(config);
+        let ip1: IpAddr = "1.1.1.1".parse().unwrap();
+        let ip2: IpAddr = "2.2.2.2".parse().unwrap();
+
+        for _ in 0..2 {
+            limiter.check(ip1).await;
+        }
+
+        // IP2 should still be allowed
+        let (allowed, _) = limiter.check(ip2).await;
+        assert!(allowed);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_window_resets() {
+        let config = RateLimitConfig {
+            max_requests: 2,
+            window: Duration::from_millis(100),
+        };
+        let limiter = RateLimiter::new(config);
+        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+
+        limiter.check(ip).await;
+        limiter.check(ip).await;
+
+        let (allowed, _) = limiter.check(ip).await;
+        assert!(!allowed);
+
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
+        let (allowed, _) = limiter.check(ip).await;
+        assert!(allowed);
+    }
+
+    #[test]
+    fn test_extract_client_ip_forwarded() {
+        let req = Request::builder()
+            .header("x-forwarded-for", "4.3.2.1, 1.2.3.4")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            extract_client_ip(&req),
+            "4.3.2.1".parse::<IpAddr>().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_extract_client_ip_real_ip() {
+        let req = Request::builder()
+            .header("X-Real-Ip", "10.0.0.1")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            extract_client_ip(&req),
+            "10.0.0.1".parse::<IpAddr>().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_extract_client_ip_fallback() {
+        let req = Request::builder().body(Body::empty()).unwrap();
+        assert_eq!(
+            extract_client_ip(&req),
+            IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
+        );
+    }
+
     #[test]
     fn test_default_config() {
         let config = RateLimitConfig::default();
         assert_eq!(config.max_requests, 100);
         assert_eq!(config.window, Duration::from_secs(60));
-    }
-
-    #[test]
-    fn test_allow_within_limit() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 5,
-            window: Duration::from_secs(60),
-        });
-        for i in 0..5 {
-            match limiter.check("user1") {
-                RateLimitDecision::Allowed { remaining, .. } => {
-                    assert_eq!(remaining, 5 - i - 1);
-                }
-                RateLimitDecision::Rejected { .. } => {
-                    panic!("should be allowed at request {}", i + 1)
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_reject_over_limit() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 2,
-            window: Duration::from_secs(60),
-        });
-        assert!(matches!(
-            limiter.check("user1"),
-            RateLimitDecision::Allowed { .. }
-        ));
-        assert!(matches!(
-            limiter.check("user1"),
-            RateLimitDecision::Allowed { .. }
-        ));
-        assert!(matches!(
-            limiter.check("user1"),
-            RateLimitDecision::Rejected { .. }
-        ));
-    }
-
-    #[test]
-    fn test_separate_keys_independent() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 1,
-            window: Duration::from_secs(60),
-        });
-        assert!(matches!(
-            limiter.check("a"),
-            RateLimitDecision::Allowed { .. }
-        ));
-        assert!(matches!(
-            limiter.check("a"),
-            RateLimitDecision::Rejected { .. }
-        ));
-        assert!(matches!(
-            limiter.check("b"),
-            RateLimitDecision::Allowed { .. }
-        ));
-    }
-
-    #[test]
-    fn test_reset_key() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 1,
-            window: Duration::from_secs(60),
-        });
-        limiter.check("user1");
-        assert!(matches!(
-            limiter.check("user1"),
-            RateLimitDecision::Rejected { .. }
-        ));
-        limiter.reset("user1");
-        assert!(matches!(
-            limiter.check("user1"),
-            RateLimitDecision::Allowed { .. }
-        ));
-    }
-
-    #[test]
-    fn test_reset_nonexistent_key() {
-        let limiter = RateLimiter::new(RateLimitConfig::default());
-        limiter.reset("nonexistent");
-        assert_eq!(limiter.bucket_count(), 0);
-    }
-
-    #[test]
-    fn test_bucket_count() {
-        let limiter = RateLimiter::new(RateLimitConfig::default());
-        assert_eq!(limiter.bucket_count(), 0);
-        limiter.check("a");
-        limiter.check("b");
-        limiter.check("c");
-        assert_eq!(limiter.bucket_count(), 3);
-    }
-
-    #[test]
-    fn test_cleanup_expired() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 1,
-            window: Duration::from_millis(50),
-        });
-        limiter.check("a");
-        limiter.check("b");
-        std::thread::sleep(Duration::from_millis(60));
-        let removed = limiter.cleanup_expired();
-        assert_eq!(removed, 2);
-        assert_eq!(limiter.bucket_count(), 0);
-    }
-
-    #[test]
-    fn test_cleanup_none_expired() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 5,
-            window: Duration::from_secs(60),
-        });
-        limiter.check("a");
-        let removed = limiter.cleanup_expired();
-        assert_eq!(removed, 0);
-    }
-
-    #[test]
-    fn test_rejected_retry_after() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 1,
-            window: Duration::from_secs(10),
-        });
-        limiter.check("user1");
-        if let RateLimitDecision::Rejected { retry_after } = limiter.check("user1") {
-            assert!(retry_after <= Duration::from_secs(10));
-        } else {
-            panic!("expected rejected");
-        }
-    }
-
-    #[test]
-    fn test_allowed_remaining_zero() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 1,
-            window: Duration::from_secs(60),
-        });
-        if let RateLimitDecision::Allowed { remaining, .. } = limiter.check("user1") {
-            assert_eq!(remaining, 0);
-        } else {
-            panic!("expected allowed");
-        }
-    }
-
-    #[test]
-    fn test_multiple_rejections() {
-        let limiter = RateLimiter::new(RateLimitConfig {
-            max_requests: 1,
-            window: Duration::from_secs(60),
-        });
-        limiter.check("user1");
-        for _ in 0..10 {
-            assert!(matches!(
-                limiter.check("user1"),
-                RateLimitDecision::Rejected { .. }
-            ));
-        }
-    }
-
-    #[test]
-    fn test_config_clone() {
-        let config = RateLimitConfig {
-            max_requests: 50,
-            window: Duration::from_secs(30),
-        };
-        let config2 = config.clone();
-        assert_eq!(config.max_requests, config2.max_requests);
-        assert_eq!(config.window, config2.window);
-    }
-
-    #[test]
-    fn test_decision_equality() {
-        let now = Instant::now();
-        let a = RateLimitDecision::Allowed {
-            remaining: 5,
-            reset_at: now,
-        };
-        let b = RateLimitDecision::Allowed {
-            remaining: 5,
-            reset_at: now,
-        };
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn test_rejected_equality() {
-        let a = RateLimitDecision::Rejected {
-            retry_after: Duration::from_secs(1),
-        };
-        let b = RateLimitDecision::Rejected {
-            retry_after: Duration::from_secs(1),
-        };
-        assert_eq!(a, b);
     }
 }

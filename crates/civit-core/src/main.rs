@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use civit_core::{api::create_router, config::AppConfig, db::DatabasePool};
+use std::net::SocketAddr;
 use tokio::signal;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -70,13 +71,36 @@ async fn main() -> Result<()> {
 
     let router = create_router(config.clone(), pool)?;
 
-    let addr = format!("{}:{}", config.host, config.port);
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-    info!("CivitForge API listening on {}", addr);
+    let addr: SocketAddr = format!("{}:{}", config.host, config.port)
+        .parse()
+        .expect("invalid bind address");
 
-    axum::serve(listener, router)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    if config.tls_enabled() {
+        let cert_path = config.tls_cert_path.as_ref().unwrap();
+        let key_path = config.tls_key_path.as_ref().unwrap();
+
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
+            .await
+            .expect("failed to load TLS certificate/key");
+
+        info!("CivitForge API listening on {} (TLS)", addr);
+        let handle = axum_server::Handle::new();
+        let shutdown_handle = handle.clone();
+        tokio::spawn(async move {
+            shutdown_signal().await;
+            shutdown_handle.graceful_shutdown(Some(std::time::Duration::from_secs(30)));
+        });
+        axum_server::bind_rustls(addr, tls_config)
+            .handle(handle)
+            .serve(router.into_make_service())
+            .await?;
+    } else {
+        info!("CivitForge API listening on {} (HTTP)", addr);
+        let listener = tokio::net::TcpListener::bind(addr).await?;
+        axum::serve(listener, router)
+            .with_graceful_shutdown(shutdown_signal())
+            .await?;
+    }
 
     info!("server shutdown complete");
     Ok(())
