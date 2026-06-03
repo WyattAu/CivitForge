@@ -24,7 +24,7 @@ services:
     environment:
       POSTGRES_DB: civit
       POSTGRES_USER: civit
-      POSTGRES_PASSWORD: civit
+      POSTGRES_PASSWORD: civit-dev-secure-pw-2026
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
       - "5432:5432"
@@ -44,6 +44,7 @@ services:
     image: redis:7-alpine
     container_name: civit-redis
     restart: unless-stopped
+    command: redis-server --requirepass civit-redis-dev-2026
     ports:
       - "6379:6379"
     volumes:
@@ -71,12 +72,12 @@ services:
         condition: service_healthy
     environment:
       # Required
-      DATABASE_URL: postgres://civit:civit@postgres:5432/civit
+      DATABASE_URL: postgres://civit:civit-dev-secure-pw-2026@postgres:5432/civit
       JWT_SECRET: change-me-change-me-dev-secret
       # Optional (defaults shown)
       CIVIT_HOST: "0.0.0.0"
       CIVIT_PORT: "8080"
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:civit-redis-dev-2026@redis:6379
       JWT_EXPIRY_HOURS: "24"
       CIVIT_STORAGE_PATH: /var/lib/civit/repos
       FEDERATION_ENABLED: "false"

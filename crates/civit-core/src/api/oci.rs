@@ -4,6 +4,7 @@
 // Full OCI Distribution Spec v1.1 API endpoints.
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, require_admin};
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -694,8 +695,12 @@ pub async fn get_repository(
 /// DELETE /api/v1/registry/{name} — Delete entire repository (cascades)
 pub async fn delete_repository(
     State(state): State<AppState>,
+    auth: AuthUser,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let pool = state.db.pool();
     let repo_id = match resolve_repo(pool, &name).await {
         Some(r) => r,
@@ -718,6 +723,7 @@ pub async fn delete_repository(
 /// POST /api/v1/registry/{name}/policy — Set RBAC policy
 pub async fn set_policy(
     State(state): State<AppState>,
+    _auth: AuthUser,
     Path(name): Path<String>,
     Json(policy): Json<CreatePolicy>,
 ) -> impl IntoResponse {
@@ -745,6 +751,7 @@ pub async fn set_policy(
 /// DELETE /api/v1/registry/{name}/policy/{entity_type}/{entity_id} — Remove policy
 pub async fn delete_policy(
     State(state): State<AppState>,
+    _auth: AuthUser,
     Path((name, entity_type, entity_id)): Path<(String, String, String)>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -773,8 +780,12 @@ pub async fn delete_policy(
 /// POST /api/v1/registry/{name}/gc — Trigger garbage collection
 pub async fn trigger_gc(
     State(state): State<AppState>,
+    auth: AuthUser,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let pool = state.db.pool();
     let repo_id = match resolve_repo(pool, &name).await {
         Some(r) => r,

@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -423,6 +424,7 @@ pub async fn list_wiki_pages(
 pub async fn create_wiki_page(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
     Json(req): Json<CreateWikiPageRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -505,6 +507,7 @@ pub async fn get_wiki_page(
 pub async fn update_wiki_page(
     State(state): State<AppState>,
     Path((owner, name, slug)): Path<(String, String, String)>,
+    _auth: AuthUser,
     Json(req): Json<UpdateWikiPageRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -575,6 +578,7 @@ pub async fn update_wiki_page(
 pub async fn delete_wiki_page(
     State(state): State<AppState>,
     Path((owner, name, slug)): Path<(String, String, String)>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {

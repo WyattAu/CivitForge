@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -429,6 +430,7 @@ struct IssueRow {
 pub async fn create_issue(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
     Json(req): Json<CreateIssueRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -577,6 +579,7 @@ pub async fn get_issue(
 pub async fn update_issue(
     State(state): State<AppState>,
     Path((owner, name, number)): Path<(String, String, i64)>,
+    _auth: AuthUser,
     Json(req): Json<UpdateIssueRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -683,6 +686,7 @@ pub async fn update_issue(
 pub async fn delete_issue(
     State(state): State<AppState>,
     Path((owner, name, number)): Path<(String, String, i64)>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -717,6 +721,7 @@ pub async fn delete_issue(
 pub async fn add_comment(
     State(state): State<AppState>,
     Path((owner, name, number)): Path<(String, String, i64)>,
+    _auth: AuthUser,
     Json(req): Json<CreateCommentRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -769,6 +774,7 @@ pub async fn add_comment(
 pub async fn edit_comment(
     State(state): State<AppState>,
     Path((owner, name, _number, comment_id)): Path<(String, String, i64, i64)>,
+    _auth: AuthUser,
     Json(req): Json<UpdateCommentRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -812,6 +818,7 @@ pub async fn edit_comment(
 pub async fn delete_comment(
     State(state): State<AppState>,
     Path((owner, name, _number, comment_id)): Path<(String, String, i64, i64)>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -849,6 +856,7 @@ pub async fn delete_comment(
 pub async fn add_reaction(
     State(state): State<AppState>,
     Path((owner, name, number)): Path<(String, String, i64)>,
+    _auth: AuthUser,
     Json(req): Json<AddReactionRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -897,6 +905,7 @@ pub async fn add_reaction(
 pub async fn remove_reaction(
     State(state): State<AppState>,
     Path((owner, name, number, emoji)): Path<(String, String, i64, String)>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -966,6 +975,7 @@ pub async fn list_labels(
 pub async fn create_label(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
     Json(req): Json<CreateLabelRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -1005,6 +1015,7 @@ pub async fn create_label(
 pub async fn update_label(
     State(state): State<AppState>,
     Path((owner, name, label_id)): Path<(String, String, i64)>,
+    _auth: AuthUser,
     Json(req): Json<UpdateLabelRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -1065,6 +1076,7 @@ pub async fn update_label(
 pub async fn delete_label(
     State(state): State<AppState>,
     Path((owner, name, label_id)): Path<(String, String, i64)>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -1154,6 +1166,7 @@ pub async fn list_milestones(
 pub async fn create_milestone(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
     Json(req): Json<CreateMilestoneRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -1193,6 +1206,7 @@ pub async fn create_milestone(
 pub async fn update_milestone(
     State(state): State<AppState>,
     Path((owner, name, milestone_id)): Path<(String, String, i64)>,
+    _auth: AuthUser,
     Json(req): Json<UpdateMilestoneRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -1255,6 +1269,7 @@ pub async fn update_milestone(
 pub async fn delete_milestone(
     State(state): State<AppState>,
     Path((owner, name, milestone_id)): Path<(String, String, i64)>,
+    _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {

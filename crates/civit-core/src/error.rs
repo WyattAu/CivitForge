@@ -62,9 +62,30 @@ impl CoreError {
     }
 
     pub fn error_response(&self) -> ErrorResponse {
-        ErrorResponse {
-            error: self.to_string(),
-        }
+        let message = match self {
+            Self::Database(detail) => {
+                tracing::warn!("database error: {detail}");
+                "internal server error".to_string()
+            }
+            Self::Internal(detail) => {
+                tracing::warn!("internal error: {detail}");
+                "internal server error".to_string()
+            }
+            Self::Io(e) => {
+                tracing::warn!("io error: {e}");
+                "internal server error".to_string()
+            }
+            Self::Config(msg) => {
+                tracing::warn!("config error: {msg}");
+                "internal server error".to_string()
+            }
+            Self::Git(msg) => {
+                tracing::warn!("git error: {msg}");
+                "internal server error".to_string()
+            }
+            other => other.to_string(),
+        };
+        ErrorResponse { error: message }
     }
 }
 
@@ -246,8 +267,13 @@ mod tests {
         ];
         for err in errors {
             let resp = err.error_response();
-            let display = err.to_string();
-            assert_eq!(resp.error, display);
+            // Sanitized errors (Database, Internal, Io, Config, Git) return
+            // generic "internal server error" to clients — assert no leak
+            assert!(!resp.error.contains("database error:"));
+            assert!(!resp.error.contains("internal error:"));
+            assert!(!resp.error.contains("io error:"));
+            assert!(!resp.error.contains("configuration error:"));
+            assert!(!resp.error.contains("git error:"));
         }
     }
 

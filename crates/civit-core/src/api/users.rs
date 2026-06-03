@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::api::auth::{AuthUser, OptionalAuthUser, require_admin};
+use crate::api::auth::require_admin;
+use crate::api::auth::{AuthUser, OptionalAuthUser};
 use crate::error::CoreError;
 use axum::{
     extract::{Path, Query, State},
@@ -72,11 +73,21 @@ fn default_offset() -> i64 {
 pub async fn list_users(
     State(state): State<AppState>,
     Query(params): Query<PaginationParams>,
-    _auth: OptionalAuthUser,
+    auth: AuthUser,
 ) -> impl IntoResponse {
+    let is_admin = auth.role.as_str() == "admin";
     match state.db.list_users(params.limit, params.offset).await {
         Ok(users) => {
-            let out: Vec<UserResponse> = users.into_iter().map(Into::into).collect();
+            let out: Vec<UserResponse> = users
+                .into_iter()
+                .map(|u| {
+                    let mut resp = UserResponse::from(u);
+                    if !is_admin {
+                        resp.email = String::new();
+                    }
+                    resp
+                })
+                .collect();
             (StatusCode::OK, Json(out)).into_response()
         }
         Err(e) => (

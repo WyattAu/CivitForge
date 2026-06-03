@@ -6,6 +6,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::{AuthUser, require_admin};
 use crate::error::CoreError;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
@@ -178,8 +179,12 @@ pub fn runner_routes() -> Router<AppState> {
 /// Register a new runner. Returns the runner ID and auth token.
 pub async fn register_runner(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<RegisterRunnerRequest>,
 ) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let pool = state.db.pool();
     let runner_id = Uuid::new_v4();
     let token = req.token.unwrap_or_else(generate_runner_token);
@@ -220,7 +225,7 @@ pub async fn register_runner(
 }
 
 /// List registered runners.
-pub async fn list_runners(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn list_runners(State(state): State<AppState>, _auth: AuthUser) -> impl IntoResponse {
     let pool = state.db.pool();
 
     match sqlx::query_as::<_, RunnerRow>(
@@ -282,6 +287,7 @@ pub async fn get_runner(
 /// Delete a runner.
 pub async fn delete_runner(
     State(state): State<AppState>,
+    _auth: AuthUser,
     Path(runner_id): Path<String>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();

@@ -59,6 +59,7 @@ pub async fn login(
 }
 
 async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<LoginResponse> {
+    validate_input(&req.username, &req.email, &req.display_name)?;
     let user = match state.db.get_user_by_username(&req.username).await {
         Ok(u) => u,
         Err(_) => match state
@@ -159,10 +160,111 @@ pub async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> impl 
     (StatusCode::OK, Json(RefreshResponse { token })).into_response()
 }
 
+fn validate_input(username: &str, email: &str, display_name: &str) -> Result<(), CoreError> {
+    if username.is_empty() || username.len() > 64 {
+        return Err(CoreError::Config("username must be 1-64 characters".into()));
+    }
+    if email.len() > 254 {
+        return Err(CoreError::Config(
+            "email must be at most 254 characters".into(),
+        ));
+    }
+    if display_name.len() > 256 {
+        return Err(CoreError::Config(
+            "display_name must be at most 256 characters".into(),
+        ));
+    }
+
+    if !username
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(CoreError::Config(
+            "username must contain only alphanumeric characters, hyphens, and underscores".into(),
+        ));
+    }
+
+    if !email.contains('@') || !email.contains('.') {
+        return Err(CoreError::Config("invalid email format".into()));
+    }
+
+    for s in [username, email, display_name] {
+        for ch in s.chars() {
+            if ch.is_control() || ch == '\u{202E}' || ch == '\u{200B}' {
+                return Err(CoreError::Config(
+                    "input contains invalid characters".into(),
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::auth::rbac::Role;
+
+    #[test]
+    fn test_validate_input_success() {
+        assert!(validate_input("alice", "alice@example.com", "Alice").is_ok());
+        assert!(validate_input("user-name", "a@b.co", "Bob").is_ok());
+        assert!(validate_input("user_name", "test@domain.org", "C D").is_ok());
+    }
+
+    #[test]
+    fn test_validate_input_empty_username() {
+        assert!(validate_input("", "a@b.co", "Alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_long_username() {
+        let long = "a".repeat(65);
+        assert!(validate_input(&long, "a@b.co", "Alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_long_email() {
+        let long = "a".repeat(255) + "@b.co";
+        assert!(validate_input("alice", &long, "Alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_long_display_name() {
+        let long = "A".repeat(257);
+        assert!(validate_input("alice", "a@b.co", &long).is_err());
+    }
+
+    #[test]
+    fn test_validate_input_invalid_username_chars() {
+        assert!(validate_input("alice!", "a@b.co", "Alice").is_err());
+        assert!(validate_input("alice.", "a@b.co", "Alice").is_err());
+        assert!(validate_input("alice@", "a@b.co", "Alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_invalid_email() {
+        assert!(validate_input("alice", "noat", "Alice").is_err());
+        assert!(validate_input("alice", "nodot@", "Alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_control_chars() {
+        assert!(validate_input("alice\n", "a@b.co", "Alice").is_err());
+        assert!(validate_input("alice", "a@b.co\n", "Alice").is_err());
+        assert!(validate_input("alice", "a@b.co", "Alice\0").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_rtl_override() {
+        assert!(validate_input("\u{202E}", "a@b.co", "Alice").is_err());
+    }
+
+    #[test]
+    fn test_validate_input_zero_width() {
+        assert!(validate_input("alice", "a@b.co", "\u{200B}").is_err());
+    }
 
     #[test]
     fn test_login_request_parse() {
