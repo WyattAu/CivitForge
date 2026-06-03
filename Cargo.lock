@@ -904,6 +904,7 @@ dependencies = [
  "civit-shared",
  "console_error_panic_hook",
  "either_of",
+ "getrandom 0.2.17",
  "leptos",
  "leptos_axum",
  "leptos_router",
@@ -911,6 +912,7 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
+ "wasm-bindgen",
  "web-sys",
 ]
 

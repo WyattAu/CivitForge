@@ -9,3 +9,10 @@ pub mod state;
 pub use app::*;
 pub use components::*;
 pub use leptos::prelude::*;
+
+#[cfg(feature = "csr")]
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn main() {
+    console_error_panic_hook::set_once();
+    leptos::mount::mount_to_body(App);
+}

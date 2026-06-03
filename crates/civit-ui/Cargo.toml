@@ -15,7 +15,8 @@ leptos_axum = { version = "0.7", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
-uuid = { workspace = true }
+uuid = { workspace = true, features = ["js"] }
+getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = { version = "0.1", optional = true }
 web-sys = { version = "0.3", optional = true, features = [
   "Window",
@@ -27,8 +28,9 @@ web-sys = { version = "0.3", optional = true, features = [
 ] }
 civit-shared = { path = "../civit-shared" }
 reqwest = { workspace = true, features = ["json"], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "dep:console_error_panic_hook", "dep:web-sys"]
+csr = ["leptos/csr", "dep:console_error_panic_hook", "dep:web-sys", "dep:wasm-bindgen"]
 ssr = ["leptos/ssr", "dep:leptos_axum", "dep:reqwest"]
