@@ -143,8 +143,10 @@ pub fn LoginPage() -> impl IntoView {
 
                     <div class="mt-6 text-center text-sm">
                         <button
+                            type="button"
                             class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                             on:click=move |_| set_is_register.set(!is_register.get())
+                            aria-label=move || if is_register.get() { "Switch to sign in form" } else { "Switch to registration form" }
                         >
                             {move || if is_register.get() { "Already have an account? Sign In" } else { "Don't have an account? Register" }}
                         </button>

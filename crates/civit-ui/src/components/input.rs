@@ -26,6 +26,7 @@ pub fn Input(
     #[prop(optional)] placeholder: &'static str,
     #[prop(optional)] value: String,
     #[prop(optional)] required: bool,
+    #[prop(optional)] disabled: bool,
     #[prop(optional)] id: &'static str,
     #[prop(optional)] options: Vec<(&'static str, &'static str)>,
 ) -> impl IntoView {
@@ -51,6 +52,7 @@ pub fn Input(
                     class=input_classes
                     placeholder=placeholder
                     required=required
+                    disabled=disabled
                     aria-label=aria_label
                 >
                     {value}
@@ -63,7 +65,7 @@ pub fn Input(
                 {(!label.is_empty()).then(|| view! {
                     <label class=label_classes for=input_id>{label}</label>
                 })}
-                <select id=input_id name=name class=input_classes required=required aria-label=aria_label>
+                <select id=input_id name=name class=input_classes required=required disabled=disabled aria-label=aria_label>
                     <For each=move || options.clone() key=|o| o.0 let:opt>
                         <option value=opt.0>{opt.1}</option>
                     </For>
@@ -89,6 +91,7 @@ pub fn Input(
                     placeholder=placeholder
                     value=value
                     required=required
+                    disabled=disabled
                     aria-label=aria_label
                 />
             </div>

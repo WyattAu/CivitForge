@@ -16,7 +16,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true, features = ["js"] }
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.2", features = ["js"], optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 web-sys = { version = "0.3", optional = true, features = [
   "Window",
@@ -35,5 +35,5 @@ wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "dep:console_error_panic_hook", "dep:web-sys", "dep:wasm-bindgen", "dep:reqwest"]
+csr = ["leptos/csr", "dep:console_error_panic_hook", "dep:web-sys", "dep:wasm-bindgen", "dep:reqwest", "dep:getrandom"]
 ssr = ["leptos/ssr", "dep:leptos_axum", "dep:reqwest"]

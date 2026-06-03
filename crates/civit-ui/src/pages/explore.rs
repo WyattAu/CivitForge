@@ -78,6 +78,9 @@ pub fn ExplorePage() -> impl IntoView {
     view! {
         <div class="space-y-6">
             <div class="text-center">
+                <div class="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    <span class="text-gray-700 dark:text-gray-300">"Explore"</span>
+                </div>
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Explore Repositories"</h1>
                 <p class="mt-2 text-gray-600 dark:text-gray-400">
                     "Discover open-source projects and repositories."
@@ -88,8 +91,10 @@ pub fn ExplorePage() -> impl IntoView {
                 <form class="flex gap-2" on:submit=handle_search>
                     <div class="flex-1">
                         <Input
+                            label="Search"
                             input_type=InputType::Text
                             name="q"
+                            id="q"
                             placeholder="Search repositories..."
                             value=query.get()
                         ></Input>

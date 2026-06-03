@@ -167,7 +167,9 @@ fn RepoHeader(
             <div class="flex gap-2">
                 <Button variant=ButtonVariant::Secondary disabled=true>"Star"</Button>
                 <Button variant=ButtonVariant::Secondary disabled=true>"Fork"</Button>
-                <Button variant=ButtonVariant::Primary>"Code"</Button>
+                <Button variant=ButtonVariant::Primary>
+                    "Code"
+                </Button>
             </div>
         </div>
     }
@@ -185,7 +187,7 @@ fn RepoTabs(
         </div>
 
         <div class="flex gap-1 text-sm font-medium border-b border-gray-200 dark:border-gray-700 -mb-px">
-            <A href=format!("/repos/{}/{}", owner(), name())>
+            <A href=format!("/repos/{}/{}/code", owner(), name())>
                 <span class="px-4 py-3 border-b-2 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400">"Code"</span>
             </A>
             <A href=format!("/repos/{}/{}/issues", owner(), name())>

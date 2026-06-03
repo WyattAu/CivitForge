@@ -30,6 +30,11 @@ pub fn Sidebar() -> impl IntoView {
             icon: "\u{1f4c1}",
         },
         NavItem {
+            href: "/activity".into(),
+            label: "Activity".into(),
+            icon: "activity",
+        },
+        NavItem {
             href: "/explore".into(),
             label: "Explore".into(),
             icon: "\u{1f50d}",
@@ -80,7 +85,13 @@ pub fn Sidebar() -> impl IntoView {
                         view! {
                             <a href=href class=link_class>
                                 <Show when=move || item.icon == "svg" fallback=move || view! {
-                                    <span class="mr-2">{item.icon}</span>
+                                    <Show when=move || item.icon == "activity" fallback=move || view! {
+                                        <span class="mr-2">{item.icon}</span>
+                                    }>
+                                        <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                    </Show>
                                 }>
                                     <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>

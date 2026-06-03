@@ -14,6 +14,34 @@ fn format_datetime(dt: &chrono::DateTime<chrono::Utc>) -> String {
     dt.format("%b %d, %Y").to_string()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_datetime_basic() {
+        let dt = chrono::DateTime::parse_from_rfc3339("2024-03-15T10:30:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        assert_eq!(format_datetime(&dt), "Mar 15, 2024");
+    }
+
+    #[test]
+    fn format_datetime_month_names() {
+        let cases = [
+            ("2024-01-01T00:00:00Z", "Jan 01, 2024"),
+            ("2024-06-15T00:00:00Z", "Jun 15, 2024"),
+            ("2024-12-25T00:00:00Z", "Dec 25, 2024"),
+        ];
+        for (input, expected) in cases {
+            let dt = chrono::DateTime::parse_from_rfc3339(input)
+                .unwrap()
+                .with_timezone(&chrono::Utc);
+            assert_eq!(format_datetime(&dt), expected, "failed for {input}");
+        }
+    }
+}
+
 #[component]
 pub fn ReposPage() -> impl IntoView {
     let auth = use_auth();
@@ -51,6 +79,9 @@ pub fn ReposPage() -> impl IntoView {
         <div class="space-y-6">
             <div class="flex items-center justify-between">
                 <div>
+                    <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
+                        <span class="text-gray-700 dark:text-gray-300">"Repositories"</span>
+                    </div>
                     <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Repositories"</h1>
                     <p class="mt-1 text-gray-600 dark:text-gray-400">"Browse and manage your repositories."</p>
                 </div>

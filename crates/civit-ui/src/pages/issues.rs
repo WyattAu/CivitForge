@@ -65,6 +65,78 @@ fn status_label(state: &str) -> String {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_uuid_short() {
+        assert_eq!(truncate_uuid("abc", 8), "abc");
+    }
+
+    #[test]
+    fn truncate_uuid_exact() {
+        assert_eq!(truncate_uuid("abcdefgh", 8), "abcdefgh");
+    }
+
+    #[test]
+    fn truncate_uuid_long() {
+        assert_eq!(truncate_uuid("abcdefghijk", 8), "abcdefgh...");
+    }
+
+    #[test]
+    fn truncate_uuid_zero_max() {
+        assert_eq!(truncate_uuid("anything", 0), "...");
+    }
+
+    #[test]
+    fn relative_time_non_csr_passthrough() {
+        assert_eq!(relative_time("some-bad-format"), "some-bad-format");
+    }
+
+    #[test]
+    fn status_badge_color_known_states() {
+        assert_eq!(status_badge_color("open"), BadgeColor::Success);
+        assert_eq!(status_badge_color("in_progress"), BadgeColor::Info);
+        assert_eq!(status_badge_color("closed"), BadgeColor::Neutral);
+    }
+
+    #[test]
+    fn status_badge_color_unknown() {
+        assert_eq!(status_badge_color("merged"), BadgeColor::Neutral);
+        assert_eq!(status_badge_color(""), BadgeColor::Neutral);
+    }
+
+    #[test]
+    fn status_label_capitalize() {
+        assert_eq!(status_label("open"), "Open");
+        assert_eq!(status_label("closed"), "Closed");
+    }
+
+    #[test]
+    fn status_label_in_progress_special() {
+        assert_eq!(status_label("in_progress"), "In Progress");
+    }
+
+    #[test]
+    fn status_label_empty() {
+        assert_eq!(status_label(""), "");
+    }
+
+    #[test]
+    fn truncate_title_short() {
+        assert_eq!(truncate_title("short", 80), "short");
+    }
+
+    #[test]
+    fn truncate_title_long() {
+        assert_eq!(
+            truncate_title("a very long title that exceeds the max", 10),
+            "a very lon..."
+        );
+    }
+}
+
 fn get_input_value(name: &str) -> String {
     #[cfg(feature = "csr")]
     {
@@ -341,7 +413,7 @@ pub fn IssuesPage() -> impl IntoView {
 
             <Show when=has_issues fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
-                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <div class="divide-y divide-gray-100 dark:divide-gray-700 overflow-x-auto">
                         <For each=move || issues_sig.get().map(|d| d.data.clone()).unwrap_or_default() key=|i| i.id let:issue>
                             {
                                 let owner_v = owner();
@@ -364,10 +436,10 @@ pub fn IssuesPage() -> impl IntoView {
                                                 />
                                             </div>
                                             <div class="flex items-center gap-3 shrink-0">
-                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-mono hidden sm:inline-flex">
                                                     {truncate_uuid(&issue.author, 8)}
                                                 </span>
-                                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline-flex">
                                                     {relative_time(&issue.created_at)}
                                                 </span>
                                             </div>

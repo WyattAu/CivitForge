@@ -197,11 +197,6 @@ fn HomeLoggedIn() -> impl IntoView {
                 </Show>
             </Card>
 
-            <Card title="Recent Activity" description="Recent events across your projects">
-                <div class="py-8 text-center text-gray-400 dark:text-gray-500">
-                    "No recent activity to display."
-                </div>
-            </Card>
         </div>
     }
 }
