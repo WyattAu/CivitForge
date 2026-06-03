@@ -75,8 +75,8 @@ struct LanguagesResponse {
 // Helper: get repo id
 // ---------------------------------------------------------------------------
 
-async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<i64> {
-    sqlx::query_scalar::<_, i64>(
+async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<uuid::Uuid> {
+    sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
     .bind(owner)

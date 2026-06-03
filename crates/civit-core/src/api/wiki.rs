@@ -57,14 +57,14 @@ pub struct WikiPageSummary {
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct WikiPageResponse {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub slug: String,
     pub title: String,
     pub format: String,
     pub content: String,
     pub latest_commit: String,
-    pub created_by: String,
+    pub created_by: uuid::Uuid,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -72,10 +72,10 @@ pub struct WikiPageResponse {
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct WikiRevisionResponse {
-    pub id: i64,
-    pub page_id: i64,
+    pub id: uuid::Uuid,
+    pub page_id: uuid::Uuid,
     pub commit_sha: String,
-    pub author_id: String,
+    pub author_id: uuid::Uuid,
     pub edit_message: String,
     pub created_at: DateTime<Utc>,
 }
@@ -92,8 +92,8 @@ struct DiffResponse {
 // Helper: get repo id
 // ---------------------------------------------------------------------------
 
-async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<i64> {
-    sqlx::query_scalar::<_, i64>(
+async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<uuid::Uuid> {
+    sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
     .bind(owner)
@@ -626,7 +626,7 @@ pub async fn wiki_page_history(
         }
     };
 
-    let page_id = match sqlx::query_scalar::<_, i64>(
+    let page_id = match sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT id FROM wiki_pages WHERE repo_id = $1 AND slug = $2",
     )
     .bind(repo_id)
@@ -676,7 +676,7 @@ pub async fn wiki_page_diff(
         }
     };
 
-    let page_id = match sqlx::query_scalar::<_, i64>(
+    let page_id = match sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT id FROM wiki_pages WHERE repo_id = $1 AND slug = $2",
     )
     .bind(repo_id)

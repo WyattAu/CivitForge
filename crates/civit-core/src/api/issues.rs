@@ -18,8 +18,8 @@ use serde::{Deserialize, Serialize};
 pub struct ListIssuesParams {
     pub state: Option<String>,
     pub label: Option<String>,
-    pub assignee: Option<i64>,
-    pub milestone: Option<i64>,
+    pub assignee: Option<uuid::Uuid>,
+    pub milestone: Option<uuid::Uuid>,
     pub sort: Option<String>,
     #[serde(default = "default_page")]
     pub page: i64,
@@ -32,9 +32,9 @@ pub struct ListIssuesParams {
 pub struct CreateIssueRequest {
     pub title: String,
     pub description: Option<String>,
-    pub assignee: Option<i64>,
-    pub milestone: Option<i64>,
-    pub labels: Option<Vec<i64>>,
+    pub assignee: Option<uuid::Uuid>,
+    pub milestone: Option<uuid::Uuid>,
+    pub labels: Option<Vec<uuid::Uuid>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -43,9 +43,9 @@ pub struct UpdateIssueRequest {
     pub title: Option<String>,
     pub description: Option<String>,
     pub state: Option<String>,
-    pub assignee: Option<i64>,
-    pub milestone: Option<i64>,
-    pub labels: Option<Vec<i64>>,
+    pub assignee: Option<uuid::Uuid>,
+    pub milestone: Option<uuid::Uuid>,
+    pub labels: Option<Vec<uuid::Uuid>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -124,16 +124,16 @@ fn default_per_page() -> i64 {
 #[derive(Debug, Serialize)]
 #[allow(dead_code)]
 pub struct IssueResponse {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub number: i64,
     pub title: String,
     pub description: Option<String>,
     pub state: String,
     pub priority: Option<i32>,
-    pub author_id: i64,
-    pub assignee_id: Option<i64>,
-    pub milestone_id: Option<i64>,
+    pub author_id: uuid::Uuid,
+    pub assignee_id: Option<uuid::Uuid>,
+    pub milestone_id: Option<uuid::Uuid>,
     pub is_locked: bool,
     pub locked_reason: Option<String>,
     pub created_at: DateTime<Utc>,
@@ -147,8 +147,8 @@ pub struct IssueResponse {
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct LabelResponse {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub name: String,
     pub color: Option<String>,
     pub description: Option<String>,
@@ -158,16 +158,16 @@ pub struct LabelResponse {
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct IssueAssignee {
-    pub user_id: i64,
+    pub user_id: uuid::Uuid,
     pub assigned_at: DateTime<Utc>,
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct CommentResponse {
-    pub id: i64,
-    pub issue_id: i64,
-    pub author_id: i64,
+    pub id: uuid::Uuid,
+    pub issue_id: uuid::Uuid,
+    pub author_id: uuid::Uuid,
     pub body: String,
     pub is_edited: bool,
     pub edited_at: Option<DateTime<Utc>>,
@@ -177,8 +177,8 @@ pub struct CommentResponse {
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct MilestoneResponse {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub title: String,
     pub description: Option<String>,
     pub state: String,
@@ -190,10 +190,10 @@ pub struct MilestoneResponse {
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 pub struct ReactionResponse {
-    pub id: i64,
-    pub issue_id: i64,
-    pub comment_id: Option<i64>,
-    pub user_id: i64,
+    pub id: uuid::Uuid,
+    pub issue_id: uuid::Uuid,
+    pub comment_id: Option<uuid::Uuid>,
+    pub user_id: uuid::Uuid,
     pub emoji: String,
     pub created_at: DateTime<Utc>,
 }
@@ -208,8 +208,8 @@ struct MessageResponse {
 // Helper: get repo id
 // ---------------------------------------------------------------------------
 
-async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<i64> {
-    sqlx::query_scalar::<_, i64>(
+async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<uuid::Uuid> {
+    sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
     .bind(owner)
@@ -239,8 +239,8 @@ fn validate_state_transition(current: &str, next: &str) -> bool {
 
 async fn insert_timeline(
     pool: &sqlx::PgPool,
-    issue_id: i64,
-    actor_id: i64,
+    issue_id: uuid::Uuid,
+    actor_id: uuid::Uuid,
     event_type: &str,
     event_detail: Option<&str>,
 ) {
@@ -406,16 +406,16 @@ pub async fn list_issues(
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 struct IssueRow {
-    id: i64,
-    repo_id: i64,
+    id: uuid::Uuid,
+    repo_id: uuid::Uuid,
     number: i64,
     title: String,
     description: Option<String>,
     state: String,
     priority: Option<i32>,
-    author_id: i64,
-    assignee_id: Option<i64>,
-    milestone_id: Option<i64>,
+    author_id: uuid::Uuid,
+    assignee_id: Option<uuid::Uuid>,
+    milestone_id: Option<uuid::Uuid>,
     is_locked: bool,
     locked_reason: Option<String>,
     created_at: DateTime<Utc>,
@@ -735,7 +735,7 @@ pub async fn add_comment(
         }
     };
 
-    let issue_id = match sqlx::query_scalar::<_, i64>(
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
     )
     .bind(repo_id)
@@ -773,7 +773,7 @@ pub async fn add_comment(
 
 pub async fn edit_comment(
     State(state): State<AppState>,
-    Path((owner, name, _number, comment_id)): Path<(String, String, i64, i64)>,
+    Path((owner, name, _number, comment_id)): Path<(String, String, i64, uuid::Uuid)>,
     _auth: AuthUser,
     Json(req): Json<UpdateCommentRequest>,
 ) -> impl IntoResponse {
@@ -817,7 +817,7 @@ pub async fn edit_comment(
 
 pub async fn delete_comment(
     State(state): State<AppState>,
-    Path((owner, name, _number, comment_id)): Path<(String, String, i64, i64)>,
+    Path((owner, name, _number, comment_id)): Path<(String, String, i64, uuid::Uuid)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -870,7 +870,7 @@ pub async fn add_reaction(
         }
     };
 
-    let issue_id = match sqlx::query_scalar::<_, i64>(
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
         "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
     )
     .bind(repo_id)
@@ -1014,7 +1014,7 @@ pub async fn create_label(
 
 pub async fn update_label(
     State(state): State<AppState>,
-    Path((owner, name, label_id)): Path<(String, String, i64)>,
+    Path((owner, name, label_id)): Path<(String, String, uuid::Uuid)>,
     _auth: AuthUser,
     Json(req): Json<UpdateLabelRequest>,
 ) -> impl IntoResponse {
@@ -1075,7 +1075,7 @@ pub async fn update_label(
 
 pub async fn delete_label(
     State(state): State<AppState>,
-    Path((owner, name, label_id)): Path<(String, String, i64)>,
+    Path((owner, name, label_id)): Path<(String, String, uuid::Uuid)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -1205,7 +1205,7 @@ pub async fn create_milestone(
 
 pub async fn update_milestone(
     State(state): State<AppState>,
-    Path((owner, name, milestone_id)): Path<(String, String, i64)>,
+    Path((owner, name, milestone_id)): Path<(String, String, uuid::Uuid)>,
     _auth: AuthUser,
     Json(req): Json<UpdateMilestoneRequest>,
 ) -> impl IntoResponse {
@@ -1268,7 +1268,7 @@ pub async fn update_milestone(
 
 pub async fn delete_milestone(
     State(state): State<AppState>,
-    Path((owner, name, milestone_id)): Path<(String, String, i64)>,
+    Path((owner, name, milestone_id)): Path<(String, String, uuid::Uuid)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -1371,13 +1371,19 @@ mod tests {
     #[test]
     fn test_list_issues_params_with_values() {
         let p: ListIssuesParams = serde_json::from_str(
-            r#"{"state":"open","label":"bug","assignee":5,"milestone":3,"sort":"updated_at","page":2,"per_page":10}"#,
+            r#"{"state":"open","label":"bug","assignee":"00000000-0000-0000-0000-000000000005","milestone":"00000000-0000-0000-0000-000000000003","sort":"updated_at","page":2,"per_page":10}"#,
         )
         .unwrap();
         assert_eq!(p.state.as_deref(), Some("open"));
         assert_eq!(p.label.as_deref(), Some("bug"));
-        assert_eq!(p.assignee, Some(5));
-        assert_eq!(p.milestone, Some(3));
+        assert_eq!(
+            p.assignee,
+            Some(uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000005").unwrap())
+        );
+        assert_eq!(
+            p.milestone,
+            Some(uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000003").unwrap())
+        );
         assert_eq!(p.sort.as_deref(), Some("updated_at"));
         assert_eq!(p.page, 2);
         assert_eq!(p.per_page, 10);
@@ -1386,14 +1392,29 @@ mod tests {
     #[test]
     fn test_create_issue_request_parse() {
         let req: CreateIssueRequest = serde_json::from_str(
-            r#"{"title":"Fix bug","description":"A nasty bug","assignee":42,"milestone":7,"labels":[1,2,3]}"#,
+            r#"{"title":"Fix bug","description":"A nasty bug","assignee":"00000000-0000-0000-0000-00000000002a","milestone":"00000000-0000-0000-0000-000000000007","labels":["00000000-0000-0000-0000-000000000001","00000000-0000-0000-0000-000000000002","00000000-0000-0000-0000-000000000003"]}"#,
         )
         .unwrap();
         assert_eq!(req.title, "Fix bug");
         assert_eq!(req.description.as_deref(), Some("A nasty bug"));
-        assert_eq!(req.assignee, Some(42));
-        assert_eq!(req.milestone, Some(7));
-        assert_eq!(req.labels.as_deref(), Some(&[1, 2, 3][..]));
+        assert_eq!(
+            req.assignee,
+            Some(uuid::Uuid::parse_str("00000000-0000-0000-0000-00000000002a").unwrap())
+        );
+        assert_eq!(
+            req.milestone,
+            Some(uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000007").unwrap())
+        );
+        assert_eq!(
+            req.labels.as_deref(),
+            Some(
+                &[
+                    uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap(),
+                    uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap(),
+                    uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000003").unwrap(),
+                ][..]
+            )
+        );
     }
 
     #[test]
