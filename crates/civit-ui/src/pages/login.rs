@@ -1,15 +1,89 @@
 #![forbid(unsafe_code)]
 
 use leptos::prelude::*;
+use leptos_router::hooks::use_navigate;
+#[cfg(feature = "csr")]
+use wasm_bindgen::JsCast;
 
+use crate::api::client::ApiClient;
+use crate::api::types::AuthResponse;
 use crate::components::{Button, ButtonVariant, Input, InputType};
+use crate::state::auth::{login, use_auth};
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct LoginRequest {
+    email: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
+}
 
 #[component]
 pub fn LoginPage() -> impl IntoView {
     let (is_register, set_is_register) = signal(false);
+    let (error, set_error) = signal(None::<String>);
+    let (loading, set_loading) = signal(false);
+    let auth = use_auth();
+    let navigate = use_navigate();
 
-    let handle_submit = move |ev| {
-        let _ = event_target_value(&ev);
+    let handle_submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        set_error.set(None);
+
+        let username_val = get_value("username");
+        let email_val = get_value("email");
+        let display_name_val = get_value("display_name");
+
+        if email_val.is_empty() {
+            set_error.set(Some("Email is required.".to_string()));
+            return;
+        }
+
+        let body = LoginRequest {
+            email: email_val,
+            username: if is_register.get() {
+                Some(username_val)
+            } else {
+                None
+            },
+            display_name: if is_register.get() {
+                let dn = display_name_val;
+                if dn.is_empty() { None } else { Some(dn) }
+            } else {
+                None
+            },
+        };
+
+        set_loading.set(true);
+
+        let auth_clone = auth;
+        let navigate_clone = navigate.clone();
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(None);
+            let result = client.post("/auth/login", &body).await;
+
+            match result {
+                Ok(resp) if resp.status().is_success() => match resp.json::<AuthResponse>().await {
+                    Ok(data) => {
+                        login(&auth_clone, data.user.id, data.user.username, data.token);
+                        navigate_clone("/repos", Default::default());
+                    }
+                    Err(e) => {
+                        set_error.set(Some(format!("Failed to parse response: {e}")));
+                    }
+                },
+                Ok(resp) => {
+                    let status = resp.status();
+                    let body_text = resp.text().await.unwrap_or_default();
+                    set_error.set(Some(format!("Login failed ({status}): {body_text}")));
+                }
+                Err(e) => {
+                    set_error.set(Some(format!("Network error: {e}")));
+                }
+            }
+            set_loading.set(false);
+        });
     };
 
     view! {
@@ -25,35 +99,45 @@ pub fn LoginPage() -> impl IntoView {
                         </p>
                     </div>
 
+                    <Show when=move || error.get().is_some()>
+                        <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                            <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
+                        </div>
+                    </Show>
+
                     <form on:submit=handle_submit class="space-y-5">
                         {is_register.get().then(|| view! {
                             <Input
                                 label="Username"
                                 name="username"
+                                id="username"
                                 input_type=InputType::Text
                                 placeholder="johndoe"
                                 required=true
+                            ></Input>
+                            <Input
+                                label="Display Name"
+                                name="display_name"
+                                id="display_name"
+                                input_type=InputType::Text
+                                placeholder="John Doe"
+                                required=false
                             ></Input>
                         })}
                         <Input
                             label="Email"
                             name="email"
+                            id="email"
                             input_type=InputType::Email
                             placeholder="you@example.com"
-                            required=true
-                        ></Input>
-                        <Input
-                            label="Password"
-                            name="password"
-                            input_type=InputType::Password
-                            placeholder="••••••••"
                             required=true
                         ></Input>
                         <Button
                             variant=ButtonVariant::Primary
                             extra_class="w-full justify-center"
+                            disabled=loading.get()
                         >
-                            {move || if is_register.get() { "Register" } else { "Sign In" }}
+                            {move || if loading.get() { "Signing in..." } else if is_register.get() { "Register" } else { "Sign In" }}
                         </Button>
                     </form>
 
@@ -68,5 +152,32 @@ pub fn LoginPage() -> impl IntoView {
                 </div>
             </div>
         </div>
+    }
+}
+
+fn get_value(name: &str) -> String {
+    #[cfg(feature = "csr")]
+    {
+        let window = match web_sys::window() {
+            Some(w) => w,
+            None => return String::new(),
+        };
+        let doc = match window.document() {
+            Some(d) => d,
+            None => return String::new(),
+        };
+        let el = match doc.get_element_by_id(name) {
+            Some(el) => el,
+            None => return String::new(),
+        };
+        match el.dyn_into::<web_sys::HtmlInputElement>() {
+            Ok(input) => input.value(),
+            Err(_) => String::new(),
+        }
+    }
+    #[cfg(not(feature = "csr"))]
+    {
+        let _ = name;
+        String::new()
     }
 }

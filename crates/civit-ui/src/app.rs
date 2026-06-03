@@ -5,9 +5,11 @@ use leptos_router::components::*;
 use leptos_router::path;
 
 use crate::pages::*;
+use crate::state::auth::provide_auth_context;
 
 #[component]
 pub fn App() -> impl IntoView {
+    provide_auth_context();
     view! {
         <Router>
             <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">

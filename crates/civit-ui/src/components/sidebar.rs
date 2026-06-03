@@ -3,6 +3,8 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 
+use crate::state::auth::{logout, use_auth};
+
 #[derive(Clone)]
 struct NavItem {
     href: String,
@@ -12,8 +14,9 @@ struct NavItem {
 #[component]
 pub fn Sidebar() -> impl IntoView {
     let (mobile_open, set_mobile_open) = signal(false);
+    let auth = use_auth();
 
-    let (nav_sig, _) = signal(vec![
+    let nav_items = vec![
         NavItem {
             href: "/".into(),
             label: "Dashboard".into(),
@@ -34,11 +37,17 @@ pub fn Sidebar() -> impl IntoView {
             href: "/settings".into(),
             label: "Settings".into(),
         },
-    ]);
+    ];
 
-    let link_class = "block px-3 py-2 rounded-md text-sm font-medium \
+    let (nav_sig, _) = signal(nav_items);
+
+    let link_class: &'static str = "block px-3 py-2 rounded-md text-sm font-medium \
                       text-gray-700 hover:bg-gray-100 hover:text-gray-900 \
                       dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white";
+
+    let handle_logout = move |_| {
+        logout(&auth);
+    };
 
     view! {
         <aside
@@ -59,12 +68,34 @@ pub fn Sidebar() -> impl IntoView {
                     {
                         view! {
                             <A href=item.href.clone()>
-                                <span class=link_class.to_string()>{item.label.clone()}</span>
+                                <span class=link_class>{item.label.clone()}</span>
                             </A>
                         }
                     }
                 </For>
             </nav>
+
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 dark:border-gray-700">
+                <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
+                    <A href="/login">
+                        <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">"Sign In"</div>
+                    </A>
+                }>
+                    <div class="flex items-center justify-between">
+                        <div class="px-3 py-2">
+                            <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {move || auth.0.with(|a| a.username.clone().unwrap_or_default())}
+                            </span>
+                        </div>
+                        <button
+                            class="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white rounded-md"
+                            on:click=handle_logout
+                        >
+                            "Sign Out"
+                        </button>
+                    </div>
+                </Show>
+            </div>
         </aside>
 
         <button

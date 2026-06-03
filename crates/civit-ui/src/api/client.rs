@@ -2,7 +2,17 @@
 
 use reqwest::Client;
 
-static API_BASE: &str = "http://localhost:8080/api/v1";
+fn get_base_url() -> String {
+    #[cfg(feature = "csr")]
+    {
+        if let Some(window) = web_sys::window() {
+            if let Ok(origin) = window.location().origin() {
+                return format!("{origin}/api/v1");
+            }
+        }
+    }
+    "http://localhost:9091/api/v1".to_string()
+}
 
 #[derive(Clone)]
 pub struct ApiClient {
@@ -15,7 +25,7 @@ impl ApiClient {
     pub fn new(token: Option<String>) -> Self {
         Self {
             client: Client::new(),
-            base_url: API_BASE.to_string(),
+            base_url: get_base_url(),
             token,
         }
     }
@@ -26,6 +36,10 @@ impl ApiClient {
             base_url,
             token,
         }
+    }
+
+    pub fn token(&self) -> Option<&str> {
+        self.token.as_deref()
     }
 
     fn auth_header(&self) -> Option<String> {
