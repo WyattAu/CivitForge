@@ -7,7 +7,7 @@ use wasm_bindgen::JsCast;
 
 use crate::api::client::ApiClient;
 use crate::api::types::AuthResponse;
-use crate::components::{Button, ButtonVariant, Input, InputType};
+use crate::components::{Button, ButtonVariant, ErrorBanner, Input, InputType};
 use crate::state::auth::{login, use_auth};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -86,10 +86,12 @@ pub fn LoginPage() -> impl IntoView {
         });
     };
 
+    let dismiss_error = Callback::new(move |_: ()| set_error.set(None));
+
     view! {
         <div class="flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
             <div class="w-full max-w-md">
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+                <div class="bg-white dark:bg-gray-800 rounded-none shadow-sm border-2 border-gray-200 dark:border-gray-700 p-8">
                     <div class="text-center mb-8">
                         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                             {move || if is_register.get() { "Create Account" } else { "Sign In" }}
@@ -100,9 +102,7 @@ pub fn LoginPage() -> impl IntoView {
                     </div>
 
                     <Show when=move || error.get().is_some()>
-                        <div class="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                            <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                        </div>
+                        <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=dismiss_error />
                     </Show>
 
                     <form on:submit=handle_submit class="space-y-5">

@@ -401,7 +401,7 @@ impl OutboxProcessor {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn make_activity(id: &str, type_: &str, actor: &str) -> FederatedActivity {
     FederatedActivity {
         id: id.to_string(),

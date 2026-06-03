@@ -9,7 +9,7 @@ use wasm_bindgen::JsCast;
 use crate::api::client::ApiClient;
 use crate::api::types::ListResponse;
 use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, Input, InputType, Modal, Spinner,
+    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner,
 };
 use crate::state::auth::use_auth;
 use civit_shared::org::OrgResponse;
@@ -156,6 +156,8 @@ pub fn OrgsPage() -> impl IntoView {
         });
     };
 
+    let dismiss_error = Callback::new(move |_: ()| set_error.set(None));
+
     view! {
         <div class="space-y-6">
             <div class="flex items-center justify-between flex-wrap gap-4">
@@ -169,9 +171,7 @@ pub fn OrgsPage() -> impl IntoView {
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=dismiss_error />
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div></div> }>
@@ -250,9 +250,7 @@ pub fn OrgsPage() -> impl IntoView {
             >
                 <form on:submit=handle_create_submit class="space-y-4">
                     <Show when=move || create_error.get().is_some()>
-                        <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                            <p class="text-sm text-red-700 dark:text-red-400">{move || create_error.get().unwrap_or_default()}</p>
-                        </div>
+                        <ErrorBanner message=move || create_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_create_error.set(None)) />
                     </Show>
 
                     <Input
@@ -367,9 +365,7 @@ pub fn OrgDetailPage() -> impl IntoView {
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() />
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>

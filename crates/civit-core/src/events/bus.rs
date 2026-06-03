@@ -124,11 +124,6 @@ mod tests {
                 event_count: AtomicUsize::new(0),
             }
         }
-
-        #[allow(dead_code)]
-        fn count(&self) -> usize {
-            self.event_count.load(Ordering::Relaxed)
-        }
     }
 
     impl EventSubscriber for TestSubscriber {

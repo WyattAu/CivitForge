@@ -7,7 +7,7 @@ use leptos_router::hooks::use_navigate;
 use wasm_bindgen::JsCast;
 
 use crate::api::client::ApiClient;
-use crate::components::{Button, ButtonVariant, Card, Input, InputType};
+use crate::components::{Button, ButtonVariant, Card, ErrorBanner, Input, InputType};
 use crate::state::auth::use_auth;
 use civit_shared::visibility::Visibility;
 
@@ -136,9 +136,7 @@ pub fn NewRepoPage() -> impl IntoView {
             <Card>
                 <form on:submit=handle_submit class="space-y-5">
                     <Show when=move || error.get().is_some()>
-                        <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                            <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                        </div>
+                        <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
                     </Show>
 
                     <Input

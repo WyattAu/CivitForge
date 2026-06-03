@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct ListIssuesParams {
     pub state: Option<String>,
     pub label: Option<String>,
@@ -28,7 +27,6 @@ pub struct ListIssuesParams {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CreateIssueRequest {
     pub title: String,
     pub description: Option<String>,
@@ -38,7 +36,6 @@ pub struct CreateIssueRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct UpdateIssueRequest {
     pub title: Option<String>,
     pub description: Option<String>,
@@ -49,25 +46,21 @@ pub struct UpdateIssueRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CreateCommentRequest {
     pub body: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct UpdateCommentRequest {
     pub body: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct AddReactionRequest {
     pub emoji: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CreateLabelRequest {
     pub name: String,
     pub color: Option<String>,
@@ -75,7 +68,6 @@ pub struct CreateLabelRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct UpdateLabelRequest {
     pub name: Option<String>,
     pub color: Option<String>,
@@ -83,7 +75,6 @@ pub struct UpdateLabelRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CreateMilestoneRequest {
     pub title: String,
     pub description: Option<String>,
@@ -91,7 +82,6 @@ pub struct CreateMilestoneRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct UpdateMilestoneRequest {
     pub title: Option<String>,
     pub description: Option<String>,
@@ -100,7 +90,6 @@ pub struct UpdateMilestoneRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct ListMilestonesParams {
     pub state: Option<String>,
     #[serde(default = "default_page")]
@@ -122,7 +111,6 @@ fn default_per_page() -> i32 {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 pub struct IssueResponse {
     pub id: uuid::Uuid,
     pub repo_id: uuid::Uuid,
@@ -141,7 +129,6 @@ pub struct IssueResponse {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct LabelResponse {
     pub id: uuid::Uuid,
     pub repo_id: uuid::Uuid,
@@ -152,14 +139,12 @@ pub struct LabelResponse {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct IssueAssignee {
     pub user_id: uuid::Uuid,
     pub assigned_at: DateTime<Utc>,
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct CommentResponse {
     pub id: uuid::Uuid,
     pub issue_id: uuid::Uuid,
@@ -171,7 +156,6 @@ pub struct CommentResponse {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct MilestoneResponse {
     pub id: uuid::Uuid,
     pub repo_id: uuid::Uuid,
@@ -184,7 +168,6 @@ pub struct MilestoneResponse {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct ReactionResponse {
     pub id: uuid::Uuid,
     pub issue_id: uuid::Uuid,
@@ -192,12 +175,6 @@ pub struct ReactionResponse {
     pub user_id: uuid::Uuid,
     pub emoji: String,
     pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Serialize)]
-#[allow(dead_code)]
-struct MessageResponse {
-    message: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -390,7 +367,6 @@ pub async fn list_issues(
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 struct IssueRow {
     pub id: uuid::Uuid,
     pub repo_id: uuid::Uuid,

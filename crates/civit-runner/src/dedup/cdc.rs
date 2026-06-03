@@ -112,7 +112,7 @@ impl Default for FastCdc {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn gear_hash(data: &[u8], mask: u64) -> u64 {
     let mut hash: u64 = 0;
     for &byte in data {

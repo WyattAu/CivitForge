@@ -9,8 +9,8 @@ pub fn Card(
     #[prop(optional)] class: String,
     children: ChildrenFn,
 ) -> impl IntoView {
-    let base = "bg-white dark:bg-gray-800 rounded-lg shadow-sm \
-                border border-gray-200 dark:border-gray-700";
+    let base = "bg-white dark:bg-gray-800 rounded-none shadow-sm \
+                border-2 border-gray-200 dark:border-gray-700";
     let full_class = if class.is_empty() {
         base.to_string()
     } else {

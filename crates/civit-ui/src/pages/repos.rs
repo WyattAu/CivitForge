@@ -5,7 +5,7 @@ use leptos_router::components::A;
 
 use crate::api::client::ApiClient;
 use crate::api::types::ListResponse;
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, Spinner};
+use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
 use civit_shared::repo::RepoResponse;
 use civit_shared::visibility::Visibility;
@@ -60,9 +60,7 @@ pub fn ReposPage() -> impl IntoView {
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>

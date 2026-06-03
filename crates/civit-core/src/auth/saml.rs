@@ -236,23 +236,6 @@ fn extract_tag_text_any_ns(xml: &str, tag_name: &str) -> Option<String> {
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
-fn extract_tag_text(xml: &str, tag_name: &str) -> Option<String> {
-    let open = format!("<{tag_name}>");
-    let close = format!("</{tag_name}>");
-    if let Some(start) = xml.find(&open) {
-        let content_start = start + open.len();
-        if let Some(end) = xml[content_start..].find(&close) {
-            let text = xml[content_start..content_start + end].trim().to_string();
-            if !text.is_empty() {
-                return Some(text);
-            }
-        }
-    }
-    None
-}
-
-#[cfg(test)]
 mod tests {
     use super::*;
 

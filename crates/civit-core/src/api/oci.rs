@@ -936,41 +936,35 @@ async fn resolve_or_create_repo(pool: &sqlx::PgPool, name: &str) -> i64 {
 // ─── Query Param Types ──────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CatalogParams {
     pub n: Option<usize>,
     pub last: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct TagsParams {
     pub n: Option<usize>,
     pub last: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct UploadChunkParams {
     pub range_start: Option<usize>,
     pub range_end: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CompleteUploadParams {
     pub digest: Option<String>,
     pub content_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct ReferrersParams {
     pub artifact_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct RegistryListParams {
     pub limit: Option<usize>,
     pub offset: Option<usize>,

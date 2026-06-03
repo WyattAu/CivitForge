@@ -355,7 +355,7 @@ impl Cmdb {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn make_asset(id: &str, name: &str, asset_type: AssetType, criticality: Criticality) -> Asset {
     Asset {
         id: id.to_string(),
@@ -372,7 +372,7 @@ fn make_asset(id: &str, name: &str, asset_type: AssetType, criticality: Critical
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn make_risk(id: &str, asset_id: &str, likelihood: Likelihood, impact: Impact) -> RiskEntry {
     RiskEntry {
         id: id.to_string(),

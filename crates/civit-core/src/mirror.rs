@@ -140,7 +140,6 @@ impl Default for MirrorManager {
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
 fn test_mirror(id: &str, url: &str) -> MirrorConfig {
     MirrorConfig {
         id: id.into(),

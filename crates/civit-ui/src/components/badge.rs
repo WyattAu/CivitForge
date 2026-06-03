@@ -29,7 +29,7 @@ impl BadgeColor {
 pub fn Badge(color: BadgeColor, text: String) -> impl IntoView {
     view! {
         <span class=format!(
-            "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {}",
+            "inline-flex items-center px-2.5 py-0.5 rounded-sm text-xs font-medium {}",
             color.class()
         )>
             {text}

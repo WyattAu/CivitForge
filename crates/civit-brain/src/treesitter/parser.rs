@@ -219,14 +219,6 @@ fn compute_line_offsets(source: &str) -> Vec<usize> {
     offsets
 }
 
-#[allow(dead_code)]
-fn byte_to_line(offset: usize, line_offsets: &[usize]) -> usize {
-    match line_offsets.binary_search(&offset) {
-        Ok(i) => i,
-        Err(i) => i.saturating_sub(1),
-    }
-}
-
 fn is_word_char(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '_'
 }

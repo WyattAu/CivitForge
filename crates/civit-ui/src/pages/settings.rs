@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use crate::api::client::ApiClient;
 use crate::api::types::{AuthUser, SshKeyResponse};
 use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, Input, InputType, Spinner,
+    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Spinner,
 };
 use crate::state::auth::use_auth;
 use civit_shared::user::UserResponse;
@@ -107,9 +107,7 @@ pub fn SettingsPage() -> impl IntoView {
             <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"User Settings"</h1>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
 
             <Card title="Profile" description="Manage your public profile information">

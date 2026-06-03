@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct GlobalSearchParams {
     pub q: Option<String>,
     pub repo: Option<String>,
@@ -24,7 +23,6 @@ pub struct GlobalSearchParams {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct RepoSearchParams {
     pub q: Option<String>,
     pub language: Option<String>,
@@ -48,7 +46,6 @@ fn default_per_page() -> i64 {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 pub struct SearchHit {
     pub file_path: String,
     pub language: Option<String>,
@@ -57,7 +54,6 @@ pub struct SearchHit {
 }
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 struct SearchEnvelope {
     pub results: Vec<SearchHit>,
     pub total: i64,
@@ -66,7 +62,6 @@ struct SearchEnvelope {
 }
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 struct LanguagesResponse {
     pub languages: Vec<String>,
 }
@@ -237,7 +232,6 @@ pub async fn global_search(
 }
 
 #[derive(Debug, sqlx::FromRow)]
-#[allow(dead_code)]
 struct SearchHitRow {
     file_path: String,
     language: Option<String>,

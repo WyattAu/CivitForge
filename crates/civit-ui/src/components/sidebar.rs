@@ -39,6 +39,11 @@ pub fn Sidebar() -> impl IntoView {
             label: "Organizations".into(),
             icon: "\u{1f3eb}",
         },
+        NavItem {
+            href: "/search".into(),
+            label: "Search".into(),
+            icon: "svg",
+        },
     ];
 
     let (main_nav_sig, _) = signal(main_nav_items);
@@ -70,10 +75,18 @@ pub fn Sidebar() -> impl IntoView {
             <nav class="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
                 <For each=move || main_nav_sig.get() key=|item| item.href.clone() let:item>
                     {
+                        let label = item.label.clone();
+                        let href = item.href.clone();
                         view! {
-                            <a href=item.href.clone() class=link_class>
-                                <span class="mr-2">{item.icon}</span>
-                                {item.label.clone()}
+                            <a href=href class=link_class>
+                                <Show when=move || item.icon == "svg" fallback=move || view! {
+                                    <span class="mr-2">{item.icon}</span>
+                                }>
+                                    <svg class="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                    </svg>
+                                </Show>
+                                {label}
                             </a>
                         }
                     }

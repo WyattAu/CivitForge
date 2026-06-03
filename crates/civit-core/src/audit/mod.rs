@@ -58,9 +58,7 @@ pub struct AuditQueryBuilder {
     outcome: Option<AuditOutcome>,
     since: Option<DateTime<Utc>>,
     until: Option<DateTime<Utc>>,
-    #[allow(dead_code)]
     limit: u32,
-    #[allow(dead_code)]
     offset: u32,
 }
 

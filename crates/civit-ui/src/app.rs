@@ -32,7 +32,9 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("/repos/:owner/:name/issues") view=IssuesPage />
                             <Route path=path!("/repos/:owner/:name/issues/:number") view=IssueDetailPage />
                             <Route path=path!("/repos/:owner/:name/wiki") view=WikiPage />
+                            <Route path=path!("/repos/:owner/:name/pipelines") view=PipelinesPage />
                             <Route path=path!("/repos/:owner/:name/settings") view=RepoSettingsPage />
+                            <Route path=path!("/search") view=SearchPage />
                             <Route path=path!("/orgs") view=OrgsPage />
                             <Route path=path!("/orgs/:id") view=OrgDetailPage />
                             <Route path=path!("/settings") view=SettingsPage />

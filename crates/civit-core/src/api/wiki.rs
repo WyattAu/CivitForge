@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct CreateWikiPageRequest {
     pub slug: String,
     pub title: String,
@@ -22,7 +21,6 @@ pub struct CreateWikiPageRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct UpdateWikiPageRequest {
     pub title: Option<String>,
     pub content: Option<String>,
@@ -30,14 +28,12 @@ pub struct UpdateWikiPageRequest {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct DiffParams {
     pub sha1: Option<String>,
     pub sha2: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[allow(dead_code)]
 pub struct SearchWikiParams {
     pub q: Option<String>,
 }
@@ -47,7 +43,6 @@ pub struct SearchWikiParams {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct WikiPageSummary {
     pub slug: String,
     pub title: String,
@@ -55,7 +50,6 @@ pub struct WikiPageSummary {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct WikiPageResponse {
     pub id: uuid::Uuid,
     pub repo_id: uuid::Uuid,
@@ -70,7 +64,6 @@ pub struct WikiPageResponse {
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
-#[allow(dead_code)]
 pub struct WikiRevisionResponse {
     pub id: uuid::Uuid,
     pub page_id: uuid::Uuid,
@@ -81,7 +74,6 @@ pub struct WikiRevisionResponse {
 }
 
 #[derive(Debug, Serialize)]
-#[allow(dead_code)]
 struct DiffResponse {
     sha1: String,
     sha2: String,
@@ -339,43 +331,6 @@ fn lcs_lines<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
     }
     result.reverse();
     result
-}
-
-/// Apply diff hunks to reconstruct content at revision sha2 from sha1.
-#[allow(dead_code)]
-fn apply_diff_hunks(old: &str, hunks: &[DiffHunk]) -> String {
-    let old_lines: Vec<&str> = old.lines().collect();
-    let mut new_lines = Vec::new();
-    let mut old_idx = 0;
-
-    for hunk in hunks {
-        // Copy context lines before changes
-        while old_idx < hunk.old_start && old_idx < old_lines.len() {
-            new_lines.push(old_lines[old_idx].to_string());
-            old_idx += 1;
-        }
-
-        for line in &hunk.lines {
-            match line {
-                DiffLine::Context(s) => new_lines.push((*s).to_string()),
-                DiffLine::Removed(_) => {
-                    old_idx += 1;
-                }
-                DiffLine::Added(s) => new_lines.push((*s).to_string()),
-            }
-        }
-
-        // Advance old_idx past the consumed lines
-        old_idx = hunk.old_start + hunk.old_count;
-    }
-
-    // Copy remaining lines
-    while old_idx < old_lines.len() {
-        new_lines.push(old_lines[old_idx].to_string());
-        old_idx += 1;
-    }
-
-    new_lines.join("\n")
 }
 
 // ---------------------------------------------------------------------------

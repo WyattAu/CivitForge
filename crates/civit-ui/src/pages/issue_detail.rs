@@ -8,7 +8,7 @@ use wasm_bindgen::JsCast;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{CreateCommentBody, IssueResponse, UpdateIssueBody};
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, Spinner};
+use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
 
 fn relative_time(created_at: &str) -> String {
@@ -306,11 +306,7 @@ pub fn IssueDetailPage() -> impl IntoView {
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">
-                        {move || error.get().unwrap_or_default()}
-                    </p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
@@ -390,11 +386,7 @@ pub fn IssueDetailPage() -> impl IntoView {
                         <Show when=move || editing.get() fallback=|| view! { <div class="hidden"></div> }>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3">
                                 <Show when=move || edit_error.get().is_some()>
-                                    <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                        <p class="text-sm text-red-700 dark:text-red-400">
-                                            {move || edit_error.get().unwrap_or_default()}
-                                        </p>
-                                    </div>
+                                    <ErrorBanner message=move || edit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_edit_error.set(None)) />
                                 </Show>
                                 <form on:submit=handle_edit_submit class="space-y-3">
                                     <div>
@@ -446,11 +438,7 @@ pub fn IssueDetailPage() -> impl IntoView {
                     <Card>
                         <form on:submit=handle_comment_submit class="space-y-3">
                             <Show when=move || comment_error.get().is_some()>
-                                <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                    <p class="text-sm text-red-700 dark:text-red-400">
-                                        {move || comment_error.get().unwrap_or_default()}
-                                    </p>
-                                </div>
+                                <ErrorBanner message=move || comment_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_comment_error.set(None)) />
                             </Show>
                             <label for="comment-input" class="sr-only">"Write a comment"</label>
                             <textarea

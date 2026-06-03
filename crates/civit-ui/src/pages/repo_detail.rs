@@ -6,7 +6,7 @@ use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{ListResponse, WikiPageResponse};
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, Spinner};
+use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
 use civit_shared::repo::RepoResponse;
 
@@ -102,12 +102,12 @@ pub fn RepoDetailPage() -> impl IntoView {
     let repo_loaded = move || !loading.get() && repo_sig.get().is_some();
     let has_error = move || error.get().is_some();
 
+    let dismiss_error = Callback::new(move |_: ()| set_error.set(None));
+
     view! {
         <div class="space-y-6">
             <Show when=has_error fallback=|| view! { <div></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=dismiss_error />
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div></div> }>
@@ -193,6 +193,9 @@ fn RepoTabs(
             </A>
             <A href=format!("/repos/{}/{}/wiki", owner(), name())>
                 <span class="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600">"Wiki"</span>
+            </A>
+            <A href=format!("/repos/{}/{}/pipelines", owner(), name())>
+                <span class="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600">"Pipelines"</span>
             </A>
             <A href=format!("/repos/{}/{}/settings", owner(), name())>
                 <span class="px-4 py-3 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-600">"Settings"</span>

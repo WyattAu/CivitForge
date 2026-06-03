@@ -9,7 +9,7 @@ use wasm_bindgen::JsCast;
 use crate::api::client::ApiClient;
 use crate::api::types::{CreateIssueBody, IssueResponse, ListResponse};
 use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, Pagination, Spinner, TabItem, Tabs,
+    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Pagination, Spinner, TabItem, Tabs,
 };
 use crate::state::auth::use_auth;
 
@@ -272,11 +272,7 @@ pub fn IssuesPage() -> impl IntoView {
                 <Card title="New Issue">
                     <form on:submit=handle_new_issue_submit class="space-y-4">
                         <Show when=move || submit_error.get().is_some()>
-                            <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                <p class="text-sm text-red-700 dark:text-red-400">
-                                    {move || submit_error.get().unwrap_or_default()}
-                                </p>
-                            </div>
+                            <ErrorBanner message=move || submit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_submit_error.set(None)) />
                         </Show>
                         <div>
                             <label for="new-issue-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -319,11 +315,7 @@ pub fn IssuesPage() -> impl IntoView {
             </Tabs>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">
-                        {move || error.get().unwrap_or_default()}
-                    </p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>

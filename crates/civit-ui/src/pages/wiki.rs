@@ -10,7 +10,7 @@ use crate::api::client::ApiClient;
 use crate::api::types::{
     CreateWikiPageBody, UpdateWikiPageBody, WikiPageListItem, WikiPageResponse, WikiRevision,
 };
-use crate::components::{Button, ButtonVariant, Card, Modal, Spinner};
+use crate::components::{Button, ButtonVariant, Card, ErrorBanner, Modal, Spinner};
 use crate::state::auth::use_auth;
 
 fn relative_time(ts: &str) -> String {
@@ -368,22 +368,14 @@ pub fn WikiPage() -> impl IntoView {
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                    <p class="text-sm text-red-700 dark:text-red-400">
-                        {move || error.get().unwrap_or_default()}
-                    </p>
-                </div>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
 
             <Show when=move || show_new_form.get() fallback=|| view! { <div class="hidden"></div> }>
                 <Card title="Create New Page">
                     <form on:submit=handle_new_page_submit class="space-y-4">
                         <Show when=move || submit_error.get().is_some()>
-                            <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                <p class="text-sm text-red-700 dark:text-red-400">
-                                    {move || submit_error.get().unwrap_or_default()}
-                                </p>
-                            </div>
+                            <ErrorBanner message=move || submit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_submit_error.set(None)) />
                         </Show>
                         <div>
                             <label for="wiki-new-slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -541,11 +533,7 @@ pub fn WikiPage() -> impl IntoView {
                             <Show when=move || editing.get() fallback=|| view! { <div class="hidden"></div> }>
                                 <div class="space-y-4">
                                     <Show when=move || submit_error.get().is_some()>
-                                        <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                                            <p class="text-sm text-red-700 dark:text-red-400">
-                                                {move || submit_error.get().unwrap_or_default()}
-                                            </p>
-                                        </div>
+                                        <ErrorBanner message=move || submit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_submit_error.set(None)) />
                                     </Show>
                                     <form on:submit=handle_edit_submit class="space-y-4">
                                         <div>

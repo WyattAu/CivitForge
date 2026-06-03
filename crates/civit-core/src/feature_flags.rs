@@ -130,7 +130,6 @@ fn simple_hash(s: &str) -> u64 {
 }
 
 #[cfg(test)]
-#[allow(dead_code)]
 fn test_flag(key: &str, name: &str, enabled: bool) -> FeatureFlag {
     FeatureFlag {
         key: key.into(),
