@@ -124,20 +124,19 @@ pub fn WikiPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<Vec<WikiPageListItem>>().await {
                         Ok(data) => set_pages.set(data),
-                        Err(e) => set_error.set(Some(format!("Failed to parse wiki pages: {e}"))),
+                        Err(_) => set_error.set(Some("Failed to process response.".to_string())),
                     }
                 }
                 Ok(resp) => {
-                    let status = resp.status();
                     let body = resp.text().await.unwrap_or_default();
                     if body == "[]" {
                         set_pages.set(Vec::new());
                     } else {
-                        set_error.set(Some(format!("Failed to load wiki ({status}): {body}")));
+                        set_error.set(Some("Failed to load wiki.".to_string()));
                     }
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_pages_loading.set(false);
@@ -184,15 +183,11 @@ pub fn WikiPage() -> impl IntoView {
                     set_show_new_form.set(false);
                     fetch_pages();
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_submit_error.set(Some(format!(
-                        "Failed to create page ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_submit_error.set(Some("Failed to create page.".to_string()));
                 }
-                Err(e) => {
-                    set_submit_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_submit_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_submitting.set(false);
@@ -229,15 +224,11 @@ pub fn WikiPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     set_editing.set(false);
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_submit_error.set(Some(format!(
-                        "Failed to update page ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_submit_error.set(Some("Failed to update page.".to_string()));
                 }
-                Err(e) => {
-                    set_submit_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_submit_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_submitting.set(false);
@@ -265,15 +256,11 @@ pub fn WikiPage() -> impl IntoView {
                     set_active_slug.set(String::new());
                     fetch_pages();
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_error.set(Some(format!(
-                        "Failed to delete page ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_error.set(Some("Failed to delete page.".to_string()));
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_deleting.set(false);
@@ -309,8 +296,8 @@ pub fn WikiPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<Vec<WikiPageListItem>>().await {
                         Ok(data) => set_search_results.set(data),
-                        Err(e) => {
-                            set_error.set(Some(format!("Failed to parse search results: {e}")))
+                        Err(_) => {
+                            set_error.set(Some("Failed to process search results.".to_string()))
                         }
                     }
                 }
@@ -337,7 +324,7 @@ pub fn WikiPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<Vec<WikiRevision>>().await {
                         Ok(data) => set_history.set(data),
-                        Err(e) => set_error.set(Some(format!("Failed to parse history: {e}"))),
+                        Err(_) => set_error.set(Some("Failed to process history.".to_string())),
                     }
                 }
                 _ => {
@@ -399,7 +386,7 @@ pub fn WikiPage() -> impl IntoView {
                             </div>
                         </Show>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label for="wiki-new-slug" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 "Slug (URL path)"
                             </label>
                             <input
@@ -411,7 +398,7 @@ pub fn WikiPage() -> impl IntoView {
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label for="wiki-new-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 "Title"
                             </label>
                             <input
@@ -423,7 +410,7 @@ pub fn WikiPage() -> impl IntoView {
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label for="wiki-new-content" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 "Content"
                             </label>
                             <textarea
@@ -461,6 +448,8 @@ pub fn WikiPage() -> impl IntoView {
                                     let slug = page_item.slug.clone();
                                     view! {
                                         <button
+                                            role="option"
+                                            aria-selected=active_slug.get() == slug
                                             class=format!(
                                                 "w-full text-left px-4 py-2.5 text-sm transition-colors {}",
                                                 if active_slug.get() == slug {
@@ -485,7 +474,9 @@ pub fn WikiPage() -> impl IntoView {
 
                 <div class="lg:col-span-3 space-y-6">
                     <form on:submit=handle_search class="flex gap-2">
+                        <label for="wiki-search" class="sr-only">"Search wiki"</label>
                         <input
+                            id="wiki-search"
                             type="text"
                             class="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
                             placeholder="Search wiki..."

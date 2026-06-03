@@ -41,6 +41,7 @@ pub fn Pagination(
                         hover:bg-gray-100 dark:hover:bg-gray-700"
                 disabled=!has_prev
                 on:click=prev
+                aria-disabled=move || !has_prev
             >
                 "Previous"
             </button>
@@ -77,6 +78,7 @@ pub fn Pagination(
                         hover:bg-gray-100 dark:hover:bg-gray-700"
                 disabled=!has_next
                 on:click=next
+                aria-disabled=move || !has_next
             >
                 "Next"
             </button>

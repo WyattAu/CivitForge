@@ -76,8 +76,8 @@ helm uninstall civitforge --namespace civitforge
 The chart deploys four core services:
 
 - **api**: HTTP/WebSocket API server (port 8080)
-- **runner**: CI/CD pipeline execution engine (port 8081)
-- **brain**: Federated intelligence and event routing (port 8082)
-- **vfs**: Virtual file system with content-addressable storage (port 8083)
+- **runner**: CI/CD pipeline execution engine (port 8088)
+- **brain**: AI/ML services (port 8082)
+- **vfs**: Virtual file system with gRPC (port 9090)
 
-Network policies enforce zero-trust communication: each service can only reach its required dependencies.
+Network policies enforce zero-trust communication between services.

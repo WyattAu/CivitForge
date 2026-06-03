@@ -13,10 +13,16 @@ pub fn App() -> impl IntoView {
     view! {
         <Router>
             <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+                <a
+                    href="#main-content"
+                    class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md"
+                >
+                    "Skip to main content"
+                </a>
                 <crate::components::sidebar::Sidebar />
-                <main class="lg:pl-64 min-h-screen">
+                <main id="main-content" class="lg:pl-64 min-h-screen">
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                        <Routes fallback=|| view! { <p>"Not found"</p> }>
+                        <Routes fallback=|| view! { <NotFoundPage /> }>
                             <Route path=path!("") view=HomePage />
                             <Route path=path!("/login") view=LoginPage />
                             <Route path=path!("/register") view=LoginPage />

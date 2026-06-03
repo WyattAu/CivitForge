@@ -145,16 +145,14 @@ pub fn IssueDetailPage() -> impl IntoView {
                         Ok(data) => {
                             set_issue.set(Some(data));
                         }
-                        Err(e) => set_error.set(Some(format!("Failed to parse issue: {e}"))),
+                        Err(_) => set_error.set(Some("Failed to process response.".to_string())),
                     }
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body = resp.text().await.unwrap_or_default();
-                    set_error.set(Some(format!("Failed to load issue ({status}): {body}")));
+                Ok(_) => {
+                    set_error.set(Some("Failed to load issue.".to_string()));
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_loading.set(false);
@@ -195,15 +193,11 @@ pub fn IssueDetailPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     set_editing.set(false);
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_edit_error.set(Some(format!(
-                        "Failed to update issue ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_edit_error.set(Some("Failed to update issue.".to_string()));
                 }
-                Err(e) => {
-                    set_edit_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_edit_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_edit_saving.set(false);
@@ -280,15 +274,12 @@ pub fn IssueDetailPage() -> impl IntoView {
                         _ => {}
                     }
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_comment_error.set(Some(format!(
-                        "Failed to add comment ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_comment_error.set(Some("Failed to add comment.".to_string()));
                 }
-                Err(e) => {
-                    set_comment_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_comment_error
+                        .set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_comment_saving.set(false);
@@ -407,7 +398,7 @@ pub fn IssueDetailPage() -> impl IntoView {
                                 </Show>
                                 <form on:submit=handle_edit_submit class="space-y-3">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        <label for="edit-issue-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             "Title"
                                         </label>
                                         <input
@@ -419,7 +410,7 @@ pub fn IssueDetailPage() -> impl IntoView {
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        <label for="edit-issue-body" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                             "Body"
                                         </label>
                                         <textarea
@@ -461,7 +452,9 @@ pub fn IssueDetailPage() -> impl IntoView {
                                     </p>
                                 </div>
                             </Show>
+                            <label for="comment-input" class="sr-only">"Write a comment"</label>
                             <textarea
+                                id="comment-input"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
                                 placeholder="Write a comment..."
                                 rows="3"

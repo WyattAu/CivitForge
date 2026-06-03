@@ -52,8 +52,8 @@ pub fn ExplorePage() -> impl IntoView {
                     set_repos.set(resp.data);
                     set_total_pages.set(resp.pagination.total_pages);
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Failed to load repos: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Failed to load repositories.".to_string()));
                 }
             }
             set_loading.set(false);

@@ -91,7 +91,7 @@ fn HomeLoggedIn() -> impl IntoView {
         };
         match list_repos(&client, params).await {
             Ok(resp) => set_repos.set(Some(resp)),
-            Err(e) => set_error.set(Some(format!("Failed to load repos: {e}"))),
+            Err(_) => set_error.set(Some("Failed to load repositories.".to_string())),
         }
         set_loading.set(false);
     });

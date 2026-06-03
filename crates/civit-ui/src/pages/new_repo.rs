@@ -111,15 +111,11 @@ pub fn NewRepoPage() -> impl IntoView {
                         Default::default(),
                     );
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_error.set(Some(format!(
-                        "Failed to create repo ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_error.set(Some("Failed to create repository.".to_string()));
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_loading.set(false);

@@ -59,6 +59,7 @@ pub fn ToastContainer(
                                         cb.run(toast_id_sig.get());
                                     }
                                 }
+                                aria-label="Dismiss notification"
                             >
                                 "\u{00d7}"
                             </button>

@@ -53,15 +53,13 @@ pub fn RepoDetailPage() -> impl IntoView {
         match client.get(&path).await {
             Ok(resp) if resp.status().is_success() => match resp.json::<RepoResponse>().await {
                 Ok(data) => set_repo.set(Some(data)),
-                Err(e) => set_error.set(Some(format!("Failed to parse repo: {e}"))),
+                Err(_) => set_error.set(Some("Failed to process response.".to_string())),
             },
-            Ok(resp) => {
-                let status = resp.status();
-                let body = resp.text().await.unwrap_or_default();
-                set_error.set(Some(format!("Failed to load repo ({status}): {body}")));
+            Ok(_) => {
+                set_error.set(Some("Failed to load repository.".to_string()));
             }
-            Err(e) => {
-                set_error.set(Some(format!("Network error: {e}")));
+            Err(_) => {
+                set_error.set(Some("Network error. Check your connection.".to_string()));
             }
         }
         set_loading.set(false);

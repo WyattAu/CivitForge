@@ -71,12 +71,10 @@ pub fn Sidebar() -> impl IntoView {
                 <For each=move || main_nav_sig.get() key=|item| item.href.clone() let:item>
                     {
                         view! {
-                            <A href=item.href.clone()>
-                                <span class=link_class>
-                                    <span class="mr-2">{item.icon}</span>
-                                    {item.label.clone()}
-                                </span>
-                            </A>
+                            <a href=item.href.clone() class=link_class>
+                                <span class="mr-2">{item.icon}</span>
+                                {item.label.clone()}
+                            </a>
                         }
                     }
                 </For>
@@ -86,12 +84,10 @@ pub fn Sidebar() -> impl IntoView {
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             "Create"
                         </div>
-                        <A href="/new-repo">
-                            <span class=link_class>
-                                <span class="mr-2">"\u{2795}"</span>
-                                "New Repo"
-                            </span>
-                        </A>
+                        <a href="/new-repo" class=link_class>
+                            <span class="mr-2">"\u{2795}"</span>
+                            "New Repo"
+                        </a>
                     </div>
                 </Show>
             </nav>
@@ -109,14 +105,14 @@ pub fn Sidebar() -> impl IntoView {
                                 {username}
                             </span>
                         </div>
-                        <A href="/settings">
-                            <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">
-                                "\u{2699}\u{fe0f} Settings"
-                            </div>
-                        </A>
+                        <a href="/settings" class=link_class>
+                            <span class="mr-2">"\u{2699}\u{fe0f}"</span>
+                            "Settings"
+                        </a>
                         <button
                             class="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
                             on:click=handle_logout
+                            aria-label="Sign out of CivitForge"
                         >
                             "\u{1f6aa} Sign Out"
                         </button>

@@ -147,16 +147,14 @@ pub fn IssuesPage() -> impl IntoView {
                         Ok(data) => {
                             set_issues.set(Some(data));
                         }
-                        Err(e) => set_error.set(Some(format!("Failed to parse issues: {e}"))),
+                        Err(_) => set_error.set(Some("Failed to process response.".to_string())),
                     }
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body = resp.text().await.unwrap_or_default();
-                    set_error.set(Some(format!("Failed to load issues ({status}): {body}")));
+                Ok(_) => {
+                    set_error.set(Some("Failed to load issues.".to_string()));
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_loading.set(false);
@@ -214,15 +212,11 @@ pub fn IssuesPage() -> impl IntoView {
                     set_page.set(1);
                     set_filter.set("all".to_string());
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_submit_error.set(Some(format!(
-                        "Failed to create issue ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_submit_error.set(Some("Failed to create issue.".to_string()));
                 }
-                Err(e) => {
-                    set_submit_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_submit_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_submitting.set(false);
@@ -285,7 +279,7 @@ pub fn IssuesPage() -> impl IntoView {
                             </div>
                         </Show>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label for="new-issue-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 "Title"
                             </label>
                             <input
@@ -297,7 +291,7 @@ pub fn IssuesPage() -> impl IntoView {
                             />
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label for="new-issue-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 "Description"
                             </label>
                             <textarea
@@ -344,7 +338,7 @@ pub fn IssuesPage() -> impl IntoView {
             <Show when=move || !loading.get() && !has_issues() && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
                     <div class="text-center py-12">
-                        <svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                         </svg>
                         <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">"No issues yet"</h3>

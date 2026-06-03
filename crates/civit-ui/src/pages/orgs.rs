@@ -79,16 +79,14 @@ pub fn OrgsPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<ListResponse<OrgResponse>>().await {
                         Ok(data) => set_orgs.set(data.data),
-                        Err(e) => set_error.set(Some(format!("Failed to parse orgs: {e}"))),
+                        Err(_) => set_error.set(Some("Failed to process response.".to_string())),
                     }
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body = resp.text().await.unwrap_or_default();
-                    set_error.set(Some(format!("Failed to load orgs ({status}): {body}")));
+                Ok(_) => {
+                    set_error.set(Some("Failed to load organizations.".to_string()));
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_loading.set(false);
@@ -147,15 +145,11 @@ pub fn OrgsPage() -> impl IntoView {
                     set_show_create.set(false);
                     fetch_orgs();
                 }
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_create_error.set(Some(format!(
-                        "Failed to create org ({status}): {body_text}"
-                    )));
+                Ok(_) => {
+                    set_create_error.set(Some("Failed to create organization.".to_string()));
                 }
-                Err(e) => {
-                    set_create_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_create_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_create_loading.set(false);
@@ -322,49 +316,119 @@ pub fn OrgsPage() -> impl IntoView {
 pub fn OrgDetailPage() -> impl IntoView {
     let params = use_params_map();
     let org_id = move || params.with(|p| p.get("id").unwrap_or_default());
+    let auth = use_auth();
+
+    let (org_sig, set_org) = signal(None::<OrgResponse>);
+    let (loading, set_loading) = signal(true);
+    let (error, set_error) = signal(None::<String>);
+
+    let fetch_org = move || {
+        set_loading.set(true);
+        set_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        let client = ApiClient::new(token);
+        let id = org_id();
+        if id.is_empty() {
+            set_loading.set(false);
+            return;
+        }
+        leptos::task::spawn_local(async move {
+            match client.get(&format!("/orgs/{id}")).await {
+                Ok(resp) if resp.status().is_success() => match resp.json::<OrgResponse>().await {
+                    Ok(data) => set_org.set(Some(data)),
+                    Err(_) => set_error.set(Some("Failed to load organization.".to_string())),
+                },
+                Ok(_) => {
+                    set_error.set(Some("Organization not found.".to_string()));
+                }
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
+                }
+            }
+            set_loading.set(false);
+        });
+    };
+
+    fetch_org();
 
     view! {
         <div class="space-y-6">
             <div class="flex items-center justify-between flex-wrap gap-4">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                        {move || format!("Organization {}", org_id())}
-                    </h1>
+                    <Show when=move || org_sig.get().is_some() fallback=|| view! { <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Organization"</h1> }>
+                        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                            {move || org_sig.get().map(|o| o.display_name.clone().unwrap_or(o.name.clone())).unwrap_or_default()}
+                        </h1>
+                    </Show>
                     <p class="mt-1 text-gray-600 dark:text-gray-400">
                         "Organization details and management."
                     </p>
                 </div>
-                <Button variant=ButtonVariant::Primary extra_class="btn-edit-org">
-                    "Edit Organization"
-                </Button>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-3">
-                <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">"12"</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">"Members"</div>
-                    </div>
-                </Card>
-                <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">"5"</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">"Repositories"</div>
-                    </div>
-                </Card>
-                <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">"3"</div>
-                        <div class="text-sm text-gray-500 dark:text-gray-400">"Teams"</div>
-                    </div>
-                </Card>
-            </div>
-
-            <Card title="Repositories">
-                <div class="py-8 text-center text-gray-400 dark:text-gray-500">
-                    "Organization repositories will be listed here."
+            <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
                 </div>
-            </Card>
+            </Show>
+
+            <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                <div class="flex items-center justify-center py-12">
+                    <Spinner />
+                </div>
+            </Show>
+
+            <Show when=move || org_sig.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                {move || {
+                    let org = org_sig.get().unwrap();
+                    let member_count = org.member_count;
+                    let repo_count = org.repo_count;
+                    let vis = org.visibility;
+                    let desc_text = org.description.clone().unwrap_or_default();
+                    let has_desc = org.description.is_some();
+                    let (desc_sig, _) = signal(desc_text);
+                    view! {
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <Card>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{member_count}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">"Members"</div>
+                                </div>
+                            </Card>
+                            <Card>
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{repo_count}</div>
+                                    <div class="text-sm text-gray-500 dark:text-gray-400">"Repositories"</div>
+                                </div>
+                            </Card>
+                            <Card>
+                                <div class="text-center flex items-center justify-center gap-2">
+                                    <Badge
+                                        color=match vis {
+                                            Visibility::Public => BadgeColor::Success,
+                                            Visibility::Internal => BadgeColor::Info,
+                                            Visibility::Private => BadgeColor::Neutral,
+                                        }
+                                        text=vis.to_string()
+                                    />
+                                </div>
+                            </Card>
+                        </div>
+
+                        <Show when=move || has_desc fallback=|| view! { <div class="hidden"></div> }>
+                            <Card title="Description">
+                                <p class="text-sm text-gray-700 dark:text-gray-300">{move || desc_sig.get()}</p>
+                            </Card>
+                        </Show>
+
+                        <Card title="Repositories">
+                            <div class="py-8 text-center text-gray-400 dark:text-gray-500">
+                                "Organization repositories will be listed here."
+                            </div>
+                        </Card>
+                    }
+                }}
+            </Show>
         </div>
     }
 }

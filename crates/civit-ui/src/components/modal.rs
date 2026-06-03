@@ -21,7 +21,7 @@ pub fn Modal(
         <Show when=move || show fallback=|| view! { <div class="hidden"></div> }>
             <div class="fixed inset-0 z-50 flex items-center justify-center">
                 <div class="fixed inset-0 bg-black/50" on:click=close></div>
-                <div class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
+                <div role="dialog" aria-modal="true" class="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 p-6">
                     <div class="flex items-center justify-between mb-4">
                         {(!title.is_empty()).then(|| view! {
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">

@@ -30,6 +30,7 @@ pub fn Input(
     #[prop(optional)] options: Vec<(&'static str, &'static str)>,
 ) -> impl IntoView {
     let input_id = if id.is_empty() { name } else { id };
+    let aria_label = if label.is_empty() { name } else { "" };
     let input_classes = "w-full px-3 py-2 border border-gray-300 rounded-md \
                         dark:border-gray-600 dark:bg-gray-700 \
                         dark:text-gray-100 text-sm \
@@ -50,6 +51,7 @@ pub fn Input(
                     class=input_classes
                     placeholder=placeholder
                     required=required
+                    aria-label=aria_label
                 >
                     {value}
                 </textarea>
@@ -61,7 +63,7 @@ pub fn Input(
                 {(!label.is_empty()).then(|| view! {
                     <label class=label_classes for=input_id>{label}</label>
                 })}
-                <select id=input_id name=name class=input_classes required=required>
+                <select id=input_id name=name class=input_classes required=required aria-label=aria_label>
                     <For each=move || options.clone() key=|o| o.0 let:opt>
                         <option value=opt.0>{opt.1}</option>
                     </For>
@@ -87,6 +89,7 @@ pub fn Input(
                     placeholder=placeholder
                     value=value
                     required=required
+                    aria-label=aria_label
                 />
             </div>
         }))

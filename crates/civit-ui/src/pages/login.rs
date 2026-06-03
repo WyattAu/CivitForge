@@ -69,17 +69,17 @@ pub fn LoginPage() -> impl IntoView {
                         login(&auth_clone, data.user.id, data.user.username, data.token);
                         navigate_clone("/repos", Default::default());
                     }
-                    Err(e) => {
-                        set_error.set(Some(format!("Failed to parse response: {e}")));
+                    Err(_) => {
+                        set_error.set(Some("Failed to process response.".to_string()));
                     }
                 },
-                Ok(resp) => {
-                    let status = resp.status();
-                    let body_text = resp.text().await.unwrap_or_default();
-                    set_error.set(Some(format!("Login failed ({status}): {body_text}")));
+                Ok(_) => {
+                    set_error.set(Some(
+                        "Login failed. Please check your credentials.".to_string(),
+                    ));
                 }
-                Err(e) => {
-                    set_error.set(Some(format!("Network error: {e}")));
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_loading.set(false);
@@ -106,7 +106,7 @@ pub fn LoginPage() -> impl IntoView {
                     </Show>
 
                     <form on:submit=handle_submit class="space-y-5">
-                        {is_register.get().then(|| view! {
+                        <Show when=move || is_register.get()>
                             <Input
                                 label="Username"
                                 name="username"
@@ -123,7 +123,7 @@ pub fn LoginPage() -> impl IntoView {
                                 placeholder="John Doe"
                                 required=false
                             ></Input>
-                        })}
+                        </Show>
                         <Input
                             label="Email"
                             name="email"
