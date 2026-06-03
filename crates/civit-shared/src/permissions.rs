@@ -146,7 +146,7 @@ impl PermissionCheck {
 /// A rule protecting a branch from unauthorized operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchProtectionRule {
-    pub id: i64,
+    pub id: uuid::Uuid,
     pub repo_id: crate::id::RepoId,
     /// Glob pattern for matching branches (e.g., "main", "release/*").
     pub pattern: String,
@@ -166,8 +166,7 @@ pub struct BranchProtectionRule {
 /// Evaluation of whether a push operation is allowed against branch rules.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PushEvaluation {
-    pub allowed: bool,
-    pub rule_id: Option<i64>,
+    pub rule_id: Option<uuid::Uuid>,
     pub violations: Vec<String>,
 }
 
@@ -178,7 +177,7 @@ pub struct PushEvaluation {
 /// An encrypted CI/CD variable stored per-repo.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PipelineVariableResponse {
-    pub id: i64,
+    pub id: uuid::Uuid,
     pub repo_id: crate::id::RepoId,
     pub name: String,
     /// Whether the value is masked in logs.

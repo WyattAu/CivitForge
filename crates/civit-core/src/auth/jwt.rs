@@ -71,7 +71,7 @@ mod tests {
     use super::*;
 
     fn make_service() -> JwtService {
-        JwtService::new("test-secret-key-32bytes-minimum", 24)
+        JwtService::new("test-secret-key-32bytes-minimums", 24)
     }
 
     #[test]
@@ -115,7 +115,7 @@ mod tests {
 
     #[test]
     fn test_token_expiry_set() {
-        let svc = JwtService::new("test-secret-key-32bytes-minimum", 48);
+        let svc = JwtService::new("test-secret-key-32bytes-minimums", 48);
         let token = svc.generate_token("u1", "charlie", "guest", None).unwrap();
         let claims = svc.validate_token(&token).unwrap();
         let now = chrono::Utc::now().timestamp() as u64;

@@ -2,6 +2,7 @@
 
 use crate::api::AppState;
 use crate::auth::jwt::JwtService;
+use crate::auth::permission_engine::PermissionEngine;
 use crate::auth::rbac::Role;
 use crate::error::{CoreError, ErrorResponse};
 use axum::extract::FromRequestParts;
@@ -9,7 +10,7 @@ use axum::http::StatusCode;
 use axum::http::header::AUTHORIZATION;
 use axum::http::request::Parts;
 use axum::response::Json;
-use civit_shared::id::RepoId;
+use civit_shared::id::{RepoId, UserId};
 use civit_shared::permissions::{Action, PermissionCheck, Resource};
 use serde::Serialize;
 
@@ -79,22 +80,27 @@ impl FromRequestParts<AppState> for OptionalAuthUser {
 /// Check that the authenticated user has permission on a resource.
 /// Returns `Ok(())` on success, or a (StatusCode, Json) rejection tuple on failure.
 pub async fn require_permission(
-    _state: &AppState,
+    state: &AppState,
     user: &AuthUser,
     resource: Resource,
     action: Action,
-    _repo_id: Option<RepoId>,
-    _org_id: Option<i64>,
+    repo_id: Option<RepoId>,
+    org_id: Option<uuid::Uuid>,
+    branch_name: Option<&str>,
 ) -> Result<PermissionCheck, (StatusCode, Json<ErrorResponse>)> {
-    // TODO(v1.2): PermissionEngine uses i64 UserId/RepoId but schema uses UUID.
-    // Until the permission system is refactored to UUID, allow all authenticated users.
-    tracing::debug!(
-        "permission check: user={} resource={:?} action={:?} (UUID permission check deferred)",
-        user.username,
+    let repo_id_val = repo_id.map(|r| r.get());
+    let user_id = uuid::Uuid::parse_str(&user.user_id).unwrap_or(uuid::Uuid::nil());
+    PermissionEngine::check(
+        state.db.pool(),
+        UserId::new(user_id),
         resource,
-        action
-    );
-    Ok(PermissionCheck::allowed(resource, action))
+        action,
+        repo_id_val.map(RepoId::new),
+        org_id,
+        branch_name,
+    )
+    .await
+    .map_err(to_rejection)
 }
 
 /// Check that the authenticated user is an admin.
@@ -121,12 +127,13 @@ mod tests {
             port: 8080,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: false,
             federation_instance_id: "test".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/tmp/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         let opts = sqlx::postgres::PgPoolOptions::new().max_connections(1);
         let pool = opts.connect_lazy("postgres://localhost/test").unwrap();

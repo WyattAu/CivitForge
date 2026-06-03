@@ -24,16 +24,28 @@ use axum::response::IntoResponse;
 use axum::routing::{delete, get, post};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
     let state = AppState::new(config, db);
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = if state.config.cors_allowed_origins.is_empty()
+        || state.config.cors_allowed_origins.iter().any(|o| o == "*")
+    {
+        CorsLayer::permissive()
+    } else {
+        let origins = state
+            .config
+            .cors_allowed_origins
+            .iter()
+            .filter_map(|o| o.parse::<axum::http::HeaderValue>().ok())
+            .collect::<Vec<_>>();
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(origins))
+            .allow_methods(AllowMethods::any())
+            .allow_headers(AllowHeaders::any())
+    };
 
     let api = Router::new()
         .route("/healthz", get(health))
@@ -173,12 +185,13 @@ mod tests {
             port: 8080,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: false,
             federation_instance_id: "test".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/tmp/repos".into(),
+            cors_allowed_origins: Vec::new(),
         }
     }
 

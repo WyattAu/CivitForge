@@ -150,6 +150,7 @@ pub async fn create_repo(
         Action::Create,
         None,
         None,
+        None,
     )
     .await
     {
@@ -224,6 +225,7 @@ pub async fn delete_repo(
         &auth,
         Resource::Repository,
         Action::Delete,
+        None,
         None,
         None,
     )

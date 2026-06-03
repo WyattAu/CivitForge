@@ -120,10 +120,10 @@ pub(crate) fn decrypt_value(ciphertext: &[u8], nonce: &[u8]) -> Result<String, C
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct MemberRoleRow {
-    pub id: i64,
-    pub user_id: i64,
-    pub org_id: Option<i64>,
-    pub repo_id: Option<i64>,
+    pub id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub org_id: Option<uuid::Uuid>,
+    pub repo_id: Option<uuid::Uuid>,
     pub role: String,
     pub created_at: chrono::DateTime<Utc>,
     pub updated_at: chrono::DateTime<Utc>,
@@ -131,8 +131,8 @@ pub struct MemberRoleRow {
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct RepoPolicyRow {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub role: String,
     pub resource: String,
     pub action: String,
@@ -142,8 +142,8 @@ pub struct RepoPolicyRow {
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct BranchProtectionRow {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub pattern: String,
     pub push_restricted: bool,
     pub allowed_roles: serde_json::Value,
@@ -155,8 +155,8 @@ pub struct BranchProtectionRow {
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PipelineVariableRow {
-    pub id: i64,
-    pub repo_id: i64,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
     pub name: String,
     pub value_enc: Vec<u8>,
     pub nonce: Vec<u8>,
@@ -183,20 +183,20 @@ impl PermissionEngine {
         resource: Resource,
         action: Action,
         repo_id: Option<RepoId>,
-        org_id: Option<i64>,
+        org_id: Option<uuid::Uuid>,
         branch_name: Option<&str>,
     ) -> Result<PermissionCheck, CoreError> {
-        let user_id_i64 = user_id.get();
+        let user_uuid = user_id.get();
 
         // System-level admins bypass all checks
-        if Self::is_system_admin(pool, user_id_i64).await? {
+        if Self::is_system_admin(pool, user_uuid).await? {
             return Ok(PermissionCheck::allowed(resource, action));
         }
 
         // 1. Check explicit repo-level denies
         if let Some(rid) = repo_id {
             if let Some(deny) =
-                Self::check_repo_deny(pool, rid.get(), &resource, &action, user_id_i64).await?
+                Self::check_repo_deny(pool, rid.get(), &resource, &action, user_uuid).await?
             {
                 return Ok(PermissionCheck::denied(resource, action, deny));
             }
@@ -205,7 +205,7 @@ impl PermissionEngine {
         // 2. Check explicit repo-level grants
         if let Some(rid) = repo_id {
             if let Some(_grant) =
-                Self::check_repo_grant(pool, rid.get(), &resource, &action, user_id_i64).await?
+                Self::check_repo_grant(pool, rid.get(), &resource, &action, user_uuid).await?
             {
                 return Ok(PermissionCheck::allowed(resource, action));
             }
@@ -215,7 +215,7 @@ impl PermissionEngine {
         if resource == Resource::Branch && action == Action::Push {
             if let Some((rid, branch)) = repo_id.zip(branch_name) {
                 if let Some(deny) =
-                    Self::check_branch_protection(pool, rid.get(), branch, user_id_i64).await?
+                    Self::check_branch_protection(pool, rid.get(), branch, user_uuid).await?
                 {
                     return Ok(PermissionCheck::denied(
                         Resource::Branch,
@@ -229,7 +229,7 @@ impl PermissionEngine {
         // 4. Check org-level role
         if let Some(oid) = org_id {
             if let Some(_grant) =
-                Self::check_org_role(pool, oid, &resource, &action, user_id_i64).await?
+                Self::check_org_role(pool, oid, &resource, &action, user_uuid).await?
             {
                 return Ok(PermissionCheck::allowed(resource, action));
             }
@@ -238,7 +238,7 @@ impl PermissionEngine {
         // 5. Fallback: check repo role (from member_roles if user is a direct member)
         if let Some(rid) = repo_id {
             if let Some(_grant) =
-                Self::check_repo_role(pool, rid.get(), &resource, &action, user_id_i64).await?
+                Self::check_repo_role(pool, rid.get(), &resource, &action, user_uuid).await?
             {
                 return Ok(PermissionCheck::allowed(resource, action));
             }
@@ -253,7 +253,7 @@ impl PermissionEngine {
     }
 
     /// Check if user is a system-level admin (org owner or has admin role anywhere).
-    async fn is_system_admin(pool: &PgPool, user_id: i64) -> Result<bool, CoreError> {
+    async fn is_system_admin(pool: &PgPool, user_id: uuid::Uuid) -> Result<bool, CoreError> {
         // Check if user owns any org (system-level)
         let row = sqlx::query("SELECT EXISTS(SELECT 1 FROM organizations WHERE owner_id = $1)")
             .bind(user_id)
@@ -278,10 +278,10 @@ impl PermissionEngine {
     /// Check explicit deny on repo policy.
     async fn check_repo_deny(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         resource: &Resource,
         action: &Action,
-        user_id: i64,
+        user_id: uuid::Uuid,
     ) -> Result<Option<String>, CoreError> {
         let role = Self::get_most_privileged_role(pool, repo_id, user_id, true).await?;
         let role_str = role.to_string();
@@ -312,10 +312,10 @@ impl PermissionEngine {
     /// Check explicit grant on repo policy.
     async fn check_repo_grant(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         resource: &Resource,
         action: &Action,
-        user_id: i64,
+        user_id: uuid::Uuid,
     ) -> Result<Option<String>, CoreError> {
         let role = Self::get_most_privileged_role(pool, repo_id, user_id, true).await?;
         let role_str = role.to_string();
@@ -346,9 +346,9 @@ impl PermissionEngine {
     /// Check branch protection rules for a push.
     async fn check_branch_protection(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         branch: &str,
-        user_id: i64,
+        user_id: uuid::Uuid,
     ) -> Result<Option<String>, CoreError> {
         let rules = sqlx::query_as::<_, BranchProtectionRow>(
             "SELECT id, repo_id, pattern, push_restricted, allowed_roles,
@@ -400,10 +400,10 @@ impl PermissionEngine {
     /// Check org-level role permissions.
     async fn check_org_role(
         pool: &PgPool,
-        org_id: i64,
+        org_id: uuid::Uuid,
         resource: &Resource,
         action: &Action,
-        user_id: i64,
+        user_id: uuid::Uuid,
     ) -> Result<Option<String>, CoreError> {
         let role = Self::get_org_role(pool, org_id, user_id).await?;
 
@@ -425,10 +425,10 @@ impl PermissionEngine {
     /// Check repo-level role permissions.
     async fn check_repo_role(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         resource: &Resource,
         action: &Action,
-        user_id: i64,
+        user_id: uuid::Uuid,
     ) -> Result<Option<String>, CoreError> {
         let role = Self::get_most_privileged_role(pool, repo_id, user_id, true).await?;
 
@@ -448,8 +448,8 @@ impl PermissionEngine {
     /// If `indirect` is true, also falls back to org-level roles.
     async fn get_most_privileged_role(
         pool: &PgPool,
-        repo_id: i64,
-        user_id: i64,
+        repo_id: uuid::Uuid,
+        user_id: uuid::Uuid,
         indirect: bool,
     ) -> Result<UserRole, CoreError> {
         // Direct repo role
@@ -473,8 +473,8 @@ impl PermissionEngine {
     /// Get a user's role on a specific repo.
     async fn get_repo_role(
         pool: &PgPool,
-        repo_id: i64,
-        user_id: i64,
+        repo_id: uuid::Uuid,
+        user_id: uuid::Uuid,
     ) -> Result<Option<UserRole>, CoreError> {
         let row: Option<PgRow> =
             sqlx::query("SELECT role FROM member_roles WHERE repo_id = $1 AND user_id = $2")
@@ -490,21 +490,24 @@ impl PermissionEngine {
                 match role_str {
                     Some(r) => {
                         let role: UserRole = r.parse().unwrap_or(UserRole::Guest);
-                        debug!(user_id, repo_id, ?role, "direct repo role");
+                        debug!(user_id = %user_id, repo_id = %repo_id, ?role, "direct repo role");
                         Ok(Some(role))
                     }
                     None => Ok(None),
                 }
             }
             None => {
-                debug!(user_id, repo_id, "no direct repo role");
+                debug!(user_id = %user_id, repo_id = %repo_id, "no direct repo role");
                 Ok(None)
             }
         }
     }
 
     /// Get the org that owns a repo.
-    async fn get_repo_org_id(pool: &PgPool, repo_id: i64) -> Result<Option<i64>, CoreError> {
+    async fn get_repo_org_id(
+        pool: &PgPool,
+        repo_id: uuid::Uuid,
+    ) -> Result<Option<uuid::Uuid>, CoreError> {
         let row: Option<PgRow> = sqlx::query("SELECT org_id FROM repositories WHERE id = $1")
             .bind(repo_id)
             .fetch_optional(pool)
@@ -512,7 +515,7 @@ impl PermissionEngine {
             .map_err(|e| CoreError::Database(e.to_string()))?;
 
         match row {
-            Some(r) => Ok(r.get::<Option<i64>, _>(0)),
+            Some(r) => Ok(r.get::<Option<uuid::Uuid>, _>(0)),
             None => Ok(None),
         }
     }
@@ -520,8 +523,8 @@ impl PermissionEngine {
     /// Get a user's role within an org.
     async fn get_org_role(
         pool: &PgPool,
-        org_id: i64,
-        user_id: i64,
+        org_id: uuid::Uuid,
+        user_id: uuid::Uuid,
     ) -> Result<Option<UserRole>, CoreError> {
         let row: Option<PgRow> =
             sqlx::query("SELECT role FROM member_roles WHERE org_id = $1 AND user_id = $2")
@@ -537,7 +540,7 @@ impl PermissionEngine {
                 match role_str {
                     Some(r) => {
                         let role: UserRole = r.parse().unwrap_or(UserRole::Guest);
-                        debug!(user_id, org_id, ?role, "org role");
+                        debug!(user_id = %user_id, org_id = %org_id, ?role, "org role");
                         Ok(Some(role))
                     }
                     None => Ok(None),
@@ -624,7 +627,7 @@ impl PermissionEngine {
     #[instrument(skip_all)]
     pub async fn list_pipeline_variables(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         _user_id: UserId,
         _is_admin: bool,
     ) -> Result<Vec<PipelineVariableResponse>, CoreError> {
@@ -654,7 +657,7 @@ impl PermissionEngine {
     #[instrument(skip_all)]
     pub async fn upsert_pipeline_variable(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         user_id: UserId,
         name: &str,
         value: &str,
@@ -681,7 +684,7 @@ impl PermissionEngine {
         // AES-256-GCM encrypt the variable value
         let (value_enc, nonce) = encrypt_value(value)?;
 
-        let id = sqlx::query_scalar::<_, Option<i64>>(
+        let id = sqlx::query_scalar::<_, Option<uuid::Uuid>>(
             "INSERT INTO pipeline_variables (repo_id, name, value_enc, nonce, masked)
              VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (repo_id, name)
@@ -696,7 +699,7 @@ impl PermissionEngine {
         .fetch_one(pool)
         .await
         .map_err(|e| CoreError::Database(e.to_string()))?
-        .unwrap_or(-1);
+        .unwrap_or(uuid::Uuid::nil());
 
         Ok(PipelineVariableResponse {
             id,
@@ -712,9 +715,9 @@ impl PermissionEngine {
     #[instrument(skip_all)]
     pub async fn delete_pipeline_variable(
         pool: &PgPool,
-        repo_id: i64,
+        repo_id: uuid::Uuid,
         user_id: UserId,
-        variable_id: i64,
+        variable_id: uuid::Uuid,
     ) -> Result<(), CoreError> {
         let check = Self::check(
             pool,

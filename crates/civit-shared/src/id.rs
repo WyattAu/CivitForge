@@ -1,6 +1,6 @@
 //! Typed ID newtypes for compile-time ID confusion prevention.
 //!
-//! Use these instead of raw `i64` for entity IDs.
+//! Use these instead of raw `uuid::Uuid` for entity IDs.
 
 use serde::{Deserialize, Serialize};
 
@@ -9,20 +9,24 @@ macro_rules! typed_id {
         #[doc = $doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
         #[serde(transparent)]
-        pub struct $name(pub i64);
+        pub struct $name(pub uuid::Uuid);
 
         impl $name {
-            pub const fn new(id: i64) -> Self {
+            pub const fn new(id: uuid::Uuid) -> Self {
                 Self(id)
             }
 
-            pub const fn get(self) -> i64 {
+            pub fn get(&self) -> uuid::Uuid {
                 self.0
+            }
+
+            pub fn nil() -> Self {
+                Self(uuid::Uuid::nil())
             }
         }
 
-        impl From<i64> for $name {
-            fn from(v: i64) -> Self {
+        impl From<uuid::Uuid> for $name {
+            fn from(v: uuid::Uuid) -> Self {
                 Self(v)
             }
         }
@@ -64,24 +68,29 @@ mod tests {
 
     #[test]
     fn typed_id_serde_roundtrip() {
-        let id = UserId::new(42);
+        let id = UserId::new(uuid::Uuid::nil());
         let json = serde_json::to_string(&id).unwrap();
-        assert_eq!(json, "42");
         let back: UserId = serde_json::from_str(&json).unwrap();
         assert_eq!(back, id);
     }
 
     #[test]
     fn typed_id_equality() {
-        let a = RepoId::new(1);
-        let b = RepoId::new(1);
-        let c = RepoId::new(2);
+        let a = RepoId::new(uuid::Uuid::nil());
+        let b = RepoId::new(uuid::Uuid::nil());
+        let c = RepoId::new(uuid::Uuid::new_v4());
         assert_eq!(a, b);
         assert_ne!(a, c);
     }
 
     #[test]
     fn typed_id_display() {
-        assert_eq!(format!("{}", UserId::new(99)), "99");
+        let id = UserId::new(uuid::Uuid::nil());
+        assert_eq!(format!("{id}"), "00000000-0000-0000-0000-000000000000");
+    }
+
+    #[test]
+    fn typed_id_nil() {
+        assert_eq!(UserId::nil().get(), uuid::Uuid::nil());
     }
 }

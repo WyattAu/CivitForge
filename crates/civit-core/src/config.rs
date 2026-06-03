@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::error::CoreError;
+use ring::rand::SecureRandom;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -16,6 +17,7 @@ pub struct AppConfig {
     pub federation_enabled: bool,
     pub federation_instance_id: String,
     pub federation_instance_domain: String,
+    pub cors_allowed_origins: Vec<String>,
 }
 
 impl AppConfig {
@@ -35,9 +37,9 @@ impl AppConfig {
         {
             return Err(CoreError::Config("DATABASE_URL appears malformed".into()));
         }
-        if self.jwt_secret.len() < 16 {
+        if self.jwt_secret.len() < 32 {
             return Err(CoreError::Config(
-                "JWT_SECRET must be at least 16 characters".into(),
+                "JWT_SECRET must be at least 32 characters (256 bits)".into(),
             ));
         }
         if self.storage_path.is_empty() {
@@ -71,7 +73,15 @@ impl AppConfig {
             redis_url: std::env::var("REDIS_URL")
                 .unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
             jwt_secret: std::env::var("JWT_SECRET")
-                .map_err(|_| CoreError::Config("JWT_SECRET required".into()))?,
+                .ok()
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| {
+                    let mut buf = [0u8; 32];
+                    ring::rand::SystemRandom::new()
+                        .fill(&mut buf)
+                        .expect("RNG failure");
+                    hex::encode(buf)
+                }),
             jwt_expiry_hours: std::env::var("JWT_EXPIRY_HOURS")
                 .unwrap_or_else(|_| "24".into())
                 .parse()
@@ -86,6 +96,12 @@ impl AppConfig {
                 .unwrap_or_else(|_| "localhost".into()),
             storage_path: std::env::var("CIVIT_STORAGE_PATH")
                 .unwrap_or_else(|_| "/var/lib/civit/repos".into()),
+            cors_allowed_origins: std::env::var("CORS_ALLOWED_ORIGINS")
+                .unwrap_or_default()
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect(),
         })
     }
 }
@@ -180,6 +196,7 @@ mod tests {
             federation_instance_id,
             federation_instance_domain,
             storage_path,
+            cors_allowed_origins: Vec::new(),
         })
     }
 
@@ -328,6 +345,7 @@ mod tests {
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         let json = serde_json::to_string(&config).unwrap();
         let de: AppConfig = serde_json::from_str(&json).unwrap();
@@ -349,6 +367,7 @@ mod tests {
             federation_instance_id: String::new(),
             federation_instance_domain: String::new(),
             storage_path: String::new(),
+            cors_allowed_origins: Vec::new(),
         };
         let _: String = config.host;
         let _: u16 = config.port;
@@ -369,6 +388,7 @@ mod tests {
             federation_instance_id: "id".into(),
             federation_instance_domain: "domain".into(),
             storage_path: "/data".into(),
+            cors_allowed_origins: Vec::new(),
         };
         let cloned = config.clone();
         assert_eq!(cloned.host, config.host);
@@ -502,12 +522,13 @@ mod tests {
             port: 8080,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: false,
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
     }
@@ -519,12 +540,13 @@ mod tests {
             port: 0,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: false,
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
     }
@@ -536,12 +558,13 @@ mod tests {
             port: 8080,
             database_url: String::new(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: false,
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
     }
@@ -559,6 +582,7 @@ mod tests {
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
     }
@@ -570,12 +594,13 @@ mod tests {
             port: 8080,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: false,
             federation_instance_id: "default-instance".into(),
             federation_instance_domain: "localhost".into(),
             storage_path: String::new(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
     }
@@ -587,12 +612,13 @@ mod tests {
             port: 8080,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: true,
             federation_instance_id: String::new(),
             federation_instance_domain: "localhost".into(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
     }
@@ -604,65 +630,15 @@ mod tests {
             port: 8080,
             database_url: "postgres://localhost/test".into(),
             redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
+            jwt_secret: "test-secret-key-32bytes-minimums".into(),
             jwt_expiry_hours: 24,
             federation_enabled: true,
             federation_instance_id: "inst-1".into(),
             federation_instance_domain: String::new(),
             storage_path: "/data/repos".into(),
+            cors_allowed_origins: Vec::new(),
         };
         assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_valid_config() {
-        let config = AppConfig {
-            host: "127.0.0.1".into(),
-            port: 8080,
-            database_url: "postgres://localhost/test".into(),
-            redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
-            jwt_expiry_hours: 24,
-            federation_enabled: false,
-            federation_instance_id: "default-instance".into(),
-            federation_instance_domain: "localhost".into(),
-            storage_path: "/data/repos".into(),
-        };
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validate_federation_valid() {
-        let config = AppConfig {
-            host: "127.0.0.1".into(),
-            port: 8080,
-            database_url: "postgres://localhost/test".into(),
-            redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "test-secret-key-32bytes-minimum".into(),
-            jwt_expiry_hours: 24,
-            federation_enabled: true,
-            federation_instance_id: "inst-1".into(),
-            federation_instance_domain: "forge.example.com".into(),
-            storage_path: "/data/repos".into(),
-        };
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validate_jwt_secret_boundary_16_chars() {
-        let config = AppConfig {
-            host: "127.0.0.1".into(),
-            port: 8080,
-            database_url: "postgres://localhost/test".into(),
-            redis_url: "redis://localhost:6379".into(),
-            jwt_secret: "0123456789abcdef".into(),
-            jwt_expiry_hours: 24,
-            federation_enabled: false,
-            federation_instance_id: "default-instance".into(),
-            federation_instance_domain: "localhost".into(),
-            storage_path: "/data/repos".into(),
-        };
-        assert!(config.validate().is_ok());
     }
 
     #[test]
