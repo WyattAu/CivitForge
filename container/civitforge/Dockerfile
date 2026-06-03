@@ -111,8 +111,8 @@ RUN apk add --no-cache \
 
 # Use existing nonroot user (Evergreen: wolfi-base ships 65532:65532)
 # Set home to /data for our application
-RUN mkdir -p /data /var/log/civit /var/lib/civit/repos && \
-    chown -R 65532:65532 /data /var/log/civit /var/lib/civit
+RUN mkdir -p /data /var/log/civit /var/lib/civit/repos /srv/civit-ui && \
+    chown -R 65532:65532 /data /var/log/civit /var/lib/civit /srv/civit-ui
 
 # Copy binaries from builder
 COPY --from=builder /out/usr/local/bin/civit-core   /usr/local/bin/civit-core
@@ -123,8 +123,12 @@ COPY --from=builder /out/usr/local/bin/civit-vfs     /usr/local/bin/civit-vfs
 # Copy entrypoint script
 COPY --from=entrypoint-builder /out/etc/entrypoint.sh /etc/entrypoint.sh
 
+# Copy pre-built Web UI assets (WASM + JS)
+COPY --from=builder /src/crates/civit-ui/dist/ /srv/civit-ui/
+
 WORKDIR /data
 ENV CIVIT_STORAGE_PATH=/var/lib/civit/repos
+ENV CIVIT_UI_DIR=/srv/civit-ui
 ENV RUST_LOG=civit_core=info,tower_http=debug
 
 # Ports: 8080=API, 2222=SSH, 9090=gRPC/VFS, 9101=metrics health-shim

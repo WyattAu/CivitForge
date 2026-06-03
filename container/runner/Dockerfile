@@ -18,7 +18,41 @@
 ARG TARGETARCH
 
 # ---------------------------------------------------------------------------
-# Stage 1: Tool downloader (debian:bookworm as permitted build stage)
+# Stage 1: Rust builder (debian:bookworm as permitted downloader/builder)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm AS builder
+
+ARG TARGETARCH
+ARG RUST_VERSION=1.88
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        ca-certificates \
+        pkg-config \
+        libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+        --default-toolchain ${RUST_VERSION} \
+        --profile minimal \
+        --target x86_64-unknown-linux-gnu
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+WORKDIR /src
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates/civit-shared/ crates/civit-shared/
+COPY crates/civit-pipeline/ crates/civit-pipeline/
+COPY crates/civit-core/ crates/civit-core/
+COPY crates/civit-runner/ crates/civit-runner/
+
+RUN cargo build --release --locked -p civit-runner
+RUN strip /src/target/release/civit-runner 2>/dev/null || true
+RUN cp /src/target/release/civit-runner /civit-runner
+
+# ---------------------------------------------------------------------------
+# Stage 2: Tool downloader (debian:bookworm as permitted build stage)
 # ---------------------------------------------------------------------------
 FROM debian:bookworm AS downloader
 
@@ -48,7 +82,7 @@ RUN PODMAN_ARCH=${TARGETARCH:-amd64} && \
     rm -rf /tmp/podman*
 
 # ---------------------------------------------------------------------------
-# Stage 2: Final image (wolfi-base per Evergreen ADR-007)
+# Stage 3: Final image (wolfi-base per Evergreen ADR-007)
 # ---------------------------------------------------------------------------
 FROM cgr.dev/chainguard/wolfi-base:latest
 
@@ -76,9 +110,8 @@ RUN mkdir -p /home/runner/.local/bin /home/runner/work /tmp/civit-runner && \
 # Copy Podman from downloader
 COPY --from=downloader /out/usr/local/bin/podman /usr/local/bin/podman
 
-# Placeholder for the civit-runner binary (injected at image build time)
-# In production: COPY --from=builder /target/release/civit-runner /usr/local/bin/
-RUN mkdir -p /usr/local/bin && touch /usr/local/bin/civit-runner
+# Copy civit-runner binary from builder
+COPY --from=builder /civit-runner /usr/local/bin/civit-runner
 
 WORKDIR /home/runner/work
 ENV PATH="/home/runner/.local/bin:${PATH}"

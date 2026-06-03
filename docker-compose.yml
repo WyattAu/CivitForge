@@ -50,7 +50,7 @@ services:
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "civit-redis-dev-2026", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5

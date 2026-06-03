@@ -10,45 +10,44 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  fmt:
+    name: Format
     runs-on: ubuntu-latest
-    env:
-      CARGO_TERM_COLOR: always
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.88"
-          components: clippy, rustfmt, llvm-tools
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check --all
 
-      - name: Cache cargo registry and build
-        uses: actions/cache@v4
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
-      - name: Check formatting
-        run: cargo fmt --check --all
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --locked
 
-      - name: Run Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-
-      - name: Run tests
-        run: cargo test --workspace --locked
-
-      - name: Build release
-        run: cargo build --workspace --release --locked
-
-      - name: Generate coverage report
-        run: |
-          cargo install cargo-llvm-cov --locked --force || true
-          cargo llvm-cov --workspace --summary-only || true
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs: [fmt, clippy, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace --release --locked

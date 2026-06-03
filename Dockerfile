@@ -28,10 +28,16 @@ COPY crates/civit-brain/ crates/civit-brain/
 COPY crates/civit-crypto/ crates/civit-crypto/
 COPY crates/civit-runner/ crates/civit-runner/
 COPY crates/civit-vfs/ crates/civit-vfs/
+COPY crates/civit-ui/ crates/civit-ui/
 
 # Build all workspace binaries
 RUN cargo build --release --locked \
     -p civit-core -p civit-brain -p civit-runner -p civit-vfs
+
+# Strip debug symbols and collect
+RUN for bin in civit-core civit-brain civit-runner civit-vfs; do \
+        strip /app/target/release/${bin} 2>/dev/null || true; \
+    done
 
 # ---------------------------------------------------------------------------
 # Stage 2: Runtime (wolfi-base per Evergreen ADR-007)
@@ -46,8 +52,8 @@ RUN apk add --no-cache ca-certificates git su-exec wget
 # Create nonroot user and directories
 RUN addgroup -g 65532 civit && \
     adduser -D -u 65532 -G civit -h /data -s /bin/sh civit && \
-    mkdir -p /data /var/lib/civit/repos /var/log/civit && \
-    chown -R civit:civit /data /var/lib/civit /var/log/civit
+    mkdir -p /data /var/lib/civit/repos /var/log/civit /srv/civit-ui && \
+    chown -R civit:civit /data /var/lib/civit /var/log/civit /srv/civit-ui
 
 # Copy binaries
 COPY --from=builder /app/target/release/civit-core  /usr/local/bin/civit-core
@@ -55,8 +61,12 @@ COPY --from=builder /app/target/release/civit-brain  /usr/local/bin/civit-brain
 COPY --from=builder /app/target/release/civit-runner /usr/local/bin/civit-runner
 COPY --from=builder /app/target/release/civit-vfs    /usr/local/bin/civit-vfs
 
+# Copy pre-built Web UI assets (WASM + JS)
+COPY --from=builder /app/crates/civit-ui/dist/ /srv/civit-ui/
+
 WORKDIR /data
 ENV CIVIT_STORAGE_PATH=/var/lib/civit/repos
+ENV CIVIT_UI_DIR=/srv/civit-ui
 
 EXPOSE 8080 2222 9090
 

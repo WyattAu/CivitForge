@@ -1,7 +1,7 @@
 # CivitForge — Local Development Makefile
 # Usage: make [target]
 
-.PHONY: build run test fmt clippy smoke clean compose-up compose-down migrate
+.PHONY: build run test fmt clippy smoke clean compose-up compose-down migrate hooks
 
 CARGO  ?= cargo
 DATABASE_URL ?= postgres://civit:civit@localhost:5432/civit
@@ -75,6 +75,12 @@ compose-down:
 clean:
 	$(CARGO) clean
 	rm -rf /tmp/civit-repos /tmp/civit-server.log /tmp/civit-smoke-body
+
+# ── Pre-commit hooks (requires npx from Node.js) ──────────────
+hooks:
+	npx husky init
+	@printf '#!/bin/sh\ncargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace\n' > .husky/pre-commit
+	chmod +x .husky/pre-commit
 
 # ── Full cycle: compose → build → test → lint → smoke ─────────
 ci-local: compose-up build test lint smoke
