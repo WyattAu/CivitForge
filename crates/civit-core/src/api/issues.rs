@@ -22,9 +22,9 @@ pub struct ListIssuesParams {
     pub milestone: Option<uuid::Uuid>,
     pub sort: Option<String>,
     #[serde(default = "default_page")]
-    pub page: i64,
+    pub page: i32,
     #[serde(default = "default_per_page")]
-    pub per_page: i64,
+    pub per_page: i32,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -104,16 +104,16 @@ pub struct UpdateMilestoneRequest {
 pub struct ListMilestonesParams {
     pub state: Option<String>,
     #[serde(default = "default_page")]
-    pub page: i64,
+    pub page: i32,
     #[serde(default = "default_per_page")]
-    pub per_page: i64,
+    pub per_page: i32,
 }
 
-fn default_page() -> i64 {
+fn default_page() -> i32 {
     1
 }
 
-fn default_per_page() -> i64 {
+fn default_per_page() -> i32 {
     30
 }
 
@@ -126,16 +126,12 @@ fn default_per_page() -> i64 {
 pub struct IssueResponse {
     pub id: uuid::Uuid,
     pub repo_id: uuid::Uuid,
-    pub number: i64,
+    pub number: i32,
     pub title: String,
-    pub description: Option<String>,
-    pub state: String,
-    pub priority: Option<i32>,
+    pub body: Option<String>,
+    pub status: String,
     pub author_id: uuid::Uuid,
     pub assignee_id: Option<uuid::Uuid>,
-    pub milestone_id: Option<uuid::Uuid>,
-    pub is_locked: bool,
-    pub locked_reason: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
@@ -298,19 +294,19 @@ pub async fn list_issues(
     let offset = (params.page - 1) * params.per_page;
     let sort_col = params.sort.as_deref().unwrap_or("created_at");
     let sort_col = match sort_col {
-        "updated_at" | "created_at" | "number" | "priority" => sort_col,
+        "updated_at" | "created_at" | "number" => sort_col,
         _ => "created_at",
     };
 
     let mut base = String::from(
-        "SELECT id, repo_id, number, title, description, state, priority, author_id, assignee_id, milestone_id, is_locked, locked_reason, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1",
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1",
     );
     let mut count_base = String::from("SELECT COUNT(*) FROM issues WHERE repo_id = $1");
     let mut bind_idx = 2i32;
 
     if let Some(ref s) = params.state {
         if !s.is_empty() {
-            let clause = format!(" AND state = ${bind_idx}");
+            let clause = format!(" AND status = ${bind_idx}");
             base.push_str(&clause);
             count_base.push_str(&clause);
             bind_idx += 1;
@@ -330,12 +326,6 @@ pub async fn list_issues(
         let clause = format!(
             " AND id IN (SELECT issue_id FROM issue_assignees WHERE user_id = ${bind_idx})"
         );
-        base.push_str(&clause);
-        count_base.push_str(&clause);
-        bind_idx += 1;
-    }
-    if let Some(_milestone_id) = params.milestone {
-        let clause = format!(" AND milestone_id = ${bind_idx}");
         base.push_str(&clause);
         count_base.push_str(&clause);
         bind_idx += 1;
@@ -368,10 +358,6 @@ pub async fn list_issues(
         query = query.bind(assignee_id);
         count_query = count_query.bind(assignee_id);
     }
-    if let Some(milestone_id) = params.milestone {
-        query = query.bind(milestone_id);
-        count_query = count_query.bind(milestone_id);
-    }
     query = query.bind(params.per_page).bind(offset);
 
     let rows = match query.fetch_all(pool).await {
@@ -387,8 +373,8 @@ pub async fn list_issues(
     struct ListEnvelope {
         issues: Vec<IssueRow>,
         total: i64,
-        page: i64,
-        per_page: i64,
+        page: i32,
+        per_page: i32,
     }
 
     (
@@ -406,21 +392,18 @@ pub async fn list_issues(
 #[derive(Debug, sqlx::FromRow, Serialize)]
 #[allow(dead_code)]
 struct IssueRow {
-    id: uuid::Uuid,
-    repo_id: uuid::Uuid,
-    number: i64,
-    title: String,
-    description: Option<String>,
-    state: String,
-    priority: Option<i32>,
-    author_id: uuid::Uuid,
-    assignee_id: Option<uuid::Uuid>,
-    milestone_id: Option<uuid::Uuid>,
-    is_locked: bool,
-    locked_reason: Option<String>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    closed_at: Option<DateTime<Utc>>,
+    pub id: uuid::Uuid,
+    pub repo_id: uuid::Uuid,
+    pub number: i32,
+    pub title: String,
+    pub body: Option<String>,
+    pub status: String,
+    pub author_id: uuid::Uuid,
+    pub assignee_id: Option<uuid::Uuid>,
+    pub labels: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -430,7 +413,7 @@ struct IssueRow {
 pub async fn create_issue(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Json(req): Json<CreateIssueRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -448,14 +431,19 @@ pub async fn create_issue(
         return err_response(StatusCode::BAD_REQUEST, "title is required");
     }
 
+    let author_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
     let row = match sqlx::query_as::<_, IssueRow>(
-        "INSERT INTO issues (repo_id, number, title, description, state, priority, author_id, assignee_id, milestone_id, created_at, updated_at) VALUES ($1, (SELECT COALESCE(MAX(number),0)+1 FROM issues WHERE repo_id=$1), $2, $3, 'open', 0, 1, $4, $5, NOW(), NOW()) RETURNING id, repo_id, number, title, description, state, priority, author_id, assignee_id, milestone_id, is_locked, locked_reason, created_at, updated_at, closed_at",
+        "INSERT INTO issues (repo_id, number, title, body, status, author_id, assignee_id, created_at, updated_at) VALUES ($1, (SELECT COALESCE(MAX(number),0)+1 FROM issues WHERE repo_id=$1), $2, $3, 'open', $4, $5, NOW(), NOW()) RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at",
     )
     .bind(repo_id)
     .bind(&req.title)
     .bind(&req.description)
+    .bind(author_id)
     .bind(req.assignee)
-    .bind(req.milestone)
     .fetch_one(pool)
     .await
     {
@@ -484,7 +472,7 @@ pub async fn create_issue(
 
 pub async fn get_issue(
     State(state): State<AppState>,
-    Path((owner, name, number)): Path<(String, String, i64)>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -498,7 +486,7 @@ pub async fn get_issue(
     };
 
     let row = match sqlx::query_as::<_, IssueRow>(
-        "SELECT id, repo_id, number, title, description, state, priority, author_id, assignee_id, milestone_id, is_locked, locked_reason, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1 AND number = $2",
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1 AND number = $2",
     )
     .bind(repo_id)
     .bind(number)
@@ -553,14 +541,10 @@ pub async fn get_issue(
         repo_id: row.repo_id,
         number: row.number,
         title: row.title,
-        description: row.description,
-        state: row.state,
-        priority: row.priority,
+        body: row.body,
+        status: row.status,
         author_id: row.author_id,
         assignee_id: row.assignee_id,
-        milestone_id: row.milestone_id,
-        is_locked: row.is_locked,
-        locked_reason: row.locked_reason,
         created_at: row.created_at,
         updated_at: row.updated_at,
         closed_at: row.closed_at,
@@ -578,7 +562,7 @@ pub async fn get_issue(
 
 pub async fn update_issue(
     State(state): State<AppState>,
-    Path((owner, name, number)): Path<(String, String, i64)>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
     _auth: AuthUser,
     Json(req): Json<UpdateIssueRequest>,
 ) -> impl IntoResponse {
@@ -594,7 +578,7 @@ pub async fn update_issue(
     };
 
     let existing = match sqlx::query_as::<_, IssueRow>(
-        "SELECT id, repo_id, number, title, description, state, priority, author_id, assignee_id, milestone_id, is_locked, locked_reason, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1 AND number = $2",
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1 AND number = $2",
     )
     .bind(repo_id)
     .bind(number)
@@ -612,12 +596,12 @@ pub async fn update_issue(
     };
 
     if let Some(ref new_state) = req.state {
-        if !validate_state_transition(&existing.state, new_state) {
+        if !validate_state_transition(&existing.status, new_state) {
             return err_response(
                 StatusCode::CONFLICT,
                 &format!(
                     "invalid state transition: {old} -> {new}",
-                    old = existing.state,
+                    old = existing.status,
                     new = new_state,
                 ),
             );
@@ -625,23 +609,21 @@ pub async fn update_issue(
     }
 
     let title = req.title.as_deref().unwrap_or(&existing.title);
-    let description = req
+    let body = req
         .description
         .as_deref()
-        .unwrap_or(existing.description.as_deref().unwrap_or(""));
-    let state_val = req.state.as_deref().unwrap_or(&existing.state);
+        .unwrap_or(existing.body.as_deref().unwrap_or(""));
+    let status = req.state.as_deref().unwrap_or(&existing.status);
     let assignee_id = req.assignee.or(existing.assignee_id);
-    let milestone_id = req.milestone.or(existing.milestone_id);
 
-    let is_closed = state_val == "closed";
+    let is_closed = status == "closed";
     let row = match sqlx::query_as::<_, IssueRow>(
-        "UPDATE issues SET title = $1, description = $2, state = $3, assignee_id = $4, milestone_id = $5, closed_at = CASE WHEN $6 THEN NOW() ELSE NULL END, updated_at = NOW() WHERE id = $7 RETURNING id, repo_id, number, title, description, state, priority, author_id, assignee_id, milestone_id, is_locked, locked_reason, created_at, updated_at, closed_at",
+        "UPDATE issues SET title = $1, body = $2, status = $3, assignee_id = $4, closed_at = CASE WHEN $5 THEN NOW() ELSE NULL END, updated_at = NOW() WHERE id = $6 RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at",
     )
     .bind(title)
-    .bind(description)
-    .bind(state_val)
+    .bind(body)
+    .bind(status)
     .bind(assignee_id)
-    .bind(milestone_id)
     .bind(is_closed)
     .bind(existing.id)
     .fetch_one(pool)
@@ -652,13 +634,10 @@ pub async fn update_issue(
     };
 
     if req.state.is_some() {
-        insert_timeline(pool, row.id, row.author_id, "state_change", Some(state_val)).await;
+        insert_timeline(pool, row.id, row.author_id, "state_change", Some(status)).await;
     }
     if req.assignee.is_some() {
         insert_timeline(pool, row.id, row.author_id, "assignee_change", None).await;
-    }
-    if req.milestone.is_some() {
-        insert_timeline(pool, row.id, row.author_id, "milestone_change", None).await;
     }
 
     if let Some(ref label_ids) = req.labels {
@@ -685,7 +664,7 @@ pub async fn update_issue(
 
 pub async fn delete_issue(
     State(state): State<AppState>,
-    Path((owner, name, number)): Path<(String, String, i64)>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -720,8 +699,8 @@ pub async fn delete_issue(
 
 pub async fn add_comment(
     State(state): State<AppState>,
-    Path((owner, name, number)): Path<(String, String, i64)>,
-    _auth: AuthUser,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
     Json(req): Json<CreateCommentRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -754,10 +733,16 @@ pub async fn add_comment(
         return err_response(StatusCode::BAD_REQUEST, "comment body is required");
     }
 
+    let author_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
     match sqlx::query_as::<_, CommentResponse>(
-        "INSERT INTO issue_comments (issue_id, author_id, body, is_edited, created_at) VALUES ($1, 1, $2, false, NOW()) RETURNING id, issue_id, author_id, body, is_edited, edited_at, created_at",
+        "INSERT INTO issue_comments (issue_id, author_id, body, is_edited, created_at) VALUES ($1, $2, $3, false, NOW()) RETURNING id, issue_id, author_id, body, is_edited, edited_at, created_at",
     )
     .bind(issue_id)
+    .bind(author_id)
     .bind(&req.body)
     .fetch_one(pool)
     .await
@@ -773,7 +758,7 @@ pub async fn add_comment(
 
 pub async fn edit_comment(
     State(state): State<AppState>,
-    Path((owner, name, _number, comment_id)): Path<(String, String, i64, uuid::Uuid)>,
+    Path((owner, name, _number, comment_id)): Path<(String, String, i32, uuid::Uuid)>,
     _auth: AuthUser,
     Json(req): Json<UpdateCommentRequest>,
 ) -> impl IntoResponse {
@@ -817,7 +802,7 @@ pub async fn edit_comment(
 
 pub async fn delete_comment(
     State(state): State<AppState>,
-    Path((owner, name, _number, comment_id)): Path<(String, String, i64, uuid::Uuid)>,
+    Path((owner, name, _number, comment_id)): Path<(String, String, i32, uuid::Uuid)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -855,8 +840,8 @@ pub async fn delete_comment(
 
 pub async fn add_reaction(
     State(state): State<AppState>,
-    Path((owner, name, number)): Path<(String, String, i64)>,
-    _auth: AuthUser,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
     Json(req): Json<AddReactionRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -885,10 +870,16 @@ pub async fn add_reaction(
         Err(e) => return internal_err(&e.to_string()),
     };
 
+    let user_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
     match sqlx::query_as::<_, ReactionResponse>(
-        "INSERT INTO issue_reactions (issue_id, comment_id, user_id, emoji, created_at) VALUES ($1, NULL, 1, $2, NOW()) RETURNING id, issue_id, comment_id, user_id, emoji, created_at",
+        "INSERT INTO issue_reactions (issue_id, comment_id, user_id, emoji, created_at) VALUES ($1, NULL, $2, $3, NOW()) RETURNING id, issue_id, comment_id, user_id, emoji, created_at",
     )
     .bind(issue_id)
+    .bind(user_id)
     .bind(&req.emoji)
     .fetch_one(pool)
     .await
@@ -904,8 +895,8 @@ pub async fn add_reaction(
 
 pub async fn remove_reaction(
     State(state): State<AppState>,
-    Path((owner, name, number, emoji)): Path<(String, String, i64, String)>,
-    _auth: AuthUser,
+    Path((owner, name, number, emoji)): Path<(String, String, i32, String)>,
+    auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -918,11 +909,17 @@ pub async fn remove_reaction(
         }
     };
 
+    let user_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
     let result = sqlx::query(
-        "DELETE FROM issue_reactions WHERE issue_id IN (SELECT id FROM issues WHERE repo_id = $1 AND number = $2) AND user_id = 1 AND emoji = $3",
+        "DELETE FROM issue_reactions WHERE issue_id IN (SELECT id FROM issues WHERE repo_id = $1 AND number = $2) AND user_id = $3 AND emoji = $4",
     )
     .bind(repo_id)
     .bind(number)
+    .bind(user_id)
     .bind(&emoji)
     .execute(pool)
     .await;
