@@ -1,20 +1,20 @@
 # CivitForge API Reference
 
-REST API for CivitForge v0.8.0-alpha. Base URL: `http://localhost:8080`
+REST API for CivitForge v1.1.0. Base URL: `http://localhost:9091/api/v1`
 
 ## Authentication
 
-Most API endpoints require a JWT token in the `Authorization` header:
+All endpoints (except register/login) require a JWT bearer token:
 
 ```
-Authorization: Bearer <jwt_token>
+Authorization: Bearer <jwt-token>
 ```
 
-Obtain a token via `POST /api/v1/auth/login`.
+Tokens are obtained via `POST /api/v1/auth/login`. Auth is register-on-login: registering a new user simultaneously creates the account and returns a JWT.
 
 ## Response Format
 
-All responses are JSON. Error responses follow:
+All responses are JSON. Error responses:
 
 ```json
 {
@@ -24,333 +24,139 @@ All responses are JSON. Error responses follow:
 
 ## Endpoints
 
-### Health & Readiness
+### Health and readiness
 
-#### `GET /healthz`
-Liveness probe. Returns `OK` (200) if the server process is running.
-
-**Response:** `OK` (plain text)
-
----
-
-#### `GET /ready`
-Readiness probe. Returns `OK` (200) if the server is ready for traffic.
-
-**Response:** `OK` (plain text)
-
----
-
-#### `GET /api/v1/health`
-API health check. Returns `OK` (200).
-
-**Response:** `OK` (plain text)
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/healthz` | Liveness probe. Returns `OK` (200). |
+| GET | `/ready` | Readiness probe. Returns `OK` (200). |
+| GET | `/api/v1/health` | API health check. Returns `OK` (200). |
 
 ### Authentication
 
-#### `POST /api/v1/auth/login`
-Authenticate and receive a JWT token.
-
-**Request body:**
-```json
-{
-  "username": "alice",
-  "password": "password123"
-}
-```
-
-**Response (200):**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "expires_at": "2026-06-02T00:00:00Z"
-}
-```
-
----
-
-#### `GET /api/v1/auth/me`
-Get the current authenticated user's profile. Requires `Authorization: Bearer <token>`.
-
-**Response (200):**
-```json
-{
-  "id": "u1",
-  "username": "alice",
-  "email": "alice@example.com",
-  "role": "admin",
-  "created_at": "2026-06-01T00:00:00Z"
-}
-```
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/auth/register` | Register new user (username, email, password). Returns user object (201). |
+| POST | `/api/v1/auth/login` | Authenticate. Returns `{ "token": "eyJ...", "expires_at": "..." }` (200). |
+| POST | `/api/v1/auth/logout` | Invalidate current session (204). |
+| POST | `/api/v1/auth/refresh` | Refresh JWT token. Requires `refresh_token` in body (200). |
+| GET | `/api/v1/auth/me` | Get current authenticated user profile. Requires Bearer token (200). |
 
 ### Users
 
-#### `GET /api/v1/users`
-List all users.
-
-**Query parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | integer | 100 | Maximum results |
-
-**Response (200):**
-```json
-[
-  {
-    "id": "u1",
-    "username": "alice",
-    "email": "alice@example.com",
-    "created_at": "2026-06-01T00:00:00Z"
-  }
-]
-```
-
----
-
-#### `POST /api/v1/users`
-Create a new user.
-
-**Request body:**
-```json
-{
-  "username": "bob",
-  "email": "bob@example.com",
-  "password": "secure-password"
-}
-```
-
-**Response (201):** Created user object.
-
----
-
-#### `GET /api/v1/users/{id}`
-Get a single user by ID.
-
-**Response (200):** User object.
-
----
-
-#### `PATCH /api/v1/users/{id}`
-Update a user.
-
-**Request body (partial):**
-```json
-{
-  "email": "new-email@example.com"
-}
-```
-
-**Response (200):** Updated user object.
-
----
-
-#### `DELETE /api/v1/users/{id}`
-Delete a user.
-
-**Response (204):** No content on success.
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/users` | List users. Query: `limit` (default 100). |
+| POST | `/api/v1/users` | Create user (username, email, password) (201). |
+| GET | `/api/v1/users/{id}` | Get user by ID (200). |
+| PATCH | `/api/v1/users/{id}` | Update user (partial) (200). |
+| DELETE | `/api/v1/users/{id}` | Delete user (204). |
+| GET | `/api/v1/user` | Get own profile (200). |
+| POST | `/api/v1/user/tokens` | Create personal access token (201). |
 
 ### Organizations
 
-#### `GET /api/v1/orgs`
-List all organizations.
-
-**Response (200):** Array of organization objects.
-
----
-
-#### `POST /api/v1/orgs`
-Create an organization.
-
-**Request body:**
-```json
-{
-  "name": "my-org",
-  "description": "My organization"
-}
-```
-
-**Response (201):** Created organization object.
-
----
-
-#### `GET /api/v1/orgs/{id}`
-Get a single organization.
-
-**Response (200):** Organization object.
-
----
-
-#### `PATCH /api/v1/orgs/{id}`
-Update an organization.
-
-**Response (200):** Updated organization object.
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/orgs` | List organizations (200). |
+| POST | `/api/v1/orgs` | Create organization (name, description) (201). |
+| GET | `/api/v1/orgs/{id}` | Get organization (200). |
+| PATCH | `/api/v1/orgs/{id}` | Update organization (200). |
 
 ### Repositories
 
-#### `GET /api/v1/repos`
-List all repositories.
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/repos` | List repos. Query: `limit`, `sort` (updated, created, name), `page`, `per_page`. |
+| POST | `/api/v1/repos` | Create repository (name, description, visibility) (201). |
+| GET | `/api/v1/repos/{owner}/{name}` | Get repository (200). |
+| PATCH | `/api/v1/repos/{owner}/{name}` | Update repository settings (200). |
+| DELETE | `/api/v1/repos/{owner}/{name}` | Delete repository (204). |
+| GET | `/api/v1/repos/{owner}/{name}/commits` | List commits (200). |
+| GET | `/api/v1/repos/{owner}/{name}/branches` | List branches (200). |
+| GET | `/api/v1/repos/{owner}/{name}/tags` | List tags (200). |
+| GET | `/api/v1/repos/{owner}/{name}/activity` | Activity feed (200). |
 
-**Query parameters:**
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | integer | 100 | Maximum results |
+### Pipelines
 
-**Response (200):**
-```json
-[
-  {
-    "id": "r1",
-    "owner": "alice",
-    "name": "my-project",
-    "description": "A project",
-    "visibility": "public",
-    "created_at": "2026-06-01T00:00:00Z"
-  }
-]
-```
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/repos/{owner}/{name}/pipelines` | List pipelines. Query: `status` (pending, running, success, failed), `page`, `per_page`. |
+| POST | `/api/v1/repos/{owner}/{name}/pipelines` | Trigger pipeline run (201). |
+| GET | `/api/v1/repos/{owner}/{name}/pipelines/{id}` | Get pipeline with job status (200). |
 
----
+### Issues
 
-#### `POST /api/v1/repos`
-Create a new repository.
+18 endpoints for CRUD, state machine (open, in_progress, closed, reopen), timeline, comments, labels, milestones, assignees.
 
-**Request body:**
-```json
-{
-  "name": "new-project",
-  "description": "Project description",
-  "visibility": "public"
-}
-```
+### Wiki
 
-**Response (201):** Created repository object.
+9 endpoints for page CRUD, page history with diff, raw content export, full-text search.
 
----
+### Code search
 
-#### `GET /api/v1/repos/{owner}/{name}`
-Get a single repository.
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/search` | Global full-text search across repos. Query: `q`, `language`. |
+| GET | `/api/v1/repos/{owner}/{name}/search` | Per-repo search. |
 
-**Response (200):** Repository object.
+### OCI container registry
 
----
+20 OCI Distribution Spec v1.1 endpoints under `/v2/`:
+- `/v2/_catalog`, `/v2/{name}/tags/list`
+- `/v2/{name}/blobs/{digest}` (HEAD, GET, PUT, DELETE)
+- `/v2/{name}/manifests/{reference}` (HEAD, GET, PUT, DELETE)
 
-#### `DELETE /api/v1/repos/{owner}/{name}`
-Delete a repository and its storage.
+8 management endpoints:
+- List images, tags, layers, SBOM, vulnerability scans, RBAC policies, trigger garbage collection
 
-**Response (204):** No content on success.
+### Runners
 
----
+11 runner management endpoints. Runner protocol (internal API):
+- `POST /api/internal/runners/register` -- register runner
+- `GET /api/internal/runners/tasks` -- poll for jobs
+- `POST /api/internal/runners/tasks/{id}/claim` -- claim job
+- `POST /api/internal/runners/tasks/{id}/logs` -- upload log chunks
+- `POST /api/internal/runners/tasks/{id}/status` -- update status
+- `POST /api/internal/runners/tasks/{id}/complete` -- mark complete
 
-#### `GET /api/v1/repos/{owner}/{name}/commits`
-List commits for a repository.
+### SSH keys
 
-**Response (200):**
-```json
-[
-  {
-    "id": "abc1234",
-    "message": "Initial commit",
-    "author": "alice",
-    "timestamp": "2026-06-01T00:00:00Z"
-  }
-]
-```
-
----
-
-### SSH Keys
-
-#### `GET /api/v1/users/{user_id}/ssh-keys`
-List SSH keys for a user.
-
-**Response (200):** Array of SSH key objects.
-
----
-
-#### `POST /api/v1/users/{user_id}/ssh-keys`
-Add an SSH key.
-
-**Request body:**
-```json
-{
-  "title": "my-laptop",
-  "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI..."
-}
-```
-
-**Response (201):** Created SSH key object.
-
----
-
-#### `DELETE /api/v1/ssh-keys/{key_id}`
-Delete an SSH key.
-
-**Response (204):** No content on success.
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/users/{user_id}/ssh-keys` | List SSH keys (200). |
+| POST | `/api/v1/users/{user_id}/ssh-keys` | Add SSH key (title, public_key) (201). |
+| DELETE | `/api/v1/ssh-keys/{key_id}` | Delete SSH key (204). |
 
 ### WebSocket
 
-#### `GET /api/v1/ws`
-Upgrade to WebSocket for real-time event streaming.
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/ws` | WebSocket event stream. Connect with `?token=<jwt>`. |
 
-**Protocol:** Standard WebSocket (RFC 6455). Messages are JSON-encoded events.
+Event types: `repo.created`, `repo.deleted`, `pipeline.started`, `pipeline.completed`, `notification.dispatched`, `push`, `comment`, `issue`.
 
-**Event types:**
-- `repo.created`
-- `repo.deleted`
-- `pipeline.started`
-- `pipeline.completed`
-- `notification.dispatched`
+Heartbeat: server sends `{"type": "ping"}` every 30s, client must respond with `{"type": "pong"}` within 10s.
 
----
+### Git smart HTTP
 
-### Git Smart HTTP
-
-#### `GET /{owner}/{name}/info/refs`
-Git reference advertisement (smart HTTP protocol).
-
-**Response:** Git protocol text (Content-Type: `application/x-git-upload-pack-advertisement`)
-
----
-
-#### `POST /{owner}/{name}/git-upload-pack`
-Git pack upload (clone/fetch).
-
-**Request body:** Git protocol handshake.
-
----
-
-#### `POST /{owner}/{name}/git-receive-pack`
-Git pack receive (push).
-
-**Request body:** Git protocol handshake with pack data.
-
----
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/{owner}/{name}/info/refs` | Git reference advertisement (smart HTTP). |
+| POST | `/{owner}/{name}/git-upload-pack` | Git pack upload (clone/fetch). |
+| POST | `/{owner}/{name}/git-receive-pack` | Git pack receive (push). |
 
 ## Rate Limits
 
 | Limit | Value |
 |-------|-------|
-| Max concurrent connections | No hard limit (configurable via reverse proxy) |
-| SSH auth rate limit | 5 attempts per second per IP |
-| JWT token expiry | Configurable via `JWT_EXPIRY_HOURS` (default: 24h) |
-
-## CORS
-
-CORS is enabled by default with `allow-origin: *`, `allow-methods: *`, `allow-headers: *`. Restrict via reverse proxy in production.
+| SSH auth rate limit | 5 attempts/second/IP |
+| JWT token expiry | Configurable via `JWT_EXPIRY_HOURS` (default 24h) |
 
 ## Error Codes
 
-| HTTP Status | Meaning |
-|-------------|---------|
+| HTTP Status | Description |
+|-------------|-------------|
 | 200 | Success |
 | 201 | Created |
 | 204 | No content |
@@ -360,4 +166,5 @@ CORS is enabled by default with `allow-origin: *`, `allow-methods: *`, `allow-he
 | 404 | Not found |
 | 409 | Conflict (duplicate resource) |
 | 422 | Validation error |
+| 429 | Rate limited |
 | 500 | Internal server error |

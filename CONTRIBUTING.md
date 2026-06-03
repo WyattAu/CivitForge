@@ -1,127 +1,133 @@
 # Contributing to CivitForge
 
-## Development Setup
-
-### Prerequisites
+## Prerequisites
 
 - Rust 1.88+ (edition 2024)
-- PostgreSQL 16+
-- Redis 7+
-- Protocol Buffers compiler (for gRPC)
-- `just` (optional task runner)
+- PostgreSQL 17+
+- Redis 7+ (optional, for sessions/edge cache)
+- Podman or Docker (optional, for CI runner)
+- Node.js (optional, for husky pre-commit hooks)
 
-### Building
+## Development Setup
 
 ```bash
+git clone https://github.com/WyattAu/CivitForge.git
+cd CivitForge
+
+# Install toolchain
+rustup component add clippy rustfmt
+
+# Build
 cargo build --workspace
+
+# Start dependencies
+docker compose up -d postgres redis
+
+# Set required environment variables
+export DATABASE_URL="postgres://civit:civit-dev-secure-pw-2026@localhost:5432/civit"
+export REDIS_URL="redis://:civit-redis-dev-2026@localhost:6379"
+export JWT_SECRET="dev-secret-key-32bytes-minimum"
+
+# Run the server (binds to 127.0.0.1:9091 by default)
+make run
 ```
 
-### Running Tests
+## Pre-Commit Hooks
+
+Husky enforces three checks on every commit:
 
 ```bash
+# Format
+cargo fmt --all -- --check
+
+# Lint
+cargo clippy --workspace --all-targets -- -D warnings
+
+# Test
 cargo test --workspace
 ```
 
-### Running Locally
+To install hooks:
+```bash
+npm install   # triggers husky via package.json prepare script
+```
 
-1. Start dependencies:
-   ```bash
-   docker compose up postgres redis
-   ```
+Or manually:
+```bash
+make hooks
+```
 
-2. Set environment variables:
-   ```bash
-   export DATABASE_URL=postgres://civitforge:civitforge@localhost:5432/civitforge
-   export REDIS_URL=redis://localhost:6379
-   export JWT_SECRET=dev-secret-change-in-production
-   export FEDERATION_ENABLED=false
-   ```
-
-3. Run the API server:
-   ```bash
-   cargo run --bin civit-core
-   ```
+CI (GitHub Actions) runs the same three checks plus a release build on every push/PR to `main`.
 
 ## Coding Standards
 
-### Mandatory
+### Safety
 
-- Every `.rs` file **must** start with `#![forbid(unsafe_code)]`
-- Rust edition 2024
-- No emojis in code or commit messages
+- Every Rust crate must enforce `#![forbid(unsafe_code)]` at the crate level (ADR-001)
+- The only exception is tree-sitter C FFI, which is gated behind the `treesitter` feature flag
+- No new unsafe code without an ADR approval process
 
 ### Linting
 
 All code must pass:
 
 ```bash
-cargo clippy --workspace -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --check --all
 ```
-
-Pre-commit hooks enforce both checks.
 
 ### Code Style
 
 - Follow standard Rust idioms
-- Prefer `thiserror` for error types
-- Use `Result<T, CoreError>` for fallible operations
+- Prefer `thiserror` for library error types, `anyhow` for binary errors
 - Module-level documentation is encouraged
-- No `unsafe` blocks under any circumstances
+- Public interfaces go in `pub mod` at the crate root; internals are `pub(crate)` or private
+- Configuration via environment variables (not config files)
 
-## Pull Request Process
+### Dependencies
 
-1. Create a feature branch from `main`:
-   ```bash
-   git checkout -b feat/my-feature
-   ```
+- No new dependencies without justification in an ADR
+- Prefer stdlib or existing workspace dependencies
+- Prefer pure-Rust crates over C FFI
+- Prefer API-based integrations over bundled ML models
 
-2. Make your changes, ensure all tests pass:
-   ```bash
-   cargo test --workspace
-   cargo clippy --workspace -- -D warnings
-   cargo fmt --check --all
-   ```
+## Testing
 
-3. Open a PR with a description of the change
+```bash
+# All workspace tests
+cargo test --workspace --locked
 
-4. Ensure CI passes (build, test, clippy, fmt)
+# Specific crate
+cargo test -p civit-core --locked
 
-5. One approval required for merge
+# Specific test
+cargo test -p civit-core test_health_endpoint --locked
 
-6. Squash merge to `main`
+# With output
+cargo test --workspace --locked -- --nocapture
+```
+
+Test naming convention: `test_<unit_under_test>_<expected_behavior>`
+
+Example: `test_config_missing_database_url_error`
+
+All new code must include unit tests. Tests must not require external services (use mocks).
 
 ## Commit Message Format
 
-We use [Conventional Commits](https://www.conventionalcommits.org/):
+Conventional Commits:
 
 ```
-<type>(<scope>): <description>
+type(scope): description
 
 [optional body]
 ```
 
-### Types
+Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `ci`
 
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
-- `ci`: CI/CD configuration changes
+Scopes: `core`, `runner`, `brain`, `vfs`, `crypto`, `pipeline`, `shared`, `ui`, `deploy`
 
-### Scopes
-
-- `core`: civit-core crate
-- `runner`: civit-runner crate
-- `brain`: civit-brain crate
-- `vfs`: civit-vfs crate
-- `crypto`: civit-crypto crate
-- `deploy`: Helm charts and Kubernetes configs
-
-### Examples
-
+Examples:
 ```
 feat(core): add repository creation endpoint
 fix(runner): handle sandbox timeout gracefully
@@ -129,15 +135,22 @@ test(vfs): add deduplication benchmarks
 docs(api): update WebSocket event documentation
 ```
 
-## Testing Requirements
+## Pull Request Process
 
-- All new code must include unit tests
-- Integration tests for API endpoints in `civit-core/tests/`
-- Minimum 80% line coverage for new modules
-- Load test validation for performance-sensitive paths
-- Tests must not require external services (use mocks)
+1. Create a feature branch from `main`
+2. Write code with tests and documentation
+3. Run `cargo fmt --all`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`
+4. Update affected documentation (API reference, architecture, roadmap)
+5. Open PR; one approval required; squash merge to `main`
 
-## Architecture Decisions
+## Architecture Decision Records
 
-Significant design decisions are documented as ADRs in `docs/architecture-decisions/`.
-Consult existing ADRs before proposing changes to core architecture.
+ADRs are stored in `docs/architecture-decisions/`. Consult existing ADRs before proposing changes to core architecture.
+
+## Adding a New Crate
+
+1. Add to `Cargo.toml` `[workspace] members` array
+2. Create `Cargo.toml` with `version.workspace = true`, `edition.workspace = true`
+3. Add `#![forbid(unsafe_code)]` at the top of `src/lib.rs`
+4. Declare workspace dependencies in the crate's `Cargo.toml`
+5. Update `ROADMAP.md` and `docs/ARCHITECTURE.md`
