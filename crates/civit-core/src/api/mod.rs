@@ -30,6 +30,7 @@ use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
@@ -116,8 +117,20 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         window: Duration::from_secs(state.config.rate_limit_window_secs.unwrap_or(60) as u64),
     }));
 
+    let ui_dir = std::path::PathBuf::from(&state.config.ui_assets_path);
+    let ui_service = if ui_dir.is_dir() {
+        ServeDir::new(&ui_dir)
+    } else {
+        tracing::warn!(
+            "UI assets directory not found at {:?}, web UI will not be served",
+            ui_dir
+        );
+        ServeDir::new("/tmp/nonexistent-civit-ui")
+    };
+
     let router = Router::new()
         .merge(api)
+        .fallback_service(ui_service)
         .layer(cors)
         .layer(middleware::from_fn(rate_limit_middleware))
         .layer(middleware::from_fn(csrf_middleware))
@@ -224,6 +237,7 @@ mod tests {
             rate_limit_window_secs: None,
             tls_cert_path: None,
             tls_key_path: None,
+            ui_assets_path: "./crates/civit-ui/dist".into(),
         }
     }
 

@@ -22,7 +22,7 @@ rust-version = "1.88"
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["ws", "multipart"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "trace", "auth", "set-header"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "auth", "set-header", "fs"] }
 tonic = "0.12"
 prost = "0.13"
 tonic-build = "0.12"

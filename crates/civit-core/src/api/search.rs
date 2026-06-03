@@ -77,7 +77,7 @@ struct LanguagesResponse {
 
 async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<i64> {
     sqlx::query_scalar::<_, i64>(
-        "SELECT id FROM repositories WHERE owner_id::text = $1 AND name = $2",
+        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
     .bind(owner)
     .bind(name)
@@ -168,7 +168,7 @@ pub async fn global_search(
         let parts: Vec<&str> = repo.splitn(2, '/').collect();
         if parts.len() == 2 {
             let clause = format!(
-                " AND i.repo_id = (SELECT id FROM repositories WHERE owner_id::text = ${bind_idx} AND name = ${bind_idx_plus})",
+                " AND i.repo_id = (SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = ${bind_idx} AND r.name = ${bind_idx_plus})",
                 bind_idx = bind_idx,
                 bind_idx_plus = bind_idx + 1,
             );

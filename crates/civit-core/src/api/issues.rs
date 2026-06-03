@@ -210,7 +210,7 @@ struct MessageResponse {
 
 async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<i64> {
     sqlx::query_scalar::<_, i64>(
-        "SELECT id FROM repositories WHERE owner_id::text = $1 AND name = $2",
+        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
     .bind(owner)
     .bind(name)

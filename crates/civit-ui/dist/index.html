@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivitForge</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 2rem; background: #0d1117; color: #c9d1d9; }
+        h1 { color: #58a6ff; }
+        a { color: #58a6ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; margin: 1rem 0; }
+        .status { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.85rem; }
+        .status-ok { background: #238636; color: white; }
+        .api-endpoint { font-family: monospace; background: #1c2128; padding: 0.5rem; border-radius: 4px; margin: 0.5rem 0; }
+        pre { background: #1c2128; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+        code { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <h1>CivitForge</h1>
+    <p>Open-source forge platform. API running on this server.</p>
+
+    <div class="card">
+        <h2>API Status</h2>
+        <p>REST API v1 available at <code>/api/v1/</code></p>
+        <span class="status status-ok">Operational</span>
+    </div>
+
+    <div class="card">
+        <h2>Quick Start</h2>
+        <pre><code># Login / Register
+curl -X POST http://HOST:9091/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","email":"alice@example.com","display_name":"Alice"}'
+
+# Create a repo
+curl -X POST http://HOST:9091/api/v1/repos \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"my-project","description":"My repo"}'
+
+# List repos
+curl http://HOST:9091/api/v1/repos \
+  -H "Authorization: Bearer TOKEN"</code></pre>
+    </div>
+
+    <div class="card">
+        <h2>API Endpoints</h2>
+        <div class="api-endpoint">GET  /api/v1/health</div>
+        <div class="api-endpoint">POST /api/v1/auth/login</div>
+        <div class="api-endpoint">GET  /api/v1/auth/me</div>
+        <div class="api-endpoint">GET  /api/v1/repos</div>
+        <div class="api-endpoint">POST /api/v1/repos</div>
+        <div class="api-endpoint">GET  /api/v1/users</div>
+        <div class="api-endpoint">GET  /api/v1/search?q=...</div>
+    </div>
+</body>
+</html>
