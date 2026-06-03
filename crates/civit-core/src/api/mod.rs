@@ -149,8 +149,12 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(
-                "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; \
-                 img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+                "default-src 'self'; \
+                 script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; \
+                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; \
+                 img-src 'self' data:; font-src 'self'; \
+                 connect-src 'self' https://cdn.jsdelivr.net; \
+                 frame-ancestors 'none';",
             ),
         ))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
