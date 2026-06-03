@@ -26,11 +26,9 @@ use std::time::Instant;
 macro_rules! ts_language_fn {
     ($func_name:ident, $lang_mod:ident, $language:expr) => {
         fn $func_name() -> tree_sitter::Language {
-            // SAFETY: Each `tree_sitter_...` function is provided by the
-            // corresponding grammar crate. These functions return a static
-            // `tree_sitter::Language` object with a valid function table.
-            // The pointer is safe to dereference because tree-sitter grammar
-            // crates guarantee these functions are safe to call.
+            // SAFETY: tree-sitter FFI returns a raw pointer (`*mut TSLanguage`)
+            // via `tree_sitter_..._language()`. The grammar crate guarantees the
+            // pointer is valid and points to a static, zero-cost Language object.
             unsafe { $lang_mod::language() }
         }
     };

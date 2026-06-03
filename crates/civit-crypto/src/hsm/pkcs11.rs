@@ -240,7 +240,7 @@ impl HsmClient {
                 let algorithm = match bits {
                     128 => &aead::AES_128_GCM,
                     256 => &aead::AES_256_GCM,
-                    _ => unreachable!(),
+                    other => anyhow::bail!("AES key must be 128 or 256 bits, got {other}"),
                 };
                 let aead_key = aead::LessSafeKey::new(
                     aead::UnboundKey::new(algorithm, &raw_key)
