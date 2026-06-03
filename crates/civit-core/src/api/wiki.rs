@@ -449,13 +449,14 @@ pub async fn create_wiki_page(
     let sha = generate_pseudo_sha();
 
     match sqlx::query_as::<_, WikiPageResponse>(
-        "INSERT INTO wiki_pages (repo_id, slug, title, format, content, latest_commit, created_by, created_at, updated_at) VALUES ($1, $2, $3, 'markdown', $4, $5, 'system', NOW(), NOW()) RETURNING id, repo_id, slug, title, format, content, latest_commit, created_by, created_at, updated_at",
+        "INSERT INTO wiki_pages (repo_id, slug, title, format, content, latest_commit, created_by, created_at, updated_at) VALUES ($1, $2, $3, 'markdown', $4, $5, $6, NOW(), NOW()) RETURNING id, repo_id, slug, title, format, content, latest_commit, created_by, created_at, updated_at",
     )
-    .bind(repo_id)
-    .bind(&slug)
-    .bind(&req.title)
-    .bind(&req.content)
-    .bind(&sha)
+        .bind(repo_id)
+        .bind(&slug)
+        .bind(&req.title)
+        .bind(&req.content)
+        .bind(&sha)
+        .bind(uuid::Uuid::nil())
     .fetch_one(pool)
     .await
     {
@@ -559,10 +560,11 @@ pub async fn update_wiki_page(
     };
 
     let _ = sqlx::query(
-        "INSERT INTO wiki_revisions (page_id, commit_sha, author_id, edit_message, content_snapshot, created_at) VALUES ($1, $2, 'system', $3, $4, NOW())",
+        "INSERT INTO wiki_revisions (page_id, commit_sha, author_id, edit_message, content_snapshot, created_at) VALUES ($1, $2, $3, $4, $5, NOW())",
     )
     .bind(existing.id)
     .bind(&sha)
+    .bind(uuid::Uuid::nil())
     .bind(edit_msg)
     .bind(content) // snapshot of content AFTER this edit
     .execute(pool)
