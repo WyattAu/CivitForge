@@ -3,34 +3,164 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_params_map;
+#[cfg(feature = "csr")]
+use wasm_bindgen::JsCast;
 
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card};
+use crate::api::client::ApiClient;
+use crate::api::types::ListResponse;
+use crate::components::{
+    Badge, BadgeColor, Button, ButtonVariant, Card, Input, InputType, Modal, Spinner,
+};
+use crate::state::auth::use_auth;
+use civit_shared::org::OrgResponse;
+use civit_shared::visibility::Visibility;
+
+fn get_input_value(name: &str) -> String {
+    #[cfg(feature = "csr")]
+    {
+        let window = match web_sys::window() {
+            Some(w) => w,
+            None => return String::new(),
+        };
+        let doc = match window.document() {
+            Some(d) => d,
+            None => return String::new(),
+        };
+        let el = match doc.get_element_by_id(name) {
+            Some(el) => el,
+            None => return String::new(),
+        };
+        let tag = el.tag_name().to_lowercase();
+        if tag == "textarea" {
+            match el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+                Ok(ta) => return ta.value(),
+                Err(_) => return String::new(),
+            }
+        }
+        match el.dyn_into::<web_sys::HtmlInputElement>() {
+            Ok(input) => input.value(),
+            Err(_) => String::new(),
+        }
+    }
+    #[cfg(not(feature = "csr"))]
+    {
+        let _ = name;
+        String::new()
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct CreateOrgBody {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    visibility: Visibility,
+}
 
 #[component]
 pub fn OrgsPage() -> impl IntoView {
-    let (orgs_sig, _) = signal(vec![
-        (
-            "civitforge",
-            "CivitForge Platform",
-            "public",
-            "12 members",
-            "5 repos",
-        ),
-        (
-            "rustdev",
-            "Rust Developer Community",
-            "public",
-            "48 members",
-            "23 repos",
-        ),
-        (
-            "myteam",
-            "My Team Workspace",
-            "private",
-            "6 members",
-            "3 repos",
-        ),
-    ]);
+    let auth = use_auth();
+    let (orgs_sig, set_orgs) = signal(vec![]);
+    let (loading, set_loading) = signal(true);
+    let (error, set_error) = signal(None::<String>);
+    let (show_create, set_show_create) = signal(false);
+    let (create_error, set_create_error) = signal(None::<String>);
+    let (create_loading, set_create_loading) = signal(false);
+
+    let fetch_orgs = move || {
+        set_loading.set(true);
+        set_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        let client = ApiClient::new(token);
+        leptos::task::spawn_local(async move {
+            match client.get("/orgs?per_page=100&offset=0").await {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<ListResponse<OrgResponse>>().await {
+                        Ok(data) => set_orgs.set(data.data),
+                        Err(e) => set_error.set(Some(format!("Failed to parse orgs: {e}"))),
+                    }
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    let body = resp.text().await.unwrap_or_default();
+                    set_error.set(Some(format!("Failed to load orgs ({status}): {body}")));
+                }
+                Err(e) => {
+                    set_error.set(Some(format!("Network error: {e}")));
+                }
+            }
+            set_loading.set(false);
+        });
+    };
+
+    fetch_orgs();
+
+    let open_create = move |_| set_show_create.set(true);
+    let close_create = Callback::new(move |_: ()| set_show_create.set(false));
+
+    let handle_create_submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        set_create_error.set(None);
+
+        let name_val = get_input_value("org-name");
+        let display_name_val = get_input_value("org-display-name");
+        let desc_val = get_input_value("org-description");
+        let vis_public = get_input_value("org-vis-public");
+        let vis_private = get_input_value("org-vis-private");
+
+        if name_val.trim().is_empty() {
+            set_create_error.set(Some("Organization name is required.".to_string()));
+            return;
+        }
+
+        let vis = if !vis_public.is_empty() && vis_public == "on" {
+            Visibility::Public
+        } else if !vis_private.is_empty() && vis_private == "on" {
+            Visibility::Private
+        } else {
+            Visibility::Public
+        };
+
+        let body = CreateOrgBody {
+            name: name_val.trim().to_string(),
+            display_name: if display_name_val.trim().is_empty() {
+                None
+            } else {
+                Some(display_name_val.trim().to_string())
+            },
+            description: if desc_val.trim().is_empty() {
+                None
+            } else {
+                Some(desc_val.trim().to_string())
+            },
+            visibility: vis,
+        };
+
+        set_create_loading.set(true);
+        leptos::task::spawn_local(async move {
+            let token = auth.0.with(|a| a.token.clone());
+            let client = ApiClient::new(token);
+            match client.post("/orgs", &body).await {
+                Ok(resp) if resp.status().is_success() => {
+                    set_show_create.set(false);
+                    fetch_orgs();
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    let body_text = resp.text().await.unwrap_or_default();
+                    set_create_error.set(Some(format!(
+                        "Failed to create org ({status}): {body_text}"
+                    )));
+                }
+                Err(e) => {
+                    set_create_error.set(Some(format!("Network error: {e}")));
+                }
+            }
+            set_create_loading.set(false);
+        });
+    };
 
     view! {
         <div class="space-y-6">
@@ -39,42 +169,151 @@ pub fn OrgsPage() -> impl IntoView {
                     <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Organizations"</h1>
                     <p class="mt-1 text-gray-600 dark:text-gray-400">"Manage your organizations."</p>
                 </div>
-                <Button variant=ButtonVariant::Primary extra_class="btn-new-org">
+                <Button variant=ButtonVariant::Primary on:click=open_create extra_class="btn-new-org">
                     "New Organization"
                 </Button>
             </div>
 
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <For each=move || orgs_sig.get() key=|o| o.0.to_string() let:org>
-                    {
-                        view! {
-                            <A href=format!("/orgs/{}", org.0)>
-                                <Card>
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-12 h-12 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white font-bold text-lg select-none">
-                                            {org.0.chars().next().unwrap_or_default().to_uppercase().collect::<String>()}
-                                        </div>
-                                        <div>
-                                            <div class="flex items-center gap-2">
-                                                <span class="font-semibold text-gray-900 dark:text-gray-100">{org.0}</span>
-                                                <Badge
-                                                    color=if org.2 == "public" { BadgeColor::Success } else { BadgeColor::Neutral }
-                                                    text=org.2.to_string()
-                                                />
+            <Show when=move || error.get().is_some() fallback=|| view! { <div></div> }>
+                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                    <p class="text-sm text-red-700 dark:text-red-400">{move || error.get().unwrap_or_default()}</p>
+                </div>
+            </Show>
+
+            <Show when=move || loading.get() fallback=|| view! { <div></div> }>
+                <div class="flex items-center justify-center py-12">
+                    <Spinner />
+                </div>
+            </Show>
+
+            <Show when=move || !loading.get() && orgs_sig.with(|o| o.is_empty()) && error.get().is_none() fallback=|| view! { <div></div> }>
+                <Card>
+                    <div class="py-12 text-center">
+                        <p class="text-gray-500 dark:text-gray-400 text-lg">
+                            "No organizations yet. Create one to collaborate with your team!"
+                        </p>
+                    </div>
+                </Card>
+            </Show>
+
+            <Show when=move || !loading.get() && !orgs_sig.with(|o| o.is_empty()) fallback=|| view! { <div></div> }>
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <For each=move || orgs_sig.get() key=|o| o.id let:org>
+                        {
+                            let org = org.clone();
+                            let card_class = "hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer".to_string();
+                            view! {
+                                <A href=format!("/orgs/{}", org.id)>
+                                    <Card class=card_class>
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-12 h-12 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white font-bold text-lg select-none">
+                                                {org.name.chars().next().unwrap_or_default().to_uppercase().collect::<String>()}
                                             </div>
-                                            <p class="text-sm text-gray-500 dark:text-gray-400">{org.1}</p>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                                        {org.display_name.clone().unwrap_or(org.name.clone())}
+                                                    </span>
+                                                    <Badge
+                                                        color=match org.visibility {
+                                                            Visibility::Public => BadgeColor::Success,
+                                                            Visibility::Internal => BadgeColor::Info,
+                                                            Visibility::Private => BadgeColor::Neutral,
+                                                        }
+                                                        text=org.visibility.to_string()
+                                                    />
+                                                </div>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                                    {org.name.clone()}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="mt-4 flex gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                        <span>{org.3}</span>
-                                        <span>{org.4}</span>
-                                    </div>
-                                </Card>
-                            </A>
+
+                                        {org.description.as_ref().map(|desc| {
+                                            view! {
+                                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                                                    {desc.clone()}
+                                                </p>
+                                            }
+                                        })}
+
+                                        <div class="mt-4 flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+                                            <span>{format!("{} members", org.member_count)}</span>
+                                            <span>{format!("{} repos", org.repo_count)}</span>
+                                        </div>
+                                    </Card>
+                                </A>
+                            }
                         }
-                    }
-                </For>
-            </div>
+                    </For>
+                </div>
+            </Show>
+
+            <Modal
+                show=show_create.get()
+                title="Create Organization".to_string()
+                on_close=close_create
+            >
+                <form on:submit=handle_create_submit class="space-y-4">
+                    <Show when=move || create_error.get().is_some()>
+                        <div class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+                            <p class="text-sm text-red-700 dark:text-red-400">{move || create_error.get().unwrap_or_default()}</p>
+                        </div>
+                    </Show>
+
+                    <Input
+                        label="Organization Name"
+                        name="org-name"
+                        id="org-name"
+                        input_type=InputType::Text
+                        placeholder="my-org"
+                        required=true
+                    />
+
+                    <Input
+                        label="Display Name (optional)"
+                        name="org-display-name"
+                        id="org-display-name"
+                        input_type=InputType::Text
+                        placeholder="My Organization"
+                    />
+
+                    <Input
+                        label="Description (optional)"
+                        name="org-description"
+                        id="org-description"
+                        input_type=InputType::Textarea
+                        placeholder="What is this organization about?"
+                    />
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            "Visibility"
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="org-visibility" id="org-vis-public" value="public" checked
+                                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600" />
+                                <span class="text-sm text-gray-900 dark:text-gray-100">"Public"</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="org-visibility" id="org-vis-private" value="private"
+                                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600" />
+                                <span class="text-sm text-gray-900 dark:text-gray-100">"Private"</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <Button variant=ButtonVariant::Primary disabled=create_loading.get()>
+                            {move || if create_loading.get() { "Creating..." } else { "Create" }}
+                        </Button>
+                        <Button variant=ButtonVariant::Secondary on:click=move |_| set_show_create.set(false)>
+                            "Cancel"
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     }
 }
