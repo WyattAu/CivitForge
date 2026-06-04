@@ -1,0 +1,17 @@
+[package]
+name = "civit-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CivitForge desktop application (Tauri shell)"
+
+[dependencies]
+tauri = { version = "2", features = ["wry"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

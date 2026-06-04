@@ -1,38 +1,40 @@
 # CivitForge Version Tracker
 
-Version: 1.5.0
+Version: 2.0.0
 Last Updated: 2026-06-04
-Tests: 2,888 passing
+Tests: 2,953 passing
 Clippy: 0 warnings
 
 ## Artifact Summary
 
-- Rust source files: 290+
-- Rust lines of code: ~105,000
+- Rust source files: 300+
+- Rust lines of code: ~115,000
 - Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
-- Unit tests passing: 2,888
+- Cargo standalone crates: 1 (civit-desktop, not in workspace)
+- Unit tests passing: 2,953
 - Clippy warnings: 0
 - Format violations: 0
 - `#![forbid(unsafe_code)`: Enforced across all crates
-- API endpoints: ~68 routes
+- API endpoints: ~80 routes (including debug/diagnostics)
 - Migrations: 001-025 (odd-numbered)
+- OpenAPI: v3.1 spec at /api/v1/openapi.json
 - Rust edition: 2024
 - MSRV: 1.88
 
-## v1.5.0 Changes
+## v2.0.0 Changes
 
-- Read replica router (primary/replica pool split, failover, lag monitoring)
-- Multi-region replication transport (channel-based, SHA-256 checksums, heartbeat)
-- Vector clocks (conflict detection: happened-before, concurrent, merge)
-- K8s operator (CivitForgeApp CRD, reconciler, health checker)
-- CDN artifact pre-signed URLs (HMAC-SHA256, TTL, cache headers)
-- Artifact serving API (download, pre-signed URL, HEAD/ETag, cache invalidation)
-- Password change verifies current password
-- Code browser uses gix EntryMode for file/directory detection
-- Federation inbox validates HTTP signatures
-- Federation actor generates real Ed25519 keypair
-- Shared UI utilities extracted (8 pages deduplicated)
-- Wiki page content fetch wired, repo settings wired, explore search wired
+- OpenAPI 3.1 spec (50+ endpoints, JSON + YAML)
+- Marketplace/extension API (8 endpoints, manifest validation)
+- PWA manifest + service worker (network-first caching)
+- Frontend error capture (window.onerror, unhandledrejection, console interceptors)
+- Error boundary component (CatchError) with retry
+- Debug panel (Ctrl+Shift+D, error list, stack traces)
+- Backend debug middleware (request logging, slow query detection)
+- Panic catcher middleware (structured 500 responses)
+- Diagnostics endpoints (health, memory, routes, panic trigger)
+- Client error reporting endpoint
+- Playwright E2E traversal script (12+ routes, all buttons/forms, error capture)
+- Tauri desktop foundation (system tray, git commands, CSP)
 
 ## Tags
 
@@ -43,10 +45,12 @@ Clippy: 0 warnings
 - v1.3.0
 - v1.4.0
 - v1.5.0
+- v2.0.0
 
-## Next: v2.0.0
+## Next
 
-- Tauri desktop application
-- PWA mobile
-- Marketplace / extensions
-- API stability guarantee (/api/v1/ frozen)
+- WASM rendering tests via wasm-bindgen-test
+- Implement HTTP signature validation in federation inbox
+- Real-time WebSocket log streaming
+- Tantivy code search upgrade
+- Git-backed wiki storage

@@ -5,10 +5,14 @@ pub mod artifact_serving;
 pub mod auth;
 pub mod auth_routes;
 pub mod code_browser;
+pub mod diagnostics;
+pub mod error_reports;
 pub mod federation_routes;
 pub mod git_http;
 pub mod issues;
+pub mod marketplace;
 pub mod oci;
+pub mod openapi_handler;
 pub mod orgs;
 pub mod password;
 pub mod pipelines;
@@ -89,6 +93,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(federation_routes::federation_routes())
         .merge(password::password_routes())
         .merge(artifact_serving::artifact_serving_routes())
+        .merge(openapi_handler::openapi_routes())
+        .merge(marketplace::marketplace_routes())
+        .merge(diagnostics::diagnostics_routes())
+        .merge(error_reports::error_reports_routes())
         .route(
             "/api/v1/users",
             get(users::list_users).post(users::create_user),

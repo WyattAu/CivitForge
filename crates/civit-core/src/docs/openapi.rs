@@ -349,6 +349,2128 @@ fn convert_value(val: &serde_json::Value, indent: usize, out: &mut String) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Master spec generator — all known API endpoints
+// ---------------------------------------------------------------------------
+
+use std::collections::HashMap as Map;
+
+fn p(name: &str, loc: ParameterLocation, required: bool, type_: &str) -> Parameter {
+    Parameter {
+        name: name.into(),
+        location: loc,
+        description: None,
+        required,
+        schema: Some(SchemaRef {
+            ref_: None,
+            type_: Some(type_.into()),
+            properties: Map::new(),
+            required: Vec::new(),
+            items: None,
+            description: None,
+            example: None,
+        }),
+        example: None,
+    }
+}
+
+fn op(id: &str, summary: &str, tag: &str) -> Operation {
+    Operation {
+        operation_id: Some(id.into()),
+        summary: Some(summary.into()),
+        description: None,
+        parameters: Vec::new(),
+        responses: Map::new(),
+        tags: vec![tag.into()],
+        request_body: None,
+        security: None,
+    }
+}
+
+fn resp(desc: &str, schema: &str) -> Response {
+    Response {
+        description: desc.into(),
+        status_code: None,
+        content_type: None,
+        schema_ref: if schema.is_empty() {
+            None
+        } else {
+            Some(SchemaRef {
+                ref_: Some(schema.into()),
+                type_: None,
+                properties: Map::new(),
+                required: Vec::new(),
+                items: None,
+                description: None,
+                example: None,
+            })
+        },
+    }
+}
+
+fn resp_err(code: &str, desc: &str) -> (String, Response) {
+    (code.into(), resp(desc, ""))
+}
+
+fn schema_obj(props: Vec<(&str, &str)>) -> SchemaRef {
+    SchemaRef {
+        ref_: None,
+        type_: Some("object".into()),
+        properties: props
+            .into_iter()
+            .map(|(k, v)| {
+                (
+                    k.into(),
+                    SchemaRef {
+                        ref_: None,
+                        type_: Some(v.into()),
+                        properties: Map::new(),
+                        required: Vec::new(),
+                        items: None,
+                        description: None,
+                        example: None,
+                    },
+                )
+            })
+            .collect(),
+        required: Vec::new(),
+        items: None,
+        description: None,
+        example: None,
+    }
+}
+
+/// Generate the full OpenAPI 3.1 specification for all CivitForge API endpoints.
+pub fn generate_openapi_spec() -> OpenApiGenerator {
+    let mut security = Map::new();
+    security.insert("bearer".into(), Vec::new());
+
+    let mut g = OpenApiGenerator::new()
+        .with_info("CivitForge API", env!("CARGO_PKG_VERSION"))
+        .with_description("Self-hosted federated forge platform API")
+        .with_license(
+            "AGPL-3.0-or-later",
+            "https://www.gnu.org/licenses/agpl-3.0.en.html",
+        )
+        .with_server("/api/v1", "API v1")
+        .add_security_scheme(
+            "bearer",
+            SecurityScheme {
+                type_: "http".into(),
+                name: None,
+                in_: None,
+                description: Some("JWT Bearer token authentication".into()),
+                bearer_format: Some("JWT".into()),
+            },
+        )
+        .add_global_security(security)
+        // ── Health ──────────────────────────────────────────────
+        .register_path(
+            "/healthz",
+            PathItem {
+                get: Some({
+                    let mut o = op("healthz", "Health check", "system");
+                    o.responses = [("200".into(), resp("OK", ""))].into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/health",
+            PathItem {
+                get: Some({
+                    let mut o = op("apiHealth", "API health check", "system");
+                    o.responses = [("200".into(), resp("OK", ""))].into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Auth ────────────────────────────────────────────────
+        .register_path(
+            "/api/v1/auth/login",
+            PathItem {
+                post: Some({
+                    let mut o = op("login", "Authenticate user", "auth");
+                    o.parameters = vec![];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Login credentials".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("username", "string"),
+                                    ("email", "string"),
+                                    ("display_name", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp(
+                                "JWT token and user info",
+                                "#/components/schemas/LoginResponse",
+                            ),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("401", "Invalid credentials"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/auth/me",
+            PathItem {
+                get: Some({
+                    let mut o = op("me", "Get current user", "auth");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Current user info", "#/components/schemas/User"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/auth/refresh",
+            PathItem {
+                post: Some({
+                    let mut o = op("refresh", "Refresh JWT token", "auth");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("New JWT token", "#/components/schemas/RefreshResponse"),
+                        ),
+                        resp_err("401", "Invalid token"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Repos ───────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos",
+            PathItem {
+                get: Some({
+                    let mut o = op("listRepos", "List repositories", "repos");
+                    o.parameters = vec![
+                        p("limit", ParameterLocation::Query, false, "integer"),
+                        p("offset", ParameterLocation::Query, false, "integer"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("List of repos", "#/components/schemas/RepoList"),
+                        ),
+                        resp_err("500", "Internal error"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createRepo", "Create a repository", "repos");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Repository to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("owner", "string"),
+                                    ("description", "string"),
+                                    ("visibility", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created repo", "#/components/schemas/Repo"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("401", "Not authenticated"),
+                        resp_err("403", "Permission denied"),
+                        resp_err("500", "Internal error"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getRepo", "Get repository details", "repos");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Repository", "#/components/schemas/Repo"),
+                        ),
+                        resp_err("404", "Not found"),
+                        resp_err("500", "Internal error"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteRepo", "Delete a repository", "repos");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("401", "Not authenticated"),
+                        resp_err("403", "Permission denied"),
+                        resp_err("404", "Not found"),
+                        resp_err("500", "Internal error"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                post: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/commits",
+            PathItem {
+                get: Some({
+                    let mut o = op("listCommits", "List commits", "repos");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Commit list", "#/components/schemas/CommitList"),
+                        ),
+                        resp_err("404", "Not found"),
+                        resp_err("500", "Internal error"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Code Browser ─────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/tree",
+            PathItem {
+                get: Some({
+                    let mut o = op("listTree", "List directory tree", "repos");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("path", ParameterLocation::Query, false, "string"),
+                        p("ref", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Tree entries", "#/components/schemas/TreeEntryList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/blob",
+            PathItem {
+                get: Some({
+                    let mut o = op("readBlob", "Read file contents", "repos");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("path", ParameterLocation::Query, false, "string"),
+                        p("ref", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Blob contents", "#/components/schemas/Blob"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Issues ──────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/issues",
+            PathItem {
+                get: Some({
+                    let mut o = op("listIssues", "List issues", "issues");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("state", ParameterLocation::Query, false, "string"),
+                        p("label", ParameterLocation::Query, false, "string"),
+                        p("assignee", ParameterLocation::Query, false, "string"),
+                        p("sort", ParameterLocation::Query, false, "string"),
+                        p("page", ParameterLocation::Query, false, "integer"),
+                        p("per_page", ParameterLocation::Query, false, "integer"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Paginated issues", "#/components/schemas/IssueList"),
+                        ),
+                        resp_err("404", "Repo not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createIssue", "Create an issue", "issues");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Issue to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("title", "string"),
+                                    ("description", "string"),
+                                    ("assignee", "string"),
+                                    ("milestone", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created issue", "#/components/schemas/Issue"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("401", "Not authenticated"),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/issues/{number}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getIssue", "Get issue details", "issues");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("number", ParameterLocation::Path, true, "integer"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Issue details", "#/components/schemas/Issue"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                patch: Some({
+                    let mut o = op("updateIssue", "Update an issue", "issues");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Fields to update".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("title", "string"),
+                                    ("description", "string"),
+                                    ("state", "string"),
+                                    ("assignee", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Updated issue", "#/components/schemas/Issue"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("404", "Not found"),
+                        resp_err("409", "Invalid state transition"),
+                    ]
+                    .into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteIssue", "Delete an issue", "issues");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("number", ParameterLocation::Path, true, "integer"),
+                    ];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("401", "Not authenticated"),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/comments",
+            PathItem {
+                post: Some({
+                    let mut o = op("addComment", "Add a comment", "issues");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Comment body".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![("body", "string")])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created comment", "#/components/schemas/Comment"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/reactions",
+            PathItem {
+                post: Some({
+                    let mut o = op("addReaction", "Add a reaction", "issues");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Reaction to add".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![("emoji", "string")])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created reaction", "#/components/schemas/Reaction"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/labels",
+            PathItem {
+                get: Some({
+                    let mut o = op("listLabels", "List labels", "issues");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Labels", "#/components/schemas/LabelList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createLabel", "Create a label", "issues");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Label to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("color", "string"),
+                                    ("description", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created label", "#/components/schemas/Label"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/milestones",
+            PathItem {
+                get: Some({
+                    let mut o = op("listMilestones", "List milestones", "issues");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("state", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Milestones", "#/components/schemas/MilestoneList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createMilestone", "Create a milestone", "issues");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Milestone to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("title", "string"),
+                                    ("description", "string"),
+                                    ("due_on", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created milestone", "#/components/schemas/Milestone"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Wiki ─────────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/wiki",
+            PathItem {
+                get: Some({
+                    let mut o = op("listWikiPages", "List wiki pages", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Wiki page list", "#/components/schemas/WikiPageSummaryList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createWikiPage", "Create a wiki page", "wiki");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Wiki page to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("slug", "string"),
+                                    ("title", "string"),
+                                    ("content", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created page", "#/components/schemas/WikiPage"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/wiki/search",
+            PathItem {
+                get: Some({
+                    let mut o = op("searchWiki", "Search wiki pages", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("q", ParameterLocation::Query, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Search results", "#/components/schemas/WikiPageSummaryList"),
+                        ),
+                        resp_err("400", "Missing query"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/wiki/{slug}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getWikiPage", "Get wiki page", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("slug", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Wiki page", "#/components/schemas/WikiPage"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: Some({
+                    let mut o = op("updateWikiPage", "Update a wiki page", "wiki");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Fields to update".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("title", "string"),
+                                    ("content", "string"),
+                                    ("edit_message", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Updated page", "#/components/schemas/WikiPage"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteWikiPage", "Delete a wiki page", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("slug", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/wiki/{slug}/history",
+            PathItem {
+                get: Some({
+                    let mut o = op("wikiPageHistory", "Get wiki page history", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("slug", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Revision list", "#/components/schemas/WikiRevisionList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/wiki/{slug}/diff",
+            PathItem {
+                get: Some({
+                    let mut o = op("wikiPageDiff", "Diff between two wiki revisions", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("slug", ParameterLocation::Path, true, "string"),
+                        p("sha1", ParameterLocation::Query, true, "string"),
+                        p("sha2", ParameterLocation::Query, true, "string"),
+                    ];
+                    o.responses = [
+                        ("200".into(), resp("Diff", "#/components/schemas/Diff")),
+                        resp_err("400", "Missing SHA"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/wiki/{slug}/raw",
+            PathItem {
+                get: Some({
+                    let mut o = op("wikiPageRaw", "Get raw wiki page content", "wiki");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("slug", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        ("200".into(), resp("Raw markdown", "")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Pipelines ──────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/pipelines",
+            PathItem {
+                get: Some({
+                    let mut o = op("listPipelines", "List pipelines for a repo", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("limit", ParameterLocation::Query, false, "integer"),
+                        p("offset", ParameterLocation::Query, false, "integer"),
+                        p("status", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Pipeline runs", "#/components/schemas/PipelineRunList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: Some({
+                    let mut o = op("triggerPipeline", "Trigger a pipeline run", "pipelines");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Pipeline trigger parameters".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("ref_name", "string"),
+                                    ("commit_sha", "string"),
+                                    ("yaml_path", "string"),
+                                    ("event_type", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created pipeline run", "#/components/schemas/PipelineRun"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                        resp_err("404", "Not found"),
+                        resp_err("422", "Invalid pipeline YAML"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/pipelines/{pipeline_id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getPipeline", "Get pipeline run details", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("pipeline_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp(
+                                "Pipeline run detail",
+                                "#/components/schemas/PipelineRunDetail",
+                            ),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("cancelPipeline", "Cancel a pipeline run", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("pipeline_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Canceled", "#/components/schemas/PipelineRun"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/pipelines/{pipeline_id}/jobs",
+            PathItem {
+                get: Some({
+                    let mut o = op("getPipelineJobs", "Get pipeline jobs", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("pipeline_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Jobs", "#/components/schemas/RunJobList"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/pipelines",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "listAllPipelines",
+                        "List all pipelines (admin)",
+                        "pipelines",
+                    );
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Pipeline runs", "#/components/schemas/PipelineRunList"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Runners ─────────────────────────────────────────────
+        .register_path(
+            "/api/v1/runners",
+            PathItem {
+                get: Some({
+                    let mut o = op("listRunners", "List registered runners", "runners");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Runners", "#/components/schemas/RunnerList"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("registerRunner", "Register a new runner", "runners");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Runner registration".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("scope", "string"),
+                                    ("labels", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Registered", "#/components/schemas/RegisterRunnerResponse"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                        resp_err("403", "Admin required"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/runners/{runner_id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getRunner", "Get runner details", "runners");
+                    o.parameters = vec![p("runner_id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("200".into(), resp("Runner", "#/components/schemas/Runner")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteRunner", "Delete a runner", "runners");
+                    o.parameters = vec![p("runner_id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/runners/poll",
+            PathItem {
+                post: Some({
+                    let mut o = op("pollJob", "Poll for available jobs", "runners");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Available job", "#/components/schemas/PollJobResponse"),
+                        ),
+                        ("204".into(), resp("No jobs available", "")),
+                        resp_err("401", "Invalid runner token"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Search ───────────────────────────────────────────────
+        .register_path(
+            "/api/v1/search",
+            PathItem {
+                get: Some({
+                    let mut o = op("globalSearch", "Global code search", "search");
+                    o.parameters = vec![
+                        p("q", ParameterLocation::Query, true, "string"),
+                        p("repo", ParameterLocation::Query, false, "string"),
+                        p("language", ParameterLocation::Query, false, "string"),
+                        p("page", ParameterLocation::Query, false, "integer"),
+                        p("per_page", ParameterLocation::Query, false, "integer"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Search results", "#/components/schemas/SearchResults"),
+                        ),
+                        resp_err("400", "Missing query"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/search",
+            PathItem {
+                get: Some({
+                    let mut o = op("repoSearch", "Search within a repo", "search");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("q", ParameterLocation::Query, true, "string"),
+                        p("language", ParameterLocation::Query, false, "string"),
+                        p("path", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Search results", "#/components/schemas/SearchResults"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Activity ────────────────────────────────────────────
+        .register_path(
+            "/api/v1/activity",
+            PathItem {
+                get: Some({
+                    let mut o = op("listActivity", "List activity feed", "activity");
+                    o.parameters = vec![
+                        p("limit", ParameterLocation::Query, false, "integer"),
+                        p("offset", ParameterLocation::Query, false, "integer"),
+                        p("repo_id", ParameterLocation::Query, false, "string"),
+                        p("org_id", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [(
+                        "200".into(),
+                        resp("Activity events", "#/components/schemas/ActivityList"),
+                    )]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Users ────────────────────────────────────────────────
+        .register_path(
+            "/api/v1/users",
+            PathItem {
+                get: Some({
+                    let mut o = op("listUsers", "List users", "users");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("User list", "#/components/schemas/UserList"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createUser", "Create a user", "users");
+                    o.request_body = Some(RequestBody {
+                        description: Some("User to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("username", "string"),
+                                    ("email", "string"),
+                                    ("display_name", "string"),
+                                    ("role", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created user", "#/components/schemas/User"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/users/{id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getUser", "Get user by ID", "users");
+                    o.parameters = vec![p("id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("200".into(), resp("User", "#/components/schemas/User")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                patch: Some({
+                    let mut o = op("updateUser", "Update a user", "users");
+                    o.parameters = vec![p("id", ParameterLocation::Path, true, "string")];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Fields to update".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("username", "string"),
+                                    ("email", "string"),
+                                    ("display_name", "string"),
+                                    ("bio", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Updated user", "#/components/schemas/User"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteUser", "Delete a user", "users");
+                    o.parameters = vec![p("id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Organizations ───────────────────────────────────────
+        .register_path(
+            "/api/v1/orgs",
+            PathItem {
+                get: Some({
+                    let mut o = op("listOrgs", "List organizations", "orgs");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Org list", "#/components/schemas/OrgList"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createOrg", "Create an organization", "orgs");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Organization to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("display_name", "string"),
+                                    ("description", "string"),
+                                    ("visibility", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Created org", "#/components/schemas/Org"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("403", "Permission denied"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/orgs/{id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getOrg", "Get organization", "orgs");
+                    o.parameters = vec![p("id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Organization", "#/components/schemas/Org"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                patch: Some({
+                    let mut o = op("updateOrg", "Update an organization", "orgs");
+                    o.parameters = vec![p("id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Updated org", "#/components/schemas/Org"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── SSH Keys ────────────────────────────────────────────
+        .register_path(
+            "/api/v1/users/{user_id}/ssh-keys",
+            PathItem {
+                get: Some({
+                    let mut o = op("listSshKeys", "List SSH keys for a user", "users");
+                    o.parameters = vec![p("user_id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("SSH keys", "#/components/schemas/SshKeyList"),
+                        ),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("addSshKey", "Add SSH key", "users");
+                    o.parameters = vec![p("user_id", ParameterLocation::Path, true, "string")];
+                    o.request_body = Some(RequestBody {
+                        description: Some("SSH key to add".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("label", "string"),
+                                    ("public_key", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Added key", "#/components/schemas/SshKey"),
+                        ),
+                        resp_err("400", "Invalid key"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/ssh-keys/{key_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deleteSshKey", "Delete SSH key", "users");
+                    o.parameters = vec![p("key_id", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Password ─────────────────────────────────────────────
+        .register_path(
+            "/api/v1/users/{user_id}/password",
+            PathItem {
+                post: Some({
+                    let mut o = op("changePassword", "Change user password", "auth");
+                    o.parameters = vec![p("user_id", ParameterLocation::Path, true, "string")];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Password change".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("current_password", "string"),
+                                    ("new_password", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Password changed", "#/components/schemas/Message"),
+                        ),
+                        resp_err("400", "Invalid request"),
+                        resp_err("401", "Not authenticated"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Federation ──────────────────────────────────────────
+        .register_path(
+            "/.well-known/webfinger",
+            PathItem {
+                get: Some({
+                    let mut o = op("webfinger", "WebFinger discovery", "federation");
+                    o.parameters = vec![p("resource", ParameterLocation::Query, true, "string")];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp(
+                                "WebFinger response",
+                                "#/components/schemas/WebFingerResponse",
+                            ),
+                        ),
+                        resp_err("404", "Federation disabled"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/federation/actor",
+            PathItem {
+                get: Some({
+                    let mut o = op("federationActor", "ActivityPub actor", "federation");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Actor", "#/components/schemas/ActorResponse"),
+                        ),
+                        resp_err("404", "Federation disabled"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/federation/inbox",
+            PathItem {
+                post: Some({
+                    let mut o = op(
+                        "federationInbox",
+                        "Receive ActivityPub activities",
+                        "federation",
+                    );
+                    o.responses = [
+                        (
+                            "202".into(),
+                            resp("Accepted", "#/components/schemas/InboxResponse"),
+                        ),
+                        resp_err("401", "Invalid signature"),
+                        resp_err("404", "Federation disabled"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/federation/outbox",
+            PathItem {
+                get: Some({
+                    let mut o = op("federationOutbox", "ActivityPub outbox", "federation");
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Outbox", "#/components/schemas/OutboxResponse"),
+                        ),
+                        resp_err("404", "Federation disabled"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Marketplace ────────────────────────────────────────
+        .register_path(
+            "/api/v1/marketplace/extensions",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "listExtensions",
+                        "List marketplace extensions",
+                        "marketplace",
+                    );
+                    o.responses = [(
+                        "200".into(),
+                        resp("Extensions", "#/components/schemas/ExtensionSummaryList"),
+                    )]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: Some({
+                    let mut o = op("publishExtension", "Publish an extension", "marketplace");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Extension manifest".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(SchemaRef {
+                                    ref_: Some("#/components/schemas/ExtensionManifest".into()),
+                                    type_: None,
+                                    properties: Map::new(),
+                                    required: Vec::new(),
+                                    items: None,
+                                    description: None,
+                                    example: None,
+                                }),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Published", "#/components/schemas/Message"),
+                        ),
+                        resp_err("400", "Invalid manifest"),
+                        resp_err("403", "Permission denied"),
+                    ]
+                    .into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/marketplace/extensions/{name}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getExtension", "Get extension details", "marketplace");
+                    o.parameters = vec![p("name", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Extension", "#/components/schemas/ExtensionManifest"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                delete: Some({
+                    let mut o = op(
+                        "deleteExtension",
+                        "Remove extension from marketplace",
+                        "marketplace",
+                    );
+                    o.parameters = vec![p("name", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("204".into(), resp("Deleted", "")),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/marketplace/extensions/{name}/verify",
+            PathItem {
+                post: Some({
+                    let mut o = op(
+                        "verifyExtension",
+                        "Verify extension signature",
+                        "marketplace",
+                    );
+                    o.parameters = vec![p("name", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        (
+                            "200".into(),
+                            resp("Verification result", "#/components/schemas/VerifyResponse"),
+                        ),
+                        resp_err("404", "Not found"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/marketplace/installed",
+            PathItem {
+                get: Some({
+                    let mut o = op("listInstalled", "List installed extensions", "marketplace");
+                    o.responses = [(
+                        "200".into(),
+                        resp(
+                            "Installed extensions",
+                            "#/components/schemas/ExtensionManifestList",
+                        ),
+                    )]
+                    .into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/marketplace/installed/{name}",
+            PathItem {
+                post: Some({
+                    let mut o = op("installExtension", "Install an extension", "marketplace");
+                    o.parameters = vec![p("name", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        (
+                            "201".into(),
+                            resp("Installed", "#/components/schemas/Message"),
+                        ),
+                        resp_err("404", "Not found"),
+                        resp_err("409", "Already installed"),
+                    ]
+                    .into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op(
+                        "uninstallExtension",
+                        "Uninstall an extension",
+                        "marketplace",
+                    );
+                    o.parameters = vec![p("name", ParameterLocation::Path, true, "string")];
+                    o.responses = [
+                        ("204".into(), resp("Uninstalled", "")),
+                        resp_err("404", "Not installed"),
+                    ]
+                    .into();
+                    o
+                }),
+                get: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        );
+
+    // ── Component Schemas ─────────────────────────────────────
+    g = g
+        .add_schema("Message", schema_obj(vec![("message", "string")]))
+        .add_schema(
+            "Repo",
+            schema_obj(vec![
+                ("id", "string"),
+                ("name", "string"),
+                ("owner", "string"),
+                ("description", "string"),
+                ("visibility", "string"),
+                ("created_at", "string"),
+                ("updated_at", "string"),
+            ]),
+        )
+        .add_schema(
+            "RepoList",
+            SchemaRef {
+                ref_: None,
+                type_: Some("array".into()),
+                properties: Map::new(),
+                required: Vec::new(),
+                items: Some(Box::new(SchemaRef {
+                    ref_: Some("#/components/schemas/Repo".into()),
+                    type_: None,
+                    properties: Map::new(),
+                    required: Vec::new(),
+                    items: None,
+                    description: None,
+                    example: None,
+                })),
+                description: None,
+                example: None,
+            },
+        )
+        .add_schema("LoginResponse", schema_obj(vec![("token", "string")]))
+        .add_schema("RefreshResponse", schema_obj(vec![("token", "string")]))
+        .add_schema(
+            "User",
+            schema_obj(vec![
+                ("id", "string"),
+                ("username", "string"),
+                ("email", "string"),
+                ("display_name", "string"),
+                ("role", "string"),
+                ("created_at", "string"),
+                ("updated_at", "string"),
+            ]),
+        )
+        .add_schema(
+            "Org",
+            schema_obj(vec![
+                ("id", "string"),
+                ("name", "string"),
+                ("display_name", "string"),
+                ("description", "string"),
+                ("visibility", "string"),
+                ("owner_id", "string"),
+                ("created_at", "string"),
+                ("updated_at", "string"),
+            ]),
+        )
+        .add_schema(
+            "Issue",
+            schema_obj(vec![
+                ("id", "string"),
+                ("repo_id", "string"),
+                ("number", "integer"),
+                ("title", "string"),
+                ("body", "string"),
+                ("status", "string"),
+                ("author_id", "string"),
+                ("created_at", "string"),
+                ("updated_at", "string"),
+            ]),
+        )
+        .add_schema(
+            "PipelineRun",
+            schema_obj(vec![
+                ("id", "string"),
+                ("repo_id", "string"),
+                ("trigger", "string"),
+                ("commit_sha", "string"),
+                ("status", "string"),
+                ("created_at", "string"),
+                ("started_at", "string"),
+                ("finished_at", "string"),
+            ]),
+        )
+        .add_schema(
+            "Runner",
+            schema_obj(vec![
+                ("id", "string"),
+                ("name", "string"),
+                ("scope", "string"),
+                ("status", "string"),
+                ("labels", "string"),
+                ("created_at", "string"),
+            ]),
+        )
+        .add_schema(
+            "WebFingerResponse",
+            schema_obj(vec![
+                ("subject", "string"),
+                ("aliases", "string"),
+                ("links", "string"),
+            ]),
+        )
+        .add_schema(
+            "ActorResponse",
+            schema_obj(vec![
+                ("id", "string"),
+                ("type", "string"),
+                ("preferred_username", "string"),
+                ("name", "string"),
+                ("inbox", "string"),
+                ("outbox", "string"),
+            ]),
+        )
+        .add_schema(
+            "ExtensionManifest",
+            schema_obj(vec![
+                ("name", "string"),
+                ("version", "string"),
+                ("description", "string"),
+                ("author", "string"),
+                ("license", "string"),
+                ("entrypoint", "string"),
+            ]),
+        )
+        .add_schema(
+            "VerifyResponse",
+            schema_obj(vec![
+                ("valid", "boolean"),
+                ("errors", "string"),
+                ("warnings", "string"),
+            ]),
+        );
+    g
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

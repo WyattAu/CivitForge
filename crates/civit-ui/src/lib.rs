@@ -3,6 +3,7 @@
 pub mod api;
 pub mod app;
 pub mod components;
+pub mod error_capture;
 pub mod pages;
 pub mod state;
 pub mod utils;
@@ -15,5 +16,9 @@ pub use leptos::prelude::*;
 #[wasm_bindgen::prelude::wasm_bindgen(start)]
 pub fn main() {
     console_error_panic_hook::set_once();
+    error_capture::install_global_error_listeners();
+    let _ = js_sys::eval(
+        "if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }",
+    );
     leptos::mount::mount_to_body(App);
 }

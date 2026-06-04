@@ -30,11 +30,13 @@ web-sys = { version = "0.3", optional = true, features = [
   "Location",
   "Storage",
 ] }
+js-sys = { version = "0.3", optional = true }
 civit-shared = { path = "../civit-shared" }
 reqwest = { workspace = true, features = ["json"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [features]
 default = ["csr"]
-csr = ["leptos/csr", "dep:console_error_panic_hook", "dep:web-sys", "dep:wasm-bindgen", "dep:reqwest", "dep:getrandom"]
+csr = ["leptos/csr", "dep:console_error_panic_hook", "dep:web-sys", "dep:wasm-bindgen", "dep:js-sys", "dep:reqwest", "dep:getrandom"]
 ssr = ["leptos/ssr", "dep:leptos_axum", "dep:reqwest"]
+debug-panel = []

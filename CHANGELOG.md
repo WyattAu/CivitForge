@@ -5,6 +5,35 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-04
+
+### Added
+
+- **OpenAPI 3.1 spec** (`GET /api/v1/openapi.json`, `GET /api/v1/openapi.yaml`) — auto-generated spec covering 50+ endpoints across auth, repos, issues, wiki, pipelines, runners, search, activity, users, orgs, federation, registry, marketplace
+- **Marketplace/extension API** — 8 endpoints: list, get, publish, delete, verify, install, uninstall extensions with manifest validation and permission sandbox
+- **PWA support** — `manifest.json` (standalone display, dark theme, green accent), service worker (`sw.js`) with network-first caching, stale cache cleanup, `SKIP_WAITING` message handler
+- **Frontend error capture** (`civit-ui::error_capture`) — global `onerror`/`unhandledrejection`/`console.error`/`console.warn` interceptors via WASM inline JS, `OnceLock<RwLock<Vec>>` in-memory store (cap 500), JS-Rust sync bridge
+- **Error boundary component** (`CatchError`) — wraps child components with retry-on-error fallback UI, retry counter
+- **Debug panel** (`DebugPanel`, feature-gated) — Ctrl+Shift+D toggle, floating error badge, scrollable error list with source-colored badges, stack traces, clear/refresh buttons
+- **Backend debug middleware** — request/response logging with timing (error/warn/info/slow), `SlowQueryDetector` for DB queries
+- **Panic catcher middleware** — converts handler panics to structured 500 JSON responses
+- **Diagnostics endpoints** — `GET /debug/health` (DB/Redis/memory with latencies), `GET /debug/diagnostics` (process stats), `GET /debug/routes`, `GET /debug/panic` (debug-only)
+- **Client error reporting** — `POST /debug/error-reports` endpoint for frontend error submission
+- **Playwright E2E traversal script** (`tests/e2e/`) — visits all 12+ routes, fills all forms, clicks all buttons, captures console errors/page errors/network failures, screenshots on failure, JSON report
+- **Tauri desktop foundation** (`crates/civit-desktop/`) — Tauri 2 shell, tauri.conf.json, system tray (Show/Quit), native git commands (list/status/clone via gix), CSP for WASM
+
+### Changed
+
+- **Debug panel feature-gated** behind `debug-panel` cargo feature (off by default)
+- **Error boundary renamed** from `ErrorBoundary` to `CatchError` to avoid conflict with Leptos built-in
+- **Service worker registered** on CSR mount via `js_sys::eval`
+
+### Infrastructure
+
+- 2,953 total tests (+65 from v1.5.0)
+- Zero clippy warnings, zero fmt issues
+- All new code `#![forbid(unsafe_code)]`
+
 ## [1.5.0] - 2026-06-04
 
 ### Added

@@ -24,6 +24,7 @@ access control without depending on proprietary cloud services.
 | v1.3.0 | Advanced features | Shipped |
 | v1.4.0 | Federation and enterprise | Shipped |
 | v1.5.0 | Horizontal scaling | Shipped |
+| v2.0.0 | Platform expansion | Shipped |
 | v2.0.0 | Platform expansion | Planned |
 
 ---

@@ -4,7 +4,10 @@ pub mod avatar;
 pub mod badge;
 pub mod button;
 pub mod card;
+#[cfg(feature = "debug-panel")]
+pub mod debug_panel;
 pub mod error_banner;
+pub mod error_boundary;
 pub mod form_field;
 pub mod input;
 pub mod loading;
@@ -18,6 +21,8 @@ pub use avatar::*;
 pub use badge::*;
 pub use button::*;
 pub use card::*;
+#[cfg(feature = "debug-panel")]
+pub use debug_panel::*;
 pub use error_banner::*;
 pub use form_field::*;
 pub use input::*;
