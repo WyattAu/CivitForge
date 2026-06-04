@@ -7,8 +7,22 @@ Clippy: 0 warnings
 
 ## Artifact Summary
 
-- Rust source files: 300+
-- Rust lines of code: ~115,000
+- Rust source files: 310+
+- Rust lines of code: ~120,000
+- Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
+- Cargo standalone crates: 1 (civit-desktop, buildable separately)
+- Unit tests passing: 2,953
+- Clippy warnings: 0
+- Format violations: 0
+- `#![forbid(unsafe_code)`: Enforced across all crates
+- API endpoints: ~80 routes (debug gated by --debug flag)
+- Migrations: 001-025 (odd-numbered)
+- OpenAPI: v3.1 spec at /api/v1/openapi.json
+- WASM: 2.8MB WASM + 54KB JS (trunk build)
+- Rust edition: 2024
+- MSRV: 1.88
+- E2E tests: Playwright (15 pages, all buttons/forms, benchmarks)
+- Desktop: Tauri 2 (buildable, system deps required)- Rust lines of code: ~115,000
 - Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
 - Cargo standalone crates: 1 (civit-desktop, not in workspace)
 - Unit tests passing: 2,953

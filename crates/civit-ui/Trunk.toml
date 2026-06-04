@@ -1,2 +1,13 @@
 [build]
+target = "index.html"
 release = true
+
+[watch]
+watch = ["src/", "assets/"]
+
+[serve]
+address = "127.0.0.1"
+port = 9092
+
+[clean]
+dist = "dist"

@@ -23,6 +23,7 @@ pub struct AppConfig {
     pub tls_cert_path: Option<String>,
     pub tls_key_path: Option<String>,
     pub ui_assets_path: String,
+    pub debug_mode: bool,
 }
 
 impl AppConfig {
@@ -123,6 +124,10 @@ impl AppConfig {
             tls_key_path: std::env::var("TLS_KEY_PATH").ok().filter(|s| !s.is_empty()),
             ui_assets_path: std::env::var("UI_ASSETS_PATH")
                 .unwrap_or_else(|_| "./crates/civit-ui/dist".into()),
+            debug_mode: std::env::var("CIVIT_DEBUG")
+                .unwrap_or_else(|_| "false".into())
+                .parse()
+                .map_err(|_| CoreError::Config("invalid debug flag".into()))?,
         })
     }
 }
@@ -223,6 +228,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         })
     }
 
@@ -377,6 +383,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         let json = serde_json::to_string(&config).unwrap();
         let de: AppConfig = serde_json::from_str(&json).unwrap();
@@ -404,6 +411,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         let _: String = config.host;
         let _: u16 = config.port;
@@ -430,6 +438,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         let cloned = config.clone();
         assert_eq!(cloned.host, config.host);
@@ -575,6 +584,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }
@@ -598,6 +608,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }
@@ -621,6 +632,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }
@@ -644,6 +656,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }
@@ -667,6 +680,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }
@@ -690,6 +704,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }
@@ -713,6 +728,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         assert!(config.validate().is_err());
     }

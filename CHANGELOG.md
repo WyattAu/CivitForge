@@ -20,10 +20,16 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Diagnostics endpoints** — `GET /debug/health` (DB/Redis/memory with latencies), `GET /debug/diagnostics` (process stats), `GET /debug/routes`, `GET /debug/panic` (debug-only)
 - **Client error reporting** — `POST /debug/error-reports` endpoint for frontend error submission
 - **Playwright E2E traversal script** (`tests/e2e/`) — visits all 12+ routes, fills all forms, clicks all buttons, captures console errors/page errors/network failures, screenshots on failure, JSON report
+- **Playwright benchmark suite** (`tests/e2e/benchmark.mjs`) — page load times, API response times, form fill latency, navigation speed, memory leak detection (30-page traversal)
 - **Tauri desktop foundation** (`crates/civit-desktop/`) — Tauri 2 shell, tauri.conf.json, system tray (Show/Quit), native git commands (list/status/clone via gix), CSP for WASM
+- **Desktop sync benchmark commands** — `benchmark_file_sync`, `benchmark_dir_scan`, `benchmark_git_status` Tauri commands with percentile statistics
+- **WASM build via trunk** — successful trunk build produces 2.8MB WASM + 54KB JS in `crates/civit-ui/dist/`
 
 ### Changed
 
+- **Debug mode now CLI-flagged** — `--debug` flag or `CIVIT_DEBUG=1` env var gates diagnostics/error_reports routes and debug_middleware/panic_catcher layers (off by default)
+- **WASM build validated** — trunk build produces 2.8MB WASM + 54KB JS, confirmed working
+- **Tauri desktop validated** — `cargo check` passes on Arch Linux with webkit2gtk-4.1, buildable standalone
 - **Debug panel feature-gated** behind `debug-panel` cargo feature (off by default)
 - **Error boundary renamed** from `ErrorBoundary` to `CatchError` to avoid conflict with Leptos built-in
 - **Service worker registered** on CSR mount via `js_sys::eval`

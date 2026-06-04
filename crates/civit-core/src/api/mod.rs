@@ -62,7 +62,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             .allow_headers(AllowHeaders::any())
     };
 
-    let api = Router::new()
+    let mut api = Router::new()
         .route("/healthz", get(health))
         .route("/ready", get(health))
         .route("/api/v1/health", get(health))
@@ -95,8 +95,6 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(artifact_serving::artifact_serving_routes())
         .merge(openapi_handler::openapi_routes())
         .merge(marketplace::marketplace_routes())
-        .merge(diagnostics::diagnostics_routes())
-        .merge(error_reports::error_reports_routes())
         .route(
             "/api/v1/users",
             get(users::list_users).post(users::create_user),
@@ -130,6 +128,12 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             post(git_http::receive_pack),
         );
 
+    if state.config.debug_mode {
+        api = api
+            .merge(diagnostics::diagnostics_routes())
+            .merge(error_reports::error_reports_routes());
+    }
+
     let rate_limiter = Arc::new(RateLimiter::new(RateLimitConfig {
         max_requests: state.config.rate_limit_max_requests.unwrap_or(100),
         window: Duration::from_secs(state.config.rate_limit_window_secs.unwrap_or(60) as u64),
@@ -146,7 +150,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         ServeDir::new("/tmp/nonexistent-civit-ui")
     };
 
-    let router = Router::new()
+    let debug_mode = state.config.debug_mode;
+
+    let mut router = Router::new()
         .merge(api)
         .fallback_service(ui_service)
         .layer(cors)
@@ -186,6 +192,16 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .layer(TraceLayer::new_for_http())
         .with_state(state)
         .layer(axum::Extension(rate_limiter));
+
+    if debug_mode {
+        router = router
+            .layer(middleware::from_fn(
+                crate::middleware::error_reporter::panic_catcher,
+            ))
+            .layer(middleware::from_fn(
+                crate::middleware::debug::debug_middleware,
+            ));
+    }
 
     Ok(router)
 }
@@ -260,6 +276,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         }
     }
 

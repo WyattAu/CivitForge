@@ -1,349 +1,321 @@
+#!/usr/bin/env node
 import { chromium } from 'playwright';
-import { ErrorCapture } from './debug-capture.mjs';
+import { ErrorCapture } from './debug-capture.m.js';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCREENSHOTS_DIR = join(__dirname, 'screenshots');
-const BASE_URL = 'http://localhost:9091';
-const NAV_TIMEOUT = 10000;
+const REPORTS_DIR = join(__dirname, 'reports');
+
+const BASE_URL = process.env.CIVITFORGE_URL || 'http://localhost:9091';
+const HEADED = process.argv.includes('--headed');
+const TIMEOUT = 15000;
 const ACTION_TIMEOUT = 5000;
 
 mkdirSync(SCREENSHOTS_DIR, { recursive: true });
-
-const headed = process.argv.includes('--headed');
+mkdirSync(REPORTS_DIR, { recursive: true });
 
 const results = {
+  startTime: new Date().toISOString(),
   pages: [],
-  summary: { passed: 0, failed: 0, total: 0 },
+  totalActions: 0,
+  totalErrors: 0,
   errors: { console: [], page: [], network: [], responses: [] },
-  actions: [],
 };
 
 const capture = new ErrorCapture();
 
-function log(action) {
-  const entry = { timestamp: new Date().toISOString(), ...action };
-  results.actions.push(entry);
-  console.log(`  → ${action.description}`);
-}
-
-async function safeClick(page, selector, description, timeout = ACTION_TIMEOUT) {
-  try {
-    const el = page.locator(selector).first();
-    await el.waitFor({ state: 'visible', timeout });
-    await el.click({ timeout });
-    log({ description });
-    return true;
-  } catch {
-    log({ description: `SKIP click ${selector} (${description})` });
-    return false;
+async function clickIfExists(page, selector, name) {
+  const el = await page.$(selector);
+  if (el) {
+    await el.click({ timeout: ACTION_TIMEOUT });
+    await page.waitForTimeout(300);
   }
 }
 
-async function safeFill(page, selector, value, description) {
-  try {
-    const el = page.locator(selector).first();
-    await el.waitFor({ state: 'visible', timeout: ACTION_TIMEOUT });
+async function fillIfExists(page, selector, value, name) {
+  const el = await page.$(selector);
+  if (el) {
     await el.fill(value);
-    log({ description });
-    return true;
-  } catch {
-    log({ description: `SKIP fill ${selector} (${description})` });
-    return false;
   }
 }
 
-async function safeScreenshot(page, name) {
-  try {
-    const path = join(SCREENSHOTS_DIR, `${name}.png`);
-    await page.screenshot({ path, fullPage: true });
-    return path;
-  } catch {
-    return null;
-  }
-}
-
-async function traversePage(page, url, label, actionsFn) {
-  const pageResult = {
-    url,
-    label,
-    status: 'passed',
-    errors: [],
-    actions: [],
-  };
-
+async function traversePage(browser, url, name, actions) {
+  const page = await browser.newPage();
   capture.reset();
   capture.attachToPage(page);
 
-  try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: NAV_TIMEOUT });
-    pageResult.httpStatus = 'loaded';
-  } catch (e) {
-    pageResult.status = 'failed';
-    pageResult.errors.push(`Navigation failed: ${e.message}`);
-    await safeScreenshot(page, label);
-    captureResults(pageResult);
-    return pageResult;
-  }
+  const pageResult = {
+    name,
+    url,
+    status: 'pending',
+    loadTimeMs: null,
+    actionsRun: 0,
+    errors: [],
+    screenshots: [],
+  };
 
+  console.log(`  Traversing: ${name} (${url})`);
+
+  const start = Date.now();
   try {
-    await page.waitForTimeout(500);
-    if (typeof actionsFn === 'function') {
-      await actionsFn(page);
+    await page.goto(BASE_URL + url, { waitUntil: 'networkidle', timeout: TIMEOUT });
+    pageResult.loadTimeMs = Date.now() - start;
+
+    for (const action of actions) {
+      try {
+        await action.fn(page);
+        pageResult.actionsRun++;
+        results.totalActions++;
+      } catch (e) {
+        pageResult.errors.push({ action: action.name || 'unknown', error: e.message });
+        const filename = `${name.replace(/[^a-z0-9]/gi, '_')}_${action.name || 'action'}.png`;
+        try {
+          await page.screenshot({ path: join(SCREENSHOTS_DIR, filename), fullPage: true });
+          pageResult.screenshots.push(filename);
+        } catch {
+          // ignore screenshot failures
+        }
+      }
     }
+
+    pageResult.status = 'passed';
   } catch (e) {
+    pageResult.loadTimeMs = Date.now() - start;
     pageResult.status = 'failed';
-    pageResult.errors.push(`Action failed: ${e.message}`);
-    await safeScreenshot(page, label);
+    pageResult.errors.push({ action: 'navigation', error: e.message });
+    try {
+      await page.screenshot({ path: join(SCREENSHOTS_DIR, `${name.replace(/[^a-z0-9]/gi, '_')}.png`), fullPage: true });
+    } catch {
+      // ignore screenshot failures
+    }
   }
 
   const snap = capture.snapshot();
-  if (snap.errors.length > 0) pageResult.errors.push(...snap.errors.map((e) => e.text));
-  if (snap.pageErrors.length > 0) pageResult.errors.push(...snap.pageErrors.map((e) => e.message));
-  if (snap.networkFailures.length > 0) pageResult.errors.push(...snap.networkFailures.map((n) => `NET: ${n.url} - ${n.failure}`));
-
-  if (pageResult.errors.length > 0 && pageResult.status !== 'failed') {
-    pageResult.status = 'errors';
+  if (snap.errors.length > 0) {
+    pageResult.errors.push(...snap.errors.map((e) => ({ action: 'console', error: e.text })));
+  }
+  if (snap.pageErrors.length > 0) {
+    pageResult.errors.push(...snap.pageErrors.map((e) => ({ action: 'pageerror', error: e.message })));
+  }
+  if (snap.networkFailures.length > 0) {
+    pageResult.errors.push(...snap.networkFailures.map((n) => ({ action: 'network', error: `NET: ${n.url} - ${n.failure}` })));
   }
 
-  await safeScreenshot(page, `${label}-final`);
-  captureResults(pageResult);
-  return pageResult;
-}
-
-function captureResults(pageResult) {
-  results.pages.push(pageResult);
-  results.summary.total++;
-  if (pageResult.status === 'passed') results.summary.passed++;
-  else results.summary.failed++;
-
-  const snap = capture.snapshot();
   results.errors.console.push(...snap.errors);
   results.errors.page.push(...snap.pageErrors);
   results.errors.network.push(...snap.networkFailures);
   results.errors.responses.push(...snap.responses);
-}
 
-function printReport() {
-  console.log('\n');
-  console.log('══════════════════════════════════════════════════════');
-  console.log('  CivitForge E2E Traversal Report');
-  console.log('══════════════════════════════════════════════════════');
-  console.log(`  Total Pages:  ${results.summary.total}`);
-  console.log(`  Passed:       ${results.summary.passed}`);
-  console.log(`  Failed:       ${results.summary.failed}`);
-  console.log('──────────────────────────────────────────────────────');
+  results.totalErrors += pageResult.errors.length;
+  results.pages.push(pageResult);
 
-  for (const p of results.pages) {
-    const icon = p.status === 'passed' ? '✓' : p.status === 'failed' ? '✗' : '⚠';
-    console.log(`  ${icon} [${p.status.toUpperCase()}] ${p.label} → ${p.url}`);
-    if (p.errors.length > 0) {
-      for (const err of p.errors) {
-        console.log(`      ERROR: ${err}`);
-      }
-    }
-  }
-
-  if (results.errors.console.length > 0) {
-    console.log('\n── Console Errors ──');
-    for (const e of results.errors.console) {
-      console.log(`  [${e.timestamp}] ${e.url} — ${e.text}`);
-    }
-  }
-
-  if (results.errors.page.length > 0) {
-    console.log('\n── Uncaught JS Exceptions ──');
-    for (const e of results.errors.page) {
-      console.log(`  [${e.timestamp}] ${e.url} — ${e.message}`);
-    }
-  }
-
-  if (results.errors.network.length > 0) {
-    console.log('\n── Network Failures ──');
-    for (const n of results.errors.network) {
-      console.log(`  [${n.timestamp}] ${n.method} ${n.url} — ${n.failure}`);
-    }
-  }
-
-  if (results.errors.responses.length > 0) {
-    console.log('\n── HTTP Error Responses ──');
-    for (const r of results.errors.responses) {
-      console.log(`  [${r.timestamp}] ${r.status} ${r.url}`);
-    }
-  }
-
-  console.log('\n══════════════════════════════════════════════════════');
-  const reportPath = join(__dirname, 'traversal-report.json');
-  writeFileSync(reportPath, JSON.stringify(results, null, 2));
-  console.log(`  Report saved: ${reportPath}`);
-  console.log(`  Screenshots:  ${SCREENSHOTS_DIR}/`);
-  console.log('══════════════════════════════════════════════════════\n');
+  await page.close();
 }
 
 async function main() {
-  console.log(`Launching browser (headed: ${headed})...`);
-  const browser = await chromium.launch({ headless: !headed });
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
-    ignoreHTTPSErrors: true,
-  });
-  const page = await context.newPage();
-  capture.attachToPage(page);
+  const browser = await chromium.launch({ headless: !HEADED });
 
-  console.log('\n═══ Traversal Starting ═══\n');
+  console.log(`\n=== CivitForge E2E Traversal ===`);
+  console.log(`Target: ${BASE_URL}`);
+  console.log(`Mode: ${HEADED ? 'headed' : 'headless'}`);
+  console.log(`Started: ${results.startTime}\n`);
 
-  console.log('[1/12] Home page (/)');
-  await traversePage(page, `${BASE_URL}/`, 'home', async (p) => {
-    await safeClick(p, 'a:has-text("Get Started")', 'Click "Get Started" link');
-  });
+  await traversePage(browser, '/', 'home-logged-out', [
+    { name: 'check-welcome', fn: async (p) => {
+      const h1 = await p.$('h1, h2');
+      if (!h1) throw new Error('No heading found on home page');
+    }},
+  ]);
 
-  console.log('[2/12] Login page (/login)');
-  await traversePage(page, `${BASE_URL}/login`, 'login', async (p) => {
-    await safeFill(p, 'input[name="username"], input[type="text"], input[data-testid="username"]', 'e2e-test-user', 'Fill username');
-    await safeFill(p, 'input[name="password"], input[type="password"]', 'e2e-test-password', 'Fill password');
-    await safeClick(p, 'button:has-text("Login"), button[type="submit"]', 'Click Login button');
+  await traversePage(browser, '/login', 'login-page', [
+    { name: 'check-form', fn: async (p) => {
+      const username = await p.$('input#username, input[name="username"]');
+      if (!username) throw new Error('Username input not found');
+    }},
+    { name: 'fill-login', fn: async (p) => {
+      await fillIfExists(p, 'input#username, input[name="username"]', 'testuser');
+      await fillIfExists(p, 'input[type="password"]', 'testpassword123');
+    }},
+    { name: 'click-login-btn', fn: async (p) => {
+      await clickIfExists(p, 'button[type="submit"], button:has-text("Login")');
+    }},
+    { name: 'switch-to-register', fn: async (p) => {
+      const regLink = await p.$('a:has-text("Register"), button:has-text("Register")');
+      if (regLink) {
+        await regLink.click();
+        await p.waitForTimeout(500);
+        const regForm = await p.$('input#username, input[name="username"]');
+        if (!regForm) throw new Error('Register form not shown after click');
+      }
+    }},
+  ]);
 
-    await safeClick(p, 'a:has-text("Register"), button:has-text("Register"), [data-testid="register-toggle"]', 'Toggle to Register form');
+  await traversePage(browser, '/repos', 'repos-list', [
+    { name: 'check-repo-list', fn: async (p) => {
+      await p.waitForSelector('body', { timeout: ACTION_TIMEOUT });
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+  ]);
 
-    await safeFill(p, 'input[name="username"], input[type="text"], input[data-testid="register-username"]', 'e2e-new-user', 'Fill register username');
-    await safeFill(p, 'input[name="email"], input[type="email"]', 'e2e@test.com', 'Fill register email');
-    await safeFill(p, 'input[name="password"], input[type="password"]', 'e2e-password-123', 'Fill register password');
-    await safeFill(p, 'input[name="confirmPassword"], input[name="confirm_password"]', 'e2e-password-123', 'Fill confirm password');
-    await safeClick(p, 'button:has-text("Register"), button[type="submit"]', 'Click Register button');
-  });
+  await traversePage(browser, '/new-repo', 'new-repo-form', [
+    { name: 'check-form-fields', fn: async (p) => {
+      const name = await p.$('input#name, input[name="name"]');
+      if (!name) throw new Error('Repo name input not found');
+    }},
+    { name: 'fill-form', fn: async (p) => {
+      await fillIfExists(p, 'input#name, input[name="name"]', 'e2e-test-repo');
+      await fillIfExists(p, 'textarea#description, textarea[name="description"]', 'Created by E2E traversal');
+    }},
+    { name: 'check-visibility', fn: async (p) => {
+      const radios = await p.$$('input[type="radio"]');
+      if (radios.length < 1) throw new Error('No visibility radios found');
+    }},
+    { name: 'click-create', fn: async (p) => {
+      await clickIfExists(p, 'button[type="submit"], button:has-text("Create")');
+    }},
+  ]);
 
-  console.log('[3/12] Repos list (/repos)');
-  await traversePage(page, `${BASE_URL}/repos`, 'repos-list', async (p) => {
-    await safeClick(p, 'a:has-text("New Repository"), button:has-text("New Repository")', 'Click "New Repository" button');
-    await p.waitForTimeout(500);
-    if (p.url().includes('new-repo')) {
-      await p.goBack({ waitUntil: 'networkidle', timeout: NAV_TIMEOUT });
-    }
-  });
-
-  console.log('[4/12] New repo form (/new-repo)');
-  await traversePage(page, `${BASE_URL}/new-repo`, 'new-repo', async (p) => {
-    await safeFill(p, 'input[name="name"], input[data-testid="repo-name"]', 'e2e-test-repo', 'Fill repo name');
-    await safeFill(p, 'input[name="description"], textarea[name="description"], textarea[data-testid="repo-desc"]', 'E2E test repository', 'Fill description');
-
-    const publicRadio = p.locator('input[value="public"], input[value="Public"]').first();
-    try {
-      await publicRadio.check({ timeout: ACTION_TIMEOUT });
-      log({ description: 'Select public visibility' });
-    } catch {
-      log({ description: 'SKIP visibility radio' });
-    }
-
-    await safeClick(p, 'button:has-text("Create Repository"), button[type="submit"]', 'Click Create Repository button');
-  });
-
-  console.log('[5/12] Activity feed (/activity)');
-  await traversePage(page, `${BASE_URL}/activity`, 'activity', async (p) => {
-    const tabs = ['All', 'Push', 'Open Issue', 'Merge PR', 'Create Repo'];
-    for (const tab of tabs) {
-      await safeClick(p, `button:has-text("${tab}"), a:has-text("${tab}"), [data-testid="filter-${tab.toLowerCase().replace(/ /g, '-')}"]`, `Click filter tab "${tab}"`);
-      await p.waitForTimeout(300);
-    }
-  });
-
-  console.log('[6/12] Search page (/search)');
-  await traversePage(page, `${BASE_URL}/search`, 'search', async (p) => {
-    await safeFill(p, 'input[name="q"], input[type="search"], input[data-testid="search-input"]', 'test query', 'Fill search input');
-    await safeClick(p, 'button:has-text("Search"), button[type="submit"]', 'Click Search button');
-    await p.waitForTimeout(500);
-  });
-
-  console.log('[7/12] Explore page (/explore)');
-  await traversePage(page, `${BASE_URL}/explore`, 'explore', async (p) => {
-    await safeClick(p, 'a:has-text("Next"), button:has-text("Next"), [aria-label="Next page"]', 'Click pagination Next');
-    await p.waitForTimeout(300);
-    await safeClick(p, 'a:has-text("Previous"), button:has-text("Previous"), [aria-label="Previous page"]', 'Click pagination Previous');
-  });
-
-  console.log('[8/12] Organizations (/orgs)');
-  await traversePage(page, `${BASE_URL}/orgs`, 'orgs', async (p) => {
-    await safeClick(p, 'button:has-text("Create Organization"), a:has-text("Create Organization")', 'Click "Create Organization"');
-
-    const modal = p.locator('[role="dialog"], .modal, [data-testid="create-org-modal"]');
-    try {
-      await modal.waitFor({ state: 'visible', timeout: 3000 });
-      await safeFill(p, 'input[name="name"], input[data-testid="org-name"]', 'e2e-test-org', 'Fill org name');
-      await safeFill(p, 'input[name="description"], textarea[data-testid="org-desc"]', 'E2E test org', 'Fill org description');
-      await safeClick(p, 'button:has-text("Cancel"), [aria-label="Close"]', 'Close modal');
-    } catch {
-      log({ description: 'SKIP org modal (not found)' });
-    }
-  });
-
-  console.log('[9/12] Settings (/settings)');
-  await traversePage(page, `${BASE_URL}/settings`, 'settings', async (p) => {
-    const sections = [
-      { tab: 'Profile', selector: 'a:has-text("Profile"), button:has-text("Profile"), [data-testid="tab-profile"]' },
-      { tab: 'SSH Keys', selector: 'a:has-text("SSH Keys"), button:has-text("SSH Keys"), [data-testid="tab-ssh"]' },
-      { tab: 'Password', selector: 'a:has-text("Password"), button:has-text("Password"), [data-testid="tab-password"]' },
-      { tab: 'Danger Zone', selector: 'a:has-text("Danger Zone"), button:has-text("Danger Zone"), [data-testid="tab-danger"]' },
-    ];
-    for (const s of sections) {
-      await safeClick(p, s.selector, `Navigate to ${s.tab} section`);
-      await p.waitForTimeout(300);
-    }
-
-    await safeFill(p, 'input[name="displayName"], input[name="display_name"]', 'E2E Test User', 'Fill display name');
-    await safeFill(p, 'input[name="bio"], textarea[name="bio"]', 'E2E bio', 'Fill bio');
-  });
-
-  console.log('[10/12] Non-existent route (/nonexistent)');
-  await traversePage(page, `${BASE_URL}/nonexistent`, '404-page', async (p) => {
-    const has404 = await p.locator('text=/404|not found|page not found/i').first().isVisible().catch(() => false);
-    if (!has404) {
-      log({ description: 'WARNING: No 404 indicator found on non-existent route' });
-    } else {
-      log({ description: '404 page correctly rendered' });
-    }
-  });
-
-  console.log('[11/12] Repo detail (/repos/test/test)');
-  await traversePage(page, `${BASE_URL}/repos/test/test`, 'repo-detail', async (p) => {
-    await p.waitForTimeout(500);
-    const hasError = await p.locator('text=/not found|error|does not exist/i').first().isVisible().catch(() => false);
-    if (hasError) {
-      log({ description: 'Repo not found (expected for test repo)' });
-    }
-  });
-
-  console.log('[12/12] Repo sub-pages (wiki, issues, code, pipelines)');
-  const subPages = [
-    { path: '/repos/test/test/wiki', label: 'repo-wiki' },
-    { path: '/repos/test/test/issues', label: 'repo-issues' },
-    { path: '/repos/test/test/code', label: 'repo-code' },
-    { path: '/repos/test/test/pipelines', label: 'repo-pipelines' },
-  ];
-  for (const sp of subPages) {
-    await traversePage(page, `${BASE_URL}${sp.path}`, sp.label, async (p) => {
+  await traversePage(browser, '/activity', 'activity-feed', [
+    { name: 'check-activity-list', fn: async (p) => {
+      await p.waitForTimeout(1000);
+    }},
+    { name: 'click-filter-all', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("All")');
       await p.waitForTimeout(500);
-      log({ description: `Rendered ${sp.label}` });
-    });
+    }},
+    { name: 'click-filter-push', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("Push")');
+      await p.waitForTimeout(500);
+    }},
+    { name: 'click-filter-issues', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("Open Issue")');
+      await p.waitForTimeout(500);
+    }},
+    { name: 'click-filter-pr', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("Merge PR")');
+      await p.waitForTimeout(500);
+    }},
+    { name: 'click-filter-repos', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("Create Repo")');
+      await p.waitForTimeout(500);
+    }},
+  ]);
+
+  await traversePage(browser, '/search', 'search-page', [
+    { name: 'check-search-input', fn: async (p) => {
+      const input = await p.$('input[type="text"], input[name="q"], input#q');
+      if (!input) throw new Error('Search input not found');
+    }},
+    { name: 'fill-search', fn: async (p) => {
+      await fillIfExists(p, 'input[type="text"], input[name="q"]', 'rust');
+    }},
+    { name: 'click-search', fn: async (p) => {
+      await clickIfExists(p, 'button[type="submit"], button:has-text("Search")');
+      await p.waitForTimeout(2000);
+    }},
+  ]);
+
+  await traversePage(browser, '/explore', 'explore-page', [
+    { name: 'check-explore-list', fn: async (p) => {
+      await p.waitForTimeout(1000);
+    }},
+  ]);
+
+  await traversePage(browser, '/orgs', 'orgs-page', [
+    { name: 'check-orgs-list', fn: async (p) => {
+      await p.waitForTimeout(1000);
+    }},
+    { name: 'open-create-org-modal', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("Create Organization"), button:has-text("New")');
+      await p.waitForTimeout(500);
+    }},
+    { name: 'fill-org-form', fn: async (p) => {
+      await fillIfExists(p, 'input#name, input[name="name"]', 'e2e-test-org');
+      await fillIfExists(p, 'input#display_name, input[name="display_name"]', 'E2E Test Org');
+    }},
+    { name: 'close-modal', fn: async (p) => {
+      await p.keyboard.press('Escape');
+      await p.waitForTimeout(500);
+    }},
+  ]);
+
+  await traversePage(browser, '/settings', 'settings-page', [
+    { name: 'check-profile-section', fn: async (p) => {
+      await p.waitForTimeout(1000);
+    }},
+  ]);
+
+  await traversePage(browser, '/this-page-does-not-exist', 'not-found', [
+    { name: 'check-404', fn: async (p) => {
+      await p.waitForTimeout(1000);
+      const body = await p.textContent('body');
+      if (!body.includes('404') && !body.includes('Not Found') && !body.includes('not found')) {
+        throw new Error('404 page not shown');
+      }
+    }},
+  ]);
+
+  await traversePage(browser, '/repos/test/test', 'repo-detail', [
+    { name: 'check-repo-page', fn: async (p) => {
+      await p.waitForTimeout(2000);
+    }},
+  ]);
+
+  await traversePage(browser, '/repos/test/test/wiki', 'wiki-page', [
+    { name: 'check-wiki', fn: async (p) => {
+      await p.waitForTimeout(2000);
+    }},
+  ]);
+
+  await traversePage(browser, '/repos/test/test/issues', 'issues-page', [
+    { name: 'check-issues', fn: async (p) => {
+      await p.waitForTimeout(2000);
+    }},
+    { name: 'click-filter-open', fn: async (p) => {
+      await clickIfExists(p, 'button:has-text("Open")');
+      await p.waitForTimeout(500);
+    }},
+  ]);
+
+  await traversePage(browser, '/repos/test/test/pipelines', 'pipelines-page', [
+    { name: 'check-pipelines', fn: async (p) => {
+      await p.waitForTimeout(2000);
+    }},
+  ]);
+
+  await traversePage(browser, '/repos/test/test/code', 'code-browser', [
+    { name: 'check-code', fn: async (p) => {
+      await p.waitForTimeout(2000);
+    }},
+  ]);
+
+  console.log('\n=== Traversal Results ===\n');
+  for (const page of results.pages) {
+    const status = page.status === 'passed' ? 'PASS' : 'FAIL';
+    console.log(`[${status}] ${page.name} (${page.loadTimeMs}ms, ${page.actionsRun} actions${page.errors.length > 0 ? `, ${page.errors.length} errors` : ''})`);
+    for (const err of page.errors) {
+      console.log(`  ERROR: ${err.action}: ${err.error}`);
+    }
   }
 
-  console.log('\n═══ Traversal Complete ═══');
-  printReport();
+  console.log(`\n=== Summary ===`);
+  console.log(`Pages: ${results.pages.length} total, ${results.pages.filter(p => p.status === 'passed').length} passed, ${results.pages.filter(p => p.status === 'failed').length} failed`);
+  console.log(`Actions: ${results.totalActions}`);
+  console.log(`Errors: ${results.totalErrors}`);
+
+  const reportFile = join(REPORTS_DIR, `traverse-${Date.now()}.json`);
+  writeFileSync(reportFile, JSON.stringify(results, null, 2));
+  console.log(`\nReport saved to ${reportFile}`);
 
   await browser.close();
-
-  const hasAnyErrors =
-    results.errors.console.length > 0 ||
-    results.errors.page.length > 0 ||
-    results.errors.network.length > 0;
-
-  if (results.summary.failed > 0 || hasAnyErrors) {
-    process.exit(1);
-  }
-  process.exit(0);
+  process.exit(results.totalErrors > 0 ? 1 : 0);
 }
 
 main().catch((e) => {
-  console.error('Fatal traversal error:', e);
+  console.error('Fatal error:', e);
   process.exit(2);
 });

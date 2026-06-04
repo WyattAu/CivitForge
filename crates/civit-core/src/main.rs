@@ -14,15 +14,23 @@ async fn shutdown_signal() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let debug_mode = std::env::args().any(|arg| arg == "--debug");
+
     tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("civit_core=info,tower_http=debug")),
-        )
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            if debug_mode {
+                EnvFilter::new("civit_core=debug,tower_http=debug")
+            } else {
+                EnvFilter::new("civit_core=info,tower_http=debug")
+            }
+        }))
         .with_target(false)
         .init();
 
-    let config = AppConfig::from_env()?;
+    let mut config = AppConfig::from_env()?;
+    if debug_mode {
+        config.debug_mode = true;
+    }
 
     info!("connecting to database");
     let db_pool = DatabasePool::from_config(&config).await?;

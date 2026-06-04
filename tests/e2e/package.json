@@ -1,10 +1,14 @@
 {
   "name": "civitforge-e2e",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "test": "node traverse.mjs",
-    "test:headed": "node traverse.mjs --headed"
+    "test:headed": "node traverse.mjs --headed",
+    "benchmark": "node benchmark.mjs",
+    "benchmark:headed": "node benchmark.mjs --headed",
+    "traverse-and-benchmark": "node traverse.mjs && node benchmark.mjs"
   },
   "dependencies": {
     "playwright": "^1.50.0"

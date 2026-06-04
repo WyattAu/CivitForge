@@ -2,6 +2,7 @@
 
 use tauri::Manager;
 
+mod sync_benchmark;
 mod tray;
 
 #[tauri::command]
@@ -20,7 +21,13 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![get_server_url, open_external_url])
+        .invoke_handler(tauri::generate_handler![
+            get_server_url,
+            open_external_url,
+            sync_benchmark::benchmark_file_sync,
+            sync_benchmark::benchmark_dir_scan,
+            sync_benchmark::benchmark_git_status
+        ])
         .setup(|app| {
             let _ = tray::setup_tray(&app.handle());
             Ok(())

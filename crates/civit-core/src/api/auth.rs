@@ -139,6 +139,7 @@ mod tests {
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
+            debug_mode: false,
         };
         let opts = sqlx::postgres::PgPoolOptions::new().max_connections(1);
         let pool = opts.connect_lazy("postgres://localhost/test").unwrap();
