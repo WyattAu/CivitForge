@@ -10,10 +10,18 @@ use crate::state::auth::use_auth;
 #[derive(Clone, serde::Deserialize)]
 pub struct ActivityItem {
     pub id: String,
-    pub actor: String,
-    pub action_type: String,
-    pub target: String,
-    pub repo_name: String,
+    pub actor_id: String,
+    pub action: String,
+    pub resource_type: String,
+    #[serde(default)]
+    pub resource_id: Option<String>,
+    #[serde(default)]
+    pub repo_id: Option<String>,
+    #[serde(default)]
+    pub org_id: Option<String>,
+    pub description: String,
+    #[serde(default)]
+    pub metadata: serde_json::Value,
     pub created_at: String,
 }
 
@@ -50,14 +58,42 @@ fn sanitize_error(raw: &str) -> String {
 fn action_badge(action: &str) -> (BadgeColor, String) {
     match action {
         "push" => (BadgeColor::Success, "pushed".into()),
-        "commit" => (BadgeColor::Success, "commit".into()),
-        "issue_open" | "opened_issue" => (BadgeColor::Info, "opened issue".into()),
-        "issue_close" | "closed_issue" => (BadgeColor::Neutral, "closed issue".into()),
-        "wiki_edit" | "edited_wiki" => (BadgeColor::Warning, "edited wiki".into()),
-        "wiki_create" | "created_wiki" => (BadgeColor::Warning, "created wiki".into()),
+        "create_repo" => (BadgeColor::Success, "created repo".into()),
+        "open_issue" => (BadgeColor::Info, "opened issue".into()),
+        "close_issue" => (BadgeColor::Neutral, "closed issue".into()),
+        "merge_pr" => (BadgeColor::Success, "merged PR".into()),
+        "open_pr" => (BadgeColor::Info, "opened PR".into()),
+        "create_wiki" => (BadgeColor::Warning, "created wiki".into()),
+        "edit_wiki" => (BadgeColor::Warning, "edited wiki".into()),
+        "fork_repo" => (BadgeColor::Info, "forked".into()),
+        "star_repo" => (BadgeColor::Info, "starred".into()),
+        "comment" => (BadgeColor::Neutral, "comment".into()),
+        "join_org" => (BadgeColor::Info, "joined".into()),
+        "leave_org" => (BadgeColor::Neutral, "left".into()),
         _ => (BadgeColor::Neutral, action.to_string()),
     }
 }
+
+fn action_verb(action: &str) -> String {
+    match action {
+        "push" => "pushed to".to_string(),
+        "create_repo" => "created repository".to_string(),
+        "open_issue" => "opened issue on".to_string(),
+        "close_issue" => "closed issue on".to_string(),
+        "merge_pr" => "merged PR in".to_string(),
+        "open_pr" => "opened PR in".to_string(),
+        "create_wiki" => "created wiki page in".to_string(),
+        "edit_wiki" => "edited wiki page in".to_string(),
+        "fork_repo" => "forked".to_string(),
+        "star_repo" => "starred".to_string(),
+        "comment" => "commented on".to_string(),
+        "join_org" => "joined".to_string(),
+        "leave_org" => "left".to_string(),
+        _ => action.to_string(),
+    }
+}
+
+const FILTERS: &[&str] = &["all", "push", "open_issue", "merge_pr", "create_repo"];
 
 #[component]
 pub fn ActivityPage() -> impl IntoView {
@@ -65,14 +101,17 @@ pub fn ActivityPage() -> impl IntoView {
     let (activities, set_activities) = signal(Vec::<ActivityItem>::new());
     let (loading, set_loading) = signal(true);
     let (error, set_error) = signal(None::<String>);
+    let (filter, set_filter) = signal("all".to_string());
 
     leptos::task::spawn_local(async move {
         let token = auth.0.with(|a| a.token.clone());
         let client = ApiClient::new(token);
-        match client.get("/repos").await {
+        match client.get("/activity?limit=50").await {
             Ok(resp) if resp.status().is_success() => {
-                let items: Vec<ActivityItem> = Vec::new();
-                set_activities.set(items);
+                match resp.json::<Vec<ActivityItem>>().await {
+                    Ok(items) => set_activities.set(items),
+                    Err(_) => set_error.set(Some(sanitize_error("Failed to parse activity data."))),
+                }
             }
             Ok(_) => {
                 set_error.set(Some(sanitize_error("Failed to load activity feed.")));
@@ -85,7 +124,18 @@ pub fn ActivityPage() -> impl IntoView {
         set_loading.set(false);
     });
 
-    let has_activities = move || !activities.with(|a| a.is_empty());
+    let filtered = move || {
+        let f = filter.get();
+        let items = activities.get();
+        if f == "all" {
+            items
+        } else {
+            items
+                .into_iter()
+                .filter(|a| a.action == f)
+                .collect::<Vec<_>>()
+        }
+    };
 
     let dismiss_error = Callback::new(move |_: ()| set_error.set(None));
 
@@ -96,6 +146,27 @@ pub fn ActivityPage() -> impl IntoView {
                 <p class="mt-1 text-gray-600 dark:text-gray-400">
                     "Recent activity across your repositories."
                 </p>
+            </div>
+
+            <div class="flex gap-2 flex-wrap">
+                {FILTERS.iter().map(|f| {
+                    let f_str = (*f).to_string();
+                    let label = (*f).to_uppercase();
+                    let on_click_f = f_str.clone();
+                    let is_active = move || filter.get() == f_str;
+                    view! {
+                        <button
+                            class=move || if is_active() {
+                                "px-3 py-1 text-sm font-mono rounded-sm border-2 border-blue-600 dark:border-blue-400 bg-blue-600 text-white dark:bg-blue-400 dark:text-gray-900"
+                            } else {
+                                "px-3 py-1 text-sm font-mono rounded-sm border-2 border-gray-300 dark:border-gray-600 bg-transparent text-gray-700 dark:text-gray-300 hover:border-blue-500 dark:hover:border-blue-400"
+                            }
+                            on:click=move |_| set_filter.set(on_click_f.clone())
+                        >
+                            {label}
+                        </button>
+                    }
+                }).collect::<Vec<_>>()}
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
@@ -109,7 +180,7 @@ pub fn ActivityPage() -> impl IntoView {
                 </div>
             </Show>
 
-            <Show when=move || !loading.get() && !has_activities() && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
+            <Show when=move || !loading.get() && filtered().is_empty() && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
                     <div class="text-center py-12">
                         <svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -123,34 +194,53 @@ pub fn ActivityPage() -> impl IntoView {
                 </Card>
             </Show>
 
-            <Show when=has_activities fallback=|| view! { <div class="hidden"></div> }>
+            <Show when=move || !filtered().is_empty() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
                     <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                        <For each=move || activities.get() key=|a| a.id.clone() let:item>
+                        <For each=filtered key=|a| a.id.clone() let:item>
                             {
-                                let (badge_color, badge_text) = action_badge(&item.action_type);
+                                let (badge_color, badge_text) = action_badge(&item.action);
                                 let time_str = relative_time(&item.created_at);
+                                let actor_id = item.actor_id.clone();
+                                let actor_short = if actor_id.len() > 8 {
+                                    actor_id[..8].to_string()
+                                } else {
+                                    actor_id.clone()
+                                };
+                                let has_desc = !item.description.is_empty();
+                                let desc = item.description.clone();
+                                let verb = action_verb(&item.action);
+                                let is_repo = item.resource_type == "repo";
+                                let repo_id = item.repo_id.clone();
+                                let resource_id = item.resource_id.clone();
+                                let res_short = resource_id.as_ref().map(|id| {
+                                    if id.len() > 8 { id[..8].to_string() } else { id.clone() }
+                                }).unwrap_or_else(|| "repo".to_string());
                                 view! {
-                                    <div class="flex items-center gap-3 py-3 px-1 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors">
-                                        <Avatar name=item.actor.clone() size=28 />
+                                    <div class="flex items-start gap-3 py-3 px-1 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors">
+                                        <Avatar name=actor_id.clone() size=28 />
                                         <div class="min-w-0 flex-1">
                                             <div class="flex items-center gap-2 flex-wrap">
                                                 <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                    {item.actor.clone()}
+                                                    {actor_short}
                                                 </span>
                                                 <Badge color=badge_color text=badge_text />
-                                                <span class="text-sm text-gray-700 dark:text-gray-300 truncate">
-                                                    {item.target.clone()}
+                                                <span class="text-sm text-gray-600 dark:text-gray-400">
+                                                    {verb}
                                                 </span>
                                             </div>
+                                            {has_desc.then(|| view! {
+                                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">{desc}</p>
+                                            })}
                                             <div class="flex items-center gap-2 mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-                                                <A href=format!("/repos/{}", item.repo_name.clone())>
-                                                    <span class="hover:text-blue-600 dark:hover:text-blue-400 font-mono">
-                                                        {item.repo_name.clone()}
-                                                    </span>
-                                                </A>
-                                                <span class="text-gray-300 dark:text-gray-600">"-"</span>
                                                 <span>{time_str}</span>
+                                                {is_repo.then(|| view! {
+                                                    <A href=format!("/repos/_/{}", repo_id.as_deref().unwrap_or(""))>
+                                                        <span class="hover:text-blue-600 dark:hover:text-blue-400 font-mono">
+                                                            {res_short}
+                                                        </span>
+                                                    </A>
+                                                })}
                                             </div>
                                         </div>
                                     </div>

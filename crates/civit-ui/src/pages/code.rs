@@ -11,9 +11,29 @@ use crate::state::auth::use_auth;
 #[derive(Clone, serde::Deserialize)]
 pub struct TreeEntry {
     pub path: String,
-    #[serde(rename = "type")]
     pub entry_type: String,
-    pub size: Option<u64>,
+    #[serde(default)]
+    pub size: u64,
+    #[serde(default)]
+    pub last_commit: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(Clone, serde::Deserialize)]
+struct BlobData {
+    path: String,
+    content: String,
+    size: u64,
+    #[serde(default)]
+    encoding: String,
+}
+
+fn sanitize_error(raw: &str) -> String {
+    raw.chars()
+        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '.' || *c == '-')
+        .collect::<String>()
+        .trim()
+        .to_string()
 }
 
 fn file_icon(entry_type: &str) -> &'static str {
@@ -51,18 +71,57 @@ pub fn CodePage() -> impl IntoView {
     let auth = use_auth();
 
     let (tree_entries, set_tree_entries) = signal(Vec::<TreeEntry>::new());
-    let (file_content, _set_file_content) = signal(None::<String>);
+    let (file_content, set_file_content) = signal(None::<BlobData>);
     let (loading, set_loading) = signal(true);
     let (error, set_error) = signal(None::<String>);
 
     leptos::task::spawn_local(async move {
         let token = auth.0.with(|a| a.token.clone());
-        let _client = ApiClient::new(token);
-        let _owner_val = owner();
-        let _name_val = name();
-        let _path_val = path_param();
-        let items: Vec<TreeEntry> = Vec::new();
-        set_tree_entries.set(items);
+        let client = ApiClient::new(token);
+        let owner_val = owner();
+        let name_val = name();
+        let path_val = path_param();
+        let is_file = !path_val.is_empty() && path_val.contains('.');
+
+        if is_file {
+            let blob_url = format!("/{owner_val}/{name_val}/blob?path={path_val}");
+            match client.get(&blob_url).await {
+                Ok(resp) if resp.status().is_success() => match resp.json::<BlobData>().await {
+                    Ok(blob) => set_file_content.set(Some(blob)),
+                    Err(_) => {
+                        set_error.set(Some(sanitize_error("Failed to parse file data.")));
+                    }
+                },
+                Ok(_) => {
+                    set_error.set(Some(sanitize_error("Failed to load file content.")));
+                }
+                Err(e) => {
+                    let msg = format!("{e}");
+                    set_error.set(Some(sanitize_error(&msg)));
+                }
+            }
+        } else {
+            let tree_url = if path_val.is_empty() {
+                format!("/{owner_val}/{name_val}/tree")
+            } else {
+                format!("/{owner_val}/{name_val}/tree?path={path_val}")
+            };
+            match client.get(&tree_url).await {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<Vec<TreeEntry>>().await {
+                        Ok(items) => set_tree_entries.set(items),
+                        Err(_) => set_error.set(Some(sanitize_error("Failed to parse tree data."))),
+                    }
+                }
+                Ok(_) => {
+                    set_error.set(Some(sanitize_error("Failed to load repository tree.")));
+                }
+                Err(e) => {
+                    let msg = format!("{e}");
+                    set_error.set(Some(sanitize_error(&msg)));
+                }
+            }
+        }
         set_loading.set(false);
     });
 
@@ -159,11 +218,9 @@ pub fn CodePage() -> impl IntoView {
                                                     <span class="truncate flex-1 text-gray-700 dark:text-gray-300">
                                                         {entry_path}
                                                     </span>
-                                                    {entry.size.map(|s| view! {
-                                                        <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">
-                                                            {format_size(s)}
-                                                        </span>
-                                                    })}
+                                                    <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                                                        {format_size(entry.size)}
+                                                    </span>
                                                     {is_dir.then(|| view! {
                                                         <svg class="w-3 h-3 text-gray-400 dark:text-gray-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
@@ -197,9 +254,20 @@ pub fn CodePage() -> impl IntoView {
                                     </For>
                                 </Show>
                             </div>
-                            <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                                <pre class="p-4 text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap leading-relaxed tab-size-4">{move || file_content.get().unwrap_or_default()}</pre>
-                            </div>
+                            {file_content.get().map(|blob| {
+                                let path = blob.path.clone();
+                                let size = blob.size;
+                                let content = blob.content.clone();
+                                view! {
+                                    <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
+                                        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                                            <span class="text-sm text-gray-500 dark:text-gray-400 truncate">{path}</span>
+                                            <span class="text-xs text-gray-400 dark:text-gray-500">{format_size(size)}</span>
+                                        </div>
+                                        <pre class="p-4 text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap leading-relaxed tab-size-4">{content}</pre>
+                                    </div>
+                                }
+                            })}
                         </Card>
                     </Show>
 
@@ -267,7 +335,7 @@ pub fn CodePage() -> impl IntoView {
                                                                 {if is_dir {
                                                                     view! { "-".to_string() }.into_any()
                                                                 } else {
-                                                                    view! { entry.size.map(|s| format_size(s)).unwrap_or_else(|| "-".to_string()) }.into_any()
+                                                                    view! { format_size(entry.size) }.into_any()
                                                                 }}
                                                             </td>
                                                         </tr>

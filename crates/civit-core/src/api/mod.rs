@@ -1,11 +1,15 @@
 #![forbid(unsafe_code)]
 
+pub mod activity;
 pub mod auth;
 pub mod auth_routes;
+pub mod code_browser;
+pub mod federation_routes;
 pub mod git_http;
 pub mod issues;
 pub mod oci;
 pub mod orgs;
+pub mod password;
 pub mod pipelines;
 pub mod repos;
 pub mod runners;
@@ -79,6 +83,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(issues::issue_routes())
         .merge(wiki::wiki_routes())
         .merge(search::search_routes())
+        .merge(activity::activity_routes())
+        .merge(code_browser::code_browser_routes())
+        .merge(federation_routes::federation_routes())
+        .merge(password::password_routes())
         .route(
             "/api/v1/users",
             get(users::list_users).post(users::create_user),

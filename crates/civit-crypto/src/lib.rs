@@ -15,10 +15,14 @@ pub mod hsm;
 pub mod mtls;
 pub mod policy;
 pub mod policy_versioning;
+pub mod repo_keys;
+pub mod saml;
 pub mod sbom;
 
 pub use hash::{HashAlgorithm, HashService};
 pub use hmac::HmacService;
 pub use mtls::CertificateAuthority;
 pub use policy::{AccessResult, PolicyEngine, Resource, Subject};
+pub use repo_keys::{KeyRotation, RepoEncryptionKey, RepoKeyError, RepoKeyStore};
+pub use saml::{SamlAssertion, SamlAttribute, SamlError};
 pub use sbom::SbomGenerator;

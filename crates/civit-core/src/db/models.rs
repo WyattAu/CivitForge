@@ -101,6 +101,20 @@ pub struct Pipeline {
     pub finished_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ActivityEvent {
+    pub id: i64,
+    pub actor_id: Uuid,
+    pub action: String,
+    pub resource_type: String,
+    pub resource_id: Option<Uuid>,
+    pub repo_id: Option<Uuid>,
+    pub org_id: Option<Uuid>,
+    pub description: String,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

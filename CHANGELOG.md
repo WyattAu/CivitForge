@@ -5,6 +5,28 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-04
+
+### Added
+
+- **Activity feed API** (`GET /api/v1/activity`) — chronologically sorted platform events with filtering by repo/org
+- **Code browser API** (`GET /api/v1/repos/{owner}/{name}/tree`, `GET /api/v1/repos/{owner}/{name}/blob`) — directory listing and file content via gix bare repo traversal
+- **Password change endpoint** (`POST /api/v1/users/{id}/password`) — authenticated user password update with SHA-256 hashing
+- **ActivityPub federation routes** — WebFinger discovery (`.well-known/webfinger`), actor endpoint, inbox/outbox, all gated by `federation_enabled`
+- **Per-repo encryption keys** (`civit-crypto::repo_keys`) — HKDF-derived AES-256-GCM keys per repository with key rotation support and in-memory key store
+- **SAML SSO foundation** (`civit-crypto::saml`) — SAMLResponse parser, attribute extraction, SHA-256 digest verification
+- **Multi-tenancy methods** — org-scoped repository counting, user-accessible repo listing, org usage statistics, active runner counting
+- **Activity page wired to real API** — filterable activity feed (push, issues, PRs, repos, wiki, forks, stars)
+- **Code browser page wired to real API** — auto-detects file vs directory, table view for trees, syntax-highlighted file viewer for blobs
+- **Migration 025** — `activity_events` table (indexed by actor, repo, org, timestamp), `federation_actors` table, `federation_activities` table
+
+### Infrastructure
+
+- 13th migration (025): activity + federation schema
+- 2,874 total tests (+159 from v1.3.0)
+- Zero clippy warnings, zero fmt issues
+- All new code `#![forbid(unsafe_code)]`
+
 ## [1.1.0] - 2026-06-02
 
 ### Added

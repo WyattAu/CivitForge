@@ -19,10 +19,10 @@ access control without depending on proprietary cloud services.
 
 | Version | Focus | Status |
 |---|---|---|
-| v1.1.1 | Hotfix: accessibility and error hygiene | Planned |
-| v1.2.0 | Quality and completeness | Planned |
-| v1.3.0 | Advanced features | Planned |
-| v1.4.0 | Federation and enterprise | Planned |
+| v1.1.1 | Hotfix: accessibility and error hygiene | Shipped |
+| v1.2.0 | Quality and completeness | Shipped |
+| v1.3.0 | Advanced features | Shipped |
+| v1.4.0 | Federation and enterprise | In Progress |
 | v1.5.0 | Horizontal scaling | Planned |
 | v2.0.0 | Platform expansion | Planned |
 
@@ -427,5 +427,5 @@ The following areas have the highest impact for contributors:
 
 ---
 
-*Last updated: 2026-06-03*
+*Last updated: 2026-06-04*
 *Document owner: CivitForge core team*

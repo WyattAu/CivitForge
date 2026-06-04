@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
-use crate::db::models::{Issue, Org, Pipeline, PullRequest, Repository, SshKey, User};
+use crate::db::models::{
+    ActivityEvent, Issue, Org, Pipeline, PullRequest, Repository, SshKey, User,
+};
 use crate::error::{CoreError, Result};
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -669,6 +671,166 @@ impl DbRepository {
             .await
             .map_err(|e| CoreError::Database(format!("get_ssh_key_by_fingerprint: {e}")))
     }
+
+    // --- Activity Events ---
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn record_activity_event(
+        &self,
+        actor_id: Uuid,
+        action: &str,
+        resource_type: &str,
+        resource_id: Option<Uuid>,
+        repo_id: Option<Uuid>,
+        org_id: Option<Uuid>,
+        description: &str,
+        metadata: serde_json::Value,
+    ) -> Result<ActivityEvent> {
+        let row = sqlx::query_as::<_, ActivityEvent>(
+            r#"INSERT INTO activity_events (actor_id, action, resource_type, resource_id, repo_id, org_id, description, metadata)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               RETURNING *"#,
+        )
+        .bind(actor_id)
+        .bind(action)
+        .bind(resource_type)
+        .bind(resource_id)
+        .bind(repo_id)
+        .bind(org_id)
+        .bind(description)
+        .bind(metadata)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("record_activity_event: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_activity_events(
+        &self,
+        repo_id: Option<Uuid>,
+        org_id: Option<Uuid>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ActivityEvent>> {
+        let rows = sqlx::query_as::<_, ActivityEvent>(
+            r#"SELECT * FROM activity_events
+               WHERE ($1::uuid IS NULL OR repo_id = $1)
+                 AND ($2::uuid IS NULL OR org_id = $2)
+               ORDER BY created_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(repo_id)
+        .bind(org_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_activity_events: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Multi-tenancy: Org-scoped resources ---
+
+    /// Count repositories belonging to an org (for resource quotas).
+    pub async fn count_repos_by_org(&self, org_id: Uuid) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM repositories WHERE org_id = $1")
+            .bind(org_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("count_repos_by_org: {e}")))?;
+        Ok(row.0)
+    }
+
+    /// Count active runners for an org (for resource quotas).
+    pub async fn count_active_runners_by_org(&self, org_id: Uuid) -> Result<i64> {
+        let row: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM runners WHERE org_id = $1 AND status = 'active'")
+                .bind(org_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| CoreError::Database(format!("count_active_runners_by_org: {e}")))?;
+        Ok(row.0)
+    }
+
+    /// List repositories visible to a user (own + org member).
+    pub async fn list_repos_visible_to_user(
+        &self,
+        user_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Repository>> {
+        let rows = sqlx::query_as::<_, Repository>(
+            r#"SELECT * FROM repositories
+               WHERE owner_id = $1
+                  OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $1)
+                  OR visibility = 'public'
+               ORDER BY updated_at DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(user_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_repos_visible_to_user: {e}")))?;
+        Ok(rows)
+    }
+
+    /// Check if a user has access to a specific repository.
+    pub async fn user_has_repo_access(&self, user_id: Uuid, repo_id: Uuid) -> Result<bool> {
+        let row: (bool,) = sqlx::query_as(
+            r#"SELECT EXISTS(
+                   SELECT 1 FROM repositories
+                   WHERE id = $1
+                     AND (owner_id = $2
+                          OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2)
+                          OR visibility = 'public')
+               )"#,
+        )
+        .bind(repo_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("user_has_repo_access: {e}")))?;
+        Ok(row.0)
+    }
+
+    /// Get org resource usage statistics.
+    pub async fn get_org_usage(&self, org_id: Uuid) -> Result<OrgUsage> {
+        let repo_count = self.count_repos_by_org(org_id).await.unwrap_or(0);
+        let member_count: i64 = {
+            let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM org_members WHERE org_id = $1")
+                .bind(org_id)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or((0i64,));
+            row.0
+        };
+        Ok(OrgUsage {
+            org_id,
+            repo_count,
+            member_count,
+        })
+    }
+
+    // --- Password ---
+
+    pub async fn change_password(&self, user_id: Uuid, password_hash: &str) -> Result<()> {
+        sqlx::query(r#"UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2"#)
+            .bind(password_hash)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("change_password: {e}")))?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OrgUsage {
+    pub org_id: Uuid,
+    pub repo_count: i64,
+    pub member_count: i64,
 }
 
 #[cfg(test)]
@@ -942,5 +1104,47 @@ mod tests {
         assert!(res.is_ok());
         let res: Result<Uuid> = Err(CoreError::Database("fail".into()));
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_count_repos_by_org_error_message_format() {
+        let err = CoreError::Database("count_repos_by_org: connection refused".into());
+        assert!(err.to_string().contains("count_repos_by_org"));
+    }
+
+    #[test]
+    fn test_count_active_runners_by_org_error_message_format() {
+        let err = CoreError::Database("count_active_runners_by_org: no such table".into());
+        assert!(err.to_string().contains("count_active_runners_by_org"));
+    }
+
+    #[test]
+    fn test_list_repos_visible_to_user_error_message_format() {
+        let err = CoreError::Database("list_repos_visible_to_user: connection refused".into());
+        assert!(err.to_string().contains("list_repos_visible_to_user"));
+    }
+
+    #[test]
+    fn test_user_has_repo_access_error_message_format() {
+        let err = CoreError::Database("user_has_repo_access: connection refused".into());
+        assert!(err.to_string().contains("user_has_repo_access"));
+    }
+
+    #[test]
+    fn test_get_org_usage_error_message_format() {
+        let err = CoreError::Database("get_org_usage: connection refused".into());
+        assert!(err.to_string().contains("get_org_usage"));
+    }
+
+    #[test]
+    fn test_org_usage_serialization() {
+        let usage = OrgUsage {
+            org_id: Uuid::nil(),
+            repo_count: 5,
+            member_count: 10,
+        };
+        let json = serde_json::to_string(&usage).unwrap();
+        assert!(json.contains("\"repo_count\":5"));
+        assert!(json.contains("\"member_count\":10"));
     }
 }
