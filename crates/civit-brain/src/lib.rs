@@ -5,6 +5,7 @@ pub mod ast;
 pub mod embedding;
 pub mod llm;
 pub mod models;
+pub mod operator;
 pub mod qdrant;
 pub mod rag;
 pub mod rag_extended;

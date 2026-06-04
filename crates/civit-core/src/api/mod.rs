@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod activity;
+pub mod artifact_serving;
 pub mod auth;
 pub mod auth_routes;
 pub mod code_browser;
@@ -87,6 +88,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(code_browser::code_browser_routes())
         .merge(federation_routes::federation_routes())
         .merge(password::password_routes())
+        .merge(artifact_serving::artifact_serving_routes())
         .route(
             "/api/v1/users",
             get(users::list_users).post(users::create_user),

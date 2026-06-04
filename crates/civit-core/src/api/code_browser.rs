@@ -319,6 +319,71 @@ pub async fn read_blob(
         }
     };
 
+    let mode = entry.mode();
+    if mode.is_tree() {
+        let entry_obj = match entry.object() {
+            Ok(o) => o,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(git_err(e).error_response()),
+                )
+                    .into_response();
+            }
+        };
+        let subtree = match entry_obj.try_into_tree() {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(git_err(e).error_response()),
+                )
+                    .into_response();
+            }
+        };
+
+        let mut entries = Vec::new();
+        for sub_result in subtree.iter() {
+            let sub_entry = match sub_result {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            let sub_mode = sub_entry.mode();
+            let (entry_type, size) = if sub_mode.is_tree() {
+                ("dir".to_string(), 0u64)
+            } else if sub_mode.is_blob() {
+                let sz = sub_entry
+                    .object()
+                    .ok()
+                    .and_then(|o| o.try_into_blob().ok())
+                    .map(|b| b.data.len() as u64)
+                    .unwrap_or(0);
+                ("file".to_string(), sz)
+            } else if sub_mode.is_link() {
+                ("symlink".to_string(), 0u64)
+            } else if sub_mode.is_commit() {
+                ("submodule".to_string(), 0u64)
+            } else {
+                ("unknown".to_string(), 0u64)
+            };
+
+            entries.push(TreeEntry {
+                path: sub_entry.filename().to_string(),
+                entry_type,
+                size,
+                last_commit: None,
+            });
+        }
+
+        entries.sort_by(|a, b| match (&a.entry_type, &b.entry_type) {
+            (t, o) if t == "dir" && o != "dir" => std::cmp::Ordering::Less,
+            (t, o) if t != "dir" && o == "dir" => std::cmp::Ordering::Greater,
+            _ => a.path.cmp(&b.path),
+        });
+
+        return (StatusCode::OK, Json(entries)).into_response();
+    }
+
     let blob_obj = match entry.object() {
         Ok(o) => o,
         Err(e) => {

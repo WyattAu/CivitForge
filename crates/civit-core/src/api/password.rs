@@ -102,12 +102,34 @@ pub async fn change_password(
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(req.new_password.as_bytes());
-    let hash = hex::encode(hasher.finalize());
+    let new_hash = hex::encode(hasher.finalize());
 
-    // TODO: Verify current_password against stored hash before allowing change
-    // For now, accept any current password (first implementation)
+    // Verify current_password against stored hash
+    let stored_hash = match state.db.get_password_hash(uid).await {
+        Ok(Some(h)) => h,
+        Ok(None) => {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(CoreError::Forbidden("user has no password set".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => return (e.status_code(), Json(e.error_response())).into_response(),
+    };
 
-    match state.db.change_password(uid, &hash).await {
+    let mut current_hasher = Sha256::new();
+    current_hasher.update(req.current_password.as_bytes());
+    let current_hash = hex::encode(current_hasher.finalize());
+
+    if current_hash != stored_hash {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(CoreError::Forbidden("Current password is incorrect".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    match state.db.change_password(uid, &new_hash).await {
         Ok(()) => (
             StatusCode::OK,
             Json(MessageResponse {

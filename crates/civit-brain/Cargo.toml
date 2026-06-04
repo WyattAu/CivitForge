@@ -41,6 +41,9 @@ bytes = { workspace = true }
 dashmap = { workspace = true }
 futures = { workspace = true }
 reqwest = { workspace = true, features = ["stream"] }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+schemars = { workspace = true }
 
 # Optional native parsers (feature-gated, zero unsafe)
 syn = { version = "2", features = ["full", "parsing", "visit", "extra-traits"], optional = true }

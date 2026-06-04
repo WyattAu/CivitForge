@@ -7,6 +7,7 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client::ApiClient;
 use crate::components::{Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
+use crate::utils::*;
 
 #[derive(Clone, serde::Deserialize)]
 pub struct TreeEntry {
@@ -26,14 +27,6 @@ struct BlobData {
     size: u64,
     #[serde(default)]
     encoding: String,
-}
-
-fn sanitize_error(raw: &str) -> String {
-    raw.chars()
-        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '.' || *c == '-')
-        .collect::<String>()
-        .trim()
-        .to_string()
 }
 
 fn file_icon(entry_type: &str) -> &'static str {

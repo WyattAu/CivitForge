@@ -815,6 +815,16 @@ impl DbRepository {
 
     // --- Password ---
 
+    pub async fn get_password_hash(&self, user_id: Uuid) -> Result<Option<String>> {
+        let row: (Option<String>,) =
+            sqlx::query_as("SELECT password_hash FROM users WHERE id = $1")
+                .bind(user_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| CoreError::Database(format!("get_password_hash: {e}")))?;
+        Ok(row.0)
+    }
+
     pub async fn change_password(&self, user_id: Uuid, password_hash: &str) -> Result<()> {
         sqlx::query(r#"UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2"#)
             .bind(password_hash)

@@ -6,6 +6,7 @@ use leptos_router::components::A;
 use crate::api::client::ApiClient;
 use crate::components::{Avatar, Badge, BadgeColor, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
+use crate::utils::*;
 
 #[derive(Clone, serde::Deserialize)]
 pub struct ActivityItem {
@@ -23,36 +24,6 @@ pub struct ActivityItem {
     #[serde(default)]
     pub metadata: serde_json::Value,
     pub created_at: String,
-}
-
-fn relative_time(ts: &str) -> String {
-    #[cfg(feature = "csr")]
-    {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
-            let now = chrono::Utc::now();
-            let diff = now.signed_duration_since(dt);
-            if diff.num_seconds() < 60 {
-                return "just now".to_string();
-            } else if diff.num_minutes() < 60 {
-                return format!("{}m ago", diff.num_minutes());
-            } else if diff.num_hours() < 24 {
-                return format!("{}h ago", diff.num_hours());
-            } else if diff.num_days() < 30 {
-                return format!("{}d ago", diff.num_days());
-            } else {
-                return dt.format("%b %d, %Y").to_string();
-            }
-        }
-    }
-    ts.to_string()
-}
-
-fn sanitize_error(raw: &str) -> String {
-    raw.chars()
-        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '.' || *c == '-')
-        .collect::<String>()
-        .trim()
-        .to_string()
 }
 
 fn action_badge(action: &str) -> (BadgeColor, String) {

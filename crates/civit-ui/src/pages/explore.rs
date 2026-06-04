@@ -4,31 +4,20 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 
 use crate::api::client::ApiClient;
-use crate::api::repos::list_repos;
+use crate::api::types::ListResponse;
 use crate::components::{
     Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Pagination,
     Spinner,
 };
 use crate::state::auth::use_auth;
-use civit_shared::pagination::PaginationParams;
+use crate::utils::*;
+use civit_shared::repo::RepoResponse;
 use civit_shared::visibility::Visibility;
-
-fn truncate_uuid(s: &str) -> String {
-    if s.len() > 8 {
-        format!("{}...", &s[..8])
-    } else {
-        s.to_string()
-    }
-}
-
-fn format_datetime(dt: &chrono::DateTime<chrono::Utc>) -> String {
-    dt.format("%b %d, %Y").to_string()
-}
 
 #[component]
 pub fn ExplorePage() -> impl IntoView {
     let auth = use_auth();
-    let (query, _set_query) = signal(String::new());
+    let (query, set_query) = signal(String::new());
     let (repos_sig, set_repos) = signal(vec![]);
     let (loading, set_loading) = signal(true);
     let (page, set_page) = signal(1u32);
@@ -41,19 +30,35 @@ pub fn ExplorePage() -> impl IntoView {
         let token = auth.0.with(|a| a.token.clone());
         let client = ApiClient::new(token);
         let current_page = page.get();
-        let params = PaginationParams {
-            per_page: Some(50),
-            page: Some(current_page),
-            offset: None,
-        };
+        let query_val = query.get();
 
         leptos::task::spawn_local(async move {
-            match list_repos(&client, params).await {
-                Ok(resp) => {
-                    set_repos.set(resp.data);
-                    set_total_pages.set(resp.pagination.total_pages);
+            let mut path = format!("/repos?per_page=50&page={current_page}");
+            if !query_val.trim().is_empty() {
+                let encoded: String = query_val
+                    .trim()
+                    .chars()
+                    .map(|c| match c {
+                        ' ' => "+".to_string(),
+                        c if c.is_alphanumeric() => c.to_string(),
+                        _ => format!("%{:02X}", c as u8),
+                    })
+                    .collect();
+                path.push_str(&format!("&q={encoded}"));
+            }
+            match client.get(&path).await {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<ListResponse<RepoResponse>>().await {
+                        Ok(data) => {
+                            set_repos.set(data.data);
+                            set_total_pages.set(data.pagination.total_pages);
+                        }
+                        Err(_) => {
+                            set_error.set(Some("Failed to load repositories.".to_string()));
+                        }
+                    }
                 }
-                Err(_) => {
+                _ => {
                     set_error.set(Some("Failed to load repositories.".to_string()));
                 }
             }
@@ -70,6 +75,9 @@ pub fn ExplorePage() -> impl IntoView {
 
     let handle_search = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
+        let q = get_input_value("q");
+        set_query.set(q);
+        set_page.set(1);
         fetch_repos();
     };
 
@@ -153,9 +161,9 @@ pub fn ExplorePage() -> impl IntoView {
                                             {repo.description.clone().unwrap_or_else(|| "No description provided.".to_string())}
                                         </p>
                                         <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-gray-500">
-                                            <span title="Owner">"Owner: "{truncate_uuid(&repo.owner_id.to_string())}</span>
-                                            <span>"Created: "{format_datetime(&repo.created_at)}</span>
-                                            <span>"Updated: "{format_datetime(&repo.updated_at)}</span>
+                                            <span title="Owner">"Owner: "{truncate_uuid(&repo.owner_id.to_string(), 8)}</span>
+                                            <span>"Created: "{format!("{}", repo.created_at.format("%b %d, %Y"))}</span>
+                                            <span>"Updated: "{format!("{}", repo.updated_at.format("%b %d, %Y"))}</span>
                                         </div>
                                     </Card>
                                 </A>

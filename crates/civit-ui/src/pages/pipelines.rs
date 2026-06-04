@@ -7,6 +7,7 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client::ApiClient;
 use crate::components::{Badge, BadgeColor, Card, Spinner};
 use crate::state::auth::use_auth;
+use crate::utils::*;
 
 #[derive(Clone, serde::Deserialize)]
 pub struct PipelineRunResponse {
@@ -71,28 +72,6 @@ fn format_pipeline_duration(started: Option<&str>, finished: Option<&str>) -> St
     } else {
         format!("{}h {}m", diff.num_hours(), diff.num_minutes() % 60)
     }
-}
-
-fn relative_time(created_at: &str) -> String {
-    #[cfg(feature = "csr")]
-    {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(created_at) {
-            let now = chrono::Utc::now();
-            let diff = now.signed_duration_since(dt);
-            if diff.num_seconds() < 60 {
-                return "just now".to_string();
-            } else if diff.num_minutes() < 60 {
-                return format!("{}m ago", diff.num_minutes());
-            } else if diff.num_hours() < 24 {
-                return format!("{}h ago", diff.num_hours());
-            } else if diff.num_days() < 30 {
-                return format!("{}d ago", diff.num_days());
-            } else {
-                return dt.format("%b %d, %Y").to_string();
-            }
-        }
-    }
-    created_at.to_string()
 }
 
 #[component]

@@ -23,6 +23,7 @@ web-sys = { version = "0.3", optional = true, features = [
   "Document",
   "HtmlElement",
   "HtmlInputElement",
+  "HtmlTextAreaElement",
   "Node",
   "Element",
   "Event",

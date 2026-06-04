@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 
 use leptos::prelude::*;
-#[cfg(feature = "csr")]
-use wasm_bindgen::JsCast;
+use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{AuthUser, SshKeyResponse};
@@ -10,41 +9,8 @@ use crate::components::{
     Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner,
 };
 use crate::state::auth::use_auth;
+use crate::utils::*;
 use civit_shared::user::UserResponse;
-
-fn get_input_value(name: &str) -> String {
-    #[cfg(feature = "csr")]
-    {
-        let window = match web_sys::window() {
-            Some(w) => w,
-            None => return String::new(),
-        };
-        let doc = match window.document() {
-            Some(d) => d,
-            None => return String::new(),
-        };
-        let el = match doc.get_element_by_id(name) {
-            Some(el) => el,
-            None => return String::new(),
-        };
-        let tag = el.tag_name().to_lowercase();
-        if tag == "textarea" {
-            match el.dyn_into::<web_sys::HtmlTextAreaElement>() {
-                Ok(ta) => return ta.value(),
-                Err(_) => return String::new(),
-            }
-        }
-        match el.dyn_into::<web_sys::HtmlInputElement>() {
-            Ok(input) => input.value(),
-            Err(_) => String::new(),
-        }
-    }
-    #[cfg(not(feature = "csr"))]
-    {
-        let _ = name;
-        String::new()
-    }
-}
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct UpdateProfileBody {
@@ -71,35 +37,161 @@ struct ChangePasswordBody {
 
 #[component]
 pub fn RepoSettingsPage() -> impl IntoView {
+    let params = use_params_map();
+    let owner = move || params.with(|p| p.get("owner").unwrap_or_default());
+    let name = move || params.with(|p| p.get("name").unwrap_or_default());
+    let auth = use_auth();
+
+    let (repo_name_sig, set_repo_name) = signal(String::new());
+    let (repo_desc_sig, set_repo_desc) = signal(String::new());
+    let (loading, set_loading) = signal(true);
+    let (error, set_error) = signal(None::<String>);
+    let (saving, set_saving) = signal(false);
+    let (success, set_success) = signal(false);
+
+    let fetch_repo = move || {
+        set_loading.set(true);
+        set_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        let owner_val = owner();
+        let name_val = name();
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/repos/{owner_val}/{name_val}");
+            match client.get(&path).await {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<civit_shared::repo::RepoResponse>().await {
+                        Ok(repo) => {
+                            set_repo_name.set(repo.name);
+                            set_repo_desc.set(repo.description.unwrap_or_default());
+                        }
+                        Err(_) => set_error.set(Some("Failed to process response.".to_string())),
+                    }
+                }
+                Ok(_) => {
+                    set_error.set(Some("Failed to load repository.".to_string()));
+                }
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
+                }
+            }
+            set_loading.set(false);
+        });
+    };
+
+    fetch_repo();
+
+    let handle_submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        set_error.set(None);
+        set_success.set(false);
+
+        let name_val = get_input_value("repo-settings-name");
+        let desc_val = get_input_value("repo-settings-description");
+
+        if name_val.trim().is_empty() {
+            set_error.set(Some("Repository name is required.".to_string()));
+            return;
+        }
+
+        let body = serde_json::json!({
+            "name": name_val.trim(),
+            "description": desc_val,
+        });
+
+        let token = auth.0.with(|a| a.token.clone());
+        let owner_val = owner();
+        let name_val = name();
+
+        set_saving.set(true);
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/repos/{owner_val}/{name_val}");
+            match client.put(&path, &body).await {
+                Ok(resp) if resp.status().is_success() => {
+                    set_success.set(true);
+                }
+                Ok(_) => {
+                    set_error.set(Some("Failed to update repository.".to_string()));
+                }
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
+                }
+            }
+            set_saving.set(false);
+        });
+    };
+
     view! {
         <div class="space-y-6">
             <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Repository Settings"</h1>
 
-            <Card title="General" description="Basic repository settings">
-                <form class="space-y-5">
-                    <Input label="Repository name" name="name" input_type=InputType::Text placeholder="my-repo" required=true></Input>
-                    <Input label="Description" name="description" input_type=InputType::Textarea placeholder="A brief description..."></Input>
-                    <div>
-                        <Button variant=ButtonVariant::Primary extra_class="btn-save-settings">
-                            "Save Changes"
-                        </Button>
-                    </div>
-                </form>
-            </Card>
+            <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
+            </Show>
 
-            <Card title="Danger Zone" description="Irreversible and destructive actions">
-                <div class="border border-red-200 dark:border-red-800 rounded-md p-4">
-                    <h3 class="text-sm font-medium text-red-600 dark:text-red-400">"Delete this repository"</h3>
-                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        "Once you delete a repository, there is no going back."
-                    </p>
-                    <div class="mt-3">
-                        <Button variant=ButtonVariant::Danger extra_class="btn-delete-repo">
-                            "Delete Repository"
-                        </Button>
-                    </div>
+            <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                <div class="flex items-center justify-center py-12">
+                    <Spinner />
+                    <span class="ml-3 text-gray-500 dark:text-gray-400">"Loading repository..."</span>
                 </div>
-            </Card>
+            </Show>
+
+            <Show when=move || !loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                <Card title="General" description="Basic repository settings">
+                    <form on:submit=handle_submit class="space-y-5">
+                        <Show when=move || success.get() fallback=|| view! { <div class="hidden"></div> }>
+                            <div class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 dark:border-green-400 rounded-r-sm text-sm text-green-700 dark:text-green-400">
+                                "Settings updated successfully."
+                            </div>
+                        </Show>
+                        <div>
+                            <label for="repo-settings-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                "Repository name"
+                            </label>
+                            <input
+                                id="repo-settings-name"
+                                type="text"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+                                value=repo_name_sig.get()
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label for="repo-settings-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                "Description"
+                            </label>
+                            <textarea
+                                id="repo-settings-description"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+                                placeholder="A brief description..."
+                                rows="3"
+                            >
+                                {repo_desc_sig.get()}
+                            </textarea>
+                        </div>
+                        <div>
+                            <Button variant=ButtonVariant::Primary extra_class="btn-save-settings" disabled=saving.get()>
+                                {move || if saving.get() { "Saving..." } else { "Save Changes" }}
+                            </Button>
+                        </div>
+                    </form>
+                </Card>
+
+                <Card title="Danger Zone" description="Irreversible and destructive actions">
+                    <div class="border border-red-200 dark:border-red-800 rounded-md p-4">
+                        <h3 class="text-sm font-medium text-red-600 dark:text-red-400">"Delete this repository"</h3>
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            "Once you delete a repository, there is no going back."
+                        </p>
+                        <div class="mt-3">
+                            <Button variant=ButtonVariant::Danger extra_class="btn-delete-repo" disabled=true>
+                                "Delete Repository"
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            </Show>
         </div>
     }
 }

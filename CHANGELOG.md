@@ -5,6 +5,35 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-06-04
+
+### Added
+
+- **Read replica router** (`civit-core::db::replica_router`) — primary/replica pool splitting with automatic failover, lag monitoring, health checks
+- **Multi-region replication transport** (`civit-core::federation::replication`) — channel-based replication transport with SHA-256 checksum verification, heartbeat loop, peer health monitoring
+- **Vector clocks** (`civit-core::federation::vector_clock`) — generic vector clock for multi-region conflict detection with happened-before, concurrent, merge, descends-from operations
+- **Kubernetes operator** (`civit-brain::operator`) — CivitForgeApp CRD (group `civitforge.dev/v1alpha1`), reconciler with finalizer management, deployment health checker
+- **CDN artifact pre-signed URLs** (`civit-core::cache::pre_signed`) — HMAC-SHA256 signed download URLs with configurable TTL, token validation, expiry checking
+- **Artifact serving API** — download (token-validated), pre-signed URL generation, HEAD (ETag/cache validation), cache invalidation endpoints
+- **Cache headers utility** (`CacheHeaders`) — public/private Cache-Control, ETag generation, If-None-Match parsing, 304 Not Modified support
+- **Password change now verifies current password** — fetches stored hash, compares with submitted value, returns 403 on mismatch
+- **Code browser directory detection via tree lookup** — uses gix `EntryMode::is_tree()` instead of fragile `.` heuristic
+- **Federation HTTP signature validation on inbox** — validates `Signature` header via `SignatureVerifier`, returns 401 on failure
+- **Real Ed25519 keypair for federation actor** — lazy-generated via `OnceLock`, SPKI DER-to-PEM encoding
+
+### Changed
+
+- **Shared UI utilities extracted** — `relative_time()`, `truncate_uuid()`, `status_badge_color()`, `status_label()`, `get_input_value()` moved from 8 pages into `civit-ui::utils`
+- **Wiki page content fetch wired** — clicking sidebar page now fetches page content via `Effect::new()` watching `active_slug`
+- **Repo settings page wired** — fetches repo data on mount, form populated, submit sends `PUT /repos/{owner}/{name}`
+- **Explore page search wired** — search query passed as `?q=` parameter to API
+
+### Infrastructure
+
+- 2,888 total tests (+14 from v1.4.0)
+- Zero clippy warnings, zero fmt issues
+- All new code `#![forbid(unsafe_code)]`
+
 ## [1.4.0] - 2026-06-04
 
 ### Added

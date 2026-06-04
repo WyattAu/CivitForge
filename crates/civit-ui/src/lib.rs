@@ -5,6 +5,7 @@ pub mod app;
 pub mod components;
 pub mod pages;
 pub mod state;
+pub mod utils;
 
 pub use app::*;
 pub use components::*;

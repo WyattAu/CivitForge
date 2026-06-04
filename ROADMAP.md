@@ -22,8 +22,8 @@ access control without depending on proprietary cloud services.
 | v1.1.1 | Hotfix: accessibility and error hygiene | Shipped |
 | v1.2.0 | Quality and completeness | Shipped |
 | v1.3.0 | Advanced features | Shipped |
-| v1.4.0 | Federation and enterprise | In Progress |
-| v1.5.0 | Horizontal scaling | Planned |
+| v1.4.0 | Federation and enterprise | Shipped |
+| v1.5.0 | Horizontal scaling | Shipped |
 | v2.0.0 | Platform expansion | Planned |
 
 ---
@@ -419,8 +419,10 @@ The following areas have the highest impact for contributors:
 | Tantivy code search (PostgreSQL tsvector in use, tantivy deferred) | Medium | civit-brain, civit-core | v1.3.0 |
 | Git-backed wiki storage (currently DB-only) | Low | civit-core | v1.3.0 |
 | Per-repo encryption keys (global key currently) | Low | civit-crypto, civit-core | v1.4.0 |
-| Multi-region replication (IncrementalSyncEngine exists, untested at scale) | Low | civit-core | v1.5.0 |
-| K8s operator node affinity and status subresource | Low | civit-brain | v1.5.0 |
+| Multi-region replication (transport layer + vector clocks shipped) | Low | civit-core | v1.5.0 |
+| K8s operator (CRD + reconciler shipped, node affinity done) | Low | civit-brain | v1.5.0 |
+| CDN artifact pre-signed URLs and cache headers (shipped) | Low | civit-core | v1.5.0 |
+| Password change does not verify current password | High | civit-core | v1.4.0 |
 | Tauri desktop app (no implementation) | Low | new crate | v2.0.0 |
 | PWA mobile (no implementation) | Low | civit-ui | v2.0.0 |
 | Marketplace / extensions (no implementation) | Low | new crate | v2.0.0 |

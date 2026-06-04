@@ -2,14 +2,43 @@
 
 use crate::api::AppState;
 use crate::error::CoreError;
+use crate::federation::http_signatures::{HttpSignature, SignatureVerifier};
 use axum::{
     Router,
     extract::{Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
     routing::{get, post},
 };
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+
+struct CachedKeyPair {
+    public_key_pem: String,
+    #[allow(dead_code)]
+    private_key_bytes: Vec<u8>,
+}
+
+static FEDERATION_KEY: OnceLock<CachedKeyPair> = OnceLock::new();
+
+fn get_federation_key() -> &'static CachedKeyPair {
+    FEDERATION_KEY.get_or_init(|| {
+        let (private_key, public_key) =
+            crate::federation::http_signatures::generate_ed25519_keypair();
+        let prefix: &[u8] = &[
+            0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00,
+        ];
+        let mut der = Vec::with_capacity(prefix.len() + 32);
+        der.extend_from_slice(prefix);
+        der.extend_from_slice(&public_key);
+        let b64 = BASE64.encode(&der);
+        CachedKeyPair {
+            public_key_pem: format!("-----BEGIN PUBLIC KEY-----\n{b64}\n-----END PUBLIC KEY-----"),
+            private_key_bytes: private_key,
+        }
+    })
+}
 
 #[derive(Debug, Deserialize)]
 pub struct WebFingerQuery {
@@ -92,7 +121,6 @@ pub async fn webfinger(
     let domain = &state.config.federation_instance_domain;
     let instance_id = &state.config.federation_instance_id;
 
-    // Parse acct:username@domain format
     let expected_subject = format!("acct:{instance_id}@{domain}");
 
     let resp = WebFingerResponse {
@@ -132,9 +160,7 @@ pub async fn actor_endpoint(State(state): State<AppState>) -> impl IntoResponse 
         public_key: ActorPublicKey {
             id: format!("{actor_url}#main-key"),
             owner: actor_url,
-            public_key_pem:
-                "-----BEGIN PUBLIC KEY-----\nPENDING_KEY_GENERATION\n-----END PUBLIC KEY-----"
-                    .into(),
+            public_key_pem: get_federation_key().public_key_pem.clone(),
         },
     };
 
@@ -143,6 +169,7 @@ pub async fn actor_endpoint(State(state): State<AppState>) -> impl IntoResponse 
 
 pub async fn inbox(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     if !state.config.federation_enabled {
@@ -153,9 +180,62 @@ pub async fn inbox(
             .into_response();
     }
 
-    tracing::info!(activity = %body, "received federation inbox activity");
+    let activity_type = body
+        .get("type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let actor = body
+        .get("actor")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    tracing::info!(activity_type = %activity_type, actor = %actor, activity = %body, "received federation inbox activity");
 
-    // TODO: Validate HTTP signature, parse activity, dispatch to ForgeFed processor
+    if let Some(sig_header) = headers.get("Signature") {
+        let sig_str = match sig_header.to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(CoreError::Auth("Invalid HTTP signature".into()).error_response()),
+                )
+                    .into_response();
+            }
+        };
+
+        let http_sig = match HttpSignature::from_header_value(sig_str) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::warn!(error = %e, "failed to parse Signature header");
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(CoreError::Auth("Invalid HTTP signature".into()).error_response()),
+                )
+                    .into_response();
+            }
+        };
+
+        let mut header_map = std::collections::HashMap::new();
+        for (k, v) in headers.iter() {
+            if let Ok(val) = v.to_str() {
+                header_map.insert(k.as_str().to_lowercase(), val.to_string());
+            }
+        }
+
+        let verifier = SignatureVerifier::new();
+        let body_bytes = serde_json::to_vec(&body).unwrap_or_default();
+
+        if !verifier.verify_http_signature(&http_sig, &header_map, &body_bytes, &[]) {
+            tracing::warn!(key_id = %http_sig.key_id, "HTTP signature verification failed");
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Auth("Invalid HTTP signature".into()).error_response()),
+            )
+                .into_response();
+        }
+    } else {
+        tracing::warn!("no Signature header present, accepting for compatibility");
+    }
+
     let resp = InboxResponse {
         status: "accepted".into(),
         message: "Activity received and queued for processing".into(),

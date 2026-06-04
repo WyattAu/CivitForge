@@ -3,8 +3,6 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_params_map;
-#[cfg(feature = "csr")]
-use wasm_bindgen::JsCast;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{
@@ -12,70 +10,7 @@ use crate::api::types::{
 };
 use crate::components::{Button, ButtonVariant, Card, ErrorBanner, Modal, Spinner};
 use crate::state::auth::use_auth;
-
-fn relative_time(ts: &str) -> String {
-    #[cfg(feature = "csr")]
-    {
-        if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(ts) {
-            let now = chrono::Utc::now();
-            let diff = now.signed_duration_since(dt);
-            if diff.num_seconds() < 60 {
-                return "just now".to_string();
-            } else if diff.num_minutes() < 60 {
-                return format!("{}m ago", diff.num_minutes());
-            } else if diff.num_hours() < 24 {
-                return format!("{}h ago", diff.num_hours());
-            } else if diff.num_days() < 30 {
-                return format!("{}d ago", diff.num_days());
-            } else {
-                return dt.format("%b %d, %Y").to_string();
-            }
-        }
-    }
-    ts.to_string()
-}
-
-fn get_input_value(name: &str) -> String {
-    #[cfg(feature = "csr")]
-    {
-        let window = match web_sys::window() {
-            Some(w) => w,
-            None => return String::new(),
-        };
-        let doc = match window.document() {
-            Some(d) => d,
-            None => return String::new(),
-        };
-        let el = match doc.get_element_by_id(name) {
-            Some(el) => el,
-            None => return String::new(),
-        };
-        let tag = el.tag_name().to_lowercase();
-        if tag == "textarea" {
-            match el.dyn_into::<web_sys::HtmlTextAreaElement>() {
-                Ok(ta) => return ta.value(),
-                Err(_) => return String::new(),
-            }
-        }
-        match el.dyn_into::<web_sys::HtmlInputElement>() {
-            Ok(input) => input.value(),
-            Err(_) => String::new(),
-        }
-    }
-    #[cfg(not(feature = "csr"))]
-    {
-        let _ = name;
-        String::new()
-    }
-}
-
-fn truncate_uuid(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len])
-    } else {
-        s.to_string()
-    }
-}
+use crate::utils::*;
 
 #[component]
 pub fn WikiPage() -> impl IntoView {
@@ -88,7 +23,7 @@ pub fn WikiPage() -> impl IntoView {
     let (pages_loading, set_pages_loading) = signal(true);
 
     let (current_page_sig, set_current_page) = signal(None::<WikiPageResponse>);
-    let (page_loading, _set_page_loading) = signal(true);
+    let (page_loading, set_page_loading) = signal(false);
 
     let (error, set_error) = signal(None::<String>);
 
@@ -145,6 +80,45 @@ pub fn WikiPage() -> impl IntoView {
 
     leptos::task::spawn_local(async move {
         fetch_pages();
+    });
+
+    let fetch_page_content = move |slug: String| {
+        let token = auth.0.with(|a| a.token.clone());
+        let owner_val = owner();
+        let name_val = name();
+
+        set_page_loading.set(true);
+        set_current_page.set(None);
+        set_editing.set(false);
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/repos/{owner_val}/{name_val}/wiki/{slug}");
+            match client.get(&path).await {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<WikiPageResponse>().await {
+                        Ok(data) => set_current_page.set(Some(data)),
+                        Err(_) => set_error.set(Some("Failed to process response.".to_string())),
+                    }
+                }
+                Ok(_) => {
+                    set_error.set(Some("Failed to load page.".to_string()));
+                }
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
+                }
+            }
+            set_page_loading.set(false);
+        });
+    };
+
+    let _slug_effect = Effect::new(move |_| {
+        let slug = active_slug.get();
+        if !slug.is_empty() {
+            fetch_page_content(slug);
+        } else {
+            set_current_page.set(None);
+            set_page_loading.set(false);
+        }
     });
 
     let handle_new_page_submit = move |ev: leptos::ev::SubmitEvent| {
