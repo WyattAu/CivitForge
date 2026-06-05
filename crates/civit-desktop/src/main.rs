@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-use tauri::Manager;
-
 mod sync_benchmark;
 mod tray;
 

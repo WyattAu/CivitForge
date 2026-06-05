@@ -38,7 +38,7 @@ pub fn benchmark_file_sync(
 
     let total_ms: u64 = times_ms.iter().sum();
     let avg_ms = total_ms as f64 / iterations as f64;
-    let bytes_per_sec = (file_size_bytes as f64 * iterations as f64 / (total_ms as f64 / 1000.0));
+    let bytes_per_sec = file_size_bytes as f64 * iterations as f64 / (total_ms as f64 / 1000.0);
 
     Ok(SyncBenchmarkResult {
         operation: format!("file_sync_{}KB", file_size_bytes / 1024),
