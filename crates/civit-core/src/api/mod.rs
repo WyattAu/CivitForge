@@ -147,22 +147,12 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
 
     let ui_dir = std::path::PathBuf::from(&state.config.ui_assets_path);
     let index_path = ui_dir.join("index.html");
-    let ui_service = if ui_dir.is_dir() && index_path.is_file() {
-        ServeDir::new(&ui_dir).fallback(ServeFile::new(&index_path))
-    } else {
-        tracing::warn!(
-            "UI assets directory not found at {:?}, web UI will not be served",
-            ui_dir
-        );
-        let noop = std::path::PathBuf::from("/tmp/nonexistent-civit-ui/index.html");
-        ServeDir::new("/tmp/nonexistent-civit-ui").fallback(ServeFile::new(&noop))
-    };
+    let has_ui = ui_dir.is_dir() && index_path.is_file();
 
     let debug_mode = state.config.debug_mode;
 
     let mut router = Router::new()
         .merge(api)
-        .fallback_service(ui_service)
         .layer(cors)
         .layer(middleware::from_fn(rate_limit_middleware))
         .layer(middleware::from_fn(csrf_middleware))
@@ -209,6 +199,18 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             .layer(middleware::from_fn(
                 crate::middleware::debug::debug_middleware,
             ));
+    }
+
+    // SPA fallback: serve static files, fall back to index.html for client-side routing
+    if has_ui {
+        router =
+            router.fallback_service(ServeDir::new(&ui_dir).fallback(ServeFile::new(&index_path)));
+    } else {
+        tracing::warn!(
+            "UI assets directory not found at {:?}, web UI will not be served",
+            ui_dir
+        );
+        router = router.fallback_service(ServeDir::new("/tmp/nonexistent-civit-ui"));
     }
 
     Ok(router)

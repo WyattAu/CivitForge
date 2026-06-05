@@ -5,6 +5,21 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-06-05
+
+### Fixed
+
+- **WASM hydration bootstrap** — replaced `#[wasm_bindgen(inline_js)]` in `error_capture.rs` with `js_sys::eval()` IIFE injection; the `inline_js` attribute was overwriting Leptos's `inline0.js` `window` export, causing `import { window as window2 }` to fail in the trunk-generated JS wrapper
+- **SPA client-side routing** — `ServeDir` with `fallback(ServeFile::new("index.html"))` serves the WASM app HTML shell for all non-file routes, enabling Leptos CSR router to handle `/repos`, `/explore`, `/settings`, `/orgs`, `/search`, etc.
+- **Migration 025 typo** — `TIMSTAMPTZ` → `TIMESTAMPTZ` (missing `E`) on `federation_activities.processed_at` column that caused migration failure on fresh databases
+- **ServiceWorker registration error** — wrapped `navigator.serviceWorker.register('/sw.js')` in try/catch to suppress MIME error before sw.js is created
+- **Tauri desktop crate** — added `[workspace]` table and inlined dependencies for standalone builds (excluded from workspace due to webkit2gtk system dep)
+- **Leptos CSR route rendering verified** — all 6 SPA routes (`/`, `/repos`, `/explore`, `/settings`, `/orgs`, `/search`) render correct route-specific content in headless Playwright
+
+### Added
+
+- **GUI test infrastructure** — `tests/gui/full-traverse.mjs` (34K, 996 lines, 12-page traverse with CDP debug capture) and `tests/gui/debug-capture.mjs` (8.9K, 305 lines, enhanced Playwright debug capture)
+
 ## [2.1.0] - 2026-06-05
 
 ### Added

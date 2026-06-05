@@ -21,7 +21,7 @@ pub fn main() {
     console_error_panic_hook::set_once();
     error_capture::install_global_error_listeners();
     let _ = js_sys::eval(
-        "if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }",
+        "try { if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); } } catch(e) {}",
     );
     leptos::mount::mount_to_body(App);
 }

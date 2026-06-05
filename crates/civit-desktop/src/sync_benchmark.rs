@@ -20,7 +20,7 @@ pub struct SyncBenchmarkResult {
 
 #[tauri::command]
 pub fn benchmark_file_sync(
-    server_url: String,
+    _server_url: String,
     file_size_bytes: usize,
     iterations: u32,
 ) -> Result<SyncBenchmarkResult, String> {

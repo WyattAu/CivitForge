@@ -13,6 +13,7 @@ members = [
     # Build separately: cd crates/civit-desktop && cargo tauri build
     # "crates/civit-desktop",
 ]
+exclude = ["crates/civit-desktop"]
 
 [workspace.package]
 version = "1.1.0"
@@ -66,4 +67,5 @@ flate2 = "1"
 schemars = { version = "0.8", features = ["chrono"] }
 regex = "1"
 lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "builder", "smtp-transport", "pool", "hostname"] }
-axum-server = { version = "0.7", features = ["tls-rustls"] }
+ axum-server = { version = "0.7", features = ["tls-rustls"] }
+open = "5"

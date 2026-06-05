@@ -1,6 +1,6 @@
 # CivitForge Version Tracker
 
-Version: 2.1.0
+Version: 2.1.1
 Last Updated: 2026-06-05
 Tests: 3,076 passing
 Clippy: 0 warnings
@@ -26,6 +26,16 @@ Clippy: 0 warnings
 - Desktop: Tauri 2 (buildable, system deps required)
 - Code search: Tantivy 0.22 (full-text with fuzzy, code-aware tokenization)
 - Wiki: Git-backed via gix (bare repos with commit history)
+
+## v2.1.1 Changes
+
+- Fixed WASM hydration bootstrap (inline_js → js_sys::eval IIFE)
+- Added SPA client-side routing (ServeDir fallback → index.html)
+- Fixed migration 025 typo (TIMSTAMPTZ → TIMESTAMPTZ)
+- Suppressed service worker registration error (try/catch)
+- Fixed Tauri desktop crate for standalone builds
+- Added GUI test infrastructure (full-traverse.mjs + debug-capture.mjs)
+- Verified Leptos CSR route rendering (all 6 routes correct in headless)
 
 ## v2.1.0 Changes
 
@@ -63,6 +73,7 @@ Clippy: 0 warnings
 - v1.4.0
 - v1.5.0
 - v2.0.0
+- v2.1.1
 - v2.1.0
 
 ## Next
