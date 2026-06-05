@@ -72,8 +72,8 @@ fn get_url() -> String {
     }
 }
 
-#[wasm_bindgen(inline_js = "
-export function installGlobalErrorListeners() {
+const ERROR_LISTENER_JS: &str = r#"
+(function() {
     window.__civitforgeErrors = [];
     
     window.onerror = function(msg, url, line, col, error) {
@@ -122,15 +122,13 @@ export function installGlobalErrorListeners() {
             timestamp: new Date().toISOString()
         });
     };
-}
-")]
-extern "C" {
-    #[wasm_bindgen(js_namespace = ["window"])]
-    pub fn installGlobalErrorListeners();
-}
+})();
+"#;
 
 pub fn install_global_error_listeners() {
-    installGlobalErrorListeners();
+    if cfg!(target_arch = "wasm32") {
+        let _ = js_sys::eval(ERROR_LISTENER_JS);
+    }
 }
 
 /// Synchronize JS-captured errors into the Rust error store

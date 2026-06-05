@@ -44,7 +44,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
@@ -146,14 +146,16 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
     }));
 
     let ui_dir = std::path::PathBuf::from(&state.config.ui_assets_path);
-    let ui_service = if ui_dir.is_dir() {
-        ServeDir::new(&ui_dir)
+    let index_path = ui_dir.join("index.html");
+    let ui_service = if ui_dir.is_dir() && index_path.is_file() {
+        ServeDir::new(&ui_dir).fallback(ServeFile::new(&index_path))
     } else {
         tracing::warn!(
             "UI assets directory not found at {:?}, web UI will not be served",
             ui_dir
         );
-        ServeDir::new("/tmp/nonexistent-civit-ui")
+        let noop = std::path::PathBuf::from("/tmp/nonexistent-civit-ui/index.html");
+        ServeDir::new("/tmp/nonexistent-civit-ui").fallback(ServeFile::new(&noop))
     };
 
     let debug_mode = state.config.debug_mode;

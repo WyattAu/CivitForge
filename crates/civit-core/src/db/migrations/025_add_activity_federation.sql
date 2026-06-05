@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS federation_activities (
     next_retry_at   TIMESTAMPTZ,
     idempotency_key VARCHAR(128) UNIQUE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    processed_at    TIMSTAMPTZ
+    processed_at    TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_fed_activities_type ON federation_activities(activity_type);
