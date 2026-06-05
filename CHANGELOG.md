@@ -5,6 +5,18 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- **GUI traverse routing**: `pageUrl()` returned hash URLs (`/#repos`) but Leptos CSR uses path routing (`/repos`) — all routes resolved to home page. Fixed to return path-based URLs. Renamed `hashNavigate` → `navigatePath`, all `window.location.hash` → `window.location.pathname`.
+- **GUI traverse hydration**: Added `waitForSelector('nav a[href]')` after `networkidle` to wait for WASM/Leptos CSR hydration before checking page content.
+- **ServiceWorker MIME error**: Added `<link data-trunk rel="copy-file" href="assets/sw.js" />` to `index.html` so trunk copies `sw.js` to dist. Previously `sw.js` existed in `assets/` but trunk only copies files referenced from HTML.
+- **Tauri desktop headless testing**: Created `tests/desktop/tauri-smoke.mjs` using nix-built Xvfb virtual display (`GDK_BACKEND=x11 XAUTHORITY= DISPLAY=:99`). Verified GTK init, WebKit webview spawn, WASM hydration (10s alive), and clean shutdown.
+
+### Results
+- GUI traverse: **12/12 PASS, 63 actions, 0 errors** (was 17 errors)
+- E2E traverse: **15/15 PASS, 30 actions** (28 cosmetic 404 errors)
+- Tauri smoke: **11/11 PASS, 0 failures** (GTK + WebKit + WASM verified)
+- Cargo: **3,076 tests, 0 clippy, 0 fmt**
+
 ## [2.1.1] - 2026-06-05
 
 ### Fixed

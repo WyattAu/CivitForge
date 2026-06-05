@@ -1,6 +1,6 @@
 # CivitForge Version Tracker
 
-Version: 2.1.1
+Version: 2.1.2
 Last Updated: 2026-06-05
 Tests: 3,076 passing
 Clippy: 0 warnings
@@ -18,14 +18,25 @@ Clippy: 0 warnings
 - API endpoints: ~85 routes (debug gated by --debug flag)
 - Migrations: 001-027 (odd-numbered)
 - OpenAPI: v3.1 spec at /api/v1/openapi.json
-- WASM: 2.8MB WASM + 54KB JS (trunk build)
+- WASM: 2.8MB WASM + 54KB JS + sw.js (trunk build, copy-file for sw.js)
 - WASM rendering tests: 34 tests (wasm-bindgen-test, gated on wasm32+csr)
 - Rust edition: 2024
 - MSRV: 1.88
 - E2E tests: Playwright (15 pages, all buttons/forms, benchmarks)
+- GUI tests: Playwright (12 pages, 63 actions, 0 errors — path routing)
+- Desktop smoke: Xvfb + GTK + WebKit (11 checks, 0 failures)
 - Desktop: Tauri 2 (buildable, system deps required)
 - Code search: Tantivy 0.22 (full-text with fuzzy, code-aware tokenization)
 - Wiki: Git-backed via gix (bare repos with commit history)
+
+## v2.1.2 Changes
+
+- Fixed GUI traverse routing (hash URLs → path URLs for Leptos CSR)
+- Added WASM hydration wait (waitForSelector after networkidle)
+- Fixed ServiceWorker MIME error (trunk copy-file for sw.js)
+- Created Tauri desktop smoke test (Xvfb + GDK_BACKEND=x11)
+- GUI traverse: 12/12 PASS, 63 actions, 0 errors
+- Tauri smoke: 11/11 PASS (GTK init, WebKit spawn, WASM hydration, clean shutdown)
 
 ## v2.1.1 Changes
 
@@ -73,8 +84,9 @@ Clippy: 0 warnings
 - v1.4.0
 - v1.5.0
 - v2.0.0
-- v2.1.1
 - v2.1.0
+- v2.1.1
+- v2.1.2
 
 ## Next
 

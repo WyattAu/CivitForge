@@ -44,8 +44,8 @@ const results = {
 
 const capture = new DebugCapture({ screenshotDir: SCREENSHOTS_DIR, reportDir: REPORTS_DIR });
 
-function pageUrl(hash) {
-  return `${BASE_URL}/#${hash}`;
+function pageUrl(path) {
+  return `${BASE_URL}${path}`;
 }
 
 async function clickIfExists(page, selector, timeout = ACTION_TIMEOUT) {
@@ -89,15 +89,15 @@ function recordAction(pageResult, actionName, success = true, error = null) {
   }
 }
 
-async function hashNavigate(page, hash) {
-  await page.evaluate((h) => {
-    window.location.hash = h;
-  }, hash);
+async function navigatePath(page, path) {
+  await page.evaluate((p) => {
+    window.location.href = p;
+  }, path);
   await page.waitForTimeout(800);
   await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
 }
 
-async function traversePage(browser, hash, name, actions) {
+async function traversePage(browser, path, name, actions) {
   const page = await browser.newPage();
   await page.setViewportSize({ width: 1280, height: 800 });
   capture.reset();
@@ -105,8 +105,8 @@ async function traversePage(browser, hash, name, actions) {
 
   const pageResult = {
     name,
-    hash,
-    url: pageUrl(hash),
+    path,
+    url: pageUrl(path),
     status: 'pending',
     loadTimeMs: null,
     actionsRun: 0,
@@ -114,11 +114,20 @@ async function traversePage(browser, hash, name, actions) {
     screenshots: [],
   };
 
-  console.log(`  Traversing: ${name} (${hash})`);
+  console.log(`  Traversing: ${name} (${path})`);
 
   const start = Date.now();
   try {
-    await page.goto(pageUrl(hash), { waitUntil: 'networkidle', timeout: TIMEOUT });
+    await page.goto(pageUrl(path), { waitUntil: 'networkidle', timeout: TIMEOUT });
+    // Wait for WASM/Leptos CSR hydration. The WASM module takes 3-6s on
+    // cold start to compile and hydrate. We detect hydration by checking
+    // for the sidebar navigation (rendered by all routes after hydration).
+    // networkidle fires before WASM finishes, so we poll until hydrated.
+    try {
+      await page.waitForSelector('nav a[href]', { timeout: 8000 });
+    } catch {
+      await page.waitForTimeout(1000);
+    }
     pageResult.loadTimeMs = Date.now() - start;
     await takeScreenshot(page, `${name}-initial`);
 
@@ -203,7 +212,7 @@ async function testRegister(browser) {
     }},
     { name: 'check-register-success', fn: async (p) => {
       // After successful register, the app navigates to /repos
-      const hash = await p.evaluate(() => window.location.hash);
+      const pathname = await p.evaluate(() => window.location.pathname);
       const bodyText = await p.textContent('body');
       // Check if token is stored
       const token = await p.evaluate(() => localStorage.getItem('civitforge_token'));
@@ -354,9 +363,9 @@ async function testNewRepo(browser) {
       await p.waitForTimeout(3000);
     }},
     { name: 'verify-redirect', fn: async (p) => {
-      const hash = await p.evaluate(() => window.location.hash);
-      if (hash.includes('/repos/')) {
-        console.log(`    Redirected to: ${hash}`);
+      const pathname = await p.evaluate(() => window.location.pathname);
+      if (pathname.includes('/repos/')) {
+        console.log(`    Redirected to: ${pathname}`);
       }
     }},
     { name: 'screenshot-result', fn: async (p) => {
@@ -763,40 +772,41 @@ async function testOrgs(browser) {
 // === 14. NAVIGATION ===
 
 async function testNavigation(browser) {
+  const BASE = 'http://localhost:9091';
   await traversePage(browser, '/', 'navigation-test', [
     { name: 'navigate-home', fn: async (p) => {
-      await hashNavigate(p, '/');
-      const hash = await p.evaluate(() => window.location.hash);
-      if (hash !== '#/') throw new Error(`Expected #/, got ${hash}`);
+      await navigatePath(p, `${BASE}/`);
+      const pathname = await p.evaluate(() => window.location.pathname);
+      if (pathname !== '/') throw new Error(`Expected /, got ${pathname}`);
     }},
     { name: 'navigate-repos', fn: async (p) => {
-      await hashNavigate(p, '/repos');
+      await navigatePath(p, `${BASE}/repos`);
       await waitForContent(p);
       const body = await p.textContent('body');
       if (!body.includes('Repositor')) throw new Error('Repos page did not load');
     }},
     { name: 'navigate-explore', fn: async (p) => {
-      await hashNavigate(p, '/explore');
+      await navigatePath(p, `${BASE}/explore`);
       await waitForContent(p);
     }},
     { name: 'navigate-search', fn: async (p) => {
-      await hashNavigate(p, '/search');
+      await navigatePath(p, `${BASE}/search`);
       await waitForContent(p);
     }},
     { name: 'navigate-settings', fn: async (p) => {
-      await hashNavigate(p, '/settings');
+      await navigatePath(p, `${BASE}/settings`);
       await waitForContent(p);
     }},
     { name: 'navigate-activity', fn: async (p) => {
-      await hashNavigate(p, '/activity');
+      await navigatePath(p, `${BASE}/activity`);
       await waitForContent(p);
     }},
     { name: 'navigate-orgs', fn: async (p) => {
-      await hashNavigate(p, '/orgs');
+      await navigatePath(p, `${BASE}/orgs`);
       await waitForContent(p);
     }},
     { name: 'navigate-login', fn: async (p) => {
-      await hashNavigate(p, '/login');
+      await navigatePath(p, `${BASE}/login`);
       await waitForContent(p);
     }},
     { name: 'browser-back', fn: async (p) => {
@@ -807,10 +817,10 @@ async function testNavigation(browser) {
       await p.goForward({ waitUntil: 'networkidle', timeout: TIMEOUT }).catch(() => {});
       await p.waitForTimeout(500);
     }},
-    { name: 'verify-hash-routing', fn: async (p) => {
-      await hashNavigate(p, '/repos');
-      const hash = await p.evaluate(() => window.location.hash);
-      if (!hash.includes('repos')) throw new Error(`Hash routing broken: ${hash}`);
+    { name: 'verify-path-routing', fn: async (p) => {
+      await navigatePath(p, `${BASE}/repos`);
+      const pathname = await p.evaluate(() => window.location.pathname);
+      if (!pathname.includes('repos')) throw new Error(`Path routing broken: ${pathname}`);
     }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'navigation-final');
