@@ -249,7 +249,7 @@ pub fn IssueDetailPage() -> impl IntoView {
                                         }
                                     }
                                     <span class="text-sm text-gray-400 dark:text-gray-500 font-mono">
-                                        {move || format!("#{}", issue_sig.get().map(|i| i.number.unwrap_or(i.id)).unwrap_or(0))}
+                                        {move || format!("#{}", issue_sig.get().map(|i| i.number.map(|n| n.to_string()).unwrap_or_else(|| i.id.clone())).unwrap_or_default())}
                                     </span>
                                 </div>
                                 <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
@@ -371,7 +371,7 @@ pub fn IssueDetailPage() -> impl IntoView {
                         </form>
                     </Card>
 
-                    <For each=move || issue_sig.get().map(|i| i.comments.clone()).unwrap_or_default() key=|c| c.id let:comment>
+                    <For each=move || issue_sig.get().map(|i| i.comments.clone()).unwrap_or_default() key=|c| c.id.clone() let:comment>
                         {
                             let is_edited = comment.updated_at != comment.created_at;
                             view! {

@@ -2,6 +2,25 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Wrapper for paginated list responses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListResponse<T> {
+    /// Items in the current page.
+    pub data: Vec<T>,
+    /// Pagination metadata.
+    pub pagination: Pagination,
+}
+
+impl<T: Serialize> ListResponse<T> {
+    /// Create a paginated response from items, total count, and params.
+    pub fn from_total(data: Vec<T>, total: u64, params: &PaginationParams) -> Self {
+        Self {
+            data,
+            pagination: Pagination::from_total(total, params),
+        }
+    }
+}
+
 /// Query parameters for paginated list endpoints.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PaginationParams {

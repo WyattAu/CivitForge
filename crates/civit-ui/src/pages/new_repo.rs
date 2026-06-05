@@ -102,9 +102,7 @@ pub fn NewRepoPage() -> impl IntoView {
 
             match result {
                 Ok(resp) if resp.status().is_success() => {
-                    let owner_id = auth
-                        .0
-                        .with(|a| a.user_id.map(|id| id.to_string()).unwrap_or_default());
+                    let owner_id = auth.0.with(|a| a.user_id.clone().unwrap_or_default());
                     let repo_name = body.name.clone();
                     nav(
                         &format!("/repos/{owner_id}/{repo_name}"),

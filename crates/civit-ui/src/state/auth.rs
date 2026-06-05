@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuthState {
     pub is_authenticated: bool,
-    pub user_id: Option<i64>,
+    pub user_id: Option<String>,
     pub username: Option<String>,
     pub token: Option<String>,
 }
@@ -88,7 +88,7 @@ pub fn use_auth() -> (ReadSignal<AuthState>, WriteSignal<AuthState>) {
 
 pub fn login(
     auth: &(ReadSignal<AuthState>, WriteSignal<AuthState>),
-    user_id: i64,
+    user_id: String,
     username: String,
     token: String,
 ) {

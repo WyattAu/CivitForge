@@ -1,6 +1,7 @@
 [build]
 target = "index.html"
 release = true
+public-url = "/"
 
 [watch]
 watch = ["src/", "assets/"]

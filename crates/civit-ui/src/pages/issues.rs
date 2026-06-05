@@ -328,18 +328,18 @@ pub fn IssuesPage() -> impl IntoView {
             <Show when=has_issues fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
                     <div class="divide-y divide-gray-100 dark:divide-gray-700 overflow-x-auto">
-                        <For each=move || issues_sig.get().map(|d| d.data.clone()).unwrap_or_default() key=|i| i.id let:issue>
+                        <For each=move || issues_sig.get().map(|d| d.data.clone()).unwrap_or_default() key=|i| i.id.clone() let:issue>
                             {
                                 let owner_v = owner();
                                 let name_v = name();
                                 view! {
                                     <A
-                                        href=format!("/repos/{owner_v}/{name_v}/issues/{}", issue.number.unwrap_or(issue.id))
+                                        href=format!("/repos/{owner_v}/{name_v}/issues/{}", issue.number.map(|n| n.to_string()).unwrap_or_else(|| issue.id.clone()))
                                     >
                                         <div class="flex items-center justify-between py-3 px-1 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
                                             <div class="flex items-center gap-3 min-w-0">
                                                 <span class="text-sm font-mono text-gray-400 dark:text-gray-500 shrink-0">
-                                                    {format!("#{}", issue.number.unwrap_or(issue.id))}
+                                                     {format!("#{}", issue.number.map(|n| n.to_string()).unwrap_or_else(|| issue.id.clone()))}
                                                 </span>
                                                 <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                                                     {truncate_title(&issue.title, 80)}

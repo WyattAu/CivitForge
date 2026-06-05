@@ -2,13 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use civit_shared::pagination::Pagination;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ListResponse<T> {
-    pub data: Vec<T>,
-    pub pagination: Pagination,
-}
+pub use civit_shared::ListResponse;
+pub use civit_shared::pagination::Pagination;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthResponse {
@@ -18,7 +13,7 @@ pub struct AuthResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthUser {
-    pub id: i64,
+    pub id: String,
     pub username: String,
     pub email: String,
     pub display_name: Option<String>,
@@ -26,7 +21,7 @@ pub struct AuthUser {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IssueResponse {
-    pub id: i64,
+    pub id: String,
     pub number: Option<i64>,
     pub title: String,
     pub body: Option<String>,
@@ -41,7 +36,7 @@ pub struct IssueResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommentResponse {
-    pub id: i64,
+    pub id: String,
     pub author: String,
     pub body: String,
     pub created_at: String,
@@ -117,7 +112,7 @@ pub struct SearchResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResultItem {
-    pub id: i64,
+    pub id: String,
     pub full_name: String,
     pub description: Option<String>,
     pub stars: u64,

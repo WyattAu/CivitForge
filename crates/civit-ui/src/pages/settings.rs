@@ -256,7 +256,7 @@ pub fn SettingsPage() -> impl IntoView {
     let fetch_ssh_keys = move || {
         set_ssh_loading.set(true);
         let token = auth.0.with(|a| a.token.clone());
-        let user_id = auth.0.with(|a| a.user_id.map(|id| id.to_string()));
+        let user_id = auth.0.with(|a| a.user_id.clone());
         if let Some(uid) = user_id {
             let client = ApiClient::new(token);
             leptos::task::spawn_local(async move {
@@ -360,7 +360,7 @@ pub fn SettingsPage() -> impl IntoView {
                 .collect::<String>()
         );
 
-        let user_id = match auth.0.with(|a| a.user_id.map(|id| id.to_string())) {
+        let user_id = match auth.0.with(|a| a.user_id.clone()) {
             Some(uid) => uid,
             None => {
                 set_ssh_add_error.set(Some("User not authenticated.".to_string()));
@@ -442,7 +442,7 @@ pub fn SettingsPage() -> impl IntoView {
             return;
         }
 
-        let user_id = match auth.0.with(|a| a.user_id.map(|id| id.to_string())) {
+        let user_id = match auth.0.with(|a| a.user_id.clone()) {
             Some(uid) => uid,
             None => {
                 set_pw_error.set(Some("User not authenticated.".to_string()));
@@ -696,7 +696,7 @@ pub fn SettingsPage() -> impl IntoView {
                                     match client.delete(&format!("/ssh-keys/{key_id}")).await {
                                         Ok(resp) if resp.status().is_success() || resp.status() == reqwest::StatusCode::NO_CONTENT => {
                                             let token2 = auth_cl.0.with(|a| a.token.clone());
-                                            let uid = auth_cl.0.with(|a| a.user_id.map(|id| id.to_string()));
+                                            let uid = auth_cl.0.with(|a| a.user_id.clone());
                                             if let Some(user_id) = uid {
                                                 let client2 = ApiClient::new(token2);
                                                 match client2.get(&format!("/users/{user_id}/ssh-keys")).await {

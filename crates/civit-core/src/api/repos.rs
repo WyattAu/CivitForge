@@ -9,6 +9,7 @@ use axum::{
     response::{IntoResponse, Json},
 };
 use civit_shared::permissions::{Action, Resource};
+use civit_shared::{ListResponse, PaginationParams};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -37,21 +38,6 @@ pub struct CreateRepoRequest {
     pub owner: String,
     pub description: String,
     pub visibility: Visibility,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct PaginationParams {
-    #[serde(default = "default_limit")]
-    pub limit: i64,
-    #[serde(default = "default_offset")]
-    pub offset: i64,
-}
-
-fn default_limit() -> i64 {
-    50
-}
-fn default_offset() -> i64 {
-    0
 }
 
 impl From<crate::db::Repository> for Repo {
@@ -91,10 +77,14 @@ pub async fn list_repos(
     Query(params): Query<PaginationParams>,
     _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
-    match state.db.list_repos(params.limit, params.offset).await {
+    let limit = params.effective_per_page() as i64;
+    let offset = params.effective_offset() as i64;
+    match state.db.list_repos(limit, offset).await {
         Ok(repos) => {
             let out: Vec<Repo> = repos.into_iter().map(Into::into).collect();
-            (StatusCode::OK, Json(out)).into_response()
+            let total = state.db.count_repos().await.unwrap_or(out.len() as i64) as u64;
+            let resp = ListResponse::from_total(out, total, &params);
+            (StatusCode::OK, Json(resp)).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -379,17 +369,18 @@ mod tests {
 
     #[test]
     fn test_pagination_defaults() {
-        assert_eq!(default_limit(), 50);
-        assert_eq!(default_offset(), 0);
+        let p = PaginationParams::default();
+        assert_eq!(p.effective_per_page(), 20);
+        assert_eq!(p.effective_offset(), 0);
     }
 
     #[test]
     fn test_pagination_params_deserialize() {
         let p: PaginationParams = serde_json::from_str("{}").unwrap();
-        assert_eq!(p.limit, 50);
-        assert_eq!(p.offset, 0);
-        let p: PaginationParams = serde_json::from_str(r#"{"limit":10,"offset":20}"#).unwrap();
-        assert_eq!(p.limit, 10);
-        assert_eq!(p.offset, 20);
+        assert_eq!(p.per_page, None); // serde default for Option is None
+        assert_eq!(p.effective_per_page(), 20); // but effective_per_page defaults to 20
+        let p: PaginationParams = serde_json::from_str(r#"{"per_page":10,"page":2}"#).unwrap();
+        assert_eq!(p.per_page, Some(10));
+        assert_eq!(p.effective_offset(), 10);
     }
 }

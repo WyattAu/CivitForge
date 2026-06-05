@@ -27,7 +27,7 @@ pub mod visibility;
 pub use error::{ApiError, ApiErrorCode};
 pub use id::*;
 pub use org::*;
-pub use pagination::{Pagination, PaginationParams};
+pub use pagination::{ListResponse, Pagination, PaginationParams};
 pub use permissions::*;
 pub use repo::*;
 pub use user::*;

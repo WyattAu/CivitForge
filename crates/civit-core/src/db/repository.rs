@@ -234,6 +234,14 @@ impl DbRepository {
         .map_err(|e| CoreError::Database(format!("get_repo_by_owner_name: {e}")))
     }
 
+    pub async fn count_repos(&self) -> Result<i64> {
+        let row = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM repositories")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("count_repos: {e}")))?;
+        Ok(row)
+    }
+
     pub async fn list_repos(&self, limit: i64, offset: i64) -> Result<Vec<Repository>> {
         let rows = sqlx::query_as::<_, Repository>(
             "SELECT * FROM repositories ORDER BY created_at DESC LIMIT $1 OFFSET $2",

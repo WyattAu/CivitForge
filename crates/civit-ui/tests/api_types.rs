@@ -40,7 +40,7 @@ fn list_response_roundtrip() {
 
 #[test]
 fn auth_response_deserialize() {
-    let json = r#"{"token":"abc123","user":{"id":1,"username":"alice","email":"a@test.com","display_name":"Alice"}}"#;
+    let json = r#"{"token":"abc123","user":{"id":"550e8400-e29b-41d4-a716-446655440001","username":"alice","email":"a@test.com","display_name":"Alice"}}"#;
     let auth: AuthResponse = test_json(json);
     assert_eq!(auth.token, "abc123");
     assert_eq!(auth.user.username, "alice");
@@ -49,7 +49,7 @@ fn auth_response_deserialize() {
 
 #[test]
 fn auth_response_deserialize_no_display_name() {
-    let json = r#"{"token":"tok","user":{"id":2,"username":"bob","email":"b@test.com","display_name":null}}"#;
+    let json = r#"{"token":"tok","user":{"id":"550e8400-e29b-41d4-a716-446655440002","username":"bob","email":"b@test.com","display_name":null}}"#;
     let auth: AuthResponse = test_json(json);
     assert!(auth.user.display_name.is_none());
 }
@@ -57,7 +57,7 @@ fn auth_response_deserialize_no_display_name() {
 #[test]
 fn issue_response_roundtrip() {
     let issue = IssueResponse {
-        id: 42,
+        id: "42".into(),
         number: Some(5),
         title: "Bug fix".into(),
         body: Some("Fix the thing".into()),
@@ -70,7 +70,7 @@ fn issue_response_roundtrip() {
     };
     let json = serde_json::to_string(&issue).unwrap();
     let back: IssueResponse = serde_json::from_str(&json).unwrap();
-    assert_eq!(back.id, 42);
+    assert_eq!(back.id, "42");
     assert_eq!(back.number, Some(5));
     assert_eq!(back.labels.len(), 2);
     assert!(back.comments.is_empty());
@@ -78,7 +78,7 @@ fn issue_response_roundtrip() {
 
 #[test]
 fn issue_response_comments_default() {
-    let json = r#"{"id":1,"number":null,"title":"T","body":null,"state":"open","author":"a","labels":[],"created_at":"2024-01-01T00:00:00Z","updated_at":"2024-01-01T00:00:00Z"}"#;
+    let json = r#"{"id":"abc","number":null,"title":"T","body":null,"state":"open","author":"a","labels":[],"created_at":"2024-01-01T00:00:00Z","updated_at":"2024-01-01T00:00:00Z"}"#;
     let issue: IssueResponse = test_json(json);
     assert!(issue.comments.is_empty());
 }
@@ -86,7 +86,7 @@ fn issue_response_comments_default() {
 #[test]
 fn comment_response_roundtrip() {
     let c = CommentResponse {
-        id: 10,
+        id: "10".into(),
         author: "bob".into(),
         body: "Looks good".into(),
         created_at: "2024-02-01T00:00:00Z".into(),
@@ -135,7 +135,7 @@ fn update_issue_body_skip_none_fields() {
 fn search_response_roundtrip() {
     let resp = SearchResponse {
         results: vec![SearchResultItem {
-            id: 1,
+            id: "1".into(),
             full_name: "org/repo".into(),
             description: Some("A repo".into()),
             stars: 10,

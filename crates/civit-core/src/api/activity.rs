@@ -10,6 +10,7 @@ use axum::{
     response::{IntoResponse, Json},
     routing::get,
 };
+use civit_shared::{ListResponse, Pagination};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,19 +46,28 @@ impl From<crate::db::ActivityEvent> for ActivityResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct ActivityQueryParams {
-    #[serde(default = "default_limit")]
-    pub limit: i64,
-    #[serde(default = "default_offset")]
-    pub offset: i64,
+    pub per_page: Option<u32>,
+    pub page: Option<u32>,
+    pub offset: Option<u32>,
     pub repo_id: Option<String>,
     pub org_id: Option<String>,
 }
 
-fn default_limit() -> i64 {
-    50
+fn effective_limit(params: &ActivityQueryParams) -> i64 {
+    params
+        .per_page
+        .map(|p| p.clamp(1, 100) as i64)
+        .unwrap_or(50)
 }
-fn default_offset() -> i64 {
-    0
+
+fn effective_offset(params: &ActivityQueryParams) -> i64 {
+    if let Some(offset) = params.offset {
+        offset as i64
+    } else if let Some(page) = params.page {
+        ((page.saturating_sub(1)) * params.per_page.unwrap_or(50)) as i64
+    } else {
+        0
+    }
 }
 
 pub fn activity_routes() -> Router<AppState> {
@@ -69,18 +79,44 @@ pub async fn list_activity(
     Query(params): Query<ActivityQueryParams>,
     _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
-    let repo_id = params.repo_id.and_then(|s| uuid::Uuid::parse_str(&s).ok());
-    let org_id = params.org_id.and_then(|s| uuid::Uuid::parse_str(&s).ok());
+    let repo_id = params
+        .repo_id
+        .clone()
+        .and_then(|s| uuid::Uuid::parse_str(&s).ok());
+    let org_id = params
+        .org_id
+        .clone()
+        .and_then(|s| uuid::Uuid::parse_str(&s).ok());
+    let limit = effective_limit(&params);
+    let offset = effective_offset(&params);
 
     match state
         .db
-        .list_activity_events(repo_id, org_id, params.limit, params.offset)
+        .list_activity_events(repo_id, org_id, limit, offset)
         .await
     {
         Ok(events) => {
             let resp: Vec<ActivityResponse> =
                 events.into_iter().map(ActivityResponse::from).collect();
-            (StatusCode::OK, Json(resp)).into_response()
+            let total = resp.len() as u64;
+            let pag = Pagination {
+                page: (offset as u32 / limit as u32).saturating_add(1),
+                per_page: limit as u32,
+                total,
+                total_pages: if total == 0 {
+                    1
+                } else {
+                    (total as u32).div_ceil(limit as u32)
+                },
+            };
+            (
+                StatusCode::OK,
+                Json(ListResponse {
+                    data: resp,
+                    pagination: pag,
+                }),
+            )
+                .into_response()
         }
         Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
     }
@@ -140,20 +176,21 @@ mod tests {
     #[test]
     fn test_activity_query_params_defaults() {
         let params = ActivityQueryParams {
-            limit: 50,
-            offset: 0,
+            per_page: None,
+            page: None,
+            offset: None,
             repo_id: None,
             org_id: None,
         };
-        assert_eq!(params.limit, 50);
-        assert_eq!(params.offset, 0);
+        assert_eq!(effective_limit(&params), 50);
+        assert_eq!(effective_offset(&params), 0);
     }
 
     #[test]
     fn test_activity_query_params_parse() {
-        let json = r#"{"limit":10,"offset":20,"repo_id":"00000000-0000-0000-0000-000000000000"}"#;
+        let json = r#"{"per_page":10,"page":2,"repo_id":"00000000-0000-0000-0000-000000000000"}"#;
         let params: ActivityQueryParams = serde_json::from_str(json).unwrap();
-        assert_eq!(params.limit, 10);
+        assert_eq!(params.per_page, Some(10));
         assert!(params.repo_id.is_some());
     }
 
