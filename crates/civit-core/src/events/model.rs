@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use crate::events::log_stream::{LogStreamEvent, PipelineStatusEvent};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -109,6 +110,8 @@ pub enum EventPayload {
         action: PresenceAction,
         active_users: Vec<String>,
     },
+    LogStream(LogStreamEvent),
+    PipelineStatus(PipelineStatusEvent),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -122,6 +125,7 @@ pub enum EventCategory {
     Admin,
     System,
     Presence,
+    LogStream,
 }
 
 impl From<&EventPayload> for EventCategory {
@@ -135,6 +139,8 @@ impl From<&EventPayload> for EventCategory {
             EventPayload::AdminEvent { .. } => EventCategory::Admin,
             EventPayload::SystemEvent { .. } => EventCategory::System,
             EventPayload::PresenceEvent { .. } => EventCategory::Presence,
+            EventPayload::LogStream(_) => EventCategory::LogStream,
+            EventPayload::PipelineStatus(_) => EventCategory::LogStream,
         }
     }
 }

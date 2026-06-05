@@ -3,6 +3,10 @@
 use crate::api::AppState;
 use crate::error::CoreError;
 use crate::federation::http_signatures::{HttpSignature, SignatureVerifier};
+use crate::federation::{
+    FederatedIssue, FederatedPR, FederatedPRReview, FederatedRepo, ForgeFedActivity, IssueState,
+    PRReviewState, PRState,
+};
 use axum::{
     Router,
     extract::{Query, State},
@@ -167,6 +171,298 @@ pub async fn actor_endpoint(State(state): State<AppState>) -> impl IntoResponse 
     (StatusCode::OK, Json(resp)).into_response()
 }
 
+fn parse_repo(obj: &serde_json::Value) -> Option<FederatedRepo> {
+    Some(FederatedRepo {
+        id: obj.get("id")?.as_str()?.to_string(),
+        name: obj.get("name")?.as_str()?.to_string(),
+        description: obj
+            .get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        owner: obj
+            .get("attributedTo")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
+        visibility: obj
+            .get("visibility")
+            .and_then(|v| v.as_str())
+            .unwrap_or("public")
+            .to_string(),
+    })
+}
+
+fn parse_incoming_activity(body: &serde_json::Value) -> crate::error::Result<ForgeFedActivity> {
+    let activity_type = body
+        .get("type")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CoreError::Federation("missing 'type' field".into()))?;
+    let actor = body
+        .get("actor")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let activity = match activity_type {
+        "Create" => {
+            let obj = body
+                .get("object")
+                .ok_or_else(|| CoreError::Federation("missing 'object' field".into()))?;
+            let obj_type = obj
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown");
+            match obj_type {
+                "Repository" => {
+                    let repo = parse_repo(obj)
+                        .ok_or_else(|| CoreError::Federation("invalid repository object".into()))?;
+                    ForgeFedActivity::CreateRepository { actor, repo }
+                }
+                "Issue" => {
+                    let issue = FederatedIssue {
+                        id: obj
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        title: obj
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        body: obj
+                            .get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        state: match obj.get("state").and_then(|v| v.as_str()).unwrap_or("open") {
+                            "closed" => IssueState::Closed,
+                            _ => IssueState::Open,
+                        },
+                        author: obj
+                            .get("attributedTo")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&actor)
+                            .to_string(),
+                    };
+                    let repo_obj = body
+                        .get("target")
+                        .or_else(|| body.get("context"))
+                        .and_then(|v| v.as_object())
+                        .map(|o| serde_json::Value::Object(o.clone()));
+                    let repo = match repo_obj {
+                        Some(ref v) => parse_repo(v).ok_or_else(|| {
+                            CoreError::Federation("invalid target repository".into())
+                        })?,
+                        None => FederatedRepo {
+                            id: String::new(),
+                            name: String::new(),
+                            description: String::new(),
+                            owner: String::new(),
+                            visibility: String::new(),
+                        },
+                    };
+                    ForgeFedActivity::CreateIssue { actor, repo, issue }
+                }
+                "PullRequest" => {
+                    let pr = FederatedPR {
+                        id: obj
+                            .get("id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        title: obj
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        body: obj
+                            .get("content")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        source_branch: obj
+                            .get("sourceBranch")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        target_branch: obj
+                            .get("targetBranch")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        state: match obj.get("state").and_then(|v| v.as_str()).unwrap_or("open") {
+                            "closed" => PRState::Closed,
+                            "merged" => PRState::Merged,
+                            _ => PRState::Open,
+                        },
+                        author: obj
+                            .get("attributedTo")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or(&actor)
+                            .to_string(),
+                    };
+                    let repo_obj = body
+                        .get("target")
+                        .or_else(|| body.get("context"))
+                        .and_then(|v| v.as_object())
+                        .map(|o| serde_json::Value::Object(o.clone()));
+                    let repo = match repo_obj {
+                        Some(ref v) => parse_repo(v).ok_or_else(|| {
+                            CoreError::Federation("invalid target repository".into())
+                        })?,
+                        None => FederatedRepo {
+                            id: String::new(),
+                            name: String::new(),
+                            description: String::new(),
+                            owner: String::new(),
+                            visibility: String::new(),
+                        },
+                    };
+                    ForgeFedActivity::CreatePullRequest { actor, repo, pr }
+                }
+                other => {
+                    return Err(CoreError::Federation(format!(
+                        "unknown Create object type: {other}"
+                    )));
+                }
+            }
+        }
+        "Fork" => {
+            let obj = body
+                .get("object")
+                .ok_or_else(|| CoreError::Federation("missing 'object' field".into()))?;
+            let source = parse_repo(obj)
+                .ok_or_else(|| CoreError::Federation("invalid source repository".into()))?;
+            let target_obj = body
+                .get("target")
+                .ok_or_else(|| CoreError::Federation("missing 'target' field".into()))?;
+            let target = parse_repo(target_obj)
+                .ok_or_else(|| CoreError::Federation("invalid target repository".into()))?;
+            ForgeFedActivity::ForkRepository {
+                actor,
+                source,
+                target,
+            }
+        }
+        "Like" => {
+            let target_type = body
+                .get("object")
+                .and_then(|v| v.get("type"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string();
+            let target_id = body
+                .get("object")
+                .and_then(|v| v.get("id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            ForgeFedActivity::Like {
+                actor,
+                target_type,
+                target_id,
+            }
+        }
+        "Follow" => {
+            let target = body
+                .get("object")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            ForgeFedActivity::FollowUser { actor, target }
+        }
+        "Accept" => {
+            let target = body
+                .get("object")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            ForgeFedActivity::Accept { actor, target }
+        }
+        "Reject" => {
+            let target = body
+                .get("object")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            ForgeFedActivity::Reject { actor, target }
+        }
+        "Undo" => {
+            let obj = body
+                .get("object")
+                .ok_or_else(|| CoreError::Federation("missing 'object' field for Undo".into()))?;
+            let target_type = obj
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown")
+                .to_string();
+            let target_id = obj
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            ForgeFedActivity::Undo {
+                actor,
+                target_type,
+                target_id,
+            }
+        }
+        "Add" => {
+            let obj = body
+                .get("object")
+                .ok_or_else(|| CoreError::Federation("missing 'object' field for Add".into()))?;
+            let repo_obj = body
+                .get("target")
+                .ok_or_else(|| CoreError::Federation("missing 'target' for Add review".into()))?;
+            let repo = parse_repo(repo_obj).ok_or_else(|| {
+                CoreError::Federation("invalid target repository for review".into())
+            })?;
+            let review = FederatedPRReview {
+                id: obj
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                pr_id: obj
+                    .get("inReplyTo")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                reviewer: actor.clone(),
+                state: match obj
+                    .get("result")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("pending")
+                {
+                    "approved" => PRReviewState::Approved,
+                    "changesRequested" => PRReviewState::ChangesRequested,
+                    "comment" => PRReviewState::Comment,
+                    _ => PRReviewState::Pending,
+                },
+                body: obj
+                    .get("content")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            };
+            ForgeFedActivity::ReviewPullRequest {
+                actor,
+                repo,
+                review,
+            }
+        }
+        other => {
+            return Err(CoreError::Federation(format!(
+                "unknown activity type: {other}"
+            )));
+        }
+    };
+
+    Ok(activity)
+}
+
 pub async fn inbox(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -234,6 +530,25 @@ pub async fn inbox(
         }
     } else {
         tracing::warn!("no Signature header present, accepting for compatibility");
+    }
+
+    match parse_incoming_activity(&body) {
+        Ok(activity) => {
+            let processor = state.forgefed_processor.clone();
+            tokio::spawn(async move {
+                match processor.process_incoming(activity) {
+                    Ok(outcome) => {
+                        tracing::info!(outcome = ?outcome, "forgefed processing complete");
+                    }
+                    Err(e) => {
+                        tracing::warn!(error = %e, "forgefed processing failed");
+                    }
+                }
+            });
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "failed to parse incoming activity, still accepting");
+        }
     }
 
     let resp = InboxResponse {
@@ -351,9 +666,365 @@ mod tests {
     }
 
     #[test]
-    fn test_federation_routes_type() {
-        fn _assert_routes() -> Router<AppState> {
-            federation_routes()
+    fn test_parse_create_repository() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Repository",
+                "id": "repo-1",
+                "name": "test-repo",
+                "description": "a repo",
+                "attributedTo": "alice",
+                "visibility": "public"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(
+            activity,
+            ForgeFedActivity::CreateRepository { .. }
+        ));
+    }
+
+    #[test]
+    fn test_parse_create_repository_missing_object() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice"
+        });
+        assert!(parse_incoming_activity(&body).is_err());
+    }
+
+    #[test]
+    fn test_parse_create_issue() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Issue",
+                "id": "issue-1",
+                "name": "Bug report",
+                "content": "Something broke",
+                "state": "open"
+            },
+            "target": {
+                "id": "repo-1",
+                "name": "test-repo",
+                "attributedTo": "alice"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::CreateIssue { .. }));
+        if let ForgeFedActivity::CreateIssue { ref issue, .. } = activity {
+            assert_eq!(issue.title, "Bug report");
+            assert_eq!(issue.state, IssueState::Open);
         }
+    }
+
+    #[test]
+    fn test_parse_create_issue_closed_state() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Issue",
+                "id": "issue-2",
+                "name": "Old bug",
+                "content": "Already fixed",
+                "state": "closed"
+            },
+            "target": {
+                "id": "repo-1",
+                "name": "test-repo",
+                "attributedTo": "alice"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        if let ForgeFedActivity::CreateIssue { ref issue, .. } = activity {
+            assert_eq!(issue.state, IssueState::Closed);
+        } else {
+            panic!("expected CreateIssue");
+        }
+    }
+
+    #[test]
+    fn test_parse_create_pull_request() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "PullRequest",
+                "id": "pr-1",
+                "name": "Fix bug",
+                "content": "Fixes issue-1",
+                "sourceBranch": "fix-branch",
+                "targetBranch": "main",
+                "state": "open"
+            },
+            "target": {
+                "id": "repo-1",
+                "name": "test-repo",
+                "attributedTo": "alice"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(
+            activity,
+            ForgeFedActivity::CreatePullRequest { .. }
+        ));
+        if let ForgeFedActivity::CreatePullRequest { ref pr, .. } = activity {
+            assert_eq!(pr.title, "Fix bug");
+            assert_eq!(pr.state, PRState::Open);
+        }
+    }
+
+    #[test]
+    fn test_parse_create_pull_request_merged_state() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "PullRequest",
+                "id": "pr-2",
+                "name": "Merged fix",
+                "content": "done",
+                "sourceBranch": "fix-branch",
+                "targetBranch": "main",
+                "state": "merged"
+            },
+            "target": {
+                "id": "repo-1",
+                "name": "test-repo",
+                "attributedTo": "alice"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        if let ForgeFedActivity::CreatePullRequest { ref pr, .. } = activity {
+            assert_eq!(pr.state, PRState::Merged);
+        } else {
+            panic!("expected CreatePullRequest");
+        }
+    }
+
+    #[test]
+    fn test_parse_fork_repository() {
+        let body = serde_json::json!({
+            "type": "Fork",
+            "actor": "https://other.forge/users/bob",
+            "object": {
+                "id": "repo-1",
+                "name": "original",
+                "attributedTo": "alice"
+            },
+            "target": {
+                "id": "repo-2",
+                "name": "forked",
+                "attributedTo": "bob"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::ForkRepository { .. }));
+    }
+
+    #[test]
+    fn test_parse_like() {
+        let body = serde_json::json!({
+            "type": "Like",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Comment",
+                "id": "comment-1"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::Like { .. }));
+        if let ForgeFedActivity::Like {
+            ref target_type,
+            ref target_id,
+            ..
+        } = activity
+        {
+            assert_eq!(target_type, "Comment");
+            assert_eq!(target_id, "comment-1");
+        }
+    }
+
+    #[test]
+    fn test_parse_follow() {
+        let body = serde_json::json!({
+            "type": "Follow",
+            "actor": "https://other.forge/users/alice",
+            "object": "https://forge.example.com/users/bob"
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::FollowUser { .. }));
+        if let ForgeFedActivity::FollowUser { ref target, .. } = activity {
+            assert_eq!(target, "https://forge.example.com/users/bob");
+        }
+    }
+
+    #[test]
+    fn test_parse_accept() {
+        let body = serde_json::json!({
+            "type": "Accept",
+            "actor": "https://forge.example.com/users/bob",
+            "object": "https://other.forge/users/alice"
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::Accept { .. }));
+    }
+
+    #[test]
+    fn test_parse_reject() {
+        let body = serde_json::json!({
+            "type": "Reject",
+            "actor": "https://forge.example.com/users/bob",
+            "object": "https://other.forge/users/alice"
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::Reject { .. }));
+    }
+
+    #[test]
+    fn test_parse_undo() {
+        let body = serde_json::json!({
+            "type": "Undo",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Like",
+                "id": "comment-1"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(activity, ForgeFedActivity::Undo { .. }));
+        if let ForgeFedActivity::Undo {
+            ref target_type,
+            ref target_id,
+            ..
+        } = activity
+        {
+            assert_eq!(target_type, "Like");
+            assert_eq!(target_id, "comment-1");
+        }
+    }
+
+    #[test]
+    fn test_parse_add_review() {
+        let body = serde_json::json!({
+            "type": "Add",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Review",
+                "id": "rev-1",
+                "inReplyTo": "pr-1",
+                "result": "approved",
+                "content": "LGTM"
+            },
+            "target": {
+                "id": "repo-1",
+                "name": "test-repo",
+                "attributedTo": "alice"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        assert!(matches!(
+            activity,
+            ForgeFedActivity::ReviewPullRequest { .. }
+        ));
+        if let ForgeFedActivity::ReviewPullRequest { ref review, .. } = activity {
+            assert_eq!(review.state, PRReviewState::Approved);
+            assert_eq!(review.pr_id, "pr-1");
+        }
+    }
+
+    #[test]
+    fn test_parse_add_review_changes_requested() {
+        let body = serde_json::json!({
+            "type": "Add",
+            "actor": "https://other.forge/users/alice",
+            "object": {
+                "type": "Review",
+                "id": "rev-2",
+                "inReplyTo": "pr-2",
+                "result": "changesRequested",
+                "content": "needs work"
+            },
+            "target": {
+                "id": "repo-1",
+                "name": "test-repo",
+                "attributedTo": "alice"
+            }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        if let ForgeFedActivity::ReviewPullRequest { ref review, .. } = activity {
+            assert_eq!(review.state, PRReviewState::ChangesRequested);
+        } else {
+            panic!("expected ReviewPullRequest");
+        }
+    }
+
+    #[test]
+    fn test_parse_unknown_type() {
+        let body = serde_json::json!({
+            "type": "Delete",
+            "actor": "https://other.forge/users/alice",
+            "object": { "id": "x" }
+        });
+        let err = parse_incoming_activity(&body).unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("unknown activity type"));
+    }
+
+    #[test]
+    fn test_parse_create_unknown_object_type() {
+        let body = serde_json::json!({
+            "type": "Create",
+            "actor": "https://other.forge/users/alice",
+            "object": { "type": "Note", "id": "note-1" }
+        });
+        let err = parse_incoming_activity(&body).unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("unknown Create object type"));
+    }
+
+    #[test]
+    fn test_parse_missing_type_field() {
+        let body = serde_json::json!({
+            "actor": "https://other.forge/users/alice"
+        });
+        assert!(parse_incoming_activity(&body).is_err());
+    }
+
+    #[test]
+    fn test_parse_missing_actor_defaults_empty() {
+        let body = serde_json::json!({
+            "type": "Like",
+            "object": { "type": "Comment", "id": "c1" }
+        });
+        let activity = parse_incoming_activity(&body).unwrap();
+        if let ForgeFedActivity::Like { ref actor, .. } = activity {
+            assert_eq!(actor, "");
+        } else {
+            panic!("expected Like");
+        }
+    }
+
+    #[test]
+    fn test_parse_fork_missing_target() {
+        let body = serde_json::json!({
+            "type": "Fork",
+            "actor": "alice",
+            "object": { "id": "r1", "name": "orig", "attributedTo": "a" }
+        });
+        assert!(parse_incoming_activity(&body).is_err());
+    }
+
+    #[test]
+    fn test_parse_undo_missing_object() {
+        let body = serde_json::json!({
+            "type": "Undo",
+            "actor": "alice"
+        });
+        assert!(parse_incoming_activity(&body).is_err());
     }
 }

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { chromium } from 'playwright';
-import { ErrorCapture } from './debug-capture.m.js';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
+
+// Dynamic import to work around Node 26 static ESM resolution bug
+const { ErrorCapture } = await import('./debug-capture.mjs');
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

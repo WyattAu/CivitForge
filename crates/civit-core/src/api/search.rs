@@ -2,6 +2,7 @@
 
 use crate::api::AppState;
 use crate::error::CoreError;
+use crate::search::tantivy_index::SearchHit as TantivySearchHit;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
@@ -41,6 +42,35 @@ fn default_per_page() -> i64 {
     30
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct CodeSearchParams {
+    pub q: Option<String>,
+    pub repo: Option<String>,
+    pub lang: Option<String>,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+    #[serde(default = "default_offset")]
+    pub offset: usize,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct RepoCodeSearchParams {
+    pub q: Option<String>,
+    pub lang: Option<String>,
+    #[serde(default = "default_limit")]
+    pub limit: usize,
+    #[serde(default = "default_offset")]
+    pub offset: usize,
+}
+
+fn default_limit() -> usize {
+    30
+}
+
+fn default_offset() -> usize {
+    0
+}
+
 // ---------------------------------------------------------------------------
 // Response structs
 // ---------------------------------------------------------------------------
@@ -64,6 +94,20 @@ struct SearchEnvelope {
 #[derive(Debug, Serialize)]
 struct LanguagesResponse {
     pub languages: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct CodeSearchResponse {
+    pub results: Vec<TantivySearchHit>,
+    pub query: String,
+    pub limit: usize,
+    pub offset: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct IndexTriggerResponse {
+    pub status: String,
+    pub message: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -404,18 +448,132 @@ pub async fn list_repo_search_languages(
 }
 
 // ---------------------------------------------------------------------------
+// 4. GET /api/v1/search/code — global Tantivy code search
+// ---------------------------------------------------------------------------
+
+pub async fn global_code_search(
+    State(state): State<AppState>,
+    Query(params): Query<CodeSearchParams>,
+) -> impl IntoResponse {
+    let q = match &params.q {
+        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
+        _ => {
+            return err_response(StatusCode::BAD_REQUEST, "query parameter 'q' is required");
+        }
+    };
+
+    let limit = params.limit.min(100);
+    let offset = params.offset;
+
+    let idx = state.code_search_index.read().await;
+    match idx.search_global(&q, limit, offset) {
+        Ok(results) => (
+            StatusCode::OK,
+            Json(CodeSearchResponse {
+                results,
+                query: q,
+                limit,
+                offset,
+            }),
+        )
+            .into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 5. GET /api/v1/repos/{owner}/{name}/search/code — repo-scoped Tantivy code search
+// ---------------------------------------------------------------------------
+
+pub async fn repo_code_search(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    Query(params): Query<RepoCodeSearchParams>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let q = match &params.q {
+        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
+        _ => {
+            return err_response(StatusCode::BAD_REQUEST, "query parameter 'q' is required");
+        }
+    };
+
+    let limit = params.limit.min(100);
+    let offset = params.offset;
+    let repo_id_str = repo_id.to_string();
+
+    let idx = state.code_search_index.read().await;
+    match idx.search(
+        &q,
+        Some(&repo_id_str),
+        params.lang.as_deref(),
+        limit,
+        offset,
+    ) {
+        Ok(results) => (
+            StatusCode::OK,
+            Json(CodeSearchResponse {
+                results,
+                query: q,
+                limit,
+                offset,
+            }),
+        )
+            .into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 6. POST /api/v1/repos/{owner}/{name}/search/index — trigger re-index
+// ---------------------------------------------------------------------------
+
+pub async fn trigger_repo_index(
+    State(_state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+) -> impl IntoResponse {
+    (
+        StatusCode::ACCEPTED,
+        Json(IndexTriggerResponse {
+            status: "queued".to_string(),
+            message: format!("re-index for {owner}/{name} queued (placeholder)"),
+        }),
+    )
+        .into_response()
+}
+
+// ---------------------------------------------------------------------------
 // Route builder
 // ---------------------------------------------------------------------------
 
 pub fn search_routes() -> axum::Router<AppState> {
-    use axum::routing::get;
+    use axum::routing::{get, post};
 
     axum::Router::new()
         .route("/api/v1/search", get(global_search))
+        .route("/api/v1/search/code", get(global_code_search))
         .route("/api/v1/repos/{owner}/{name}/search", get(repo_search))
+        .route(
+            "/api/v1/repos/{owner}/{name}/search/code",
+            get(repo_code_search),
+        )
         .route(
             "/api/v1/repos/{owner}/{name}/search/languages",
             get(list_repo_search_languages),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/search/index",
+            post(trigger_repo_index),
         )
 }
 
@@ -514,5 +672,53 @@ mod tests {
         let p: RepoSearchParams =
             serde_json::from_str(r#"{"q":"test","language":"python"}"#).unwrap();
         assert_eq!(p.language.as_deref(), Some("python"));
+    }
+
+    #[test]
+    fn test_code_search_params_default() {
+        let p: CodeSearchParams = serde_json::from_str("{}").unwrap();
+        assert!(p.q.is_none());
+        assert!(p.repo.is_none());
+        assert!(p.lang.is_none());
+        assert_eq!(p.limit, 30);
+        assert_eq!(p.offset, 0);
+    }
+
+    #[test]
+    fn test_code_search_params_with_values() {
+        let p: CodeSearchParams = serde_json::from_str(
+            r#"{"q":"fn main","repo":"acme/repo","lang":"rust","limit":10,"offset":5}"#,
+        )
+        .unwrap();
+        assert_eq!(p.q.as_deref(), Some("fn main"));
+        assert_eq!(p.repo.as_deref(), Some("acme/repo"));
+        assert_eq!(p.lang.as_deref(), Some("rust"));
+        assert_eq!(p.limit, 10);
+        assert_eq!(p.offset, 5);
+    }
+
+    #[test]
+    fn test_repo_code_search_params_default() {
+        let p: RepoCodeSearchParams = serde_json::from_str("{}").unwrap();
+        assert!(p.q.is_none());
+        assert!(p.lang.is_none());
+        assert_eq!(p.limit, 30);
+        assert_eq!(p.offset, 0);
+    }
+
+    #[test]
+    fn test_repo_code_search_params_with_values() {
+        let p: RepoCodeSearchParams =
+            serde_json::from_str(r#"{"q":"impl","lang":"go","limit":50,"offset":10}"#).unwrap();
+        assert_eq!(p.q.as_deref(), Some("impl"));
+        assert_eq!(p.lang.as_deref(), Some("go"));
+        assert_eq!(p.limit, 50);
+        assert_eq!(p.offset, 10);
+    }
+
+    #[test]
+    fn test_tantivy_routes_compile() {
+        let router = search_routes();
+        let _ = router;
     }
 }

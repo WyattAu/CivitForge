@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::events::bus::EventBus;
+use crate::events::log_stream::{LogStreamEvent, PipelineStatusEvent};
 use crate::events::model::{Event, EventCategory, EventPayload, PresenceAction};
 use axum::{
     extract::State,
@@ -23,6 +24,8 @@ pub enum WsCommand {
     Subscribe { topic: String },
     #[serde(rename = "unsubscribe")]
     Unsubscribe { topic: String },
+    #[serde(rename = "subscribe_pipeline")]
+    SubscribePipeline { pipeline_id: String },
     #[serde(rename = "ping")]
     Ping,
     #[serde(rename = "presence")]
@@ -327,6 +330,46 @@ impl WebSocketManager {
         }
     }
 
+    pub fn broadcast_pipeline_log(&self, event: &LogStreamEvent) {
+        let topic = format!("pipeline:{}", event.pipeline_id);
+        let msg = match serde_json::to_string(event) {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        tracing::debug!(pipeline_id = %event.pipeline_id, step_index = event.step_index, "broadcasting pipeline log via websocket");
+        let mut stale_ids: Vec<Uuid> = Vec::new();
+        for conn in self.connections.iter_mut() {
+            if (conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global"))
+                && !conn.send(&msg)
+            {
+                stale_ids.push(conn.id);
+            }
+        }
+        for id in stale_ids {
+            self.connections.remove(&id);
+        }
+    }
+
+    pub fn broadcast_pipeline_status(&self, event: &PipelineStatusEvent) {
+        let topic = format!("pipeline:{}", event.pipeline_id);
+        let msg = match serde_json::to_string(event) {
+            Ok(m) => m,
+            Err(_) => return,
+        };
+        tracing::debug!(pipeline_id = %event.pipeline_id, status = %event.status, "broadcasting pipeline status via websocket");
+        let mut stale_ids: Vec<Uuid> = Vec::new();
+        for conn in self.connections.iter_mut() {
+            if (conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global"))
+                && !conn.send(&msg)
+            {
+                stale_ids.push(conn.id);
+            }
+        }
+        for id in stale_ids {
+            self.connections.remove(&id);
+        }
+    }
+
     fn extract_repo_id<'a>(&self, event: &'a Event) -> Option<&'a str> {
         use crate::events::model::EventPayload;
         match &event.payload {
@@ -382,6 +425,10 @@ async fn handle_socket(socket: WebSocket, manager: Arc<RwLock<WebSocketManager>>
                     }
                     WsCommand::Unsubscribe { topic } => {
                         mgr.unsubscribe(cid, &topic);
+                    }
+                    WsCommand::SubscribePipeline { pipeline_id } => {
+                        let topic = format!("pipeline:{pipeline_id}");
+                        mgr.subscribe(cid, &topic);
                     }
                     WsCommand::Ping => {
                         mgr.subscribe(cid, "global");
@@ -754,5 +801,117 @@ mod tests {
 
         // Dead connection should be cleaned up
         assert_eq!(mgr.active_count(), 0);
+    }
+
+    #[test]
+    fn subscribe_pipeline_command_deserialization() {
+        let cmd: WsCommand =
+            serde_json::from_str(r#"{"type":"subscribe_pipeline","pipeline_id":"pipe-42"}"#)
+                .unwrap();
+        match cmd {
+            WsCommand::SubscribePipeline { pipeline_id } => {
+                assert_eq!(pipeline_id, "pipe-42");
+            }
+            _ => panic!("expected SubscribePipeline"),
+        }
+    }
+
+    #[test]
+    fn broadcast_pipeline_log_to_subscribed_connection() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let id = mgr.register_with_channel(None, tx);
+        mgr.subscribe(id, "pipeline:pipe-1");
+
+        let event = LogStreamEvent {
+            pipeline_id: "pipe-1".to_string(),
+            step_index: 0,
+            step_name: "build".to_string(),
+            log_line: "compiling...".to_string(),
+            timestamp: chrono::Utc::now(),
+            is_error: false,
+        };
+        mgr.broadcast_pipeline_log(&event);
+
+        let received = rx.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
+        assert_eq!(parsed["pipeline_id"], "pipe-1");
+        assert_eq!(parsed["log_line"], "compiling...");
+    }
+
+    #[test]
+    fn broadcast_pipeline_status_to_subscribed_connection() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let id = mgr.register_with_channel(None, tx);
+        mgr.subscribe(id, "pipeline:pipe-2");
+
+        let event = PipelineStatusEvent {
+            pipeline_id: "pipe-2".to_string(),
+            status: "success".to_string(),
+            step_index: Some(1),
+            step_name: Some("test".to_string()),
+            message: "all tests passed".to_string(),
+            timestamp: chrono::Utc::now(),
+        };
+        mgr.broadcast_pipeline_status(&event);
+
+        let received = rx.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
+        assert_eq!(parsed["pipeline_id"], "pipe-2");
+        assert_eq!(parsed["status"], "success");
+    }
+
+    #[test]
+    fn pipeline_log_not_sent_to_unsubscribed_connection() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx1, mut rx1) = mpsc::unbounded_channel::<String>();
+        let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
+        let id1 = mgr.register_with_channel(None, tx1);
+        let _id2 = mgr.register_with_channel(None, tx2);
+        mgr.subscribe(id1, "pipeline:pipe-3");
+
+        let event = LogStreamEvent {
+            pipeline_id: "pipe-3".to_string(),
+            step_index: 0,
+            step_name: "deploy".to_string(),
+            log_line: "deploying...".to_string(),
+            timestamp: chrono::Utc::now(),
+            is_error: false,
+        };
+        mgr.broadcast_pipeline_log(&event);
+
+        assert!(rx1.try_recv().is_ok());
+        assert!(rx2.try_recv().is_err());
+    }
+
+    #[test]
+    fn pipeline_log_sent_to_global_subscriber() {
+        let bus = make_bus();
+        let mgr = WebSocketManager::new(bus);
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let id = mgr.register_with_channel(None, tx);
+        mgr.subscribe(id, "global");
+
+        let event = LogStreamEvent {
+            pipeline_id: "pipe-99".to_string(),
+            step_index: 0,
+            step_name: "build".to_string(),
+            log_line: "global recv test".to_string(),
+            timestamp: chrono::Utc::now(),
+            is_error: false,
+        };
+        mgr.broadcast_pipeline_log(&event);
+
+        let received = rx.try_recv().unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
+        assert_eq!(parsed["log_line"], "global recv test");
     }
 }

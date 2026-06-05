@@ -15,6 +15,7 @@ pub mod oci;
 pub mod openapi_handler;
 pub mod orgs;
 pub mod password;
+pub mod pipeline_log_stream;
 pub mod pipelines;
 pub mod repos;
 pub mod runners;
@@ -26,8 +27,11 @@ pub mod wiki;
 use crate::config::AppConfig;
 use crate::db::DbRepository;
 use crate::error::Result;
+use crate::federation::ForgeFedProcessor;
 use crate::middleware::csrf::csrf_middleware;
 use crate::middleware::rate_limit::{RateLimitConfig, RateLimiter, rate_limit_middleware};
+use crate::search::tantivy_index::CodeSearchIndex;
+use crate::wiki::WikiGitBackend;
 use axum::Router;
 use axum::extract::State;
 use axum::extract::ws::WebSocketUpgrade;
@@ -38,6 +42,7 @@ use axum::routing::{delete, get, post};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::RwLock;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
@@ -67,6 +72,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/ready", get(health))
         .route("/api/v1/health", get(health))
         .route("/api/v1/ws", get(ws_handler))
+        .merge(pipeline_log_stream::log_stream_routes())
         .route("/api/v1/auth/login", post(auth_routes::login))
         .route("/api/v1/auth/me", get(auth_routes::me))
         .route("/api/v1/auth/refresh", post(auth_routes::refresh))
@@ -217,8 +223,12 @@ pub struct AppState {
     pub jwt_service: Arc<crate::auth::jwt::JwtService>,
     pub event_bus: Arc<crate::events::EventBus>,
     pub ws_manager: Arc<tokio::sync::RwLock<crate::events::WebSocketManager>>,
+    pub log_broadcaster: Arc<crate::events::LogBroadcaster>,
     pub session_manager: Arc<crate::db::SessionManager>,
     pub git_service: Arc<crate::git::GitService>,
+    pub forgefed_processor: Arc<ForgeFedProcessor>,
+    pub code_search_index: Arc<RwLock<CodeSearchIndex>>,
+    pub wiki_git: Arc<WikiGitBackend>,
 }
 
 impl AppState {
@@ -231,6 +241,7 @@ impl AppState {
         let ws_manager = Arc::new(tokio::sync::RwLock::new(
             crate::events::WebSocketManager::new(event_bus.clone()),
         ));
+        let log_broadcaster = Arc::new(crate::events::LogBroadcaster::new(1024));
         let session_manager = Arc::new(crate::db::SessionManager::new(
             db.clone(),
             std::time::Duration::from_secs(config.jwt_expiry_hours * 3600),
@@ -238,14 +249,51 @@ impl AppState {
         let git_service = Arc::new(crate::git::GitService::new(std::path::PathBuf::from(
             &config.storage_path,
         )));
+        let forgefed_processor = Arc::new(ForgeFedProcessor::new(
+            config.federation_instance_domain.clone(),
+            config.federation_instance_id.clone(),
+        ));
+
+        let tantivy_path = std::path::Path::new(&config.storage_path).join("tantivy-index");
+        let code_search_index = match CodeSearchIndex::new(&tantivy_path) {
+            Ok(idx) => Arc::new(RwLock::new(idx)),
+            Err(e) => {
+                tracing::warn!(
+                    "failed to open tantivy code search index at {tantivy_path:?}: {e}, using in-memory index"
+                );
+                match CodeSearchIndex::new_in_memory() {
+                    Ok(idx) => Arc::new(RwLock::new(idx)),
+                    Err(e) => {
+                        tracing::error!("failed to create in-memory tantivy index: {e}");
+                        panic!("could not initialize tantivy search index: {e}");
+                    }
+                }
+            }
+        };
+
+        let wiki_git_path = std::path::Path::new(&config.storage_path).join("wikis");
+        let wiki_git = match WikiGitBackend::new(wiki_git_path) {
+            Ok(b) => Arc::new(b),
+            Err(e) => {
+                tracing::warn!("failed to init wiki git backend: {e}");
+                Arc::new(
+                    WikiGitBackend::new(tempfile::tempdir().unwrap().path().to_path_buf()).unwrap(),
+                )
+            }
+        };
+
         Self {
             config,
             db: DbRepository::new(db),
             jwt_service,
             event_bus,
             ws_manager,
+            log_broadcaster,
             session_manager,
             git_service,
+            forgefed_processor,
+            code_search_index,
+            wiki_git,
         }
     }
 }

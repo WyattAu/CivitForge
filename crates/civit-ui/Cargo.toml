@@ -27,13 +27,28 @@ web-sys = { version = "0.3", optional = true, features = [
   "Node",
   "Element",
   "Event",
+  "EventTarget",
   "Location",
   "Storage",
+  "Text",
+  "HtmlDivElement",
+  "HtmlParagraphElement",
+  "HtmlSpanElement",
+  "HtmlAnchorElement",
+  "HtmlButtonElement",
+  "HtmlFormElement",
+  "HtmlHeadElement",
+  "HtmlScriptElement",
+  "Performance",
+  "History",
 ] }
 js-sys = { version = "0.3", optional = true }
 civit-shared = { path = "../civit-shared" }
 reqwest = { workspace = true, features = ["json"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
 
 [features]
 default = ["csr"]

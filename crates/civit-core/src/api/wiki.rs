@@ -3,11 +3,13 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
+use crate::wiki::{SavePageParams, WikiGitBackend};
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // Query / request param structs
@@ -135,6 +137,42 @@ fn internal_err(msg: &str) -> axum::response::Response {
         Json(CoreError::Database(msg.to_string()).error_response()),
     )
         .into_response()
+}
+
+fn sync_to_git(
+    wiki_git: &Arc<WikiGitBackend>,
+    repo_id: &uuid::Uuid,
+    slug: &str,
+    title: &str,
+    content: &str,
+) {
+    let repo_id_str = repo_id.to_string();
+    if let Err(e) = wiki_git.save_page(
+        &repo_id_str,
+        SavePageParams {
+            slug,
+            title,
+            content,
+            author: "civit-system",
+            email: "system@civit.local",
+            message: "wiki update",
+        },
+    ) {
+        tracing::warn!("wiki git sync failed for {slug}: {e}");
+    }
+}
+
+fn sync_delete_to_git(wiki_git: &Arc<WikiGitBackend>, repo_id: &uuid::Uuid, slug: &str) {
+    let repo_id_str = repo_id.to_string();
+    if let Err(e) = wiki_git.delete_page(
+        &repo_id_str,
+        slug,
+        "civit-system",
+        "system@civit.local",
+        "wiki delete",
+    ) {
+        tracing::warn!("wiki git delete sync failed for {slug}: {e}");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -415,7 +453,10 @@ pub async fn create_wiki_page(
     .fetch_one(pool)
     .await
     {
-        Ok(page) => (StatusCode::CREATED, Json(page)).into_response(),
+        Ok(page) => {
+            sync_to_git(&state.wiki_git, &repo_id, &slug, &req.title, &req.content);
+            (StatusCode::CREATED, Json(page)).into_response()
+        }
         Err(e) => internal_err(&e.to_string()),
     }
 }
@@ -447,7 +488,16 @@ pub async fn get_wiki_page(
     .fetch_optional(pool)
     .await
     {
-        Ok(Some(page)) => (StatusCode::OK, Json(page)).into_response(),
+        Ok(Some(mut page)) => {
+            let repo_id_str = repo_id.to_string();
+            if let Ok(Some((git_content, git_sha))) =
+                state.wiki_git.get_page(&repo_id_str, &slug)
+            {
+                page.content = git_content;
+                page.latest_commit = git_sha;
+            }
+            (StatusCode::OK, Json(page)).into_response()
+        }
         Ok(None) => err_response(
             StatusCode::NOT_FOUND,
             &format!("wiki page '{slug}' not found"),
@@ -525,6 +575,8 @@ pub async fn update_wiki_page(
     .execute(pool)
     .await;
 
+    sync_to_git(&state.wiki_git, &repo_id, &slug, title, content);
+
     (StatusCode::OK, Json(row)).into_response()
 }
 
@@ -559,7 +611,10 @@ pub async fn delete_wiki_page(
             StatusCode::NOT_FOUND,
             &format!("wiki page '{slug}' not found"),
         ),
-        Ok(_) => (StatusCode::NO_CONTENT, ()).into_response(),
+        Ok(_) => {
+            sync_delete_to_git(&state.wiki_git, &repo_id, &slug);
+            (StatusCode::NO_CONTENT, ()).into_response()
+        }
         Err(e) => internal_err(&e.to_string()),
     }
 }
@@ -600,6 +655,29 @@ pub async fn wiki_page_history(
         }
         Err(e) => return internal_err(&e.to_string()),
     };
+
+    let repo_id_str = repo_id.to_string();
+    let git_history = state
+        .wiki_git
+        .get_page_history(&repo_id_str, &slug)
+        .unwrap_or_default();
+
+    if !git_history.is_empty() {
+        let git_revisions: Vec<WikiRevisionResponse> = git_history
+            .into_iter()
+            .map(|rev| WikiRevisionResponse {
+                id: uuid::Uuid::nil(),
+                page_id,
+                commit_sha: rev.sha,
+                author_id: uuid::Uuid::nil(),
+                edit_message: rev.message,
+                created_at: chrono::DateTime::parse_from_rfc3339(&rev.timestamp)
+                    .map(|dt| dt.with_timezone(&chrono::Utc))
+                    .unwrap_or_else(|_| chrono::Utc::now()),
+            })
+            .collect();
+        return (StatusCode::OK, Json(git_revisions)).into_response();
+    }
 
     match sqlx::query_as::<_, WikiRevisionResponse>(
         "SELECT id, page_id, commit_sha, author_id, edit_message, created_at FROM wiki_revisions WHERE page_id = $1 ORDER BY created_at DESC",
@@ -663,6 +741,17 @@ pub async fn wiki_page_diff(
             return err_response(StatusCode::BAD_REQUEST, "sha2 query param is required");
         }
     };
+
+    let repo_id_str = repo_id.to_string();
+    let git_diff = state.wiki_git.get_diff(&repo_id_str, &slug, &sha1, &sha2);
+    if let Ok(diff) = git_diff {
+        let diff_response = DiffResponse {
+            sha1: sha1.clone(),
+            sha2: sha2.clone(),
+            diff,
+        };
+        return (StatusCode::OK, Json(diff_response)).into_response();
+    }
 
     let rev1_content: String = match sqlx::query_scalar::<_, Option<String>>(
         "SELECT content_snapshot FROM wiki_revisions WHERE page_id = $1 AND commit_sha = $2",

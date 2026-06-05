@@ -29,6 +29,7 @@ pub mod release;
 pub mod release_manager;
 pub mod runner;
 pub mod scaling;
+pub mod search;
 pub mod secrets;
 pub mod shutdown;
 pub mod ssh;
@@ -36,6 +37,7 @@ pub mod storage;
 pub mod telemetry;
 pub mod vuln_scanner;
 pub mod webhook;
+pub mod wiki;
 
 pub use config::AppConfig;
 pub use db::{DatabasePool, DbRepository};

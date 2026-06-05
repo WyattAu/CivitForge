@@ -26,6 +26,8 @@ pub const M_023_WIKI_FK_UP: &str = include_str!("023_drop_wiki_created_by_fk.sql
 pub const M_023_WIKI_FK_DOWN: &str = include_str!("024_drop_wiki_created_by_fk_down.sql");
 pub const M_025_ACTIVITY_FED_UP: &str = include_str!("025_add_activity_federation.sql");
 pub const M_025_ACTIVITY_FED_DOWN: &str = include_str!("026_add_activity_federation_down.sql");
+pub const M_027_WIKI_GIT_UP: &str = include_str!("027_add_wiki_git_enabled.sql");
+pub const M_027_WIKI_GIT_DOWN: &str = include_str!("028_add_wiki_git_enabled_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -128,6 +130,12 @@ impl MigrationManager {
             up_sql: M_025_ACTIVITY_FED_UP.into(),
             down_sql: M_025_ACTIVITY_FED_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 27,
+            name: "add_wiki_git_enabled".into(),
+            up_sql: M_027_WIKI_GIT_UP.into(),
+            down_sql: M_027_WIKI_GIT_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -169,7 +177,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 13);
+        assert_eq!(mgr.all().len(), 14);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -196,19 +204,21 @@ mod tests {
         assert_eq!(mgr.all()[11].name, "drop_wiki_created_by_fk");
         assert_eq!(mgr.all()[12].version, 25);
         assert_eq!(mgr.all()[12].name, "add_activity_federation");
+        assert_eq!(mgr.all()[13].version, 27);
+        assert_eq!(mgr.all()[13].name, "add_wiki_git_enabled");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 27,
+            version: 29,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 14);
-        assert_eq!(mgr.all()[13].version, 27);
+        assert_eq!(mgr.all().len(), 15);
+        assert_eq!(mgr.all()[14].version, 29);
     }
 
     #[test]
@@ -227,21 +237,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 13);
+        assert_eq!(pending.len(), 14);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(25);
-        assert!(pending.is_empty());
+        assert_eq!(pending.len(), 1);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 12);
+        assert_eq!(pending.len(), 13);
     }
 
     #[test]

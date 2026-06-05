@@ -5,6 +5,31 @@ Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-06-05
+
+### Added
+
+- **Federation inbox ForgeFed dispatch** — inbox handler now parses ActivityPub JSON into `ForgeFedActivity` enum variants (12 types: Create/Fork/Star/Follow, Issue/PR/Review/Comment, Like/Accept/Reject/Undo), spawns `ForgeFedProcessor::process_incoming()` asynchronously via `tokio::spawn`
+- **ActivityPub-to-ForgeFed parser** — `parse_incoming_activity()` maps ActivityPub `type` field + `object` structure to typed `ForgeFedActivity` variants with field extraction and validation
+- **WASM rendering tests** (`civit-ui::wasm_tests`) — 34 `wasm-bindgen-test` tests gated on `cfg(all(target_arch = "wasm32", feature = "csr"))`: DOM element creation, text content, class manipulation, styling, form values, query selectors, event listeners, UUID generation, chrono UTC roundtrip, panic hook, serde_json, localStorage, URL parsing, cookies, performance.now, requestAnimationFrame, history API, window location, leptos signal get/set
+- **Real-time WebSocket log streaming** — `LogBroadcaster` with dual `tokio::broadcast` channels (log lines + pipeline status events)
+- **SSE log stream endpoint** — `GET /api/v1/pipelines/{id}/logs/stream` using `axum::response::sse::Sse` with KeepAlive and pipeline-ID filtering
+- **WebSocket pipeline topic subscriptions** — `WsCommand::SubscribePipeline` for `pipeline:{id}` topic, `broadcast_pipeline_log()` and `broadcast_pipeline_status()` methods
+- **Tantivy code search** — `CodeSearchIndex` with full-text search (Tantivy 0.22), in-memory or file-backed, fuzzy queries, code-aware tokenization (splits on non-alphanumeric), repo/language filters, snippet truncation
+- **Tantivy search API** — `GET /api/v1/search/code` (global) and `GET /api/v1/repos/{owner}/{name}/search/code` (repo-scoped)
+- **Git-backed wiki storage** — `WikiGitBackend` using gix 0.70 bare repos: save/read/delete/list pages, commit history, diff between versions, content search, multi-repo isolation
+- **Wiki git integration** — wiki API syncs to git on create/update/delete, git-first read strategy, git-based history and diff endpoints
+- **Migration 027** — `wiki_pages.git_synced` and `wiki_revisions.is_git_commit` columns
+- **`ForgeFedProcessor` in `AppState`** — initialized with federation domain/instance config
+
+### Fixed
+
+- **Tantivy reader reload** — `IndexReader::reload()` after every commit to ensure search index visibility
+- **Tantivy BooleanQuery filter semantics** — content terms wrapped in inner Must BooleanQuery when repo/language filters present; code-aware sub-term splitting uses Must for multi-token identifiers
+- **Tantivy content snippet truncation** — properly truncates to 200 chars + "..." instead of full content + "..."
+- **E2E traverse.mjs Node 26 compatibility** — dynamic import for `debug-capture.mjs` workaround for Node 26 static ESM resolution bug
+- **E2E benchmark.mjs health endpoint** — fixed path from `/health` to `/api/v1/health`; auth-required endpoints gracefully skipped
+
 ## [2.0.0] - 2026-06-04
 
 ### Added

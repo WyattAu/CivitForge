@@ -1,39 +1,42 @@
 # CivitForge Version Tracker
 
-Version: 2.0.0
-Last Updated: 2026-06-04
-Tests: 2,953 passing
+Version: 2.1.0
+Last Updated: 2026-06-05
+Tests: 3,076 passing
 Clippy: 0 warnings
 
 ## Artifact Summary
 
-- Rust source files: 310+
-- Rust lines of code: ~120,000
+- Rust source files: 320+
+- Rust lines of code: ~125,000
 - Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
 - Cargo standalone crates: 1 (civit-desktop, buildable separately)
-- Unit tests passing: 2,953
+- Unit tests passing: 3,076
 - Clippy warnings: 0
 - Format violations: 0
 - `#![forbid(unsafe_code)`: Enforced across all crates
-- API endpoints: ~80 routes (debug gated by --debug flag)
-- Migrations: 001-025 (odd-numbered)
+- API endpoints: ~85 routes (debug gated by --debug flag)
+- Migrations: 001-027 (odd-numbered)
 - OpenAPI: v3.1 spec at /api/v1/openapi.json
 - WASM: 2.8MB WASM + 54KB JS (trunk build)
+- WASM rendering tests: 34 tests (wasm-bindgen-test, gated on wasm32+csr)
 - Rust edition: 2024
 - MSRV: 1.88
 - E2E tests: Playwright (15 pages, all buttons/forms, benchmarks)
-- Desktop: Tauri 2 (buildable, system deps required)- Rust lines of code: ~115,000
-- Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
-- Cargo standalone crates: 1 (civit-desktop, not in workspace)
-- Unit tests passing: 2,953
-- Clippy warnings: 0
-- Format violations: 0
-- `#![forbid(unsafe_code)`: Enforced across all crates
-- API endpoints: ~80 routes (including debug/diagnostics)
-- Migrations: 001-025 (odd-numbered)
-- OpenAPI: v3.1 spec at /api/v1/openapi.json
-- Rust edition: 2024
-- MSRV: 1.88
+- Desktop: Tauri 2 (buildable, system deps required)
+- Code search: Tantivy 0.22 (full-text with fuzzy, code-aware tokenization)
+- Wiki: Git-backed via gix (bare repos with commit history)
+
+## v2.1.0 Changes
+
+- Federation inbox ForgeFed dispatch (parse ActivityPub JSON → ForgeFedProcessor, tokio::spawn)
+- 19 new federation inbox parsing tests
+- WASM rendering tests via wasm-bindgen-test (34 tests, DOM/events/leptos signals)
+- Real-time WebSocket log streaming (LogBroadcaster, SSE endpoint, pipeline topic subscriptions)
+- Tantivy code search (in-memory/file-backed index, fuzzy, code-aware tokenization, repo/language filters)
+- Git-backed wiki storage (gix bare repos, commit history, page CRUD, diff, search)
+- Migration 027: wiki git_synced/is_git_commit columns
+- E2E traversal fix for Node 26 module resolution
 
 ## v2.0.0 Changes
 
@@ -60,11 +63,13 @@ Clippy: 0 warnings
 - v1.4.0
 - v1.5.0
 - v2.0.0
+- v2.1.0
 
 ## Next
 
-- WASM rendering tests via wasm-bindgen-test
-- Implement HTTP signature validation in federation inbox
-- Real-time WebSocket log streaming
-- Tantivy code search upgrade
-- Git-backed wiki storage
+- Tantivy index population triggered by git push hooks
+- Federation inbox outbound delivery (post-processing → ActivityPub delivery)
+- Real-time WebSocket log streaming from runner event bus
+- WebAuthn ES-256/RS256 authentication
+- Project boards / Kanban
+- Merge queue with status checks

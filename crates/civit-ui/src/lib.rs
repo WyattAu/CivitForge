@@ -12,6 +12,9 @@ pub use app::*;
 pub use components::*;
 pub use leptos::prelude::*;
 
+#[cfg(all(test, target_arch = "wasm32", feature = "csr"))]
+mod wasm_tests;
+
 #[cfg(feature = "csr")]
 #[wasm_bindgen::prelude::wasm_bindgen(start)]
 pub fn main() {

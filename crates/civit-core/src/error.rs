@@ -37,6 +37,9 @@ pub enum CoreError {
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("search error: {0}")]
+    Search(String),
 }
 
 #[derive(serde::Serialize)]
@@ -58,6 +61,7 @@ impl CoreError {
             Self::Json(_) => StatusCode::BAD_REQUEST,
             Self::Jwt(_) => StatusCode::UNAUTHORIZED,
             Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::Search(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 
@@ -81,6 +85,10 @@ impl CoreError {
             }
             Self::Git(msg) => {
                 tracing::warn!("git error: {msg}");
+                "internal server error".to_string()
+            }
+            Self::Search(msg) => {
+                tracing::warn!("search error: {msg}");
                 "internal server error".to_string()
             }
             other => other.to_string(),

@@ -43,8 +43,10 @@ rand = "0.10"
 flate2 = { workspace = true }
 regex = { workspace = true }
 schemars = { workspace = true }
+smallvec = "1"
 lettre = { workspace = true }
 tar = "0.4"
+tantivy = "0.22"
 civit-shared = { path = "../civit-shared" }
 civit-pipeline = { path = "../civit-pipeline" }
 
