@@ -4,7 +4,8 @@
   "identifier": "dev.civitforge.desktop",
   "build": {
     "frontendDist": "../civit-ui/dist",
-    "beforeDevCommand": "cargo run --bin civit-core",
+    "devUrl": "http://127.0.0.1:9092",
+    "beforeDevCommand": "",
     "beforeBuildCommand": ""
   },
   "app": {

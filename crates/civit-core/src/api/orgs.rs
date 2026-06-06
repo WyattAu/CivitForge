@@ -8,7 +8,10 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json},
 };
-use civit_shared::permissions::{Action, Resource};
+use civit_shared::{
+    ListResponse,
+    permissions::{Action, Resource},
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -57,7 +60,7 @@ pub struct UpdateOrgRequest {
 
 #[derive(Debug, Deserialize)]
 pub struct ListOrgsParams {
-    pub owner_id: String,
+    pub owner_id: Option<String>,
 }
 
 pub async fn list_orgs(
@@ -65,27 +68,62 @@ pub async fn list_orgs(
     Query(params): Query<ListOrgsParams>,
     _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
-    let owner_uuid = match Uuid::parse_str(&params.owner_id) {
-        Ok(id) => id,
-        Err(_) => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CoreError::Config("invalid owner_id".into()).error_response()),
-            )
-                .into_response();
-        }
-    };
+    match params.owner_id {
+        Some(ref owner_str) => {
+            let owner_uuid = match Uuid::parse_str(owner_str) {
+                Ok(id) => id,
+                Err(_) => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(CoreError::Config("invalid owner_id".into()).error_response()),
+                    )
+                        .into_response();
+                }
+            };
 
-    match state.db.list_orgs_by_owner(owner_uuid).await {
-        Ok(orgs) => {
-            let out: Vec<OrgResponse> = orgs.into_iter().map(Into::into).collect();
-            (StatusCode::OK, Json(out)).into_response()
+            match state.db.list_orgs_by_owner(owner_uuid).await {
+                Ok(orgs) => {
+                    let total = orgs.len() as u64;
+                    let out: Vec<OrgResponse> = orgs.into_iter().map(Into::into).collect();
+                    let resp = ListResponse {
+                        data: out,
+                        pagination: civit_shared::Pagination {
+                            page: 1,
+                            per_page: 100,
+                            total,
+                            total_pages: 1,
+                        },
+                    };
+                    (StatusCode::OK, Json(resp)).into_response()
+                }
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(CoreError::Database(e.to_string()).error_response()),
+                )
+                    .into_response(),
+            }
         }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CoreError::Database(e.to_string()).error_response()),
-        )
-            .into_response(),
+        None => match state.db.list_all_orgs().await {
+            Ok(orgs) => {
+                let total = orgs.len() as u64;
+                let out: Vec<OrgResponse> = orgs.into_iter().map(Into::into).collect();
+                let resp = ListResponse {
+                    data: out,
+                    pagination: civit_shared::Pagination {
+                        page: 1,
+                        per_page: 100,
+                        total,
+                        total_pages: 1,
+                    },
+                };
+                (StatusCode::OK, Json(resp)).into_response()
+            }
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response(),
+        },
     }
 }
 
@@ -298,7 +336,14 @@ mod tests {
     fn test_list_orgs_params_parse() {
         let json = r#"{"owner_id":"00000000-0000-0000-0000-000000000000"}"#;
         let params: ListOrgsParams = serde_json::from_str(json).unwrap();
-        assert_eq!(params.owner_id, Uuid::nil().to_string());
+        assert_eq!(params.owner_id, Some(Uuid::nil().to_string()));
+    }
+
+    #[test]
+    fn test_list_orgs_params_optional() {
+        let json = r#"{}"#;
+        let params: ListOrgsParams = serde_json::from_str(json).unwrap();
+        assert!(params.owner_id.is_none());
     }
 
     #[test]

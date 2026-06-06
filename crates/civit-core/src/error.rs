@@ -40,6 +40,9 @@ pub enum CoreError {
 
     #[error("search error: {0}")]
     Search(String),
+
+    #[error("bad request: {0}")]
+    BadRequest(String),
 }
 
 #[derive(serde::Serialize)]
@@ -62,6 +65,7 @@ impl CoreError {
             Self::Jwt(_) => StatusCode::UNAUTHORIZED,
             Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Search(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
         }
     }
 

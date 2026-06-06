@@ -28,6 +28,11 @@ pub const M_025_ACTIVITY_FED_UP: &str = include_str!("025_add_activity_federatio
 pub const M_025_ACTIVITY_FED_DOWN: &str = include_str!("026_add_activity_federation_down.sql");
 pub const M_027_WIKI_GIT_UP: &str = include_str!("027_add_wiki_git_enabled.sql");
 pub const M_027_WIKI_GIT_DOWN: &str = include_str!("028_add_wiki_git_enabled_down.sql");
+pub const M_029_PASSWORD_HASH_UP: &str = include_str!("029_add_password_hash.sql");
+pub const M_031_PR_TRACKING_UP: &str = include_str!("031_add_pr_tracking.sql");
+pub const M_031_PR_TRACKING_DOWN: &str = include_str!("032_add_pr_tracking_down.sql");
+pub const M_033_STAR_WATCH_COUNTS_UP: &str = include_str!("033_add_star_watch_counts.sql");
+pub const M_033_STAR_WATCH_COUNTS_DOWN: &str = include_str!("034_add_star_watch_counts_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -136,6 +141,24 @@ impl MigrationManager {
             up_sql: M_027_WIKI_GIT_UP.into(),
             down_sql: M_027_WIKI_GIT_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 29,
+            name: "add_password_hash".into(),
+            up_sql: M_029_PASSWORD_HASH_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
+            version: 31,
+            name: "add_pr_tracking".into(),
+            up_sql: M_031_PR_TRACKING_UP.into(),
+            down_sql: M_031_PR_TRACKING_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 33,
+            name: "add_star_watch_counts".into(),
+            up_sql: M_033_STAR_WATCH_COUNTS_UP.into(),
+            down_sql: M_033_STAR_WATCH_COUNTS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -177,7 +200,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 14);
+        assert_eq!(mgr.all().len(), 17);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -206,19 +229,25 @@ mod tests {
         assert_eq!(mgr.all()[12].name, "add_activity_federation");
         assert_eq!(mgr.all()[13].version, 27);
         assert_eq!(mgr.all()[13].name, "add_wiki_git_enabled");
+        assert_eq!(mgr.all()[14].version, 29);
+        assert_eq!(mgr.all()[14].name, "add_password_hash");
+        assert_eq!(mgr.all()[15].version, 31);
+        assert_eq!(mgr.all()[15].name, "add_pr_tracking");
+        assert_eq!(mgr.all()[16].version, 33);
+        assert_eq!(mgr.all()[16].name, "add_star_watch_counts");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 29,
+            version: 35,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 15);
-        assert_eq!(mgr.all()[14].version, 29);
+        assert_eq!(mgr.all().len(), 18);
+        assert_eq!(mgr.all()[17].version, 35);
     }
 
     #[test]
@@ -237,21 +266,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 14);
+        assert_eq!(pending.len(), 17);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(25);
-        assert_eq!(pending.len(), 1);
+        let pending = mgr.get_pending(29);
+        assert_eq!(pending.len(), 2);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 13);
+        assert_eq!(pending.len(), 16);
     }
 
     #[test]

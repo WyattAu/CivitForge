@@ -165,7 +165,7 @@ fn HomeLoggedIn() -> impl IntoView {
                             {
                                 let repo = repo.clone();
                                 view! {
-                                    <A href=format!("/repos/{}/{}", repo.owner_id, repo.name)>
+                                    <A href=format!("/repos/{}", repo.full_name)>
                                         <div class="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-750 px-2 -mx-2 rounded transition-colors">
                                             <div class="min-w-0">
                                                 <div class="flex items-center gap-2">

@@ -14,8 +14,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterRequest {
+    pub username: String,
     pub email: String,
     pub display_name: String,
+    pub password: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +55,69 @@ impl From<AuthUser> for MeResponse {
     }
 }
 
+pub async fn register(
+    State(state): State<AppState>,
+    Json(req): Json<RegisterRequest>,
+) -> impl IntoResponse {
+    match do_register(&state, req).await {
+        Ok(resp) => (StatusCode::CREATED, Json(resp)).into_response(),
+        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+    }
+}
+
+async fn do_register(
+    state: &AppState,
+    req: RegisterRequest,
+) -> crate::error::Result<LoginResponse> {
+    if req.username.is_empty() {
+        return Err(CoreError::Auth("Username is required".into()));
+    }
+    if req.email.is_empty() {
+        return Err(CoreError::Auth("Email is required".into()));
+    }
+    if req.password.len() < 8 {
+        return Err(CoreError::Auth(
+            "Password must be at least 8 characters".into(),
+        ));
+    }
+
+    // Check if username or email already exists
+    if state.db.get_user_by_username(&req.username).await.is_ok() {
+        return Err(CoreError::Auth("Username already taken".into()));
+    }
+    if state.db.get_user_by_email(&req.email).await.is_ok() {
+        return Err(CoreError::Auth("Email already registered".into()));
+    }
+
+    let password_hash = bcrypt::hash(&req.password, bcrypt::DEFAULT_COST)
+        .map_err(|e| CoreError::Internal(format!("Failed to hash password: {e}")))?;
+
+    let user = state
+        .db
+        .create_user(
+            &req.username,
+            &req.email,
+            if req.display_name.is_empty() {
+                &req.username
+            } else {
+                &req.display_name
+            },
+            "member",
+            &password_hash,
+        )
+        .await?;
+
+    let token =
+        state
+            .jwt_service
+            .generate_token(&user.id.to_string(), &user.username, &user.role, None)?;
+
+    Ok(LoginResponse {
+        token,
+        user: UserResponse::from(user),
+    })
+}
+
 pub async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
@@ -59,21 +129,28 @@ pub async fn login(
 }
 
 async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<LoginResponse> {
-    validate_input(&req.username, &req.email, &req.display_name)?;
-    let user = match state.db.get_user_by_username(&req.username).await {
-        Ok(u) => u,
-        Err(_) => match state
-            .db
-            .create_user(&req.username, &req.email, &req.display_name, "member")
-            .await
-        {
-            Ok(u) => u,
-            Err(_) => {
-                // Username differs but email exists — return existing user by email
-                state.db.get_user_by_email(&req.email).await?
-            }
-        },
-    };
+    if req.username.is_empty() {
+        return Err(CoreError::Auth("Username is required".into()));
+    }
+    if req.password.is_empty() {
+        return Err(CoreError::Auth("Password is required".into()));
+    }
+
+    let user = state
+        .db
+        .get_user_by_username(&req.username)
+        .await
+        .map_err(|_| CoreError::Auth("Invalid username or password".into()))?;
+
+    let stored_hash = state
+        .db
+        .get_password_hash(user.id)
+        .await?
+        .ok_or_else(|| CoreError::Auth("No password set. Please register.".into()))?;
+
+    if stored_hash.is_empty() || !bcrypt::verify(&req.password, &stored_hash).unwrap_or(false) {
+        return Err(CoreError::Auth("Invalid username or password".into()));
+    }
 
     let token =
         state
@@ -160,6 +237,7 @@ pub async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> impl 
     (StatusCode::OK, Json(RefreshResponse { token })).into_response()
 }
 
+#[allow(dead_code)]
 fn validate_input(username: &str, email: &str, display_name: &str) -> Result<(), CoreError> {
     if username.is_empty() || username.len() > 64 {
         return Err(CoreError::Config("username must be 1-64 characters".into()));
@@ -268,11 +346,20 @@ mod tests {
 
     #[test]
     fn test_login_request_parse() {
-        let json = r#"{"username":"alice","email":"alice@example.com","display_name":"Alice"}"#;
+        let json = r#"{"username":"alice","password":"secret123"}"#;
         let req: LoginRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.username, "alice");
+        assert_eq!(req.password, "secret123");
+    }
+
+    #[test]
+    fn test_register_request_parse() {
+        let json = r#"{"username":"alice","email":"alice@example.com","display_name":"Alice","password":"secret123"}"#;
+        let req: RegisterRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.username, "alice");
         assert_eq!(req.email, "alice@example.com");
         assert_eq!(req.display_name, "Alice");
+        assert_eq!(req.password, "secret123");
     }
 
     #[test]

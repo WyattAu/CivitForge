@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
 
 use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
+use leptos_router::hooks::{use_navigate, use_params_map};
 
 use crate::api::client::ApiClient;
-use crate::api::types::{AuthUser, SshKeyResponse};
+use crate::api::types::{AuthUser, SshKeyResponse, UpdateRepoRequest};
 use crate::components::{
     Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner,
 };
@@ -35,19 +35,34 @@ struct ChangePasswordBody {
     new_password: String,
 }
 
+#[derive(Clone, PartialEq)]
+enum SettingsSection {
+    General,
+    Collaborators,
+    Branches,
+    Labels,
+    Danger,
+}
+
 #[component]
 pub fn RepoSettingsPage() -> impl IntoView {
     let params = use_params_map();
     let owner = move || params.with(|p| p.get("owner").unwrap_or_default());
     let name = move || params.with(|p| p.get("name").unwrap_or_default());
     let auth = use_auth();
+    let navigate = use_navigate();
+    let (navigate_sig, _) = signal(navigate);
 
+    let (active_section, set_active_section) = signal(SettingsSection::General);
     let (repo_name_sig, set_repo_name) = signal(String::new());
     let (repo_desc_sig, set_repo_desc) = signal(String::new());
+    let (repo_visibility_sig, set_repo_visibility) = signal(String::from("public"));
+    let (repo_branch_sig, set_repo_branch) = signal(String::from("main"));
     let (loading, set_loading) = signal(true);
     let (error, set_error) = signal(None::<String>);
     let (saving, set_saving) = signal(false);
     let (success, set_success) = signal(false);
+    let (deleting, set_deleting) = signal(false);
 
     let fetch_repo = move || {
         set_loading.set(true);
@@ -64,6 +79,8 @@ pub fn RepoSettingsPage() -> impl IntoView {
                         Ok(repo) => {
                             set_repo_name.set(repo.name);
                             set_repo_desc.set(repo.description.unwrap_or_default());
+                            set_repo_visibility.set(repo.visibility.to_string());
+                            set_repo_branch.set(repo.default_branch);
                         }
                         Err(_) => set_error.set(Some("Failed to process response.".to_string())),
                     }
@@ -81,6 +98,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
 
     fetch_repo();
 
+    let nav = navigate_sig;
     let handle_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
         set_error.set(None);
@@ -88,16 +106,37 @@ pub fn RepoSettingsPage() -> impl IntoView {
 
         let name_val = get_input_value("repo-settings-name");
         let desc_val = get_input_value("repo-settings-description");
+        let vis_public = get_input_value("visibility-public");
+        let vis_internal = get_input_value("visibility-internal");
+        let branch_val = get_input_value("repo-settings-branch");
 
         if name_val.trim().is_empty() {
             set_error.set(Some("Repository name is required.".to_string()));
             return;
         }
 
-        let body = serde_json::json!({
-            "name": name_val.trim(),
-            "description": desc_val,
-        });
+        let visibility = if !vis_public.is_empty() && vis_public == "on" {
+            "public".to_string()
+        } else if !vis_internal.is_empty() && vis_internal == "on" {
+            "internal".to_string()
+        } else {
+            "private".to_string()
+        };
+
+        let body = UpdateRepoRequest {
+            name: Some(name_val.trim().to_string()),
+            description: if desc_val.trim().is_empty() {
+                None
+            } else {
+                Some(desc_val.trim().to_string())
+            },
+            visibility: Some(visibility),
+            default_branch: if branch_val.trim().is_empty() {
+                None
+            } else {
+                Some(branch_val.trim().to_string())
+            },
+        };
 
         let token = auth.0.with(|a| a.token.clone());
         let owner_val = owner();
@@ -107,7 +146,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
             let path = format!("/repos/{owner_val}/{name_val}");
-            match client.put(&path, &body).await {
+            match client.patch(&path, &body).await {
                 Ok(resp) if resp.status().is_success() => {
                     set_success.set(true);
                 }
@@ -122,9 +161,54 @@ pub fn RepoSettingsPage() -> impl IntoView {
         });
     };
 
+    let delete_repo = move |_: leptos::ev::MouseEvent| {
+        set_error.set(None);
+        set_deleting.set(true);
+
+        let token = auth.0.with(|a| a.token.clone());
+        let owner_val = owner();
+        let name_val = name();
+        let nav_cl = nav.get();
+
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/repos/{owner_val}/{name_val}");
+            match client.delete(&path).await {
+                Ok(resp)
+                    if resp.status().is_success()
+                        || resp.status() == reqwest::StatusCode::NO_CONTENT =>
+                {
+                    nav_cl("/repos", Default::default());
+                }
+                Ok(_) => {
+                    set_error.set(Some("Failed to delete repository.".to_string()));
+                    set_deleting.set(false);
+                }
+                Err(_) => {
+                    set_error.set(Some("Network error. Check your connection.".to_string()));
+                    set_deleting.set(false);
+                }
+            }
+        });
+    };
+
+    let sidebar_item_class =
+        "block w-full text-left px-4 py-2 text-sm font-medium border-2 transition-colors";
+    let sidebar_item_active = "bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100";
+    let sidebar_item_inactive = "bg-white dark:bg-gray-800 border-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-750 hover:border-gray-200 dark:hover:border-gray-600 hover:text-gray-900 dark:hover:text-gray-100";
+
+    let owner_disp = move || owner();
+    let name_disp = move || name();
+    let current_vis = move || repo_visibility_sig.get();
+
     view! {
         <div class="space-y-6">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Repository Settings"</h1>
+            <div>
+                <h1 class="text-3xl font-bold font-mono text-gray-900 dark:text-gray-100">"SETTINGS"</h1>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 font-mono">
+                    {move || format!("{}/{}", owner_disp(), name_disp())}
+                </p>
+            </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                 <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
@@ -138,59 +222,190 @@ pub fn RepoSettingsPage() -> impl IntoView {
             </Show>
 
             <Show when=move || !loading.get() fallback=|| view! { <div class="hidden"></div> }>
-                <Card title="General" description="Basic repository settings">
-                    <form on:submit=handle_submit class="space-y-5">
-                        <Show when=move || success.get() fallback=|| view! { <div class="hidden"></div> }>
-                            <div class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 dark:border-green-400 rounded-r-sm text-sm text-green-700 dark:text-green-400">
-                                "Settings updated successfully."
-                            </div>
-                        </Show>
-                        <div>
-                            <label for="repo-settings-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                "Repository name"
-                            </label>
-                            <input
-                                id="repo-settings-name"
-                                type="text"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
-                                value=repo_name_sig.get()
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label for="repo-settings-description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                "Description"
-                            </label>
-                            <textarea
-                                id="repo-settings-description"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
-                                placeholder="A brief description..."
-                                rows="3"
+                <div class="flex gap-6">
+                    // -- Sidebar --
+                    <nav class="w-56 shrink-0">
+                        <div class="bg-white dark:bg-gray-800 rounded-none border-2 border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                            <button
+                                class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::General { sidebar_item_active } else { sidebar_item_inactive })
+                                on:click=move |_| set_active_section.set(SettingsSection::General)
                             >
-                                {repo_desc_sig.get()}
-                            </textarea>
-                        </div>
-                        <div>
-                            <Button variant=ButtonVariant::Primary extra_class="btn-save-settings" disabled=saving.get()>
-                                {move || if saving.get() { "Saving..." } else { "Save Changes" }}
-                            </Button>
-                        </div>
-                    </form>
-                </Card>
+                                "General"
+                            </button>
+                            <button
+                                class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::Collaborators { sidebar_item_active } else { sidebar_item_inactive })
+                                on:click=move |_| set_active_section.set(SettingsSection::Collaborators)
+                            >
+                                "Collaborators"
+                            </button>
+                            <button
+                                class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::Branches { sidebar_item_active } else { sidebar_item_inactive })
+                                on:click=move |_| set_active_section.set(SettingsSection::Branches)
+                            >
+                                "Branches"
+                            </button>
+                            <button
+                                class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::Labels { sidebar_item_active } else { sidebar_item_inactive })
+                                on:click=move |_| set_active_section.set(SettingsSection::Labels)
+                            >
+                                "Labels"
+                            </button>
 
-                <Card title="Danger Zone" description="Irreversible and destructive actions">
-                    <div class="border border-red-200 dark:border-red-800 rounded-md p-4">
-                        <h3 class="text-sm font-medium text-red-600 dark:text-red-400">"Delete this repository"</h3>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            "Once you delete a repository, there is no going back."
-                        </p>
-                        <div class="mt-3">
-                            <Button variant=ButtonVariant::Danger extra_class="btn-delete-repo" disabled=true>
-                                "Delete Repository"
-                            </Button>
+                            <div class="my-2 border-t border-gray-200 dark:border-gray-700"></div>
+
+                            <button
+                                class=format!("{sidebar_item_class} text-red-600 dark:text-red-400 {}", if active_section.get() == SettingsSection::Danger { sidebar_item_active } else { sidebar_item_inactive })
+                                on:click=move |_| set_active_section.set(SettingsSection::Danger)
+                            >
+                                "Danger Zone"
+                            </button>
                         </div>
+                    </nav>
+
+                    // -- Content --
+                    <div class="flex-1 min-w-0 space-y-6">
+                        <Show when=move || active_section.get() == SettingsSection::General fallback=|| view! { <div class="hidden"></div> }>
+                            <Card title="General" description="Basic repository settings">
+                                <form on:submit=handle_submit class="space-y-5">
+                                    <Show when=move || success.get() fallback=|| view! { <div class="hidden"></div> }>
+                                        <div class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 dark:border-green-400 text-sm text-green-700 dark:text-green-400">
+                                            "Settings updated successfully."
+                                        </div>
+                                    </Show>
+                                    <Input
+                                        label="Repository Name"
+                                        name="repo-settings-name"
+                                        id="repo-settings-name"
+                                        input_type=InputType::Text
+                                        value=repo_name_sig.get()
+                                        required=true
+                                    />
+                                    <Input
+                                        label="Description"
+                                        name="repo-settings-description"
+                                        id="repo-settings-description"
+                                        input_type=InputType::Textarea
+                                        placeholder="A brief description..."
+                                        value=repo_desc_sig.get()
+                                    />
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            "Visibility"
+                                        </label>
+                                        <div class="space-y-2">
+                                            <label class="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="visibility"
+                                                    id="visibility-public"
+                                                    value="public"
+                                                    checked=move || current_vis() == "public"
+                                                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600"
+                                                />
+                                                <div>
+                                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">"Public"</span>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">"Anyone can see this repository."</p>
+                                                </div>
+                                            </label>
+                                            <label class="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="visibility"
+                                                    id="visibility-internal"
+                                                    value="internal"
+                                                    checked=move || current_vis() == "internal"
+                                                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600"
+                                                />
+                                                <div>
+                                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">"Internal"</span>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">"Only authenticated users can see this repository."</p>
+                                                </div>
+                                            </label>
+                                            <label class="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="visibility"
+                                                    id="visibility-private"
+                                                    value="private"
+                                                    checked=move || current_vis() == "private"
+                                                    class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600"
+                                                />
+                                                <div>
+                                                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">"Private"</span>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">"Only authorized users can see this repository."</p>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <Input
+                                        label="Default Branch"
+                                        name="repo-settings-branch"
+                                        id="repo-settings-branch"
+                                        input_type=InputType::Text
+                                        value=repo_branch_sig.get()
+                                    />
+                                    <div>
+                                        <Button variant=ButtonVariant::Primary extra_class="btn-save-settings" disabled=saving.get()>
+                                            {move || if saving.get() { "Saving..." } else { "Save Changes" }}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </Card>
+                        </Show>
+
+                        <Show when=move || active_section.get() == SettingsSection::Collaborators fallback=|| view! { <div class="hidden"></div> }>
+                            <Card title="Collaborators" description="Manage repository collaborators">
+                                <div class="py-8 text-center text-gray-400 dark:text-gray-500">
+                                    <p class="text-sm">"Coming soon"</p>
+                                </div>
+                            </Card>
+                        </Show>
+
+                        <Show when=move || active_section.get() == SettingsSection::Branches fallback=|| view! { <div class="hidden"></div> }>
+                            <Card title="Branches" description="Manage repository branches and defaults">
+                                <div class="py-8 text-center text-gray-400 dark:text-gray-500">
+                                    <p class="text-sm">"Coming soon"</p>
+                                </div>
+                            </Card>
+                        </Show>
+
+                        <Show when=move || active_section.get() == SettingsSection::Labels fallback=|| view! { <div class="hidden"></div> }>
+                            <Card title="Labels" description="Manage issue and pull request labels">
+                                <div class="py-8 text-center text-gray-400 dark:text-gray-500">
+                                    <p class="text-sm">"Coming soon"</p>
+                                </div>
+                            </Card>
+                        </Show>
+
+                        <Show when=move || active_section.get() == SettingsSection::Danger fallback=|| view! { <div class="hidden"></div> }>
+                            <Card title="Danger Zone" description="Irreversible and destructive actions">
+                                <div class="space-y-6">
+                                    <div class="border-2 border-red-200 dark:border-red-800 p-4">
+                                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">"Change Visibility"</h3>
+                                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                            "Changing repository visibility will immediately affect who can access this repository."
+                                        </p>
+                                        <p class="mt-1">
+                                            <Button variant=ButtonVariant::Secondary>"Change Visibility"</Button>
+                                        </p>
+                                    </div>
+
+                                    <div class="border-2 border-red-200 dark:border-red-800 p-4">
+                                        <h3 class="text-sm font-semibold text-red-600 dark:text-red-400">"Delete this repository"</h3>
+                                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                                            "Once you delete a repository, there is no going back. This action permanently deletes the repository, wiki, issues, comments, packages, secrets, workflow runs, and all other associated data."
+                                        </p>
+                                        <div class="mt-3">
+                                            <Button variant=ButtonVariant::Danger extra_class="btn-delete-repo" disabled=deleting.get() on:click=delete_repo>
+                                                {move || if deleting.get() { "Deleting..." } else { "Delete this repository" }}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Card>
+                        </Show>
                     </div>
-                </Card>
+                </div>
             </Show>
         </div>
     }

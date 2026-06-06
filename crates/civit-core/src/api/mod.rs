@@ -17,6 +17,7 @@ pub mod orgs;
 pub mod password;
 pub mod pipeline_log_stream;
 pub mod pipelines;
+pub mod pull_requests;
 pub mod repos;
 pub mod runners;
 pub mod search;
@@ -74,6 +75,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/api/v1/ws", get(ws_handler))
         .merge(pipeline_log_stream::log_stream_routes())
         .route("/api/v1/auth/login", post(auth_routes::login))
+        .route("/api/v1/auth/register", post(auth_routes::register))
         .route("/api/v1/auth/me", get(auth_routes::me))
         .route("/api/v1/auth/refresh", post(auth_routes::refresh))
         .route(
@@ -82,16 +84,20 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         )
         .route(
             "/api/v1/repos/{owner}/{name}",
-            get(repos::get_repo).delete(repos::delete_repo),
+            get(repos::get_repo)
+                .patch(repos::update_repo)
+                .delete(repos::delete_repo),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/commits",
             get(repos::list_commits),
         )
+        .merge(repos::repo_routes())
         .merge(pipelines::pipeline_routes())
         .merge(runners::runner_routes())
         .merge(oci::registry_routes())
         .merge(issues::issue_routes())
+        .merge(pull_requests::pr_routes())
         .merge(wiki::wiki_routes())
         .merge(search::search_routes())
         .merge(activity::activity_routes())
@@ -172,11 +178,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             axum::http::header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(
                  "default-src 'self'; \
-                 script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; \
-                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; \
-                 img-src 'self' data:; font-src 'self'; \
-                 connect-src 'self' https://cdn.jsdelivr.net; \
-                 frame-ancestors 'none';",
+                  script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; \
+                  style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; \
+                  img-src 'self' data:; font-src 'self'; \
+                  connect-src *; \
+                  frame-ancestors 'none';",
             ),
         ))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(

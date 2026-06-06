@@ -142,7 +142,7 @@ pub fn ExplorePage() -> impl IntoView {
                             let repo = repo.clone();
                             let card_class = "hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer".to_string();
                             view! {
-                                <A href=format!("/repos/{}/{}", repo.owner_id, repo.name)>
+                                <A href=format!("/repos/{}", repo.full_name)>
                                     <Card class=card_class>
                                         <div class="flex items-start justify-between gap-2">
                                             <h3 class="font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate">

@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 
 use crate::db::models::{
-    ActivityEvent, Issue, Org, Pipeline, PullRequest, Repository, SshKey, User,
+    ActivityEvent, Issue, Org, Pipeline, PrComment, PrReviewer, PrStatusCheck, PrTimeline,
+    PullRequest, Repository, SshKey, User,
 };
 use crate::error::{CoreError, Result};
 use chrono::{DateTime, Utc};
@@ -31,16 +32,18 @@ impl DbRepository {
         email: &str,
         display_name: &str,
         role: &str,
+        password_hash: &str,
     ) -> Result<User> {
         let row = sqlx::query_as::<_, User>(
-            r#"INSERT INTO users (username, email, display_name, role)
-               VALUES ($1, $2, $3, $4)
+            r#"INSERT INTO users (username, email, display_name, role, password_hash)
+               VALUES ($1, $2, $3, $4, $5)
                RETURNING *"#,
         )
         .bind(username)
         .bind(email)
         .bind(display_name)
         .bind(role)
+        .bind(password_hash)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| CoreError::Database(format!("create_user: {e}")))?;
@@ -161,6 +164,14 @@ impl DbRepository {
         Ok(rows)
     }
 
+    pub async fn list_all_orgs(&self) -> Result<Vec<Org>> {
+        let rows = sqlx::query_as::<_, Org>("SELECT * FROM organizations ORDER BY created_at DESC")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("list_all_orgs: {e}")))?;
+        Ok(rows)
+    }
+
     pub async fn update_org(
         &self,
         id: Uuid,
@@ -201,7 +212,7 @@ impl DbRepository {
         let row = sqlx::query_as::<_, Repository>(
             r#"INSERT INTO repositories (name, description, owner_id, org_id, visibility, default_branch)
                VALUES ($1, $2, $3, $4, $5, $6)
-               RETURNING id, name, description, owner_id, org_id, visibility, default_branch, is_fork, parent_repo_id, created_at, updated_at"#,
+               RETURNING id, name, description, owner_id, org_id, visibility, default_branch, is_fork, parent_repo_id, stars_count, watchers_count, created_at, updated_at"#,
         )
         .bind(name)
         .bind(description)
@@ -450,6 +461,244 @@ impl DbRepository {
         .await
         .map_err(|e| CoreError::Database(format!("update_pr: {e}")))?;
         Ok(row)
+    }
+
+    pub async fn get_pr_by_number(&self, repo_id: Uuid, number: i32) -> Result<PullRequest> {
+        sqlx::query_as::<_, PullRequest>(
+            "SELECT * FROM pull_requests WHERE repo_id = $1 AND number = $2",
+        )
+        .bind(repo_id)
+        .bind(number)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("get_pr_by_number: {e}")))
+    }
+
+    pub async fn count_prs(&self, repo_id: Uuid, state: Option<&str>) -> Result<i64> {
+        let count: i64 = if let Some(st) = state {
+            sqlx::query_scalar(
+                "SELECT COUNT(*) FROM pull_requests WHERE repo_id = $1 AND status = $2",
+            )
+            .bind(repo_id)
+            .bind(st)
+            .fetch_one(&self.pool)
+            .await
+        } else {
+            sqlx::query_scalar("SELECT COUNT(*) FROM pull_requests WHERE repo_id = $1")
+                .bind(repo_id)
+                .fetch_one(&self.pool)
+                .await
+        }
+        .map_err(|e| CoreError::Database(format!("count_prs: {e}")))?;
+        Ok(count)
+    }
+
+    // --- PR Comments ---
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_pr_comment(
+        &self,
+        pr_id: Uuid,
+        author_id: Uuid,
+        body: &str,
+        commit_sha: Option<&str>,
+        file_path: Option<&str>,
+        line: Option<i32>,
+        in_reply_to_id: Option<Uuid>,
+    ) -> Result<PrComment> {
+        let row = sqlx::query_as::<_, PrComment>(
+            r#"INSERT INTO pr_comments (pr_id, author_id, body, commit_sha, file_path, line, in_reply_to_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING *"#,
+        )
+        .bind(pr_id)
+        .bind(author_id)
+        .bind(body)
+        .bind(commit_sha)
+        .bind(file_path)
+        .bind(line)
+        .bind(in_reply_to_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_pr_comment: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_pr_comments(&self, pr_id: Uuid) -> Result<Vec<PrComment>> {
+        sqlx::query_as::<_, PrComment>(
+            "SELECT * FROM pr_comments WHERE pr_id = $1 ORDER BY created_at ASC",
+        )
+        .bind(pr_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_pr_comments: {e}")))
+    }
+
+    // --- PR Labels ---
+
+    pub async fn add_pr_label(&self, pr_id: Uuid, label_id: Uuid) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO pr_labels (pr_id, label_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        )
+        .bind(pr_id)
+        .bind(label_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("add_pr_label: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn remove_pr_label(&self, pr_id: Uuid, label_id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM pr_labels WHERE pr_id = $1 AND label_id = $2")
+            .bind(pr_id)
+            .bind(label_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("remove_pr_label: {e}")))?;
+        Ok(())
+    }
+
+    // --- PR Assignees ---
+
+    pub async fn add_pr_assignee(&self, pr_id: Uuid, user_id: Uuid) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO pr_assignees (pr_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        )
+        .bind(pr_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("add_pr_assignee: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn remove_pr_assignee(&self, pr_id: Uuid, user_id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM pr_assignees WHERE pr_id = $1 AND user_id = $2")
+            .bind(pr_id)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("remove_pr_assignee: {e}")))?;
+        Ok(())
+    }
+
+    // --- PR Reviewers ---
+
+    pub async fn add_pr_reviewer(&self, pr_id: Uuid, user_id: Uuid) -> Result<PrReviewer> {
+        let row = sqlx::query_as::<_, PrReviewer>(
+            r#"INSERT INTO pr_reviewers (pr_id, user_id) VALUES ($1, $2)
+               ON CONFLICT (pr_id, user_id) DO UPDATE SET review_status = 'pending', submitted_at = NULL
+               RETURNING *"#,
+        )
+        .bind(pr_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("add_pr_reviewer: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn submit_pr_review(
+        &self,
+        pr_id: Uuid,
+        user_id: Uuid,
+        status: &str,
+    ) -> Result<PrReviewer> {
+        let row = sqlx::query_as::<_, PrReviewer>(
+            r#"UPDATE pr_reviewers
+               SET review_status = $3, submitted_at = NOW()
+               WHERE pr_id = $1 AND user_id = $2
+               RETURNING *"#,
+        )
+        .bind(pr_id)
+        .bind(user_id)
+        .bind(status)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("submit_pr_review: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_pr_reviewers(&self, pr_id: Uuid) -> Result<Vec<PrReviewer>> {
+        sqlx::query_as::<_, PrReviewer>("SELECT * FROM pr_reviewers WHERE pr_id = $1")
+            .bind(pr_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("list_pr_reviewers: {e}")))
+    }
+
+    // --- PR Timeline ---
+
+    pub async fn insert_pr_timeline(
+        &self,
+        pr_id: Uuid,
+        actor_id: Uuid,
+        event_type: &str,
+        detail: serde_json::Value,
+    ) -> Result<PrTimeline> {
+        let row = sqlx::query_as::<_, PrTimeline>(
+            r#"INSERT INTO pr_timeline (pr_id, actor_id, event_type, event_detail)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(pr_id)
+        .bind(actor_id)
+        .bind(event_type)
+        .bind(detail)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("insert_pr_timeline: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_pr_timeline(&self, pr_id: Uuid) -> Result<Vec<PrTimeline>> {
+        sqlx::query_as::<_, PrTimeline>(
+            "SELECT * FROM pr_timeline WHERE pr_id = $1 ORDER BY created_at ASC",
+        )
+        .bind(pr_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_pr_timeline: {e}")))
+    }
+
+    // --- PR Status Checks ---
+
+    pub async fn upsert_pr_status_check(
+        &self,
+        pr_id: Uuid,
+        context: &str,
+        state: &str,
+        description: &str,
+        target_url: Option<&str>,
+        commit_sha: Option<&str>,
+    ) -> Result<PrStatusCheck> {
+        let row = sqlx::query_as::<_, PrStatusCheck>(
+            r#"INSERT INTO pr_status_checks (pr_id, context, state, description, target_url, commit_sha)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (pr_id, context, commit_sha)
+               DO UPDATE SET state = $3, description = $4, target_url = COALESCE($5, pr_status_checks.target_url), updated_at = NOW()
+               RETURNING *"#,
+        )
+        .bind(pr_id)
+        .bind(context)
+        .bind(state)
+        .bind(description)
+        .bind(target_url)
+        .bind(commit_sha)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("upsert_pr_status_check: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_pr_status_checks(&self, pr_id: Uuid) -> Result<Vec<PrStatusCheck>> {
+        sqlx::query_as::<_, PrStatusCheck>(
+            "SELECT * FROM pr_status_checks WHERE pr_id = $1 ORDER BY created_at ASC",
+        )
+        .bind(pr_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_pr_status_checks: {e}")))
     }
 
     // --- Pipelines ---
@@ -841,6 +1090,93 @@ impl DbRepository {
             .await
             .map_err(|e| CoreError::Database(format!("change_password: {e}")))?;
         Ok(())
+    }
+
+    // --- Stars ---
+
+    pub async fn increment_stars(&self, repo_id: Uuid) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as(
+            "UPDATE repositories SET stars_count = stars_count + 1, updated_at = NOW() WHERE id = $1 RETURNING stars_count",
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("increment_stars: {e}")))?;
+        Ok(row.0)
+    }
+
+    pub async fn decrement_stars(&self, repo_id: Uuid) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as(
+            "UPDATE repositories SET stars_count = GREATEST(stars_count - 1, 0), updated_at = NOW() WHERE id = $1 RETURNING stars_count",
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("decrement_stars: {e}")))?;
+        Ok(row.0)
+    }
+
+    // --- Watchers ---
+
+    pub async fn increment_watchers(&self, repo_id: Uuid) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as(
+            "UPDATE repositories SET watchers_count = watchers_count + 1, updated_at = NOW() WHERE id = $1 RETURNING watchers_count",
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("increment_watchers: {e}")))?;
+        Ok(row.0)
+    }
+
+    pub async fn decrement_watchers(&self, repo_id: Uuid) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as(
+            "UPDATE repositories SET watchers_count = GREATEST(watchers_count - 1, 0), updated_at = NOW() WHERE id = $1 RETURNING watchers_count",
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("decrement_watchers: {e}")))?;
+        Ok(row.0)
+    }
+
+    // --- Forks ---
+
+    pub async fn create_fork(
+        &self,
+        name: &str,
+        description: &str,
+        owner_id: Uuid,
+        parent_repo_id: Uuid,
+        visibility: &str,
+        default_branch: &str,
+    ) -> Result<Repository> {
+        let row = sqlx::query_as::<_, Repository>(
+            r#"INSERT INTO repositories (name, description, owner_id, visibility, default_branch, is_fork, parent_repo_id)
+               VALUES ($1, $2, $3, $4, $5, true, $6)
+               RETURNING id, name, description, owner_id, org_id, visibility, default_branch, is_fork, parent_repo_id, stars_count, watchers_count, created_at, updated_at"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(owner_id)
+        .bind(visibility)
+        .bind(default_branch)
+        .bind(parent_repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_fork: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_forks(&self, parent_repo_id: Uuid) -> Result<Vec<Repository>> {
+        let rows = sqlx::query_as::<_, Repository>(
+            "SELECT * FROM repositories WHERE parent_repo_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(parent_repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_forks: {e}")))?;
+        Ok(rows)
     }
 }
 

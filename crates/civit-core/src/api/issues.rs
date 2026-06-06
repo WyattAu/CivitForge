@@ -7,6 +7,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
 use chrono::{DateTime, Utc};
+use civit_shared::{ListResponse, Pagination};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -346,24 +347,21 @@ pub async fn list_issues(
         Err(e) => return internal_err(&e.to_string()),
     };
 
-    #[derive(serde::Serialize)]
-    struct ListEnvelope {
-        issues: Vec<IssueRow>,
-        total: i64,
-        page: i32,
-        per_page: i32,
-    }
+    let resp = ListResponse {
+        data: rows,
+        pagination: Pagination {
+            page: params.page as u32,
+            per_page: params.per_page as u32,
+            total: total as u64,
+            total_pages: if total == 0 {
+                1
+            } else {
+                (total as u64).div_ceil(params.per_page as u64) as u32
+            },
+        },
+    };
 
-    (
-        StatusCode::OK,
-        Json(ListEnvelope {
-            issues: rows,
-            total,
-            page: params.page,
-            per_page: params.per_page,
-        }),
-    )
-        .into_response()
+    (StatusCode::OK, Json(resp)).into_response()
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]

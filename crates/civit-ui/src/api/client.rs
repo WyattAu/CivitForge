@@ -6,12 +6,30 @@ fn get_base_url() -> String {
     #[cfg(feature = "csr")]
     {
         if let Some(window) = web_sys::window() {
-            if let Ok(origin) = window.location().origin() {
+            // Check for runtime override set via <script> tag in index.html
+            let api_url = js_sys::eval(
+                "typeof window !== 'undefined' && window.__CIVIT_API_URL ? window.__CIVIT_API_URL : ''",
+            );
+            if let Ok(val) = api_url {
+                if !val.is_undefined() && val.is_string() {
+                    let url: String = val.as_string().unwrap_or_default();
+                    if !url.is_empty() {
+                        return url;
+                    }
+                }
+            }
+
+            let origin = window.location().origin().unwrap_or_default();
+            // Tauri desktop: origin is "tauri://localhost" — use local server
+            if origin.starts_with("tauri://") || origin.starts_with("https://tauri.localhost") {
+                return "http://127.0.0.1:9091/api/v1".to_string();
+            }
+            if !origin.is_empty() {
                 return format!("{origin}/api/v1");
             }
         }
     }
-    "http://localhost:9091/api/v1".to_string()
+    "http://127.0.0.1:9091/api/v1".to_string()
 }
 
 #[derive(Clone)]
@@ -75,6 +93,19 @@ impl ApiClient {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let url = format!("{}{}", self.base_url, path);
         let mut req = self.client.put(&url).json(body);
+        if let Some(auth) = self.auth_header() {
+            req = req.header("Authorization", auth);
+        }
+        req.send().await
+    }
+
+    pub async fn patch(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let url = format!("{}{}", self.base_url, path);
+        let mut req = self.client.patch(&url).json(body);
         if let Some(auth) = self.auth_header() {
             req = req.header("Authorization", auth);
         }

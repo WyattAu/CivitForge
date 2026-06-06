@@ -152,7 +152,7 @@ pub async fn create_user(
 
     match state
         .db
-        .create_user(&req.username, &req.email, &req.display_name, role)
+        .create_user(&req.username, &req.email, &req.display_name, role, "")
         .await
     {
         Ok(user) => (StatusCode::CREATED, Json(UserResponse::from(user))).into_response(),

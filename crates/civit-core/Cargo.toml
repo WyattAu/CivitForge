@@ -47,6 +47,7 @@ smallvec = "1"
 lettre = { workspace = true }
 tar = "0.4"
 tantivy = "0.22"
+bcrypt = "0.17"
 civit-shared = { path = "../civit-shared" }
 civit-pipeline = { path = "../civit-pipeline" }
 

@@ -23,6 +23,7 @@ const TEST_USER = {
   email: `gui-traverse-${Date.now()}@example.com`,
   username: `guitest-${Date.now() % 100000}`,
   display_name: 'GUI Test User',
+  password: `GuiTest${Date.now()}!`,
 };
 
 const created = {
@@ -203,6 +204,8 @@ async function testRegister(browser) {
       await fillIfExists(p, 'input#username', TEST_USER.username);
       await fillIfExists(p, 'input#display_name', TEST_USER.display_name);
       await fillIfExists(p, 'input#email', TEST_USER.email);
+      await fillIfExists(p, 'input#password', TEST_USER.password);
+      await fillIfExists(p, 'input#confirm_password', TEST_USER.password);
     }},
     { name: 'submit-register', fn: async (p) => {
       const submitBtn = await p.$('button[type="submit"], button:has-text("Register")');
@@ -232,8 +235,8 @@ async function testLogin(browser) {
   await traversePage(browser, '/login', 'auth-login', [
     { name: 'verify-login-page', fn: async (p) => {
       await waitForContent(p);
-      const emailInput = await p.$('input#email');
-      if (!emailInput) throw new Error('Email input not found on login page');
+      const userInput = await p.$('input#username');
+      if (!userInput) throw new Error('Username input not found on login page');
     }},
     { name: 'switch-to-login', fn: async (p) => {
       const signInBtn = await p.$('button:has-text("Sign In"), button:has-text("Already have an account")');
@@ -243,7 +246,8 @@ async function testLogin(browser) {
       }
     }},
     { name: 'fill-login-form', fn: async (p) => {
-      await fillIfExists(p, 'input#email', TEST_USER.email);
+      await fillIfExists(p, 'input#username', TEST_USER.username);
+      await fillIfExists(p, 'input#password', TEST_USER.password);
     }},
     { name: 'submit-login', fn: async (p) => {
       const submitBtn = await p.$('button[type="submit"], button:has-text("Sign In")');

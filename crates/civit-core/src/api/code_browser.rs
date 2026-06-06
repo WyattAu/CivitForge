@@ -76,36 +76,25 @@ pub async fn list_tree(
         }
     };
 
+    // Handle empty repo (no commits yet)
     let head_id = match repo.head_id() {
         Ok(id) => id,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(CoreError::Git(e.to_string()).error_response()),
-            )
-                .into_response();
+        Err(_) => {
+            return (StatusCode::OK, Json(Vec::<TreeEntry>::new())).into_response();
         }
     };
 
     let commit_obj = match head_id.object() {
         Ok(o) => o,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(CoreError::Git(e.to_string()).error_response()),
-            )
-                .into_response();
+        Err(_) => {
+            return (StatusCode::OK, Json(Vec::<TreeEntry>::new())).into_response();
         }
     };
 
     let commit = match commit_obj.try_into_commit() {
         Ok(c) => c,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(git_err(e).error_response()),
-            )
-                .into_response();
+        Err(_) => {
+            return (StatusCode::OK, Json(Vec::<TreeEntry>::new())).into_response();
         }
     };
 
@@ -235,12 +224,13 @@ pub async fn read_blob(
         }
     };
 
+    // Handle empty repo (no commits yet)
     let head_id = match repo.head_id() {
         Ok(id) => id,
-        Err(e) => {
+        Err(_) => {
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(CoreError::Git(e.to_string()).error_response()),
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository is empty".into()).error_response()),
             )
                 .into_response();
         }
@@ -248,10 +238,10 @@ pub async fn read_blob(
 
     let commit_obj = match head_id.object() {
         Ok(o) => o,
-        Err(e) => {
+        Err(_) => {
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(CoreError::Git(e.to_string()).error_response()),
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository is empty".into()).error_response()),
             )
                 .into_response();
         }
@@ -259,10 +249,10 @@ pub async fn read_blob(
 
     let commit = match commit_obj.try_into_commit() {
         Ok(c) => c,
-        Err(e) => {
+        Err(_) => {
             return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(git_err(e).error_response()),
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository is empty".into()).error_response()),
             )
                 .into_response();
         }

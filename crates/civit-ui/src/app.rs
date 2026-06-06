@@ -29,14 +29,18 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("/repos") view=ReposPage />
                             <Route path=path!("/new-repo") view=NewRepoPage />
                             <Route path=path!("/activity") view=ActivityPage />
-                            <Route path=path!("/repos/:owner/:name") view=RepoDetailPage />
-                            <Route path=path!("/repos/:owner/:name/code") view=CodePage />
-                            <Route path=path!("/repos/:owner/:name/code/*path") view=CodePage />
-                            <Route path=path!("/repos/:owner/:name/issues") view=IssuesPage />
-                            <Route path=path!("/repos/:owner/:name/issues/:number") view=IssueDetailPage />
-                            <Route path=path!("/repos/:owner/:name/wiki") view=WikiPage />
-                            <Route path=path!("/repos/:owner/:name/pipelines") view=PipelinesPage />
-                            <Route path=path!("/repos/:owner/:name/settings") view=RepoSettingsPage />
+                            <ParentRoute path=path!("/repos/:owner/:name") view=RepoDetailPage>
+                                <Route path=path!("") view=CodePage />
+                                <Route path=path!("code") view=CodePage />
+                                <Route path=path!("code/*path") view=CodePage />
+                                <Route path=path!("issues") view=IssuesPage />
+                                <Route path=path!("issues/:number") view=IssueDetailPage />
+                                <Route path=path!("wiki") view=WikiPage />
+                                <Route path=path!("pipelines") view=PipelinesPage />
+                                <Route path=path!("pulls") view=PullRequestsPage />
+                                <Route path=path!("pulls/:number") view=PullRequestDetailPage />
+                                <Route path=path!("settings") view=RepoSettingsPage />
+                            </ParentRoute>
                             <Route path=path!("/search") view=SearchPage />
                             <Route path=path!("/orgs") view=OrgsPage />
                             <Route path=path!("/orgs/:id") view=OrgDetailPage />

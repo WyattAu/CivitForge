@@ -77,7 +77,7 @@ pub fn CodePage() -> impl IntoView {
         let is_file = !path_val.is_empty() && path_val.contains('.');
 
         if is_file {
-            let blob_url = format!("/{owner_val}/{name_val}/blob?path={path_val}");
+            let blob_url = format!("/repos/{owner_val}/{name_val}/blob?path={path_val}");
             match client.get(&blob_url).await {
                 Ok(resp) if resp.status().is_success() => match resp.json::<BlobData>().await {
                     Ok(blob) => set_file_content.set(Some(blob)),
@@ -95,9 +95,9 @@ pub fn CodePage() -> impl IntoView {
             }
         } else {
             let tree_url = if path_val.is_empty() {
-                format!("/{owner_val}/{name_val}/tree")
+                format!("/repos/{owner_val}/{name_val}/tree")
             } else {
-                format!("/{owner_val}/{name_val}/tree?path={path_val}")
+                format!("/repos/{owner_val}/{name_val}/tree?path={path_val}")
             };
             match client.get(&tree_url).await {
                 Ok(resp) if resp.status().is_success() => {

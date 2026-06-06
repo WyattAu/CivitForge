@@ -36,11 +36,76 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 0;
 }
 </style>
+    <!-- API URL override + automation support -->
+    <script>
+        if (!window.__CIVIT_API_URL) {
+            window.__CIVIT_API_URL = "http://192.168.1.191:9091/api/v1";
+        }
+         // Ctrl+Shift+H: capture page HTML via POST to local endpoint + Tauri IPC
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+                e.preventDefault();
+                var html = '<!-- Captured at ' + new Date().toISOString() + ' -->\n' + document.documentElement.outerHTML;
+                if (window.__TAURI_INTERNALS__) {
+                    window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
+                }
+                fetch('/__capture__', { method: 'POST', body: html }).catch(function() {});
+            }
+        });
+        // Auto-capture page HTML 3s after load (for automation)
+        function capturePage() {
+            var html = document.documentElement.outerHTML;
+            if (window.__TAURI_INTERNALS__) {
+                window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
+            }
+            fetch('/__capture__', { method: 'POST', body: html }).catch(function() {});
+            console.log('[capture] Auto-captured page HTML (' + html.length + ' bytes)');
+        }
+        setTimeout(capturePage, 3000);
+        // Also capture on popstate (SPA navigation)
+        window.addEventListener('popstate', function() {
+            console.log('[navigate] popstate: ' + window.location.pathname);
+            setTimeout(capturePage, 2000);
+        });
+        setInterval(function() {
+            var navReq = new XMLHttpRequest();
+            navReq.open('GET', '/__navigate__', true);
+            navReq.onload = function() {
+                var url = navReq.responseText;
+                if (url && url.length > 1) {
+                    console.log('[navigate] navigating to: ' + url);
+                    // Full page navigation (SPA fallback in embedded server serves index.html)
+                    window.location.href = url;
+                }
+            };
+            navReq.onerror = function() {
+                // If HTTP endpoint fails, try Tauri IPC
+                if (window.__TAURI_INTERNALS__) {
+                    window.__TAURI_INTERNALS__.invoke('read_navigate_trigger').then(function(url) {
+                        if (url && url.length > 1) {
+                            console.log('[navigate] ' + url);
+                            window.location.href = url;
+                        }
+                    }).catch(function() {});
+                }
+            };
+            navReq.send();
+        }, 1000);
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+                e.preventDefault();
+                var html = '<!-- Captured at ' + new Date().toISOString() + ' -->\n' + document.documentElement.outerHTML;
+                if (window.__TAURI_INTERNALS__) {
+                    window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
+                }
+            }
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     
 <script type="module">
-import init, * as bindings from '/civit-ui-89d8a54fc90b321f.js';
-const wasm = await init({ module_or_path: '/civit-ui-89d8a54fc90b321f_bg.wasm' });
+import init, * as bindings from '/civit-ui-ef752689d090f355.js';
+const wasm = await init({ module_or_path: '/civit-ui-ef752689d090f355_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -53,7 +118,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     <style>
         [data-trunk] { display: none; }
     </style>
-<link rel="modulepreload" href="/civit-ui-89d8a54fc90b321f.js" crossorigin="anonymous" integrity="sha384-ijiZAbm6tTmDx+EvCTfNB6xBK3MHTKxwG49+/rkcy00Y7I3tSWGchrdUo1NLmbjh"><link rel="preload" href="/civit-ui-89d8a54fc90b321f_bg.wasm" crossorigin="anonymous" integrity="sha384-0ZUG4QiFc6axi82+lYI46ZLgZFsige+nUsq0SAO6wwIp1tCKfLb/piwGt1p/LEEB" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/civit-ui-ef752689d090f355.js" crossorigin="anonymous" integrity="sha384-AUg+k+CKilfmlw2w8sKO7R+BSfDwYeeupYbyAZdmfHvjJj9HCpkT5jfW/q2/1P/q"><link rel="preload" href="/civit-ui-ef752689d090f355_bg.wasm" crossorigin="anonymous" integrity="sha384-USJIuRykgCh+58A7JFVpkGE+HBks300tHG7PtkDOri6EhQc7Fxs22GsbC1B/4RCb" as="fetch" type="application/wasm"></head>
 <body>
 </body>
 </html>

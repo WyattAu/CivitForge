@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 
 use crate::api::client::ApiClient;
+use crate::api::types::ListResponse;
 use crate::components::{Avatar, Badge, BadgeColor, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
 use crate::utils::*;
@@ -79,8 +80,8 @@ pub fn ActivityPage() -> impl IntoView {
         let client = ApiClient::new(token);
         match client.get("/activity?limit=50").await {
             Ok(resp) if resp.status().is_success() => {
-                match resp.json::<Vec<ActivityItem>>().await {
-                    Ok(items) => set_activities.set(items),
+                match resp.json::<ListResponse<ActivityItem>>().await {
+                    Ok(data) => set_activities.set(data.data),
                     Err(_) => set_error.set(Some(sanitize_error("Failed to parse activity data."))),
                 }
             }

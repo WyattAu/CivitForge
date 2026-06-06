@@ -39,6 +39,8 @@ pub struct Repository {
     pub default_branch: String,
     pub is_fork: bool,
     pub parent_repo_id: Option<Uuid>,
+    pub stars_count: i64,
+    pub watchers_count: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -71,10 +73,61 @@ pub struct PullRequest {
     pub source_branch: String,
     pub target_branch: String,
     pub merge_commit_id: Option<String>,
+    pub draft: bool,
+    pub head_commit_sha: Option<String>,
+    pub base_commit_sha: Option<String>,
+    pub merge_strategy: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub merged_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PrComment {
+    pub id: Uuid,
+    pub pr_id: Uuid,
+    pub author_id: Uuid,
+    pub body: String,
+    pub commit_sha: Option<String>,
+    pub file_path: Option<String>,
+    pub start_line: Option<i32>,
+    pub end_line: Option<i32>,
+    pub line: Option<i32>,
+    pub in_reply_to_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PrReviewer {
+    pub pr_id: Uuid,
+    pub user_id: Uuid,
+    pub review_status: String,
+    pub submitted_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PrTimeline {
+    pub id: Uuid,
+    pub pr_id: Uuid,
+    pub actor_id: Uuid,
+    pub event_type: String,
+    pub event_detail: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PrStatusCheck {
+    pub id: Uuid,
+    pub pr_id: Uuid,
+    pub context: String,
+    pub state: String,
+    pub description: String,
+    pub target_url: Option<String>,
+    pub commit_sha: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -149,6 +202,8 @@ mod tests {
             default_branch: "main".into(),
             is_fork: false,
             parent_repo_id: None,
+            stars_count: 0,
+            watchers_count: 0,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -193,6 +248,10 @@ mod tests {
             source_branch: "feature".into(),
             target_branch: "main".into(),
             merge_commit_id: None,
+            draft: false,
+            head_commit_sha: None,
+            base_commit_sha: None,
+            merge_strategy: "merge".into(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             merged_at: None,
