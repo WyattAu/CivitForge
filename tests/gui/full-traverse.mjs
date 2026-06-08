@@ -208,9 +208,8 @@ async function testRegister(browser) {
       await fillIfExists(p, 'input#confirm_password', TEST_USER.password);
     }},
     { name: 'submit-register', fn: async (p) => {
-      const submitBtn = await p.$('button[type="submit"], button:has-text("Register")');
-      if (!submitBtn) throw new Error('Register submit button not found');
-      await submitBtn.click();
+      // Leptos Button component renders <button> without type="submit" — use Enter key
+      await p.press('input#confirm_password', 'Enter');
       await p.waitForTimeout(2000);
     }},
     { name: 'check-register-success', fn: async (p) => {
@@ -250,9 +249,8 @@ async function testLogin(browser) {
       await fillIfExists(p, 'input#password', TEST_USER.password);
     }},
     { name: 'submit-login', fn: async (p) => {
-      const submitBtn = await p.$('button[type="submit"], button:has-text("Sign In")');
-      if (!submitBtn) throw new Error('Login submit button not found');
-      await submitBtn.click();
+      // Leptos Button component renders <button> without type="submit" — use Enter key
+      await p.press('input#password', 'Enter');
       await p.waitForTimeout(2000);
     }},
     { name: 'verify-token-stored', fn: async (p) => {
@@ -276,8 +274,8 @@ async function testLogin(browser) {
         }, token);
         if (resp.status === 200) {
           const user = JSON.parse(resp.body);
-          created.userId = user.id;
-          console.log(`    Authenticated as: ${user.username} (${user.id})`);
+          created.userId = user.user_id || user.id;
+          console.log(`    Authenticated as: ${user.username} (${created.userId})`);
         }
       } catch {
         // Auth endpoint may not be available
@@ -361,9 +359,13 @@ async function testNewRepo(browser) {
       await takeScreenshot(p, 'new-repo-filled');
     }},
     { name: 'submit-create-repo', fn: async (p) => {
-      const submitBtn = await p.$('button[type="submit"], button:has-text("Create Repository")');
-      if (!submitBtn) throw new Error('Create Repository button not found');
-      await submitBtn.click();
+      // Leptos Button has no type="submit" — use Enter on last input or click by text
+      const submitBtn = await p.$('button:has-text("Create Repository")');
+      if (submitBtn) {
+        await submitBtn.click();
+      } else {
+        await p.press('input', 'Enter');
+      }
       await p.waitForTimeout(3000);
     }},
     { name: 'verify-redirect', fn: async (p) => {
@@ -408,7 +410,7 @@ async function testIssues(browser) {
       await fillIfExists(p, 'textarea#new-issue-description', 'This issue was created by the automated GUI traverse test.');
     }},
     { name: 'submit-issue', fn: async (p) => {
-      const btn = await p.$('button[type="submit"], button:has-text("Submit Issue")');
+      const btn = await p.$('button:has-text("Submit Issue")');
       if (btn) {
         await btn.click();
         await p.waitForTimeout(2000);
@@ -472,7 +474,7 @@ async function testWiki(browser) {
       await fillIfExists(p, 'textarea#wiki-new-content', '# Welcome\n\nThis is the getting started guide for this repository.\n\n## Quick Start\n\n1. Clone the repo\n2. Build the project\n3. Run tests');
     }},
     { name: 'submit-wiki-page', fn: async (p) => {
-      const btn = await p.$('button[type="submit"], button:has-text("Create Page")');
+      const btn = await p.$('button:has-text("Create Page")');
       if (btn) {
         await btn.click();
         await p.waitForTimeout(2000);
@@ -759,7 +761,7 @@ async function testOrgs(browser) {
       created.org = orgName;
     }},
     { name: 'submit-org', fn: async (p) => {
-      const submitBtn = await p.$('button[type="submit"], button:has-text("Create")');
+      const submitBtn = await p.$('button:has-text("Create")');
       if (submitBtn) {
         await submitBtn.click();
         await p.waitForTimeout(2000);
