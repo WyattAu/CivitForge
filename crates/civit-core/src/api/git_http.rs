@@ -148,6 +148,9 @@ pub async fn receive_pack(
                     &name_clone,
                 )
                 .await;
+
+                // Auto-update open PRs whose source branch was pushed to
+                update_prs_on_push(&state_clone, &owner_clone, &name_clone).await;
             });
 
             Response::builder()
@@ -227,6 +230,115 @@ pub async fn receive_pack_dotgit(
 // NOTE: Cannot add .git routes to axum Router because axum doesn't allow
 // literal text and capture in the same segment. Git clients without .git
 // in the URL will work fine with the existing routes.
+
+/// After a push, update open PRs whose source branch was pushed to.
+/// Sets the head_commit_sha to the latest commit on the pushed branch.
+async fn update_prs_on_push(state: &AppState, owner: &str, name: &str) {
+    // List all branches in the repo
+    let branches = match list_branches(state, owner, name) {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::warn!(error = %e, "failed to list branches for PR auto-update");
+            return;
+        }
+    };
+
+    // Find repo_id
+    let pool = state.db.pool();
+    let repo_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        _ => return,
+    };
+
+    // For each branch, find open PRs and update their head SHA
+    for branch_name in &branches {
+        let sha = match get_branch_head_sha(state, owner, name, branch_name) {
+            Ok(Some(s)) => s,
+            _ => continue,
+        };
+
+        if let Ok(Some(pr)) = state
+            .db
+            .find_open_pr_by_source_branch(repo_id, branch_name)
+            .await
+        {
+            let _ = state.db.set_pr_commit_shas(pr.id, &sha, &sha).await;
+            tracing::info!(
+                pr_number = pr.number,
+                branch = %branch_name,
+                sha = %sha,
+                "auto-updated PR head commit on push"
+            );
+        }
+    }
+}
+
+/// List branch names in a repository.
+fn list_branches(state: &AppState, owner: &str, name: &str) -> crate::error::Result<Vec<String>> {
+    let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string());
+    let repo_path = state.git_service.repo_path(owner, name);
+
+    use std::process::Command;
+    let output = Command::new(&git_bin)
+        .args(["branch", "--format=%(refname:short)"])
+        .arg(&repo_path)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|e| crate::error::CoreError::Git(format!("git branch failed: {e}")))?;
+
+    if !output.status.success() {
+        return Err(crate::error::CoreError::Git(format!(
+            "git branch failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+
+    let branches: Vec<String> = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect();
+
+    Ok(branches)
+}
+
+/// Get the HEAD commit SHA of a branch.
+fn get_branch_head_sha(
+    state: &AppState,
+    owner: &str,
+    name: &str,
+    branch: &str,
+) -> crate::error::Result<Option<String>> {
+    let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string());
+    let repo_path = state.git_service.repo_path(owner, name);
+
+    use std::process::Command;
+    let output = Command::new(&git_bin)
+        .args(["rev-parse", &format!("refs/heads/{branch}")])
+        .arg(&repo_path)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .output()
+        .map_err(|e| crate::error::CoreError::Git(format!("git rev-parse failed: {e}")))?;
+
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    Ok(Some(
+        String::from_utf8_lossy(&output.stdout).trim().to_string(),
+    ))
+}
 
 #[cfg(test)]
 mod tests {

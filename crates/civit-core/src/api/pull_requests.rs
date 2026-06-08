@@ -260,7 +260,13 @@ pub async fn create_pull_request(
     };
 
     let body = req.body.as_deref().unwrap_or("");
-    let _draft = req.draft.unwrap_or(false);
+    let is_draft = req.draft.unwrap_or(false);
+    // Auto-detect draft from WIP/Draft prefix (GitHub-compatible)
+    let is_draft = is_draft
+        || req.title.to_uppercase().starts_with("WIP:")
+        || req.title.to_uppercase().starts_with("WIP ")
+        || req.title.to_uppercase().starts_with("DRAFT:")
+        || req.title.to_uppercase().starts_with("DRAFT ");
     let author_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
 
     let pr = match state
@@ -272,6 +278,7 @@ pub async fn create_pull_request(
             author_id,
             &req.source_branch,
             &req.target_branch,
+            is_draft,
         )
         .await
     {
@@ -336,7 +343,17 @@ pub async fn update_pull_request(
         Err(e) => return err_response(e),
     };
 
-    let resp = pr_to_response(updated, None, None, None);
+    // Handle draft toggle
+    let final_pr = if let Some(draft) = req.draft {
+        match state.db.set_pr_draft(updated.id, draft).await {
+            Ok(r) => r,
+            Err(e) => return err_response(e),
+        }
+    } else {
+        updated
+    };
+
+    let resp = pr_to_response(final_pr, None, None, None);
     (axum::http::StatusCode::OK, Json(resp)).into_response()
 }
 

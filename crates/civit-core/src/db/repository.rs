@@ -385,6 +385,7 @@ impl DbRepository {
 
     // --- Pull Requests ---
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_pr(
         &self,
         repo_id: Uuid,
@@ -393,10 +394,11 @@ impl DbRepository {
         author_id: Uuid,
         source_branch: &str,
         target_branch: &str,
+        draft: bool,
     ) -> Result<PullRequest> {
         let row = sqlx::query_as::<_, PullRequest>(
-            r#"INSERT INTO pull_requests (repo_id, title, body, author_id, source_branch, target_branch)
-               VALUES ($1, $2, $3, $4, $5, $6)
+            r#"INSERT INTO pull_requests (repo_id, title, body, author_id, source_branch, target_branch, draft)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
                RETURNING *"#,
         )
         .bind(repo_id)
@@ -405,6 +407,7 @@ impl DbRepository {
         .bind(author_id)
         .bind(source_branch)
         .bind(target_branch)
+        .bind(draft)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| CoreError::Database(format!("create_pr: {e}")))?;
@@ -492,6 +495,58 @@ impl DbRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| CoreError::Database(format!("merge_pr: {e}")))?;
+        Ok(row)
+    }
+
+    /// Toggle the draft status of a PR.
+    pub async fn set_pr_draft(&self, id: Uuid, draft: bool) -> Result<PullRequest> {
+        let row = sqlx::query_as::<_, PullRequest>(
+            r#"UPDATE pull_requests
+               SET draft     = $2,
+                   updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(draft)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("set_pr_draft: {e}")))?;
+        Ok(row)
+    }
+
+    /// Set the head and base commit SHAs for a PR.
+    pub async fn set_pr_commit_shas(&self, id: Uuid, head_sha: &str, base_sha: &str) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE pull_requests
+               SET head_commit_sha = $2,
+                   base_commit_sha = $3,
+                   updated_at      = NOW()
+               WHERE id = $1"#,
+        )
+        .bind(id)
+        .bind(head_sha)
+        .bind(base_sha)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("set_pr_commit_shas: {e}")))?;
+        Ok(())
+    }
+
+    /// Find open PRs matching a given source branch.
+    pub async fn find_open_pr_by_source_branch(
+        &self,
+        repo_id: Uuid,
+        source_branch: &str,
+    ) -> Result<Option<PullRequest>> {
+        let row = sqlx::query_as::<_, PullRequest>(
+            "SELECT * FROM pull_requests WHERE repo_id = $1 AND source_branch = $2 AND status = 'open' LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(source_branch)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("find_open_pr_by_source_branch: {e}")))?;
         Ok(row)
     }
 
