@@ -6,6 +6,31 @@ use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityConfig {
+    pub login_max_attempts: u32,
+    pub login_lockout_secs: i64,
+    pub password_min_length: usize,
+    pub password_require_uppercase: bool,
+    pub password_require_lowercase: bool,
+    pub password_require_digit: bool,
+    pub password_require_special: bool,
+}
+
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self {
+            login_max_attempts: 5,
+            login_lockout_secs: 900,
+            password_min_length: 8,
+            password_require_uppercase: false,
+            password_require_lowercase: false,
+            password_require_digit: false,
+            password_require_special: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub host: String,
     pub port: u16,
@@ -20,6 +45,7 @@ pub struct AppConfig {
     pub cors_allowed_origins: Vec<String>,
     pub rate_limit_max_requests: Option<u32>,
     pub rate_limit_window_secs: Option<u32>,
+    pub security: SecurityConfig,
     pub tls_cert_path: Option<String>,
     pub tls_key_path: Option<String>,
     pub ui_assets_path: String,
@@ -118,6 +144,36 @@ impl AppConfig {
             rate_limit_window_secs: std::env::var("RATE_LIMIT_WINDOW_SECS")
                 .ok()
                 .and_then(|v| v.parse::<u32>().ok()),
+            security: SecurityConfig {
+                login_max_attempts: std::env::var("LOGIN_MAX_ATTEMPTS")
+                    .ok()
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .unwrap_or(5),
+                login_lockout_secs: std::env::var("LOGIN_LOCKOUT_SECS")
+                    .ok()
+                    .and_then(|v| v.parse::<i64>().ok())
+                    .unwrap_or(900),
+                password_min_length: std::env::var("PASSWORD_MIN_LENGTH")
+                    .ok()
+                    .and_then(|v| v.parse::<usize>().ok())
+                    .unwrap_or(8),
+                password_require_uppercase: std::env::var("PASSWORD_REQUIRE_UPPERCASE")
+                    .ok()
+                    .and_then(|v| v.parse::<bool>().ok())
+                    .unwrap_or(false),
+                password_require_lowercase: std::env::var("PASSWORD_REQUIRE_LOWERCASE")
+                    .ok()
+                    .and_then(|v| v.parse::<bool>().ok())
+                    .unwrap_or(false),
+                password_require_digit: std::env::var("PASSWORD_REQUIRE_DIGIT")
+                    .ok()
+                    .and_then(|v| v.parse::<bool>().ok())
+                    .unwrap_or(false),
+                password_require_special: std::env::var("PASSWORD_REQUIRE_SPECIAL")
+                    .ok()
+                    .and_then(|v| v.parse::<bool>().ok())
+                    .unwrap_or(false),
+            },
             tls_cert_path: std::env::var("TLS_CERT_PATH")
                 .ok()
                 .filter(|s| !s.is_empty()),
@@ -225,6 +281,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -380,6 +437,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -408,6 +466,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -435,6 +494,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -581,6 +641,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -605,6 +666,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -629,6 +691,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -653,6 +716,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -677,6 +741,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -701,6 +766,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),
@@ -725,6 +791,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),

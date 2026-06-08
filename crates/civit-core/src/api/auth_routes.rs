@@ -75,10 +75,8 @@ async fn do_register(
     if req.email.is_empty() {
         return Err(CoreError::Auth("Email is required".into()));
     }
-    if req.password.len() < 8 {
-        return Err(CoreError::Auth(
-            "Password must be at least 8 characters".into(),
-        ));
+    if let Err(e) = validate_password_policy(&req.password, &state.config.security) {
+        return Err(CoreError::Auth(e));
     }
 
     // Check if username or email already exists
@@ -136,21 +134,53 @@ async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<L
         return Err(CoreError::Auth("Password is required".into()));
     }
 
-    let user = state
+    // Check lockout: count recent failures
+    let sec = &state.config.security;
+    let recent_failures = state
         .db
-        .get_user_by_username(&req.username)
+        .count_recent_failed_logins(&req.username, sec.login_lockout_secs)
         .await
-        .map_err(|_| CoreError::Auth("Invalid username or password".into()))?;
+        .unwrap_or(0);
 
-    let stored_hash = state
-        .db
-        .get_password_hash(user.id)
-        .await?
-        .ok_or_else(|| CoreError::Auth("No password set. Please register.".into()))?;
+    if recent_failures >= sec.login_max_attempts as i64 {
+        return Err(CoreError::TooManyRequests(format!(
+            "Account temporarily locked due to too many failed login attempts. Try again in {} seconds.",
+            sec.login_lockout_secs
+        )));
+    }
 
-    if stored_hash.is_empty() || !bcrypt::verify(&req.password, &stored_hash).unwrap_or(false) {
+    let user = match state.db.get_user_by_username(&req.username).await {
+        Ok(u) => u,
+        Err(_) => {
+            let _ = state
+                .db
+                .record_login_attempt(&req.username, "unknown", false)
+                .await;
+            return Err(CoreError::Auth("Invalid username or password".into()));
+        }
+    };
+
+    let stored_hash = match state.db.get_password_hash(user.id).await {
+        Ok(Some(h)) if !h.is_empty() => h,
+        _ => {
+            return Err(CoreError::Auth("Invalid username or password".into()));
+        }
+    };
+
+    if !bcrypt::verify(&req.password, &stored_hash).unwrap_or(false) {
+        let _ = state
+            .db
+            .record_login_attempt(&req.username, "unknown", false)
+            .await;
         return Err(CoreError::Auth("Invalid username or password".into()));
     }
+
+    // Record success and clear failures
+    let _ = state
+        .db
+        .record_login_attempt(&req.username, "unknown", true)
+        .await;
+    let _ = state.db.clear_login_attempts(&req.username).await;
 
     let token =
         state
@@ -276,6 +306,32 @@ fn validate_input(username: &str, email: &str, display_name: &str) -> Result<(),
         }
     }
 
+    Ok(())
+}
+
+#[allow(dead_code)]
+fn validate_password_policy(
+    password: &str,
+    policy: &crate::config::SecurityConfig,
+) -> Result<(), String> {
+    if password.len() < policy.password_min_length {
+        return Err(format!(
+            "Password must be at least {} characters",
+            policy.password_min_length
+        ));
+    }
+    if policy.password_require_uppercase && !password.chars().any(|c| c.is_ascii_uppercase()) {
+        return Err("Password must contain at least one uppercase letter".into());
+    }
+    if policy.password_require_lowercase && !password.chars().any(|c| c.is_ascii_lowercase()) {
+        return Err("Password must contain at least one lowercase letter".into());
+    }
+    if policy.password_require_digit && !password.chars().any(|c| c.is_ascii_digit()) {
+        return Err("Password must contain at least one digit".into());
+    }
+    if policy.password_require_special && !password.chars().any(|c| !c.is_alphanumeric()) {
+        return Err("Password must contain at least one special character".into());
+    }
     Ok(())
 }
 

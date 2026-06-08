@@ -340,6 +340,7 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::SecurityConfig;
 
     fn test_config() -> AppConfig {
         AppConfig {
@@ -356,6 +357,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),

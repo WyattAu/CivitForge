@@ -149,7 +149,7 @@ pub fn require_admin(user: &AuthUser) -> Result<(), (StatusCode, Json<ErrorRespo
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::AppConfig;
+    use crate::config::{AppConfig, SecurityConfig};
     use axum::http::Request;
 
     fn test_app_state() -> AppState {
@@ -167,6 +167,7 @@ mod tests {
             cors_allowed_origins: Vec::new(),
             rate_limit_max_requests: None,
             rate_limit_window_secs: None,
+            security: SecurityConfig::default(),
             tls_cert_path: None,
             tls_key_path: None,
             ui_assets_path: "./crates/civit-ui/dist".into(),

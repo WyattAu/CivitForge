@@ -33,6 +33,7 @@ pub const M_031_PR_TRACKING_UP: &str = include_str!("031_add_pr_tracking.sql");
 pub const M_031_PR_TRACKING_DOWN: &str = include_str!("032_add_pr_tracking_down.sql");
 pub const M_033_STAR_WATCH_COUNTS_UP: &str = include_str!("033_add_star_watch_counts.sql");
 pub const M_033_STAR_WATCH_COUNTS_DOWN: &str = include_str!("034_add_star_watch_counts_down.sql");
+pub const M_035_LOGIN_ATTEMPTS_UP: &str = include_str!("035_add_login_attempts.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -159,6 +160,12 @@ impl MigrationManager {
             up_sql: M_033_STAR_WATCH_COUNTS_UP.into(),
             down_sql: M_033_STAR_WATCH_COUNTS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 35,
+            name: "add_login_attempts".into(),
+            up_sql: M_035_LOGIN_ATTEMPTS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS login_attempts;".into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -200,7 +207,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 17);
+        assert_eq!(mgr.all().len(), 18);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -235,19 +242,21 @@ mod tests {
         assert_eq!(mgr.all()[15].name, "add_pr_tracking");
         assert_eq!(mgr.all()[16].version, 33);
         assert_eq!(mgr.all()[16].name, "add_star_watch_counts");
+        assert_eq!(mgr.all()[17].version, 35);
+        assert_eq!(mgr.all()[17].name, "add_login_attempts");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 35,
+            version: 37,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 18);
-        assert_eq!(mgr.all()[17].version, 35);
+        assert_eq!(mgr.all().len(), 19);
+        assert_eq!(mgr.all()[18].version, 37);
     }
 
     #[test]
@@ -266,21 +275,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 17);
+        assert_eq!(pending.len(), 18);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(29);
-        assert_eq!(pending.len(), 2);
+        assert_eq!(pending.len(), 3);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 16);
+        assert_eq!(pending.len(), 17);
     }
 
     #[test]

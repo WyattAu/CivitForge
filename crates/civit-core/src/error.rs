@@ -43,6 +43,9 @@ pub enum CoreError {
 
     #[error("bad request: {0}")]
     BadRequest(String),
+
+    #[error("too many requests: {0}")]
+    TooManyRequests(String),
 }
 
 #[derive(serde::Serialize)]
@@ -66,6 +69,7 @@ impl CoreError {
             Self::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Search(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
         }
     }
 

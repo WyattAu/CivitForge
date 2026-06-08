@@ -1092,6 +1092,59 @@ impl DbRepository {
         Ok(())
     }
 
+    // --- Login Attempts / Lockout ---
+
+    /// Record a login attempt (success or failure) and prune old records.
+    pub async fn record_login_attempt(
+        &self,
+        username: &str,
+        ip: &str,
+        success: bool,
+    ) -> Result<()> {
+        sqlx::query(
+            "INSERT INTO login_attempts (username, ip_address, success) VALUES ($1, $2, $3)",
+        )
+        .bind(username)
+        .bind(ip)
+        .bind(success)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("record_login_attempt: {e}")))?;
+        // Prune old attempts (keep last 24h)
+        sqlx::query("DELETE FROM login_attempts WHERE created_at < NOW() - INTERVAL '24 hours'")
+            .execute(&self.pool)
+            .await
+            .ok(); // best-effort cleanup
+        Ok(())
+    }
+
+    /// Count failed login attempts for a username within the lockout window.
+    pub async fn count_recent_failed_logins(
+        &self,
+        username: &str,
+        window_secs: i64,
+    ) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM login_attempts WHERE username = $1 AND success = false AND created_at > NOW() - ($2 || ' seconds')::INTERVAL",
+        )
+        .bind(username)
+        .bind(window_secs.to_string())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("count_recent_failed_logins: {e}")))?;
+        Ok(row.0)
+    }
+
+    /// Clear failed login attempts for a username (called on successful login).
+    pub async fn clear_login_attempts(&self, username: &str) -> Result<()> {
+        sqlx::query("DELETE FROM login_attempts WHERE username = $1 AND success = false")
+            .bind(username)
+            .execute(&self.pool)
+            .await
+            .ok(); // best-effort
+        Ok(())
+    }
+
     // --- Stars ---
 
     pub async fn increment_stars(&self, repo_id: Uuid) -> Result<i64> {
