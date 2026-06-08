@@ -463,6 +463,38 @@ impl DbRepository {
         Ok(row)
     }
 
+    /// Mark a PR as merged with full metadata.
+    pub async fn merge_pr(
+        &self,
+        id: Uuid,
+        merge_commit_id: &str,
+        merge_strategy: &str,
+        head_sha: Option<&str>,
+        base_sha: Option<&str>,
+    ) -> Result<PullRequest> {
+        let row = sqlx::query_as::<_, PullRequest>(
+            r#"UPDATE pull_requests
+               SET status          = 'merged',
+                   merge_commit_id = $2,
+                   merge_strategy  = $3,
+                   head_commit_sha = COALESCE($4, head_commit_sha),
+                   base_commit_sha = COALESCE($5, base_commit_sha),
+                   merged_at       = NOW(),
+                   updated_at      = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(merge_commit_id)
+        .bind(merge_strategy)
+        .bind(head_sha)
+        .bind(base_sha)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("merge_pr: {e}")))?;
+        Ok(row)
+    }
+
     pub async fn get_pr_by_number(&self, repo_id: Uuid, number: i32) -> Result<PullRequest> {
         sqlx::query_as::<_, PullRequest>(
             "SELECT * FROM pull_requests WHERE repo_id = $1 AND number = $2",

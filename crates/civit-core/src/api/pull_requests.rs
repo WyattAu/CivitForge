@@ -504,7 +504,7 @@ pub async fn submit_review(
 pub async fn merge_pull_request(
     State(state): State<AppState>,
     Path((owner, name, number)): Path<(String, String, i32)>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Json(body): Json<serde_json::Value>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -524,16 +524,39 @@ pub async fn merge_pull_request(
         )));
     }
 
-    let strategy = body
+    let strategy_str = body
         .get("strategy")
         .and_then(|v| v.as_str())
         .unwrap_or("merge");
+    let strategy: crate::git::MergeStrategy = match strategy_str.parse() {
+        Ok(s) => s,
+        Err(e) => return err_response(e),
+    };
 
-    let merge_commit_sha = format!("{:040x}", rand::random::<u64>());
+    // Perform the actual git merge
+    let merge_result = match state.git_service.merge_branch(
+        &owner,
+        &name,
+        &pr.source_branch,
+        &pr.target_branch,
+        strategy,
+        &format!("{} (CivitForge)", auth.username),
+        &format!("{}@civitforge.local", auth.username),
+    ) {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
 
+    // Record the real merge in the DB
     let merged = state
         .db
-        .update_pr(pr.id, None, None, Some("merged"))
+        .merge_pr(
+            pr.id,
+            &merge_result.commit_sha,
+            &merge_result.strategy_used,
+            pr.head_commit_sha.as_deref(),
+            pr.base_commit_sha.as_deref(),
+        )
         .await
         .is_ok();
 
@@ -545,8 +568,9 @@ pub async fn merge_pull_request(
                 pr.author_id,
                 "merged",
                 serde_json::json!({
-                    "merge_commit_sha": merge_commit_sha,
-                    "strategy": strategy,
+                    "merge_commit_sha": merge_result.commit_sha,
+                    "strategy": merge_result.strategy_used,
+                    "was_fast_forward": merge_result.was_ff,
                 }),
             )
             .await;
@@ -555,11 +579,19 @@ pub async fn merge_pull_request(
     let resp = MergeResponse {
         merged,
         message: if merged {
-            format!("PR #{number} merged via {strategy}")
+            format!(
+                "PR #{number} merged via {} ({})",
+                merge_result.strategy_used,
+                &merge_result.commit_sha[..8]
+            )
         } else {
-            "Merge failed".into()
+            "Merge failed: could not update PR record".into()
         },
-        merge_commit_sha: if merged { Some(merge_commit_sha) } else { None },
+        merge_commit_sha: if merged {
+            Some(merge_result.commit_sha)
+        } else {
+            None
+        },
     };
     (axum::http::StatusCode::OK, Json(resp)).into_response()
 }
