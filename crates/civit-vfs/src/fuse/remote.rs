@@ -36,7 +36,7 @@ impl OnDemandFetcher {
     }
 
     pub fn fetch_cached(&self, block_id: &str) -> Option<Vec<u8>> {
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.lock().ok()?;
         cache.get(block_id).cloned()
     }
 
@@ -49,12 +49,14 @@ impl OnDemandFetcher {
     }
 
     pub fn cache_len(&self) -> usize {
-        self.cache.lock().unwrap().len()
+        self.cache.lock().map(|c| c.len()).unwrap_or(0)
     }
 
     pub fn invalidate_cached(&self, block_id: &str) -> bool {
-        let mut cache = self.cache.lock().unwrap();
-        cache.remove(block_id).is_some()
+        self.cache
+            .lock()
+            .map(|mut c| c.remove(block_id).is_some())
+            .unwrap_or(false)
     }
 }
 

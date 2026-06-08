@@ -3,7 +3,7 @@
 > Last updated: 2026-06-07
 > Scope: CivitForge vs GitHub ES v3.20, GitLab CE v19.0, Gitea v1.26, Forgejo v15.0, Codeberg (Forgejo-based), Radicle v1.9, Soft Serve v0.11
 
-**Legend:** ✅ Full | ⚠️ Partial | ❌ Missing | 🔧 Backend only | 💰 Paid tier | 🆕 Unique to CivitForge
+**Legend:** [YES] Full | [PARTIAL] Partial | [NO] Missing | [BE] Backend only | [PAID] Paid tier | [NEW] Unique to CivitForge
 
 ---
 
@@ -34,34 +34,34 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle | Soft Serve |
 |---|---|---|---|---|---|---|---|
-| Code browsing (tree) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (TUI) |
-| File viewer (blob) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Raw file download | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Git blame view | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Commit history per file | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Last commit column | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Branch switching in UI | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Syntax highlighting | ❌ | ✅ (100+) | ✅ (Rouge) | ✅ (Chroma) | ✅ (Chroma) | ❌ | ✅ |
-| Language detection/stats | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| README rendering at root | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Archive download (zip/tar) | ⚠️ stub | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Web code editor | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Commit graph visualization | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Inline diff (PR files) | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Side-by-side diff | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Visual image diff | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Color-coded blame | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Repository size display | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| File finder (fuzzy) | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ | ❌ |
-| LFS 2.0 | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Submodules in UI | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Mermaid in markdown | ❌ | ✅ | ✅ (v11) | ✅ | ✅ | ❌ | ❌ |
-| KaTeX/LaTeX in markdown | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| CSV rendering | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Jupyter notebook rendering | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| 3D model viewer (.stl) | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| PDF rendering | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Search within repo | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Code browsing (tree) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] (TUI) |
+| File viewer (blob) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Raw file download | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Git blame view | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Commit history per file | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Last commit column | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Branch switching in UI | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Syntax highlighting | [NO] | [YES] (100+) | [YES] (Rouge) | [YES] (Chroma) | [YES] (Chroma) | [NO] | [YES] |
+| Language detection/stats | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| README rendering at root | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Archive download (zip/tar) | [PARTIAL] stub | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Web code editor | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Commit graph visualization | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Inline diff (PR files) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Side-by-side diff | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Visual image diff | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Color-coded blame | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Repository size display | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| File finder (fuzzy) | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] | [NO] |
+| LFS 2.0 | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [YES] |
+| Submodules in UI | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [YES] |
+| Mermaid in markdown | [NO] | [YES] | [YES] (v11) | [YES] | [YES] | [NO] | [NO] |
+| KaTeX/LaTeX in markdown | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| CSV rendering | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Jupyter notebook rendering | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] | [NO] |
+| 3D model viewer (.stl) | [NO] | [YES] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| PDF rendering | [NO] | [YES] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| Search within repo | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | **CivitForge score: 7/26 (27%)** | | | | | | | |
 
 ---
@@ -70,29 +70,29 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| Issue tracker (CRUD) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (COBs) |
-| Labels (color-coded) | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Milestones | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Emoji reactions | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Issue comments | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Issue templates | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Assignees (single/multiple) | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| File attachments | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Cross-references (#123) | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Time tracking | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Issue dependencies/blocking | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| Issue pinning | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Lock discussion | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Batch issue handling | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Convert comment to issue | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Issue search (repo) | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Issue search (global) | ✅ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Due dates | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Issue import/export | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Task lists in markdown | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Issue analytics/boards | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Kanban boards | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Create branch from issue | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Issue tracker (CRUD) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] (COBs) |
+| Labels (color-coded) | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Milestones | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Emoji reactions | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue comments | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Issue templates | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Assignees (single/multiple) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| File attachments | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Cross-references (#123) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Time tracking | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue dependencies/blocking | [NO] | [NO] | [YES] | [YES] | [YES] | [NO] |
+| Issue pinning | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Lock discussion | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Batch issue handling | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Convert comment to issue | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue search (repo) | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue search (global) | [YES] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Due dates | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue import/export | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Task lists in markdown | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue analytics/boards | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Kanban boards | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Create branch from issue | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] |
 | **CivitForge score: 6/22 (27%)** | | | | | | |
 
 ---
@@ -101,28 +101,28 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| PR/MR creation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (patches) |
-| PR/MR templates | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Inline comments | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Review requests | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Status checks | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Merge commit | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Squash merge | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Rebase merge | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Fast-forward merge | ❌ | ⚠️ | ✅ | ✅ | ✅ | ❌ |
-| Draft PRs | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| CODEOWNERS enforcement | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Required reviews | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Auto-merge | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Merge queue | 🔧 | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Linked issues auto-close | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Download patch | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Push to existing PR | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Merge message templates | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Restrict push/merge to users | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Conflict detection | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Suggested edits (one-click) | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Cherry-pick | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
+| PR/MR creation | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] (patches) |
+| PR/MR templates | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Inline comments | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Review requests | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Status checks | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Merge commit | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Squash merge | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Rebase merge | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Fast-forward merge | [NO] | [PARTIAL] | [YES] | [YES] | [YES] | [NO] |
+| Draft PRs | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| CODEOWNERS enforcement | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Required reviews | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Auto-merge | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Merge queue | [BE] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Linked issues auto-close | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Download patch | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Push to existing PR | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Merge message templates | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Restrict push/merge to users | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Conflict detection | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Suggested edits (one-click) | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| Cherry-pick | [YES] | [NO] | [YES] | [YES] | [YES] | [NO] |
 | **CivitForge score: 7/21 (33%)** | | | | | | |
 
 ---
@@ -131,28 +131,28 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Woodpecker |
 |---|---|---|---|---|---|---|
-| Built-in CI/CD | ✅ | ✅ (Actions) | ✅ (CI) | ✅ (Actions) | ✅ (Actions) | ✅ |
-| YAML pipeline config | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| DAG pipelines (needs) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Artifacts | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Manual triggers | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Container registry | ✅ (OCI) | ✅ (GHCR) | ✅ | ✅ | ✅ | ❌ |
-| Runner management | 🔧 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Matrix builds | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Parallelism | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Secrets management | 🔧 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Caches | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Environments | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Deployments | ❌ | ✅ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Scheduled runs (cron) | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Status badges | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Auto-cancel redundant | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Concurrency groups | ✅ (CEL) | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Pipeline variables | ✅ (encrypted) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| OIDC workload identity | ❌ | ✅ | ✅ | ❌ | ✅ | ❌ |
-| Real-time log streaming | ✅ (SSE) | ✅ | ✅ | ✅ | ✅ | ✅ |
-| CEL expression support | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| GitHub Actions compat | ⚠️ (partial) | ✅ | ❌ | ✅ (~85%) | ✅ (~85%) | ❌ |
+| Built-in CI/CD | [YES] | [YES] (Actions) | [YES] (CI) | [YES] (Actions) | [YES] (Actions) | [YES] |
+| YAML pipeline config | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| DAG pipelines (needs) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Artifacts | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Manual triggers | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Container registry | [YES] (OCI) | [YES] (GHCR) | [YES] | [YES] | [YES] | [NO] |
+| Runner management | [BE] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Matrix builds | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Parallelism | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Secrets management | [BE] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Caches | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Environments | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Deployments | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Scheduled runs (cron) | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Status badges | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Auto-cancel redundant | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Concurrency groups | [YES] (CEL) | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Pipeline variables | [YES] (encrypted) | [YES] | [YES] | [YES] | [YES] | [YES] |
+| OIDC workload identity | [NO] | [YES] | [YES] | [NO] | [YES] | [NO] |
+| Real-time log streaming | [YES] (SSE) | [YES] | [YES] | [YES] | [YES] | [YES] |
+| CEL expression support | [YES] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| GitHub Actions compat | [PARTIAL] (partial) | [YES] | [NO] | [YES] (~85%) | [YES] (~85%) | [NO] |
 | **CivitForge score: 12/24 (50%)** | | | | | | |
 
 ---
@@ -161,30 +161,30 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| Username/password | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (crypto) |
-| JWT tokens | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| 2FA / TOTP | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| WebAuthn / FIDO2 | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| SAML SSO | ✅ | 💰 | 💰 | ❌ | ❌ | ❌ |
-| OIDC login | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| LDAP / AD | ❌ | 💰 | ✅ | ✅ | ✅ | ❌ |
-| SSH key management | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SSH daemon (built-in) | 🔧 | ✅ | ❌ | ✅ | ✅ | ✅ |
-| Email verification | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Account lockout | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Password policies | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| OAuth2 provider | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Rate limiting | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| CSRF protection | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Security headers (HSTS, CSP) | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| RBAC permission engine | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| ABAC (attribute-based) | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| FIPS 140-2 self-test | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| HSM (PKCS#11) | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| SLSA provenance | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Cosign image signing | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
-| SBOM generation (SPDX) | ✅ 🆕 | ⚠️ | ✅ | ❌ | ❌ | ❌ |
-| Vulnerability scanning (OSV) | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Username/password | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] (crypto) |
+| JWT tokens | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| 2FA / TOTP | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| WebAuthn / FIDO2 | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| SAML SSO | [YES] | [PAID] | [PAID] | [NO] | [NO] | [NO] |
+| OIDC login | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| LDAP / AD | [NO] | [PAID] | [YES] | [YES] | [YES] | [NO] |
+| SSH key management | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| SSH daemon (built-in) | [BE] | [YES] | [NO] | [YES] | [YES] | [YES] |
+| Email verification | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Account lockout | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Password policies | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| OAuth2 provider | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Rate limiting | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| CSRF protection | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Security headers (HSTS, CSP) | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| RBAC permission engine | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| ABAC (attribute-based) | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| FIPS 140-2 self-test | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| HSM (PKCS#11) | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| SLSA provenance | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| Cosign image signing | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| SBOM generation (SPDX) | [YES] [NEW] | [PARTIAL] | [YES] | [NO] | [NO] | [NO] |
+| Vulnerability scanning (OSV) | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
 | **CivitForge score: 22/28 (79%)** | | | | | | |
 
 ---
@@ -193,17 +193,17 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| ActivityPub protocol | ✅ 🆕 | ❌ | ❌ | ❌ | ⚠️ (WIP) | ❌ |
-| ForgeFed vocabulary | ✅ 🆕 | ❌ | ❌ | ❌ | ⚠️ (WIP) | ❌ |
-| WebFinger discovery | ✅ 🆕 | ❌ | ❌ | ❌ | ⚠️ | ❌ |
-| Cross-instance PRs | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ✅ (P2P) |
-| Multi-master replication | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Vector clocks (conflict) | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Local-first / offline | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| P2P (no central server) | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Social artifacts in Git | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Gossip protocol | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| NodeInfo | ❌ | ❌ | ❌ | ❌ | ⚠️ | ❌ |
+| ActivityPub protocol | [YES] [NEW] | [NO] | [NO] | [NO] | [PARTIAL] (WIP) | [NO] |
+| ForgeFed vocabulary | [YES] [NEW] | [NO] | [NO] | [NO] | [PARTIAL] (WIP) | [NO] |
+| WebFinger discovery | [YES] [NEW] | [NO] | [NO] | [NO] | [PARTIAL] | [NO] |
+| Cross-instance PRs | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [YES] (P2P) |
+| Multi-master replication | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| Vector clocks (conflict) | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| Local-first / offline | [NO] | [NO] | [NO] | [NO] | [NO] | [YES] |
+| P2P (no central server) | [NO] | [NO] | [NO] | [NO] | [NO] | [YES] |
+| Social artifacts in Git | [NO] | [NO] | [NO] | [NO] | [NO] | [YES] |
+| Gossip protocol | [NO] | [NO] | [NO] | [NO] | [NO] | [YES] |
+| NodeInfo | [NO] | [NO] | [NO] | [NO] | [PARTIAL] | [NO] |
 | **CivitForge score: 8/12 (67%)** | | | | | | |
 
 ---
@@ -212,13 +212,13 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| AI code suggestions | 🔧 (LLM) | ✅ (Copilot) | ✅ (Duo) | ❌ | ❌ | ❌ |
-| AI PR review | ✅ 🆕 | ✅ (Copilot) | ✅ (Duo) | ❌ | ❌ | ❌ |
-| AI code search (RAG) | ✅ 🆕 | ✅ (Copilot) | ✅ (Duo Chat) | ❌ | ❌ | ❌ |
-| AI chat assistant | ✅ 🆕 | ✅ (Copilot Chat) | ✅ (Duo Chat) | ❌ | ❌ | ❌ |
-| AI code generation | ✅ 🆕 | ✅ (Copilot) | ✅ (Duo) | ❌ | ❌ | ❌ |
-| AST engine (19 langs) | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Air-gapped inference | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| AI code suggestions | [BE] (LLM) | [YES] (Copilot) | [YES] (Duo) | [NO] | [NO] | [NO] |
+| AI PR review | [YES] [NEW] | [YES] (Copilot) | [YES] (Duo) | [NO] | [NO] | [NO] |
+| AI code search (RAG) | [YES] [NEW] | [YES] (Copilot) | [YES] (Duo Chat) | [NO] | [NO] | [NO] |
+| AI chat assistant | [YES] [NEW] | [YES] (Copilot Chat) | [YES] (Duo Chat) | [NO] | [NO] | [NO] |
+| AI code generation | [YES] [NEW] | [YES] (Copilot) | [YES] (Duo) | [NO] | [NO] | [NO] |
+| AST engine (19 langs) | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| Air-gapped inference | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
 | **CivitForge score: 8/8 (100%)** | | | | | | |
 
 ---
@@ -227,18 +227,18 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| VFS (FUSE mount) | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| K8s operator + Helm | ✅ 🆕 | ❌ | ✅ | ⚠️ | ⚠️ | ❌ |
-| Podman-based runner | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Edge caching + pre-signed URLs | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Auto-scaler + sharder | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Distributed tracing (OTel) | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Prometheus metrics | ✅ 🆕 | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Graceful shutdown | ✅ 🆕 | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Feature flags | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
-| CMDB (asset management) | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| ISO 27001 compliance | ✅ 🆕 | ❌ | ❌ | ❌ | ❌ | ❌ |
-| mTLS everywhere | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
+| VFS (FUSE mount) | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| K8s operator + Helm | [YES] [NEW] | [NO] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Podman-based runner | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| Edge caching + pre-signed URLs | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| Auto-scaler + sharder | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| Distributed tracing (OTel) | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| Prometheus metrics | [YES] [NEW] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Graceful shutdown | [YES] [NEW] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Feature flags | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| CMDB (asset management) | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| ISO 27001 compliance | [YES] [NEW] | [NO] | [NO] | [NO] | [NO] | [NO] |
+| mTLS everywhere | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
 | **CivitForge score: 13/13 (100%)** | | | | | | |
 
 ---
@@ -247,16 +247,16 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| REST API | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ |
-| OpenAPI spec | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| GraphQL | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Webhooks | 🔧 | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Personal access tokens | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Git hooks (pre-receive) | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Marketplace / extensions | ✅ 🆕 | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Rate limiting | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| WebSocket support | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| HMAC webhooks | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| REST API | [YES] | [YES] | [YES] | [YES] | [YES] | [PARTIAL] |
+| OpenAPI spec | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| GraphQL | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| Webhooks | [BE] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Personal access tokens | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Git hooks (pre-receive) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Marketplace / extensions | [YES] [NEW] | [YES] | [YES] | [NO] | [NO] | [NO] |
+| Rate limiting | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| WebSocket support | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| HMAC webhooks | [NO] | [NO] | [YES] | [NO] | [NO] | [NO] |
 | **CivitForge score: 6/11 (55%)** | | | | | | |
 
 ---
@@ -265,13 +265,13 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo |
 |---|---|---|---|---|---|
-| Dark mode | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Responsive / mobile-friendly | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Keyboard shortcuts | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Multi-language UI (i18n) | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Custom footer/logo | ❌ | ❌ | ✅ | ✅ | ❌ |
-| User profile customization | ❌ | ✅ | ✅ | ✅ | ✅ |
-| Native desktop app | ✅ 🆕 (Tauri) | ✅ | ❌ | ❌ | ❌ |
+| Dark mode | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Responsive / mobile-friendly | [NO] | [YES] | [YES] | [YES] | [YES] |
+| Keyboard shortcuts | [NO] | [YES] | [YES] | [YES] | [YES] |
+| Multi-language UI (i18n) | [NO] | [YES] | [YES] | [YES] | [YES] |
+| Custom footer/logo | [NO] | [NO] | [YES] | [YES] | [NO] |
+| User profile customization | [NO] | [YES] | [YES] | [YES] | [YES] |
+| Native desktop app | [YES] [NEW] (Tauri) | [YES] | [NO] | [NO] | [NO] |
 | **CivitForge score: 2/7 (29%)** | | | | | |
 
 ---
@@ -443,15 +443,15 @@ Leverage the 22 unique advantages as the primary competitive moat.
 
 | # | Task | Effort | Impact |
 |---|---|---|---|
-| F5.1 | **AI PR review in UI** — expose RAG + AST pipeline as inline comments | 5d | 🆕 DIFFERENTIATOR |
-| F5.2 | **AI code search** — natural language → code results via RAG | 3d | 🆕 DIFFERENTIATOR |
-| F5.3 | **VFS launch** — FUSE mount UI, mount manager page | 5d | 🆕 DIFFERENTIATOR |
-| F5.4 | **Federation polish** — stabilize cross-instance PRs, follow UX | 5d | 🆕 DIFFERENTIATOR |
-| F5.5 | **SLSA dashboard** — provenance transparency UI | 3d | 🆕 DIFFERENTIATOR |
-| F5.6 | **Edge caching UI** — pre-signed URL management | 2d | 🆕 DIFFERENTIATOR |
-| F5.7 | **Compliance dashboard** — ISO 27001, audit trail viewer | 3d | 🆕 DIFFERENTIATOR |
+| F5.1 | **AI PR review in UI** — expose RAG + AST pipeline as inline comments | 5d | [NEW] DIFFERENTIATOR |
+| F5.2 | **AI code search** — natural language → code results via RAG | 3d | [NEW] DIFFERENTIATOR |
+| F5.3 | **VFS launch** — FUSE mount UI, mount manager page | 5d | [NEW] DIFFERENTIATOR |
+| F5.4 | **Federation polish** — stabilize cross-instance PRs, follow UX | 5d | [NEW] DIFFERENTIATOR |
+| F5.5 | **SLSA dashboard** — provenance transparency UI | 3d | [NEW] DIFFERENTIATOR |
+| F5.6 | **Edge caching UI** — pre-signed URL management | 2d | [NEW] DIFFERENTIATOR |
+| F5.7 | **Compliance dashboard** — ISO 27001, audit trail viewer | 3d | [NEW] DIFFERENTIATOR |
 | F5.8 | **NodeInfo endpoint** — for federation discovery | 0.5d | FEDERATION |
-| F5.9 | **Secret scanning** — AI-powered credential detection in code | 5d | 🆕 DIFFERENTIATOR |
+| F5.9 | **Secret scanning** — AI-powered credential detection in code | 5d | [NEW] DIFFERENTIATOR |
 | F5.10 | **Inline diff + side-by-side** for PR file view | 5d | HIGH |
 | F5.11 | **Commit graph visualization** — SVG branch topology | 3d | HIGH |
 | F5.12 | **KaTeX + Mermaid** in markdown renderer | 2d | MEDIUM |

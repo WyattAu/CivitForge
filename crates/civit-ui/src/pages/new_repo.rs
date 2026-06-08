@@ -3,12 +3,11 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 use leptos_router::hooks::use_navigate;
-#[cfg(feature = "csr")]
-use wasm_bindgen::JsCast;
 
 use crate::api::client::ApiClient;
 use crate::components::{Button, ButtonVariant, Card, ErrorBanner, Input, InputType};
 use crate::state::auth::use_auth;
+use crate::utils::get_input_value;
 use civit_shared::visibility::Visibility;
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -17,40 +16,6 @@ struct CreateRepoBody {
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
     visibility: Visibility,
-}
-
-fn get_input_value(name: &str) -> String {
-    #[cfg(feature = "csr")]
-    {
-        let window = match web_sys::window() {
-            Some(w) => w,
-            None => return String::new(),
-        };
-        let doc = match window.document() {
-            Some(d) => d,
-            None => return String::new(),
-        };
-        let el = match doc.get_element_by_id(name) {
-            Some(el) => el,
-            None => return String::new(),
-        };
-        let tag = el.tag_name().to_lowercase();
-        if tag == "textarea" {
-            match el.dyn_into::<web_sys::HtmlTextAreaElement>() {
-                Ok(ta) => return ta.value(),
-                Err(_) => return String::new(),
-            }
-        }
-        match el.dyn_into::<web_sys::HtmlInputElement>() {
-            Ok(input) => input.value(),
-            Err(_) => String::new(),
-        }
-    }
-    #[cfg(not(feature = "csr"))]
-    {
-        let _ = name;
-        String::new()
-    }
 }
 
 #[component]

@@ -21,12 +21,11 @@ pub struct PolicyVersion {
 
 impl PolicyVersion {
     pub fn compute_checksum(&mut self) {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        self.policy_id.hash(&mut hasher);
-        self.expression.raw.hash(&mut hasher);
-        self.checksum = format!("{:016x}", hasher.finish());
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(self.policy_id.as_bytes());
+        hasher.update(self.expression.raw.as_bytes());
+        self.checksum = hex::encode(hasher.finalize());
     }
 }
 

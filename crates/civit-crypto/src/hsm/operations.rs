@@ -81,8 +81,10 @@ impl HsmKeyOperations {
 
     pub fn sign(&self, key_id: &str, data: &[u8]) -> anyhow::Result<Vec<u8>> {
         let client = self.client.lock().unwrap();
+        // Sessions store keys with "key-" prefix; strip to get the actual HsmClient key ID.
+        let actual_id = key_id.strip_prefix("key-").unwrap_or(key_id);
         let key = HsmKeyHandle {
-            id: key_id.to_string(),
+            id: actual_id.to_string(),
             label: key_id.to_string(),
             key_type: KeyType::Ecc,
             algorithm: "ECDSA-P256-SHA256".into(),
@@ -93,8 +95,9 @@ impl HsmKeyOperations {
 
     pub fn verify(&self, key_id: &str, data: &[u8], signature: &[u8]) -> anyhow::Result<bool> {
         let client = self.client.lock().unwrap();
+        let actual_id = key_id.strip_prefix("key-").unwrap_or(key_id);
         let key = HsmKeyHandle {
-            id: key_id.to_string(),
+            id: actual_id.to_string(),
             label: key_id.to_string(),
             key_type: KeyType::Ecc,
             algorithm: "ECDSA-P256-SHA256".into(),
@@ -393,11 +396,11 @@ mod tests {
         let ops = HsmKeyOperations::new();
         let pub_key = ops.generate_keypair("ECDSA", "test-key", 256).unwrap();
         let keys = ops.list_keys();
-        let priv_key_id = &keys[0]; // "key-sk-..." session key id, not HsmClient key id
+        let priv_key_id = &keys[0]; // "key-sk-..." session key id
+        // sign() strips the "key-" prefix to find the actual HsmClient key.
         let result = ops.sign(priv_key_id, b"hello world");
-        // The sign method creates an HsmKeyHandle and looks it up in HsmClient's key store.
-        // Since "key-sk-..." is a session entry, not a key store entry, this should fail.
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        assert!(!result.unwrap().is_empty());
         drop(pub_key);
     }
 
@@ -407,10 +410,10 @@ mod tests {
         let pub_key = ops.generate_keypair("ECDSA", "test-key", 256).unwrap();
         let keys = ops.list_keys();
         let priv_key_id = &keys[0];
-        // Sign and verify using the session key id — will fail as the key
-        // isn't in the HsmClient key store (different id namespace).
-        let sig_result = ops.sign(priv_key_id, b"data");
-        assert!(sig_result.is_err());
+        let data = b"data";
+        let sig = ops.sign(priv_key_id, data).unwrap();
+        let verified = ops.verify(priv_key_id, data, &sig).unwrap();
+        assert!(verified);
         drop(pub_key);
     }
 

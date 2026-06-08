@@ -220,11 +220,13 @@ impl GrpcServer {
     /// Start the gRPC server. Returns a handle that can be awaited.
     /// When the `cancel` receiver fires, the server shuts down gracefully.
     pub async fn run_until_cancelled(self, mut cancel: tokio::sync::watch::Receiver<bool>) {
-        let addr: std::net::SocketAddr = self
-            .config
-            .bind_addr
-            .parse()
-            .unwrap_or_else(|_| "[::1]:50051".parse().unwrap());
+        let addr: std::net::SocketAddr = match self.config.bind_addr.parse() {
+            Ok(a) => a,
+            Err(e) => {
+                tracing::error!(addr = %self.config.bind_addr, error = %e, "invalid gRPC bind address, falling back to [::1]:50051");
+                "[::1]:50051".parse().expect("valid default address")
+            }
+        };
 
         info!(%addr, "starting VFS gRPC server");
 

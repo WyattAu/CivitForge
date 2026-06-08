@@ -572,6 +572,7 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                             </Show>
                             <textarea
                                 id="pr-comment-input"
+                                aria-label="Write a comment on this pull request"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 placeholder="Write a comment..."
                                 rows="3"

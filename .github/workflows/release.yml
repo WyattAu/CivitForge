@@ -32,7 +32,6 @@ jobs:
           cp target/release/civit-runner artifacts/
           cp target/release/civit-brain artifacts/
           cp target/release/civit-vfs artifacts/
-          cp target/release/civit-crypto artifacts/ || true
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

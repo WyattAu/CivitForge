@@ -8,7 +8,10 @@ use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 async fn shutdown_signal() {
-    signal::ctrl_c().await.expect("failed to listen for ctrl+c");
+    if let Err(e) = signal::ctrl_c().await {
+        tracing::error!("failed to listen for ctrl+c: {e}");
+        return;
+    }
     info!("received shutdown signal");
 }
 
@@ -81,7 +84,13 @@ async fn main() -> Result<()> {
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
         .parse()
-        .expect("invalid bind address");
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "invalid bind address '{}:{}': {e}",
+                config.host,
+                config.port
+            )
+        })?;
 
     if config.tls_enabled() {
         let cert_path = config.tls_cert_path.as_ref().unwrap();
@@ -89,7 +98,7 @@ async fn main() -> Result<()> {
 
         let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
             .await
-            .expect("failed to load TLS certificate/key");
+            .map_err(|e| anyhow::anyhow!("failed to load TLS certificate/key: {e}"))?;
 
         info!("CivitForge API listening on {} (TLS)", addr);
         let handle = axum_server::Handle::new();

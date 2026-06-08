@@ -80,7 +80,7 @@ pub fn Sidebar() -> impl IntoView {
                         let label = item.label.clone();
                         let href = item.href.clone();
                         view! {
-                            <a href=href class=link_class>
+                            <A href=href attr:class=link_class>
                                 <Show when=move || item.icon == "svg" fallback=move || view! {
                                     <Show when=move || item.icon == "activity" fallback=move || view! {
                                         <span class="mr-2">{item.icon}</span>
@@ -95,7 +95,7 @@ pub fn Sidebar() -> impl IntoView {
                                     </svg>
                                 </Show>
                                 {label}
-                            </a>
+                            </A>
                         }
                     }
                 </For>
@@ -105,10 +105,10 @@ pub fn Sidebar() -> impl IntoView {
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             "Create"
                         </div>
-                        <a href="/new-repo" class=link_class>
+                        <A href="/new-repo" attr:class=link_class>
                             <span class="mr-2">"\u{2795}"</span>
                             "New Repo"
-                        </a>
+                        </A>
                     </div>
                 </Show>
             </nav>
@@ -127,9 +127,9 @@ pub fn Sidebar() -> impl IntoView {
                     " Toggle Theme"
                 </div>
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
-                    <a href="/login">
+                    <A href="/login">
                         <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">"Sign In"</div>
-                    </a>
+                    </A>
                 }>
                     <div class="space-y-1">
                         <div class="flex items-center gap-2 px-3 py-2">
@@ -138,10 +138,10 @@ pub fn Sidebar() -> impl IntoView {
                                 {username}
                             </span>
                         </div>
-                        <a href="/settings" class=link_class>
+                        <A href="/settings" attr:class=link_class>
                             <span class="mr-2">"\u{2699}\u{fe0f}"</span>
                             "Settings"
-                        </a>
+                        </A>
                         // Sign out uses <a href> instead of <button on:click> to
                         // avoid WebKit auto-fire bug. Link triggers JS logout function.
                         <a

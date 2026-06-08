@@ -33,14 +33,6 @@ pub struct RepoEncryptionKey {
 
 impl RepoEncryptionKey {
     pub fn derive(master_key: &[u8; 32], repo_id: Uuid) -> Result<Self, RepoKeyError> {
-        use hmac::{Hmac, Mac};
-        type HmacSha256 = Hmac<Sha256>;
-
-        let mut mac = HmacSha256::new_from_slice(master_key)
-            .map_err(|e| RepoKeyError::Derivation(format!("HMAC init failed: {e}")))?;
-        mac.update(repo_id.as_bytes());
-        let _result = mac.finalize();
-
         let mut expanded = [0u8; 32];
         let prk = Sha256::digest(master_key);
         let info = repo_id.as_bytes();

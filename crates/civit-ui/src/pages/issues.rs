@@ -157,9 +157,8 @@ pub fn IssuesPage() -> impl IntoView {
     };
 
     let handle_filter_change = move |new_filter: String| {
-        set_filter.set(new_filter.clone());
-        set_page.set(1);
         set_filter.set(new_filter);
+        set_page.set(1);
         fetch_issues();
     };
 
