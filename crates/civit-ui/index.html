@@ -38,9 +38,8 @@ h1, h2, h3, h4, h5, h6 {
 </style>
     <!-- API URL override + automation support -->
     <script>
-        if (!window.__CIVIT_API_URL) {
-            window.__CIVIT_API_URL = "http://192.168.1.191:9091/api/v1";
-        }
+        // __CIVIT_API_URL can be set via <script> tag before this point (e.g., Tauri injection)
+        // If not set, the WASM API client falls back to window.location.origin + /api/v1
          // Ctrl+Shift+H: capture page HTML via POST to local endpoint + Tauri IPC
          // Ctrl+Shift+S: take screenshot via Tauri IPC
          document.addEventListener('keydown', function(e) {
@@ -109,6 +108,20 @@ h1, h2, h3, h4, h5, h6 {
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Syntax highlighting: highlight.js 11.9 (50+ languages) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <!-- Markdown rendering: markdown-it + github flavor -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>
+    <!-- GitHub Markdown CSS (for rendered README) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-dark.min.css" media="(prefers-color-scheme: dark)">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown-light.min.css" media="(prefers-color-scheme: no-preference), (prefers-color-scheme: light)">
+    <style>
+        .markdown-body { background: transparent !important; }
+        /* Override highlight.js style when dark mode is toggled via JS */
+        html.dark .hljs { background: #0d1117 !important; }
+    </style>
     <script>
         // Dark mode: apply before first paint to prevent flash
         (function() {
@@ -133,6 +146,21 @@ h1, h2, h3, h4, h5, h6 {
             document.querySelectorAll('[data-theme-toggle-icon]').forEach(function(el) {
                 el.textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
             });
+        };
+        // Syntax highlighting: call after Leptos renders content
+        window.highlightCode = function() {
+            document.querySelectorAll('pre code[data-lang]').forEach(function(block) {
+                if (block.dataset.lang && block.dataset.lang !== '') {
+                    hljs.highlightElement(block);
+                }
+            });
+        };
+        // Markdown rendering helper
+        window.renderMarkdown = function(content) {
+            if (typeof mdit === 'undefined') {
+                try { mdit = window.markdownit({ html: true, linkify: true, typographer: true }); } catch(e) { return content; }
+            }
+            return mdit.render(content);
         };
         // Attach click handlers to theme toggle elements after DOM ready
         document.addEventListener('DOMContentLoaded', function() {
