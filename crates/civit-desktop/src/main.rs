@@ -80,6 +80,76 @@ fn save_page_html(html: String) -> Result<String, String> {
     Ok(format!("Saved to {path} ({} bytes)", html.len()))
 }
 
+/// Take a screenshot of the entire display and save to /tmp/civit-screenshot-<timestamp>.png.
+/// Triggered by Ctrl+Shift+S from the injected JS keydown listener.
+/// Also saves a copy to /tmp/civit-screenshot-latest.png for easy reference.
+/// Falls back gracefully on each platform when no screenshot tool is available.
+#[tauri::command]
+fn take_screenshot() -> Result<String, String> {
+    let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+    let filename = format!("/tmp/civit-screenshot-{ts}.png");
+    let latest = "/tmp/civit-screenshot-latest.png";
+
+    // Try platform-specific screenshot tools in order of preference
+    // Wayland: grim → X11: maim/scrot/import → macOS: screencapture → Windows: SnippingTool/PowerShell
+    let commands: &[(&str, &[&str])] = &[
+        // Wayland native
+        ("grim", &[filename.as_str()]),
+        // X11 tools
+        ("maim", &[filename.as_str()]),
+        ("scrot", &[filename.as_str()]),
+        ("import", &["-window", "root", filename.as_str()]),
+    ];
+
+    for (cmd, args) in commands {
+        if let Ok(output) = std::process::Command::new(cmd).args(*args).output() {
+            if output.status.success() {
+                // Copy to latest symlink
+                let _ = std::fs::copy(&filename, latest);
+                let size = std::fs::metadata(&filename)
+                    .map(|m| m.len())
+                    .unwrap_or(0);
+                eprintln!(
+                    "[civit-desktop] Screenshot captured to {filename} ({size} bytes) via {cmd}"
+                );
+                return Ok(format!(
+                    "Screenshot saved to {filename} ({size} bytes) via {cmd}"
+                ));
+            }
+        }
+    }
+
+    // No tool found — provide helpful install instructions
+    eprintln!(
+        "[civit-desktop] No screenshot tool found. Install grim (Wayland) or maim/scrot (X11)."
+    );
+    Err(format!(
+        "No screenshot tool found. Install one of: grim (Wayland), maim, scrot (X11), import (ImageMagick). \
+         Screenshot file would be: {filename}"
+    ))
+}
+
+/// Check if a screenshot tool is available and return its name.
+#[tauri::command]
+fn screenshot_tool_available() -> String {
+    for cmd in &["grim", "maim", "scrot", "import"] {
+        if which_tool(cmd) {
+            return cmd.to_string();
+        }
+    }
+    String::new()
+}
+
+/// Check if a command-line tool exists on PATH.
+fn which_tool(name: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(name)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
 /// Read the navigation trigger file and return the URL to navigate to.
 /// The test script writes /tmp/civit-navigate.txt with a URL path.
 #[tauri::command]
@@ -93,19 +163,24 @@ fn read_navigate_trigger() -> Result<String, String> {
 
 /// JS snippet injected into every page:
 /// - Ctrl+Shift+H: capture page HTML to /tmp/civit-capture.html
+/// - Ctrl+Shift+S: take screenshot to /tmp/civit-screenshot-<timestamp>.png
 fn inject_debug_js() -> &'static str {
     r#"
     (function() {
         // Ctrl+Shift+H: capture page HTML to /tmp/civit-capture.html
+        // Ctrl+Shift+S: take screenshot to /tmp/civit-screenshot-*.png
         document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+            if (e.ctrlKey && e.shiftKey && (e.key === 'H' || e.key === 'S')) {
                 e.preventDefault();
-                var html = '<!-- Captured at ' + new Date().toISOString() + ' -->\n' + document.documentElement.outerHTML;
-                // Use XMLHttpRequest to POST to a tiny local endpoint — but we don't have one.
-                // Instead, encode as base64 and put in document.title so Rust can read it.
-                // Actually, the simplest approach: use Tauri event system.
-                if (window.__TAURI_INTERNALS__) {
-                    window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
+                if (e.key === 'H') {
+                    var html = '<!-- Captured at ' + new Date().toISOString() + ' -->\n' + document.documentElement.outerHTML;
+                    if (window.__TAURI_INTERNALS__) {
+                        window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
+                    }
+                } else if (e.key === 'S') {
+                    if (window.__TAURI_INTERNALS__) {
+                        window.__TAURI_INTERNALS__.invoke('take_screenshot');
+                    }
                 }
             }
         });
@@ -138,6 +213,8 @@ pub fn run() {
             get_server_url,
             open_external_url,
             save_page_html,
+            take_screenshot,
+            screenshot_tool_available,
             read_navigate_trigger,
             sync_benchmark::benchmark_file_sync,
             sync_benchmark::benchmark_dir_scan,
@@ -251,21 +328,25 @@ pub fn run() {
                                 if handled {
                                     // POST handled, skip GET processing
                                 } else {
-                                // GET endpoints
-                                 let (body, content_type) = match &path[..] {
+                                 // GET endpoints
+                                 let (body, content_type, status, redirect) = match &path[..] {
                                     "/__navigate__" => {
                                         let url =
                                             std::fs::read_to_string("/tmp/civit-navigate.txt")
                                                 .unwrap_or_default();
                                         let _ = std::fs::write("/tmp/civit-navigate.txt", "");
-                                        (url.into_bytes(), "text/plain")
+                                        (url.into_bytes(), "text/plain", 200, None)
                                     }
                                     "/__capture__" => {
                                         let html = std::fs::read_to_string(
                                             "/tmp/civit-capture.html",
                                         )
                                         .unwrap_or_default();
-                                        (html.into_bytes(), "text/html")
+                                        (html.into_bytes(), "text/html", 200, None)
+                                    }
+                                    "/__logout__" => {
+                                        // Redirect to login page after logout
+                                        (Vec::new(), "text/html", 302, Some("/login".to_string()))
                                     }
                                     _ => {
                                         // SPA fallback: serve index.html for all non-file paths
@@ -295,29 +376,40 @@ pub fn run() {
                                             "ico" => "image/x-icon",
                                             _ => "application/octet-stream",
                                         };
-                                         (body, content_type)
-                                     }
-                                 };
-                                 let resp = format!(
-                                    "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
-                                     Content-Length: {}\r\nAccess-Control-Allow-Origin: *\r\n\
-                                     Access-Control-Allow-Headers: *\r\n\r\n",
-                                    body.len()
-                                );
-                                 let _ = stream.write_all(resp.as_bytes());
-                                 let _ = stream.write_all(&body);
-                                 let _ = stream.flush();
+                                          (body, content_type, 200, None)
+                                      }
+                                  };
+                                  let status_line = if status == 302 {
+                                      format!("HTTP/1.1 302 Found\r\nLocation: {}\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: 0\r\n\r\n", redirect.as_deref().unwrap_or("/"))
+                                  } else {
+                                      format!(
+                                         "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
+                                          Content-Length: {}\r\nAccess-Control-Allow-Origin: *\r\n\
+                                          Access-Control-Allow-Headers: *\r\n\r\n",
+                                         body.len()
+                                     )
+                                  };
+                                  let _ = stream.write_all(status_line.as_bytes());
+                                  if status != 302 {
+                                      let _ = stream.write_all(&body);
+                                  }
+                                  let _ = stream.flush();
                                  } // end else (GET processing)
                              });
                         }
                     });
 
                     // Inject API URL override (do this BEFORE spawning threads that move window)
+                    // server_url may already include scheme (http://) from CLI arg
+                    let api_url = if server_url.starts_with("http://") || server_url.starts_with("https://") {
+                        format!("{server_url}/api/v1")
+                    } else {
+                        format!("http://{server_url}/api/v1")
+                    };
                 let _ = window.eval(&format!(
-                    "window.__CIVIT_API_URL = \"http://{}/api/v1\";",
-                    server_url
+                    "window.__CIVIT_API_URL = \"{api_url}\";",
                 ));
-                eprintln!("[civit-desktop] Injected API URL: http://{server_url}/api/v1");
+                eprintln!("[civit-desktop] Injected API URL: {api_url}");
 
                 // Navigate to local WASM server in background
                 let nav_window = window.clone();

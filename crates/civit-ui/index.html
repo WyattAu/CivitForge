@@ -42,16 +42,23 @@ h1, h2, h3, h4, h5, h6 {
             window.__CIVIT_API_URL = "http://192.168.1.191:9091/api/v1";
         }
          // Ctrl+Shift+H: capture page HTML via POST to local endpoint + Tauri IPC
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey && e.shiftKey && e.key === 'H') {
-                e.preventDefault();
-                var html = '<!-- Captured at ' + new Date().toISOString() + ' -->\n' + document.documentElement.outerHTML;
-                if (window.__TAURI_INTERNALS__) {
-                    window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
-                }
-                fetch('/__capture__', { method: 'POST', body: html }).catch(function() {});
-            }
-        });
+         // Ctrl+Shift+S: take screenshot via Tauri IPC
+         document.addEventListener('keydown', function(e) {
+             if (e.ctrlKey && e.shiftKey && (e.key === 'H' || e.key === 'S')) {
+                 e.preventDefault();
+                 if (e.key === 'H') {
+                     var html = '<!-- Captured at ' + new Date().toISOString() + ' -->\n' + document.documentElement.outerHTML;
+                     if (window.__TAURI_INTERNALS__) {
+                         window.__TAURI_INTERNALS__.invoke('save_page_html', { html: html });
+                     }
+                     fetch('/__capture__', { method: 'POST', body: html }).catch(function() {});
+                 } else if (e.key === 'S') {
+                     if (window.__TAURI_INTERNALS__) {
+                         window.__TAURI_INTERNALS__.invoke('take_screenshot');
+                     }
+                 }
+             }
+         });
         // Auto-capture page HTML 3s after load (for automation)
         function capturePage() {
             var html = document.documentElement.outerHTML;
@@ -102,6 +109,61 @@ h1, h2, h3, h4, h5, h6 {
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script>
+        // Dark mode: apply before first paint to prevent flash
+        (function() {
+            var theme = localStorage.getItem('civit-theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+        // Watch for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            if (!localStorage.getItem('civit-theme')) {
+                document.documentElement.classList.toggle('dark', e.matches);
+            }
+        });
+        // Global theme toggle (called from sidebar via onclick attribute)
+        // Using global function to avoid Leptos on:click WebKit auto-fire bug
+        window.toggleTheme = function() {
+            var isDark = document.documentElement.classList.contains('dark');
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('civit-theme', isDark ? 'light' : 'dark');
+            // Update all toggle buttons
+            document.querySelectorAll('[data-theme-toggle-icon]').forEach(function(el) {
+                el.textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+            });
+        };
+        // Attach click handlers to theme toggle elements after DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-theme-toggle]').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.toggleTheme();
+                });
+            });
+            document.querySelectorAll('[data-action-logout]').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = '/__logout__';
+                });
+            });
+            // Branch selector: navigate to code page with ?ref=branch
+            document.addEventListener('change', function(e) {
+                if (e.target && e.target.hasAttribute('data-branch-selector')) {
+                    var branch = e.target.value;
+                    var url = new URL(window.location.href);
+                    if (branch) {
+                        url.searchParams.set('ref', branch);
+                    } else {
+                        url.searchParams.delete('ref');
+                    }
+                    url.searchParams.delete('page'); // Reset to page 1 on branch switch
+                    window.location.href = url.toString();
+                }
+            });
+        });
+    </script>
     <link data-trunk rel="rust" data-wasm-opt-level="" />
     <link data-trunk rel="copy-file" href="assets/sw.js" />
     <style>

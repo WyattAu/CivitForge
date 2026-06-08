@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 
 use crate::components::Avatar;
-use crate::state::auth::{logout, use_auth};
+use crate::state::auth::use_auth;
 
 #[derive(Clone)]
 struct NavItem {
@@ -56,9 +56,6 @@ pub fn Sidebar() -> impl IntoView {
     let link_class = "block px-3 py-2 rounded-md text-sm font-medium \
                       text-gray-700 hover:bg-gray-100 hover:text-gray-900 \
                       dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white";
-    let handle_logout = move |_| {
-        logout(&auth);
-    };
 
     let username = move || auth.0.with(|a| a.username.clone().unwrap_or_default());
 
@@ -117,10 +114,22 @@ pub fn Sidebar() -> impl IntoView {
             </nav>
 
             <div class="border-t border-gray-200 dark:border-gray-700 p-3 shrink-0">
+                // Theme toggle — uses data-theme-toggle attribute with JS-attached
+                // click handler to avoid Leptos on:click WebKit auto-fire bug
+                <div
+                    data-theme-toggle=""
+                    class="block w-full px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Toggle dark mode"
+                >
+                    <span data-theme-toggle-icon="">"\u{1f319}"</span>
+                    " Toggle Theme"
+                </div>
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
-                    <A href="/login">
+                    <a href="/login">
                         <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">"Sign In"</div>
-                    </A>
+                    </a>
                 }>
                     <div class="space-y-1">
                         <div class="flex items-center gap-2 px-3 py-2">
@@ -133,13 +142,17 @@ pub fn Sidebar() -> impl IntoView {
                             <span class="mr-2">"\u{2699}\u{fe0f}"</span>
                             "Settings"
                         </a>
-                        <button
-                            class="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
-                            on:click=handle_logout
+                        // Sign out uses <a href> instead of <button on:click> to
+                        // avoid WebKit auto-fire bug. Link triggers JS logout function.
+                        <a
+                            href="javascript:void(0)"
+                            data-action-logout=""
+                            class="block w-full text-left px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer"
+                            role="button"
                             aria-label="Sign out of CivitForge"
                         >
                             "\u{1f6aa} Sign Out"
-                        </button>
+                        </a>
                     </div>
                 </Show>
             </div>

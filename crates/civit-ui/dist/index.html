@@ -102,10 +102,65 @@ h1, h2, h3, h4, h5, h6 {
         });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script>
+        // Dark mode: apply before first paint to prevent flash
+        (function() {
+            var theme = localStorage.getItem('civit-theme');
+            if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+        // Watch for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            if (!localStorage.getItem('civit-theme')) {
+                document.documentElement.classList.toggle('dark', e.matches);
+            }
+        });
+        // Global theme toggle (called from sidebar via onclick attribute)
+        // Using global function to avoid Leptos on:click WebKit auto-fire bug
+        window.toggleTheme = function() {
+            var isDark = document.documentElement.classList.contains('dark');
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('civit-theme', isDark ? 'light' : 'dark');
+            // Update all toggle buttons
+            document.querySelectorAll('[data-theme-toggle-icon]').forEach(function(el) {
+                el.textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+            });
+        };
+        // Attach click handlers to theme toggle elements after DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('[data-theme-toggle]').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.toggleTheme();
+                });
+            });
+            document.querySelectorAll('[data-action-logout]').forEach(function(el) {
+                el.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = '/__logout__';
+                });
+            });
+            // Branch selector: navigate to code page with ?ref=branch
+            document.addEventListener('change', function(e) {
+                if (e.target && e.target.hasAttribute('data-branch-selector')) {
+                    var branch = e.target.value;
+                    var url = new URL(window.location.href);
+                    if (branch) {
+                        url.searchParams.set('ref', branch);
+                    } else {
+                        url.searchParams.delete('ref');
+                    }
+                    url.searchParams.delete('page'); // Reset to page 1 on branch switch
+                    window.location.href = url.toString();
+                }
+            });
+        });
+    </script>
     
 <script type="module">
-import init, * as bindings from '/civit-ui-ef752689d090f355.js';
-const wasm = await init({ module_or_path: '/civit-ui-ef752689d090f355_bg.wasm' });
+import init, * as bindings from '/civit-ui-9c7be9b586d9e0ee.js';
+const wasm = await init({ module_or_path: '/civit-ui-9c7be9b586d9e0ee_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -118,7 +173,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     <style>
         [data-trunk] { display: none; }
     </style>
-<link rel="modulepreload" href="/civit-ui-ef752689d090f355.js" crossorigin="anonymous" integrity="sha384-AUg+k+CKilfmlw2w8sKO7R+BSfDwYeeupYbyAZdmfHvjJj9HCpkT5jfW/q2/1P/q"><link rel="preload" href="/civit-ui-ef752689d090f355_bg.wasm" crossorigin="anonymous" integrity="sha384-USJIuRykgCh+58A7JFVpkGE+HBks300tHG7PtkDOri6EhQc7Fxs22GsbC1B/4RCb" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/civit-ui-9c7be9b586d9e0ee.js" crossorigin="anonymous" integrity="sha384-0JfwCqVBttXmW+mZmYq/bCNdoWXG1YQWdYszrAY9EFK4cwFevi3DHytepbfGzWeP"><link rel="preload" href="/civit-ui-9c7be9b586d9e0ee_bg.wasm" crossorigin="anonymous" integrity="sha384-uTbk925rOAsAEq/ylpwR8r0TH3V8Fa7cgbsNtvdTc4Y757nvdUjxsl3VCNt3XBdF" as="fetch" type="application/wasm"></head>
 <body>
 </body>
 </html>
