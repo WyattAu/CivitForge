@@ -6,8 +6,8 @@ use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{
-    CreatePrCommentBody, MergePullRequestBody, MergeResponse, PullRequestResponse,
-    UpdatePullRequestBody,
+    CreatePrCommentBody, MergePullRequestBody, MergeResponse, MergeabilityResponse, PrDiffResponse,
+    PullRequestResponse, UpdatePullRequestBody,
 };
 use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
@@ -62,6 +62,10 @@ pub fn PullRequestDetailPage() -> impl IntoView {
     let (merging, set_merging) = signal(false);
     let (merge_result, set_merge_result) = signal(None::<MergeResponse>);
 
+    let (mergeability, set_mergeability) = signal(None::<MergeabilityResponse>);
+    let (diff_data, set_diff_data) = signal(None::<PrDiffResponse>);
+    let (merge_strategy, set_merge_strategy) = signal(String::from("merge"));
+
     let (action_loading, set_action_loading) = signal(false);
 
     let fetch_pr = move || {
@@ -80,7 +84,44 @@ pub fn PullRequestDetailPage() -> impl IntoView {
             match client.get(&path).await {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<PullRequestResponse>().await {
-                        Ok(data) => set_pr.set(Some(data)),
+                        Ok(data) => {
+                            set_pr.set(Some(data));
+
+                            // Fetch mergeability and diff in parallel
+                            let token2 = auth.0.with(|a| a.token.clone());
+                            let owner_mc = owner_val.clone();
+                            let name_mc = name_val.clone();
+                            let number_mc = number_val;
+                            leptos::task::spawn_local(async move {
+                                let client = ApiClient::new(token2);
+                                let mc_path = format!(
+                                    "/repos/{owner_mc}/{name_mc}/pulls/{number_mc}/mergecheck"
+                                );
+                                if let Ok(r) = client.get(&mc_path).await {
+                                    if r.status().is_success() {
+                                        if let Ok(m) = r.json::<MergeabilityResponse>().await {
+                                            set_mergeability.set(Some(m));
+                                        }
+                                    }
+                                }
+                            });
+                            let token3 = auth.0.with(|a| a.token.clone());
+                            let owner_dc = owner_val;
+                            let name_dc = name_val;
+                            let number_dc = number_val;
+                            leptos::task::spawn_local(async move {
+                                let client = ApiClient::new(token3);
+                                let dc_path =
+                                    format!("/repos/{owner_dc}/{name_dc}/pulls/{number_dc}/diff");
+                                if let Ok(r) = client.get(&dc_path).await {
+                                    if r.status().is_success() {
+                                        if let Ok(d) = r.json::<PrDiffResponse>().await {
+                                            set_diff_data.set(Some(d));
+                                        }
+                                    }
+                                }
+                            });
+                        }
                         Err(_) => set_error.set(Some("Failed to process response.".into())),
                     }
                 }
@@ -162,6 +203,7 @@ pub fn PullRequestDetailPage() -> impl IntoView {
         let name_val = name();
         let number_val = number();
         let token = auth.0.with(|a| a.token.clone());
+        let strategy_val = merge_strategy.get();
 
         set_merging.set(true);
         set_merge_result.set(None);
@@ -169,7 +211,7 @@ pub fn PullRequestDetailPage() -> impl IntoView {
             let client = ApiClient::new(token);
             let path = format!("/repos/{owner_val}/{name_val}/pulls/{number_val}/merge");
             let body = MergePullRequestBody {
-                strategy: Some("merge".into()),
+                strategy: Some(strategy_val),
             };
             match client.post(&path, &body).await {
                 Ok(resp) if resp.status().is_success() => {
@@ -306,6 +348,17 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                     <Show when=move || pr_sig.get().is_some_and(|p| p.draft)>
                                         <Badge color=BadgeColor::Neutral text="Draft".into() />
                                     </Show>
+                                    <Show when=move || mergeability.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                        {
+                                            let m = mergeability.get().unwrap();
+                                            view! {
+                                                <Badge
+                                                    color=if m.mergeable { BadgeColor::Success } else { BadgeColor::Danger }
+                                                    text=if m.mergeable { "Mergeable".into() } else { "Conflicts".into() }
+                                                />
+                                            }
+                                        }
+                                    </Show>
                                     <span class="text-sm text-gray-400 font-mono">
                                         {move || format!("#{}", pr_sig.get().map(|p| p.number).unwrap_or(0))}
                                     </span>
@@ -325,6 +378,23 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                             </div>
                             <div class="flex items-center gap-2">
                                 <Show when=move || is_open() && !action_loading.get() && !merging.get() fallback=|| view! { <div class="hidden"></div> }>
+                                    <select
+                                        class="px-2 py-1 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        on:change=move |ev| set_merge_strategy.set(event_target_value(&ev))
+                                    >
+                                        <option value="merge" selected={move || merge_strategy.get() == "merge"}>
+                                            "Create merge commit"
+                                        </option>
+                                        <option value="squash" selected={move || merge_strategy.get() == "squash"}>
+                                            "Squash and merge"
+                                        </option>
+                                        <option value="rebase" selected={move || merge_strategy.get() == "rebase"}>
+                                            "Rebase and merge"
+                                        </option>
+                                        <option value="fast-forward" selected={move || merge_strategy.get() == "fast-forward"}>
+                                            "Fast-forward only"
+                                        </option>
+                                    </select>
                                     <Button variant=ButtonVariant::Primary on:click=handle_merge disabled=merging.get()>
                                         {move || if merging.get() { "Merging..." } else { "Merge Pull Request" }}
                                     </Button>
@@ -378,6 +448,68 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                     }
                                 }
                             </div>
+                        </Show>
+
+                        // Files Changed
+                        <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                            <Card>
+                                <div class="space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                            "Files Changed"
+                                        </h3>
+                                        <span class="text-xs text-gray-500 font-mono">
+                                            {move || {
+                                                let d = diff_data.get().unwrap();
+                                                format!(
+                                                    "+{} -{} · {} file{} · {} commit{}",
+                                                    d.total_additions,
+                                                    d.total_deletions,
+                                                    d.files.len(),
+                                                    if d.files.len() != 1 { "s" } else { "" },
+                                                    d.commit_count,
+                                                    if d.commit_count != 1 { "s" } else { "" },
+                                                )
+                                            }}
+                                        </span>
+                                    </div>
+                                    <For
+                                        each=move || diff_data.get().map(|d| d.files.clone()).unwrap_or_default()
+                                        key=|f| f.path.clone()
+                                        let:file
+                                    >
+                                        {
+                                            let status_bg = match file.status.as_str() {
+                                                "added" => "#dcfce7",
+                                                "removed" => "#fecaca",
+                                                _ => "#e5e7eb",
+                                            };
+                                            let status_icon = match file.status.as_str() {
+                                                "added" => "A",
+                                                "removed" => "D",
+                                                _ => "M",
+                                            };
+                                            view! {
+                                                <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                                                    <div class="flex items-center gap-2 min-w-0">
+                                                        <span
+                                                            class="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-bold dark:text-gray-400"
+                                                            style=format!("background-color: {status_bg}")
+                                                        >
+                                                            {status_icon}
+                                                        </span>
+                                                        <span class="truncate font-mono text-xs">{file.path.clone()}</span>
+                                                    </div>
+                                                    <div class="flex items-center gap-3 shrink-0">
+                                                        <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{file.additions}</span>
+                                                        <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{file.deletions}</span>
+                                                    </div>
+                                                </div>
+                                            }
+                                        }
+                                    </For>
+                                </div>
+                            </Card>
                         </Show>
 
                         // Reviewers section

@@ -281,6 +281,31 @@ pub struct MergeResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeabilityResponse {
+    pub mergeable: bool,
+    pub merge_strategy: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrFileChange {
+    pub path: String,
+    pub status: String,
+    pub additions: u32,
+    pub deletions: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub patch: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrDiffResponse {
+    pub files: Vec<PrFileChange>,
+    pub total_additions: u32,
+    pub total_deletions: u32,
+    pub commit_count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestReviewBody {
     pub reviewers: Vec<String>,
 }
