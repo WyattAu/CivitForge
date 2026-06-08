@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod activity;
+pub mod blame;
 pub mod code;
 pub mod explore;
 pub mod home;
@@ -20,6 +21,7 @@ pub mod settings;
 pub mod wiki;
 
 pub use activity::*;
+pub use blame::*;
 pub use code::*;
 pub use explore::*;
 pub use home::*;

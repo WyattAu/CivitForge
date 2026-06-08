@@ -17,6 +17,8 @@ pub struct TreeEntry {
     pub size: u64,
     #[serde(default)]
     pub last_commit: Option<CommitInfo>,
+    #[serde(default)]
+    pub submodule_url: String,
 }
 
 #[derive(Clone, serde::Deserialize)]
@@ -89,6 +91,7 @@ struct LanguageInfo {
 fn file_icon(entry_type: &str) -> &'static str {
     match entry_type {
         "tree" | "dir" => "dir",
+        "submodule" => "submodule",
         _ => "file",
     }
 }
@@ -163,16 +166,48 @@ fn CodeRepoOverview(
 /// Extracted from CodePage to reduce closure count in main view! macro.
 #[component]
 fn CodeFileViewer(
+    owner: Signal<String>,
+    name: Signal<String>,
     file_path: Signal<String>,
     file_size: Signal<u64>,
     file_lang: Signal<String>,
     file_content: Signal<String>,
     file_is_binary: Signal<bool>,
+    current_ref: Signal<String>,
 ) -> impl IntoView {
     view! {
         <Card>
-            <div class="mb-3 text-sm text-gray-500 dark:text-gray-400 font-mono truncate">
-                {move || file_path.get()}
+            <div class="mb-3 flex items-center justify-between">
+                <div class="text-sm text-gray-500 dark:text-gray-400 font-mono truncate">
+                    {move || file_path.get()}
+                </div>
+                <div class="flex items-center gap-2">
+                    <a
+                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        href=move || format!(
+                            "/repos/{}/{}/blame?path={}&ref={}",
+                            owner.get(),
+                            name.get(),
+                            file_path.get(),
+                            current_ref.get(),
+                        )
+                    >
+                        "Blame"
+                    </a>
+                    <span class="text-gray-300 dark:text-gray-600">"|"</span>
+                    <a
+                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                        href=move || format!(
+                            "/repos/{}/{}/commits?path={}&ref={}",
+                            owner.get(),
+                            name.get(),
+                            file_path.get(),
+                            current_ref.get(),
+                        )
+                    >
+                        "History"
+                    </a>
+                </div>
             </div>
             <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
@@ -276,18 +311,23 @@ pub fn CodeTreeTable(
                                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer">
                                             <td class="py-2 pr-4">
                                                             <div class="flex items-center gap-2">
-                                                                {move || match icon {
-                                                                    "dir" => view! {
-                                                                        <svg class="w-4 h-4 text-blue-500 dark:text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                                                            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
-                                                                        </svg>
-                                                                    }.into_any(),
-                                                                    _ => view! {
-                                                                        <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                                                        </svg>
-                                                                    }.into_any(),
-                                                                }}
+                                                                 {move || match icon {
+                                                                     "dir" => view! {
+                                                                         <svg class="w-4 h-4 text-blue-500 dark:text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                                             <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                                                                         </svg>
+                                                                     }.into_any(),
+                                                                     "submodule" => view! {
+                                                                         <svg class="w-4 h-4 text-purple-500 dark:text-purple-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                                                         </svg>
+                                                                     }.into_any(),
+                                                                     _ => view! {
+                                                                         <svg class="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                                                         </svg>
+                                                                     }.into_any(),
+                                                                 }}
                                                                 <span class="text-gray-700 dark:text-gray-300 truncate">{entry_path}</span>
                                                             </div>
                                             </td>
@@ -643,11 +683,14 @@ pub fn CodePage() -> impl IntoView {
                 // === FILE VIEWER with syntax highlighting ===
                 <Show when=move || !loading.get() && showing_file() fallback=|| view! { <div class="hidden"></div> }>
                     <CodeFileViewer
+                        owner=owner_sig
+                        name=name_sig
                         file_path=file_path_sig.into()
                         file_size=file_size_sig.into()
                         file_lang=file_lang_sig.into()
                         file_content=file_content_sig.into()
                         file_is_binary=file_is_binary.into()
+                        current_ref=current_ref.into()
                     />
                 </Show>
 

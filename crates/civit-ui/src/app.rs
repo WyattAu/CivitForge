@@ -33,6 +33,8 @@ pub fn App() -> impl IntoView {
                                 <Route path=path!("") view=CodePage />
                                 <Route path=path!("code") view=CodePage />
                                 <Route path=path!("code/*path") view=CodePage />
+                                <Route path=path!("blame") view=BlamePage />
+                                <Route path=path!("commits") view=FileCommitsPage />
                                 <Route path=path!("issues") view=IssuesPage />
                                 <Route path=path!("issues/:number") view=IssueDetailPage />
                                 <Route path=path!("wiki") view=WikiPage />

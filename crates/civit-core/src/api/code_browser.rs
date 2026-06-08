@@ -18,6 +18,9 @@ pub struct TreeEntry {
     pub size: u64,
     #[serde(default)]
     pub last_commit: Option<CommitSummary>,
+    /// For submodules: the URL of the submodule (parsed from .gitmodules).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub submodule_url: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -169,11 +172,38 @@ pub fn code_browser_routes() -> Router<AppState> {
             get(file_commits),
         )
         .route("/api/v1/repos/{owner}/{name}/blame", get(blame_file))
+        .route("/api/v1/repos/{owner}/{name}/size", get(repo_size))
 }
-
 /// Convert a gix object error into our CoreError.
 fn git_err(e: impl std::fmt::Display) -> CoreError {
     CoreError::Git(e.to_string())
+}
+
+/// Parse `.gitmodules` file in the repo and return a map of submdule path → URL.
+/// Returns an empty map if .gitmodules doesn't exist or can't be parsed.
+fn parse_gitmodules(repo_path: &std::path::Path) -> std::collections::HashMap<String, String> {
+    let gitmodules = repo_path.join(".gitmodules");
+    let content = match std::fs::read_to_string(&gitmodules) {
+        Ok(c) => c,
+        Err(_) => return std::collections::HashMap::new(),
+    };
+
+    let mut map = std::collections::HashMap::new();
+    let mut current_path: Option<String> = None;
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if let Some(path) = trimmed.strip_prefix("path = ") {
+            current_path = Some(path.trim().to_string());
+        } else if let Some(url) = trimmed.strip_prefix("url = ") {
+            if let Some(ref path) = current_path {
+                map.insert(path.clone(), url.trim().to_string());
+            }
+        } else if trimmed.starts_with("[submodule") {
+            current_path = None;
+        }
+    }
+    map
 }
 
 /// List files and directories at a given path in a repo's default branch.
@@ -333,6 +363,10 @@ pub async fn list_tree(
     };
 
     let mut entries = Vec::new();
+
+    // Parse .gitmodules to extract submodule URLs
+    let submodule_urls: std::collections::HashMap<String, String> = parse_gitmodules(&repo_path);
+
     for entry_result in tree.iter() {
         let entry = match entry_result {
             Ok(e) => e,
@@ -366,11 +400,18 @@ pub async fn list_tree(
             ("unknown".to_string(), 0u64)
         };
 
+        let submodule_url = if entry_type == "submodule" {
+            submodule_urls.get(&entry_path).cloned().unwrap_or_default()
+        } else {
+            String::new()
+        };
+
         entries.push(TreeEntry {
             path: entry_path,
             entry_type,
             size,
             last_commit: Some(head_summary.clone()),
+            submodule_url,
         });
     }
 
@@ -576,6 +617,7 @@ pub async fn read_blob(
                 entry_type,
                 size,
                 last_commit: None,
+                submodule_url: String::new(),
             });
         }
 
@@ -1286,6 +1328,81 @@ pub async fn blame_file(
         .into_response()
 }
 
+/// Response for the repo size endpoint.
+#[derive(Debug, Clone, Serialize)]
+pub struct RepoSizeResponse {
+    pub size_bytes: u64,
+    pub size_human: String,
+}
+
+/// Get the on-disk size of a repository.
+pub async fn repo_size(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let repo_path = state.git_service.repo_path(&owner, &name);
+
+    if !repo_path.join("HEAD").exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("repository not found".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let size_bytes = match std::fs::metadata(&repo_path).and_then(|_m| {
+        fn dir_size(path: &std::path::Path) -> std::io::Result<u64> {
+            let mut total = 0u64;
+            if path.is_dir() {
+                for entry in std::fs::read_dir(path)? {
+                    let entry = entry?;
+                    let path = entry.path();
+                    if path.is_dir() {
+                        total += dir_size(&path)?;
+                    } else {
+                        total += entry.metadata()?.len();
+                    }
+                }
+            } else {
+                total = std::fs::metadata(path)?.len();
+            }
+            Ok(total)
+        }
+        dir_size(&repo_path)
+    }) {
+        Ok(s) => s,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Internal(format!("failed to compute size: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    const GB: u64 = 1024 * MB;
+    let size_human = if size_bytes < KB {
+        format!("{size_bytes} B")
+    } else if size_bytes < MB {
+        format!("{:.1} KB", size_bytes as f64 / KB as f64)
+    } else if size_bytes < GB {
+        format!("{:.1} MB", size_bytes as f64 / MB as f64)
+    } else {
+        format!("{:.2} GB", size_bytes as f64 / GB as f64)
+    };
+
+    (
+        StatusCode::OK,
+        Json(RepoSizeResponse {
+            size_bytes,
+            size_human,
+        }),
+    )
+        .into_response()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1302,6 +1419,7 @@ mod tests {
                 author: "test".into(),
                 time: "2024-01-01".into(),
             }),
+            submodule_url: String::new(),
         };
         let json = serde_json::to_string(&entry).unwrap();
         assert!(json.contains("\"entry_type\":\"file\""));
@@ -1316,6 +1434,7 @@ mod tests {
             entry_type: "dir".into(),
             size: 0,
             last_commit: None,
+            submodule_url: String::new(),
         };
         assert_eq!(entry.entry_type, "dir");
     }
@@ -1361,18 +1480,21 @@ mod tests {
                 entry_type: "file".into(),
                 size: 1,
                 last_commit: None,
+                submodule_url: String::new(),
             },
             TreeEntry {
                 path: "src".into(),
                 entry_type: "dir".into(),
                 size: 0,
                 last_commit: None,
+                submodule_url: String::new(),
             },
             TreeEntry {
                 path: "b.rs".into(),
                 entry_type: "file".into(),
                 size: 2,
                 last_commit: None,
+                submodule_url: String::new(),
             },
         ];
         entries.sort_by(|a, b| match (&a.entry_type, &b.entry_type) {
@@ -1409,6 +1531,7 @@ mod tests {
             entry_type: "unknown".into(),
             size: 0,
             last_commit: None,
+            submodule_url: String::new(),
         };
         assert_eq!(entry.entry_type, "unknown");
     }
@@ -1488,5 +1611,16 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"total\":1"));
         assert!(json.contains("\"path\":\"main.rs\""));
+    }
+
+    #[test]
+    fn test_repo_size_response_serialization() {
+        let resp = RepoSizeResponse {
+            size_bytes: 1048576,
+            size_human: "1.0 MB".to_string(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"size_bytes\":1048576"));
+        assert!(json.contains("\"size_human\":\"1.0 MB\""));
     }
 }
