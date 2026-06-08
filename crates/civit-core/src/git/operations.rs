@@ -48,6 +48,11 @@ impl GitService {
             std::fs::create_dir_all(parent)?;
         }
         gix::init_bare(&path).map_err(|e| CoreError::Git(e.to_string()))?;
+        // Ensure HEAD points to refs/heads/main (gix::init_bare may not set this)
+        let head_path = path.join("HEAD");
+        if !head_path.exists() {
+            std::fs::write(&head_path, "ref: refs/heads/main\n")?;
+        }
         info!(path = %path.display(), "initialized bare repository");
         Ok(path)
     }

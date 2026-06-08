@@ -16,7 +16,29 @@ pub struct TreeEntry {
     pub path: String,
     pub entry_type: String,
     pub size: u64,
-    pub last_commit: Option<String>,
+    #[serde(default)]
+    pub last_commit: Option<CommitSummary>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitSummary {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub message: String,
+    #[serde(default)]
+    pub author: String,
+    #[serde(default)]
+    pub time: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PaginatedTreeResponse {
+    pub entries: Vec<TreeEntry>,
+    pub total: usize,
+    pub page: usize,
+    pub per_page: usize,
+    pub total_pages: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,14 +50,40 @@ pub struct BlobResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(default)]
 pub struct TreeQueryParams {
+    #[serde(default)]
     pub path: Option<String>,
-    #[serde(default = "default_ref")]
+    #[serde(default)]
     pub ref_: Option<String>,
+    #[serde(default = "default_page")]
+    pub page: usize,
+    #[serde(default = "default_per_page")]
+    pub per_page: usize,
 }
 
+impl Default for TreeQueryParams {
+    fn default() -> Self {
+        Self {
+            path: None,
+            ref_: None,
+            page: default_page(),
+            per_page: default_per_page(),
+        }
+    }
+}
+
+#[allow(dead_code)]
 fn default_ref() -> Option<String> {
     None
+}
+
+fn default_page() -> usize {
+    1
+}
+
+fn default_per_page() -> usize {
+    50
 }
 
 pub fn code_browser_routes() -> Router<AppState> {
@@ -98,6 +146,33 @@ pub async fn list_tree(
         }
     };
 
+    // Extract HEAD commit summary for tree entries
+    let head_summary = {
+        let id_hex = head_id.to_hex().to_string();
+        let message = commit
+            .message()
+            .map(|m| m.title.to_string().trim_end().to_string())
+            .unwrap_or_default();
+        let author = commit
+            .author()
+            .map(|a| a.name.to_string().trim_end().to_string())
+            .unwrap_or_else(|_| "Unknown".to_string());
+        let time = commit
+            .time()
+            .ok()
+            .map(|t| {
+                let dt = chrono::DateTime::from_timestamp(t.seconds, 0).unwrap_or_default();
+                dt.format("%Y-%m-%d").to_string()
+            })
+            .unwrap_or_default();
+        CommitSummary {
+            id: id_hex.chars().take(7).collect(),
+            message,
+            author,
+            time,
+        }
+    };
+
     let tree_id = match commit.tree_id() {
         Ok(id) => id,
         Err(e) => {
@@ -131,18 +206,61 @@ pub async fn list_tree(
         }
     };
 
-    let mut entries = Vec::new();
+    // If a path prefix is given, navigate to that subtree first.
     let prefix = params.path.as_deref().unwrap_or("");
+    let tree = if prefix.is_empty() {
+        tree // root tree
+    } else {
+        match tree.lookup_entry_by_path(prefix) {
+            Ok(Some(entry)) => {
+                let mode = entry.mode();
+                if !mode.is_tree() {
+                    // The path points to a file, not a directory — return empty
+                    return (StatusCode::OK, Json(Vec::<TreeEntry>::new())).into_response();
+                }
+                let entry_obj = match entry.object() {
+                    Ok(o) => o,
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(git_err(e).error_response()),
+                        )
+                            .into_response();
+                    }
+                };
+                match entry_obj.try_into_tree() {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(git_err(e).error_response()),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            Ok(None) => {
+                // Path doesn't exist in tree
+                return (StatusCode::OK, Json(Vec::<TreeEntry>::new())).into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(git_err(e).error_response()),
+                )
+                    .into_response();
+            }
+        }
+    };
+
+    let mut entries = Vec::new();
     for entry_result in tree.iter() {
         let entry = match entry_result {
             Ok(e) => e,
             Err(_) => continue,
         };
-        let entry_path = if prefix.is_empty() {
-            entry.filename().to_string()
-        } else {
-            format!("{prefix}/{}", entry.filename())
-        };
+        // Always use relative filename (not full path from root)
+        let entry_path = entry.filename().to_string();
 
         let mode = entry.mode();
         let (entry_type, size) = if mode.is_tree() {
@@ -173,7 +291,7 @@ pub async fn list_tree(
             path: entry_path,
             entry_type,
             size,
-            last_commit: None,
+            last_commit: Some(head_summary.clone()),
         });
     }
 
@@ -183,7 +301,24 @@ pub async fn list_tree(
         _ => a.path.cmp(&b.path),
     });
 
-    (StatusCode::OK, Json(entries)).into_response()
+    let total = entries.len();
+    let per_page = params.per_page.clamp(1, 500);
+    let page = params.page.max(1);
+    let start = (page - 1) * per_page;
+    let paginated = entries.into_iter().skip(start).take(per_page).collect();
+    let total_pages = total.div_ceil(per_page);
+
+    (
+        StatusCode::OK,
+        Json(PaginatedTreeResponse {
+            entries: paginated,
+            total,
+            page,
+            per_page,
+            total_pages,
+        }),
+    )
+        .into_response()
 }
 
 /// Read file content at a given path in a repo's default branch.
@@ -427,11 +562,17 @@ mod tests {
             path: "src/main.rs".into(),
             entry_type: "file".into(),
             size: 1024,
-            last_commit: Some("abc123".into()),
+            last_commit: Some(CommitSummary {
+                id: "abc123".into(),
+                message: "fix: update".into(),
+                author: "test".into(),
+                time: "2024-01-01".into(),
+            }),
         };
         let json = serde_json::to_string(&entry).unwrap();
         assert!(json.contains("\"entry_type\":\"file\""));
         assert!(json.contains("\"size\":1024"));
+        assert!(json.contains("\"last_commit\""));
     }
 
     #[test]
@@ -460,19 +601,20 @@ mod tests {
 
     #[test]
     fn test_tree_query_params_defaults() {
-        let params = TreeQueryParams {
-            path: None,
-            ref_: None,
-        };
+        let params = TreeQueryParams::default();
         assert!(params.path.is_none());
         assert!(params.ref_.is_none());
+        assert_eq!(params.page, 1);
+        assert_eq!(params.per_page, 50);
     }
 
     #[test]
     fn test_tree_query_params_parse() {
-        let json = r#"{"path":"src/main.rs"}"#;
+        let json = r#"{"path":"src/main.rs","page":2,"per_page":100}"#;
         let params: TreeQueryParams = serde_json::from_str(json).unwrap();
         assert_eq!(params.path.as_deref(), Some("src/main.rs"));
+        assert_eq!(params.page, 2);
+        assert_eq!(params.per_page, 100);
     }
 
     #[test]

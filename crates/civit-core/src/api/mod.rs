@@ -5,12 +5,14 @@ pub mod artifact_serving;
 pub mod auth;
 pub mod auth_routes;
 pub mod code_browser;
+pub mod deploy_keys;
 pub mod diagnostics;
 pub mod error_reports;
 pub mod federation_routes;
 pub mod git_http;
 pub mod issues;
 pub mod marketplace;
+pub mod notifications;
 pub mod oci;
 pub mod openapi_handler;
 pub mod orgs;
@@ -22,7 +24,9 @@ pub mod repos;
 pub mod runners;
 pub mod search;
 pub mod ssh_keys;
+pub mod tokens;
 pub mod users;
+pub mod webhooks;
 pub mod wiki;
 
 use crate::config::AppConfig;
@@ -107,6 +111,19 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(artifact_serving::artifact_serving_routes())
         .merge(openapi_handler::openapi_routes())
         .merge(marketplace::marketplace_routes())
+        .merge(tokens::token_routes())
+        .merge(webhooks::webhook_routes())
+        .route(
+            "/api/v1/repos/{owner}/{name}/webhooks",
+            get(webhooks::list_webhooks).post(webhooks::create_webhook),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/deploy-keys",
+            get(deploy_keys::list_deploy_keys).post(deploy_keys::create_deploy_key),
+        )
+        .merge(deploy_keys::deploy_key_routes())
+        .merge(notifications::notification_routes())
+        .route("/api/v1/user/tokens", post(tokens::create_token))
         .route(
             "/api/v1/users",
             get(users::list_users).post(users::create_user),
@@ -129,7 +146,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route(
             "/api/v1/ssh-keys/{key_id}",
             delete(ssh_keys::delete_ssh_key),
-        )
+        );
+
+    // Git smart HTTP routes — large body limit for pack data (up to 10 GB)
+    let git_routes = Router::new()
         .route("/{owner}/{name}/info/refs", get(git_http::info_refs))
         .route(
             "/{owner}/{name}/git-upload-pack",
@@ -138,7 +158,12 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route(
             "/{owner}/{name}/git-receive-pack",
             post(git_http::receive_pack),
-        );
+        )
+        .layer(axum::extract::DefaultBodyLimit::max(
+            10 * 1024 * 1024 * 1024, // 10 GB
+        ));
+
+    api = api.merge(git_routes);
 
     if state.config.debug_mode {
         api = api

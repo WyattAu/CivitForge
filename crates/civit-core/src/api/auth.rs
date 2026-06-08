@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::auth::jwt::JwtService;
 use crate::auth::permission_engine::PermissionEngine;
 use crate::auth::rbac::Role;
 use crate::error::{CoreError, ErrorResponse};
@@ -31,20 +30,52 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| CoreError::Auth("missing authorization header".into()))?;
 
-    let token = JwtService::extract_bearer(auth_header)
-        .ok_or_else(|| CoreError::Auth("invalid authorization scheme".into()))?;
+    // Support Bearer token
+    if let Some(token) = auth_header.strip_prefix("Bearer ") {
+        let claims = state.jwt_service.validate_token(token)?;
+        let role = Role::from_str(&claims.role)
+            .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
+        return Ok(AuthUser {
+            user_id: claims.sub,
+            username: claims.username,
+            role,
+            org_id: claims.org_id,
+        });
+    }
 
-    let claims = state.jwt_service.validate_token(token)?;
+    // Support Basic auth (git clients send username:password or username:token)
+    if let Some(basic) = auth_header.strip_prefix("Basic ") {
+        use base64::Engine;
+        let decoded = base64::engine::general_purpose::STANDARD
+            .decode(basic)
+            .map_err(|_| CoreError::Auth("invalid basic auth encoding".into()))?;
+        let creds =
+            String::from_utf8(decoded).map_err(|_| CoreError::Auth("invalid basic auth".into()))?;
+        let (_username, password) = creds
+            .split_once(':')
+            .ok_or_else(|| CoreError::Auth("invalid basic auth format".into()))?;
 
-    let role = Role::from_str(&claims.role)
-        .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
+        // Try as token first (password field is a JWT token)
+        if let Ok(claims) = state.jwt_service.validate_token(password) {
+            let role = Role::from_str(&claims.role)
+                .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
+            return Ok(AuthUser {
+                user_id: claims.sub,
+                username: claims.username,
+                role,
+                org_id: claims.org_id,
+            });
+        }
 
-    Ok(AuthUser {
-        user_id: claims.sub,
-        username: claims.username,
-        role,
-        org_id: claims.org_id,
-    })
+        // Note: username/password basic auth is not supported here due to
+        // sync extractor constraints. Use token-based auth for git push:
+        //   http://username:JWT_TOKEN@host/owner/repo.git
+        return Err(CoreError::Auth(
+            "invalid credentials (use token as password)".into(),
+        ));
+    }
+
+    Err(CoreError::Auth("invalid authorization scheme".into()))
 }
 
 fn to_rejection(e: CoreError) -> (StatusCode, Json<ErrorResponse>) {

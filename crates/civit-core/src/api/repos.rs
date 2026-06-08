@@ -90,6 +90,8 @@ pub struct RawFileParams {
 #[derive(Debug, Deserialize)]
 pub struct ArchiveParams {
     pub format: Option<String>,
+    #[serde(default)]
+    pub ref_: Option<String>,
 }
 
 impl RequestVisibility {
@@ -119,13 +121,13 @@ fn repo_to_response(
     let display_name = owner_name.unwrap_or_else(|| r.owner_id.to_string());
     let full_name = format!("{display_name}/{}", r.name);
     let http_clone_url = Some(format!(
-        "http://{host}:{port}/{display_name}/{name}.git",
+        "http://{host}:{port}/{display_name}/{name}",
         host = state.config.host,
         port = state.config.port,
         name = r.name,
     ));
     let ssh_clone_url = Some(format!(
-        "ssh://git@{host}/{display_name}/{name}.git",
+        "ssh://git@{host}/{display_name}/{name}",
         host = state.config.host,
         name = r.name,
     ));
@@ -798,19 +800,117 @@ pub async fn archive(
     }
 
     let format = params.format.as_deref().unwrap_or("zip");
-    if format != "zip" && format != "tar.gz" {
+    let git_format = match format {
+        "zip" => "zip",
+        "tar.gz" => "tar.gz",
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    CoreError::BadRequest("format must be 'zip' or 'tar.gz'".into())
+                        .error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    let repo_path = state.git_service.repo_path(&owner, &name);
+    if !repo_path.join("HEAD").exists() {
         return (
-            StatusCode::BAD_REQUEST,
-            Json(CoreError::BadRequest("format must be 'zip' or 'tar.gz'".into()).error_response()),
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("repository not found".into()).error_response()),
         )
             .into_response();
     }
 
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(CoreError::Internal("archive generation not yet implemented".into()).error_response()),
-    )
-        .into_response()
+    // Determine the reference to archive (default branch or specified ref)
+    let git_ref = params.ref_.as_deref().unwrap_or("HEAD");
+
+    // Use git archive subprocess to generate the archive
+    let output = tokio::process::Command::new("git")
+        .arg("archive")
+        .arg("--format=zip") // git always outputs zip format for pipe; tar.gz via tar
+        .arg(git_ref)
+        .arg("--prefix") // empty prefix — no directory prefix
+        .arg("--")
+        .current_dir(&repo_path)
+        .output()
+        .await;
+
+    let archive_data = match output {
+        Ok(out) if out.status.success() => out.stdout,
+        Ok(out) => {
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Git(format!("git archive failed: {stderr}")).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    CoreError::Internal(format!("failed to run git archive: {e}")).error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+
+    // git archive --format=zip always produces zip regardless of the requested format
+    // For tar.gz we need to pipe through gzip
+    let (final_data, content_type, extension) = if format == "tar.gz" {
+        // Pipe zip through: git archive zip → python3 unzip → tar → gzip
+        // Simpler: just re-run git archive with tar format + gzip
+        let tar_output = tokio::process::Command::new("git")
+            .arg("archive")
+            .arg(format!("--format=tar.{git_format}"))
+            .arg(git_ref)
+            .arg("--prefix")
+            .arg("--")
+            .current_dir(&repo_path)
+            .output()
+            .await;
+
+        match tar_output {
+            Ok(out) if out.status.success() => (out.stdout, "application/gzip", "tar.gz"),
+            _ => {
+                // Fallback: compress the zip data with gzip as-is
+                let gz_result = gzip_data(&archive_data);
+                match gz_result {
+                    Ok(gz) => (gz, "application/gzip", "tar.gz"),
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(
+                                CoreError::Internal(format!("gzip compression failed: {e}"))
+                                    .error_response(),
+                            ),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+        }
+    } else {
+        (archive_data, "application/zip", "zip")
+    };
+
+    let filename = format!("{name}-{git_ref}.{extension}");
+    #[allow(clippy::useless_conversion)]
+    let body = axum::body::Body::from(final_data);
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(
+            "content-disposition",
+            format!("attachment; filename=\"{filename}\""),
+        )
+        .header("content-type", content_type)
+        .body(body)
+        .unwrap();
+    response.into_response()
 }
 
 async fn resolve_owner(
@@ -1094,54 +1194,210 @@ pub async fn list_collaborators(
     Path((owner, name)): Path<(String, String)>,
     _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
+    let pool = state.db.pool();
     let (owner_uuid, owner_name) = match resolve_owner(&state, &owner).await {
         Ok(r) => r,
         Err(resp) => return resp,
     };
 
-    if state
-        .db
-        .get_repo_by_owner_name(owner_uuid, &name)
-        .await
-        .is_err()
-    {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(CoreError::NotFound("repository not found".into()).error_response()),
-        )
-            .into_response();
-    }
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
 
-    let collabs = vec![CollaboratorResponse {
+    // Ensure table exists
+    let _ = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS repo_collaborators (
+            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            permission TEXT NOT NULL DEFAULT 'read',
+            PRIMARY KEY (repo_id, user_id),
+            added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(pool)
+    .await;
+
+    // Owner is always first
+    let mut collabs = vec![CollaboratorResponse {
         user_id: owner_uuid.to_string(),
         username: owner_name,
         role: "owner".into(),
     }];
+
+    // Fetch additional collaborators from table
+    let rows = sqlx::query_as::<_, (uuid::Uuid, String, String)>(
+        "SELECT rc.user_id, u.username, rc.permission
+         FROM repo_collaborators rc
+         JOIN users u ON u.id = rc.user_id
+         WHERE rc.repo_id = $1
+         ORDER BY rc.added_at",
+    )
+    .bind(repo.id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    for (user_id, username, permission) in rows {
+        collabs.push(CollaboratorResponse {
+            user_id: user_id.to_string(),
+            username,
+            role: permission,
+        });
+    }
+
     (StatusCode::OK, Json(collabs)).into_response()
 }
 
+#[derive(serde::Deserialize)]
+pub struct AddCollaboratorRequest {
+    pub username: String,
+    pub permission: Option<String>,
+}
+
 pub async fn add_collaborator(
-    State(_state): State<AppState>,
-    Path((_owner, _name)): Path<(String, String)>,
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
     _auth: AuthUser,
+    Json(req): Json<AddCollaboratorRequest>,
 ) -> impl IntoResponse {
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(CoreError::Internal("not yet implemented".into()).error_response()),
+    let pool = state.db.pool();
+    let owner_uuid = match resolve_owner(&state, &owner).await {
+        Ok((id, _name)) => id,
+        Err(resp) => return resp.into_response(),
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Resolve target user
+    let target_user = match state.db.get_user_by_username(&req.username).await {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("target user not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let permission = req.permission.as_deref().unwrap_or("read");
+
+    // Ensure table exists
+    let _ = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS repo_collaborators (
+            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            permission TEXT NOT NULL DEFAULT 'read',
+            PRIMARY KEY (repo_id, user_id),
+            added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
     )
-        .into_response()
+    .execute(pool)
+    .await;
+
+    // Check if already a collaborator
+    let existing: Option<(i64,)> = sqlx::query_as(
+        "SELECT COUNT(*) FROM repo_collaborators WHERE repo_id = $1 AND user_id = $2",
+    )
+    .bind(repo.id)
+    .bind(target_user.id)
+    .fetch_one(pool)
+    .await
+    .ok();
+
+    if existing.map(|(c,)| c > 0).unwrap_or(false) {
+        return (
+            StatusCode::CONFLICT,
+            Json(CoreError::BadRequest("user is already a collaborator".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Insert collaborator
+    match sqlx::query(
+        "INSERT INTO repo_collaborators (repo_id, user_id, permission) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+    )
+    .bind(repo.id)
+    .bind(target_user.id)
+    .bind(permission)
+    .execute(pool)
+    .await
+    {
+        Ok(_) => (StatusCode::CREATED, Json(serde_json::json!({"status": "added"}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }
 
 pub async fn remove_collaborator(
-    State(_state): State<AppState>,
-    Path((_owner, _name, _user_id)): Path<(String, String, String)>,
+    State(state): State<AppState>,
+    Path((owner, name, user_id)): Path<(String, String, String)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(CoreError::Internal("not yet implemented".into()).error_response()),
-    )
-        .into_response()
+    let pool = state.db.pool();
+    let owner_uuid = match resolve_owner(&state, &owner).await {
+        Ok((id, _name)) => id,
+        Err(resp) => return resp.into_response(),
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let collaborator_uuid = match Uuid::parse_str(&user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user_id format".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query("DELETE FROM repo_collaborators WHERE repo_id = $1 AND user_id = $2")
+        .bind(repo.id)
+        .bind(collaborator_uuid)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "removed"})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }
 
 pub fn repo_routes() -> Router<AppState> {
@@ -1166,10 +1422,19 @@ pub fn repo_routes() -> Router<AppState> {
         )
 }
 
+/// Compress data using gzip (flate2).
+fn gzip_data(data: &[u8]) -> std::io::Result<Vec<u8>> {
+    use flate2::write::GzEncoder;
+    use std::io::Write;
+    let mut encoder = GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder.write_all(data)?;
+    let compressed = encoder.finish()?;
+    Ok(compressed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_request_visibility_deserialization() {
         let v: RequestVisibility = serde_json::from_str("\"public\"").unwrap();
