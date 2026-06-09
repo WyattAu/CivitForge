@@ -12,6 +12,10 @@ pub struct User {
     pub display_name: String,
     pub bio: String,
     pub role: String,
+    #[serde(default)]
+    pub email_verified: bool,
+    #[serde(default)]
+    pub banned: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -41,6 +45,10 @@ pub struct Repository {
     pub parent_repo_id: Option<Uuid>,
     pub stars_count: i64,
     pub watchers_count: i64,
+    #[serde(default)]
+    pub archived: bool,
+    #[serde(default)]
+    pub topics: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -168,6 +176,78 @@ pub struct ActivityEvent {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct EmailVerificationCode {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub code: String,
+    pub email: String,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    pub used: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Release {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub tag_name: String,
+    pub name: String,
+    pub body: Option<String>,
+    pub draft: bool,
+    pub prerelease: bool,
+    pub author_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub published_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReleaseAsset {
+    pub id: Uuid,
+    pub release_id: Uuid,
+    pub name: String,
+    pub content_type: String,
+    pub size: i64,
+    pub download_count: i64,
+    pub author_id: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct BranchProtectionRule {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub branch_pattern: String,
+    pub require_pull_request: bool,
+    pub required_approving_reviews: i32,
+    pub required_status_checks: Vec<String>,
+    pub enforce_admins: bool,
+    pub allow_force_pushes: bool,
+    pub allow_deletions: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Team {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub privacy: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct TeamMember {
+    pub team_id: Uuid,
+    pub user_id: Uuid,
+    pub role: String,
+    pub joined_at: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,6 +261,8 @@ mod tests {
             display_name: "Alice Smith".into(),
             bio: "Developer".into(),
             role: "admin".into(),
+            email_verified: true,
+            banned: false,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -188,6 +270,7 @@ mod tests {
         let de: User = serde_json::from_str(&json).unwrap();
         assert_eq!(de.username, "alice");
         assert_eq!(de.role, "admin");
+        assert!(de.email_verified);
     }
 
     #[test]
@@ -204,6 +287,8 @@ mod tests {
             parent_repo_id: None,
             stars_count: 0,
             watchers_count: 0,
+            archived: false,
+            topics: Vec::new(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -279,5 +364,97 @@ mod tests {
         assert_eq!(de.key_type, "ssh-ed25519");
         assert_eq!(de.fingerprint, "SHA256:abc123");
         assert_eq!(de.label, "my-laptop");
+    }
+
+    #[test]
+    fn test_release_serialization() {
+        let release = Release {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            tag_name: "v1.0.0".into(),
+            name: "Release 1.0".into(),
+            body: Some("First release".into()),
+            draft: false,
+            prerelease: false,
+            author_id: Uuid::nil(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            published_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&release).unwrap();
+        let de: Release = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.tag_name, "v1.0.0");
+        assert!(!de.draft);
+    }
+
+    #[test]
+    fn test_release_asset_serialization() {
+        let asset = ReleaseAsset {
+            id: Uuid::nil(),
+            release_id: Uuid::nil(),
+            name: "binary.tar.gz".into(),
+            content_type: "application/gzip".into(),
+            size: 1024,
+            download_count: 0,
+            author_id: Uuid::nil(),
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&asset).unwrap();
+        let de: ReleaseAsset = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.name, "binary.tar.gz");
+        assert_eq!(de.size, 1024);
+    }
+
+    #[test]
+    fn test_team_serialization() {
+        let team = Team {
+            id: Uuid::nil(),
+            org_id: Uuid::nil(),
+            name: "backend".into(),
+            description: "Backend team".into(),
+            privacy: "visible".into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&team).unwrap();
+        let de: Team = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.name, "backend");
+        assert_eq!(de.privacy, "visible");
+    }
+
+    #[test]
+    fn test_team_member_serialization() {
+        let member = TeamMember {
+            team_id: Uuid::nil(),
+            user_id: Uuid::nil(),
+            role: "maintainer".into(),
+            joined_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&member).unwrap();
+        let de: TeamMember = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.role, "maintainer");
+    }
+
+    #[test]
+    fn test_branch_protection_rule_serialization() {
+        let rule = BranchProtectionRule {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            branch_pattern: "main".into(),
+            require_pull_request: true,
+            required_approving_reviews: 2,
+            required_status_checks: vec!["ci/test".into()],
+            enforce_admins: true,
+            allow_force_pushes: false,
+            allow_deletions: false,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&rule).unwrap();
+        let de: BranchProtectionRule = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.branch_pattern, "main");
+        assert!(de.require_pull_request);
+        assert_eq!(de.required_approving_reviews, 2);
+        assert!(de.enforce_admins);
     }
 }

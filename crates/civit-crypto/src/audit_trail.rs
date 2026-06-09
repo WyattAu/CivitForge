@@ -29,9 +29,7 @@ mod tests {
         let mut trail = AuditTrail::with_retention(1);
         let old = Utc::now() - chrono::Duration::days(2);
         trail
-            .append(
-                AuditEntryBuilder::new("user-1", "old", "r", "1").timestamp(old),
-            )
+            .append(AuditEntryBuilder::new("user-1", "old", "r", "1").timestamp(old))
             .unwrap();
         trail
             .append(AuditEntryBuilder::new("user-1", "new", "r", "2"))

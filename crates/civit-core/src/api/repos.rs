@@ -1,14 +1,14 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::api::auth::{AuthUser, OptionalAuthUser, require_permission};
+use crate::api::auth::{AuthUser, OptionalAuthUser, require_admin, require_permission};
 use crate::error::CoreError;
 use axum::{
     Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json, Response},
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
 };
 use civit_shared::permissions::{Action, Resource};
 use civit_shared::repo::RepoResponse;
@@ -108,7 +108,7 @@ fn git_err(e: impl std::fmt::Display) -> CoreError {
     CoreError::Git(e.to_string())
 }
 
-fn repo_to_response(
+pub(crate) fn repo_to_response(
     r: crate::db::Repository,
     owner_name: Option<String>,
     state: &AppState,
@@ -153,7 +153,7 @@ fn repo_to_response(
     }
 }
 
-async fn repos_to_responses(
+pub(crate) async fn repos_to_responses(
     state: &AppState,
     repos: Vec<crate::db::Repository>,
 ) -> Vec<RepoResponse> {
@@ -986,6 +986,17 @@ pub async fn star_repo(
         }
     };
 
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    let pool = state.db.pool().clone();
+    let rid = repo.id;
+    let evt = crate::webhooks::WebhookEvent::Star;
+    let pl = serde_json::json!({
+        "action": if starred { "starred" } else { "unstarred" },
+        "repo_id": rid.to_string(),
+        "stars_count": new_count,
+    });
+    tokio::spawn(async move { dispatcher.dispatch(&pool, rid, &evt, pl).await });
+
     let resp = StarToggleResponse {
         starred,
         stars_count: new_count,
@@ -1144,6 +1155,18 @@ pub async fn fork_repo(
         .await
     {
         Ok(forked) => {
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool = state.db.pool().clone();
+            let rid = repo.id;
+            let evt = crate::webhooks::WebhookEvent::Fork;
+            let pl = serde_json::json!({
+                "action": "forked",
+                "repo_id": rid.to_string(),
+                "fork_id": forked.id.to_string(),
+                "forker": forker_name,
+            });
+            tokio::spawn(async move { dispatcher.dispatch(&pool, rid, &evt, pl).await });
+
             let resp = repo_to_response(forked, Some(forker_name), &state);
             (StatusCode::CREATED, Json(resp)).into_response()
         }
@@ -1400,6 +1423,451 @@ pub async fn remove_collaborator(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SetTopicsRequest {
+    pub topics: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TopicsResponse {
+    pub topics: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TransferRepoRequest {
+    pub new_owner: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ArchiveRepoRequest {
+    pub archived: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetDefaultBranchRequest {
+    pub branch: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminRepoListParams {
+    pub search: Option<String>,
+    #[serde(default = "default_admin_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+}
+
+fn default_admin_limit() -> i64 {
+    50
+}
+
+pub async fn get_topics(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
+    let (owner_uuid, _) = match resolve_owner(&state, &owner).await {
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match state.db.get_repo_topics(repo.id).await {
+        Ok(topics) => (StatusCode::OK, Json(TopicsResponse { topics })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn set_topics(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
+    Json(req): Json<SetTopicsRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Update,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
+    let (owner_uuid, _) = match resolve_owner(&state, &owner).await {
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match state.db.set_repo_topics(repo.id, &req.topics).await {
+        Ok(()) => (StatusCode::OK, Json(TopicsResponse { topics: req.topics })).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn transfer_repo(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
+    Json(req): Json<TransferRepoRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Delete,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
+    let (owner_uuid, _) = match resolve_owner(&state, &owner).await {
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let new_owner_id = match Uuid::parse_str(&req.new_owner) {
+        Ok(id) => id,
+        Err(_) => match state.db.get_user_by_username(&req.new_owner).await {
+            Ok(user) => user.id,
+            Err(_) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("new owner not found".into()).error_response()),
+                )
+                    .into_response();
+            }
+        },
+    };
+
+    match state.db.transfer_repo(repo.id, new_owner_id).await {
+        Ok(updated) => {
+            let new_owner_name = state
+                .db
+                .get_user_by_id(new_owner_id)
+                .await
+                .map(|u| u.username)
+                .unwrap_or_else(|_| new_owner_id.to_string());
+            let resp = repo_to_response(updated, Some(new_owner_name), &state);
+            (StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn archive_repo(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
+    Json(req): Json<ArchiveRepoRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Update,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
+    let (owner_uuid, owner_name) = match resolve_owner(&state, &owner).await {
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match state.db.set_repo_archived(repo.id, req.archived).await {
+        Ok(updated) => {
+            let resp = repo_to_response(updated, Some(owner_name), &state);
+            (StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn set_default_branch(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
+    Json(req): Json<SetDefaultBranchRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Update,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
+    let (owner_uuid, owner_name) = match resolve_owner(&state, &owner).await {
+        Ok(r) => r,
+        Err(resp) => return resp,
+    };
+
+    let repo = match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(r) => r,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let repo_path = state.git_service.repo_path(&owner, &name);
+    if !repo_path.join("HEAD").exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("git repository not found on disk".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let git_repo = match gix::open(&repo_path) {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Git(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let ref_name = format!("refs/heads/{}", req.branch);
+    let branch_exists = git_repo.find_reference(&ref_name).is_ok();
+
+    if !branch_exists {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                CoreError::BadRequest(format!("branch '{}' does not exist", req.branch))
+                    .error_response(),
+            ),
+        )
+            .into_response();
+    }
+
+    match state.db.set_default_branch(repo.id, &req.branch).await {
+        Ok(updated) => {
+            let resp = repo_to_response(updated, Some(owner_name), &state);
+            (StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn admin_list_repos(
+    State(state): State<AppState>,
+    Query(params): Query<AdminRepoListParams>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let limit = params.limit.clamp(1, 100);
+    match state
+        .db
+        .admin_list_repos(params.search.as_deref(), limit, params.offset)
+        .await
+    {
+        Ok(repos) => {
+            let out = repos_to_responses(&state, repos).await;
+            (StatusCode::OK, Json(out)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn admin_delete_repo(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let owner_uuid = match Uuid::parse_str(&owner) {
+        Ok(id) => id,
+        Err(_) => match state.db.get_user_by_username(&owner).await {
+            Ok(user) => user.id,
+            Err(_) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("owner user not found".into()).error_response()),
+                )
+                    .into_response();
+            }
+        },
+    };
+
+    match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
+        Ok(repo) => {
+            if let Err(e) = state.db.delete_repo(repo.id).await {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(CoreError::Database(e.to_string()).error_response()),
+                )
+                    .into_response();
+            }
+            (StatusCode::NO_CONTENT, ()).into_response()
+        }
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("repository not found".into()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn admin_ban_user(
+    State(state): State<AppState>,
+    Path(user_id): Path<String>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let uid = match Uuid::parse_str(&user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match state.db.ban_user(uid).await {
+        Ok(()) => (StatusCode::OK, Json(serde_json::json!({"banned": true}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn admin_unban_user(
+    State(state): State<AppState>,
+    Path(user_id): Path<String>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let uid = match Uuid::parse_str(&user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match state.db.unban_user(uid).await {
+        Ok(()) => (StatusCode::OK, Json(serde_json::json!({"banned": false}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 pub fn repo_routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/repos/{owner}/{name}/branches", get(list_branches))
@@ -1420,6 +1888,26 @@ pub fn repo_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{name}/collaborators/{user_id}",
             delete(remove_collaborator),
         )
+        .route(
+            "/api/v1/repos/{owner}/{name}/topics",
+            get(get_topics).put(set_topics),
+        )
+        .route("/api/v1/repos/{owner}/{name}/transfer", post(transfer_repo))
+        .route(
+            "/api/v1/repos/{owner}/{name}/archive-toggle",
+            post(archive_repo),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/default-branch",
+            patch(set_default_branch),
+        )
+        .route("/api/v1/admin/repos", get(admin_list_repos))
+        .route(
+            "/api/v1/admin/repos/{owner}/{name}",
+            delete(admin_delete_repo),
+        )
+        .route("/api/v1/admin/users/{id}/ban", patch(admin_ban_user))
+        .route("/api/v1/admin/users/{id}/unban", patch(admin_unban_user))
 }
 
 /// Compress data using gzip (flate2).

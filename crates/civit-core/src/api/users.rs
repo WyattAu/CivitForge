@@ -247,6 +247,8 @@ mod tests {
             display_name: "Alice Smith".into(),
             bio: "Developer".into(),
             role: "admin".into(),
+            email_verified: false,
+            banned: false,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

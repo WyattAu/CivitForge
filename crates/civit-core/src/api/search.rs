@@ -7,6 +7,8 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
 // Query / request param structs
@@ -539,17 +541,294 @@ pub async fn repo_code_search(
 // ---------------------------------------------------------------------------
 
 pub async fn trigger_repo_index(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
-) -> impl IntoResponse {
-    (
-        StatusCode::ACCEPTED,
-        Json(IndexTriggerResponse {
-            status: "queued".to_string(),
-            message: format!("re-index for {owner}/{name} queued (placeholder)"),
-        }),
-    )
-        .into_response()
+) -> axum::response::Response {
+    let pool = state.db.pool().clone();
+
+    let repo_id = match get_repo_id(&pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let repo_path: PathBuf = state.git_service.repo_path(&owner, &name);
+
+    let (commit_sha, files) = match collect_repo_files(&repo_path) {
+        Ok(f) => f,
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    match index_collected_files(&pool, &repo_id, &commit_sha, &files).await {
+        Ok(count) => (
+            StatusCode::OK,
+            Json(IndexTriggerResponse {
+                status: "ok".to_string(),
+                message: format!("indexed {count} files for {owner}/{name}"),
+            }),
+        )
+            .into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: index_repository — walk a bare git repo and populate search tables
+// ---------------------------------------------------------------------------
+
+fn language_from_extension(path: &str) -> Option<&'static str> {
+    let ext = std::path::Path::new(path)
+        .extension()?
+        .to_str()?
+        .to_ascii_lowercase();
+    Some(match ext.as_str() {
+        "rs" => "rust",
+        "go" => "go",
+        "py" => "python",
+        "js" => "javascript",
+        "ts" => "typescript",
+        "tsx" => "typescript",
+        "jsx" => "javascript",
+        "rb" => "ruby",
+        "java" => "java",
+        "kt" => "kotlin",
+        "scala" => "scala",
+        "c" => "c",
+        "h" => "c",
+        "cpp" | "cc" | "cxx" | "hpp" | "hxx" => "cpp",
+        "cs" => "csharp",
+        "fs" | "fsx" | "fsi" => "fsharp",
+        "swift" => "swift",
+        "m" => "objc",
+        "php" => "php",
+        "pl" | "pm" => "perl",
+        "r" => "r",
+        "R" => "r",
+        "lua" => "lua",
+        "zig" => "zig",
+        "nim" => "nim",
+        "ex" | "exs" => "elixir",
+        "erl" | "hrl" => "erlang",
+        "hs" => "haskell",
+        "ml" | "mli" => "ocaml",
+        "clj" | "cljs" => "clojure",
+        "dart" => "dart",
+        "vue" => "vue",
+        "svelte" => "svelte",
+        "html" | "htm" => "html",
+        "css" => "css",
+        "scss" => "scss",
+        "less" => "less",
+        "json" => "json",
+        "yaml" | "yml" => "yaml",
+        "toml" => "toml",
+        "xml" => "xml",
+        "sql" => "sql",
+        "sh" | "bash" | "zsh" => "shell",
+        "ps1" => "powershell",
+        "bat" | "cmd" => "batch",
+        "md" | "markdown" => "markdown",
+        "txt" => "text",
+        "proto" => "protobuf",
+        "graphql" | "gql" => "graphql",
+        "tf" | "hcl" => "hcl",
+        "dockerfile" => "dockerfile",
+        "makefile" => "makefile",
+        "cmake" => "cmake",
+        "gradle" => "gradle",
+        _ => return None,
+    })
+}
+
+fn is_binary(data: &[u8]) -> bool {
+    let check_len = data.len().min(512);
+    data[..check_len].contains(&0)
+}
+
+struct CollectedFile {
+    path: String,
+    content: String,
+    language: String,
+    byte_size: i64,
+    line_count: i32,
+}
+
+/// Phase 1: Walk the git tree synchronously and collect file metadata + content.
+/// Returns (commit_sha, files). No gix types escape this function.
+fn collect_repo_files(
+    repo_path: &std::path::Path,
+) -> Result<(String, Vec<CollectedFile>), CoreError> {
+    let repo = gix::open(repo_path).map_err(|e| CoreError::Git(format!("open repository: {e}")))?;
+
+    let head_id = repo
+        .head_id()
+        .map_err(|e| CoreError::Git(format!("read HEAD: {e}")))?;
+
+    let commit_obj = head_id
+        .object()
+        .map_err(|e| CoreError::Git(format!("read commit object: {e}")))?;
+
+    let commit = commit_obj
+        .try_into_commit()
+        .map_err(|e| CoreError::Git(format!("parse commit: {e}")))?;
+
+    let commit_sha = head_id.to_hex().to_string();
+
+    let tree_id = commit
+        .tree_id()
+        .map_err(|e| CoreError::Git(format!("read tree id: {e}")))?;
+
+    let root_tree_id = tree_id.detach();
+
+    let mut files = Vec::new();
+    let mut stack: Vec<(gix::hash::ObjectId, String)> = vec![(root_tree_id, String::new())];
+
+    while let Some((current_tree_id, prefix)) = stack.pop() {
+        let tree_obj = match repo.find_object(current_tree_id) {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        let tree = match tree_obj.try_into_tree() {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+
+        for entry_result in tree.iter() {
+            let entry = match entry_result {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+
+            let name = entry.filename().to_string();
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}/{name}")
+            };
+
+            let mode = entry.mode();
+            if mode.is_tree() {
+                let subtree_oid = entry.oid().to_owned();
+                stack.push((subtree_oid, path));
+                continue;
+            }
+
+            if !mode.is_blob() {
+                continue;
+            }
+
+            let blob_obj = match entry.object() {
+                Ok(o) => o,
+                Err(_) => continue,
+            };
+            let blob = match blob_obj.try_into_blob() {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+
+            if is_binary(&blob.data) {
+                continue;
+            }
+
+            let content = String::from_utf8_lossy(&blob.data).to_string();
+            let language = language_from_extension(&path)
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            let line_count = content.lines().count() as i32;
+            let byte_size = blob.data.len() as i64;
+
+            files.push(CollectedFile {
+                path,
+                content,
+                language,
+                byte_size,
+                line_count,
+            });
+        }
+    }
+
+    Ok((commit_sha, files))
+}
+
+/// Phase 2: Insert collected files into the database.
+async fn index_collected_files(
+    pool: &PgPool,
+    repo_id: &uuid::Uuid,
+    commit_sha: &str,
+    files: &[CollectedFile],
+) -> Result<usize, CoreError> {
+    // Delete existing entries for this repo
+    sqlx::query("DELETE FROM code_search_tokens WHERE index_id IN (SELECT id FROM code_search_index WHERE repo_id = $1)")
+        .bind(repo_id)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+    sqlx::query("DELETE FROM code_search_index WHERE repo_id = $1")
+        .bind(repo_id)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+    let mut indexed = 0usize;
+
+    for file in files {
+        // Insert into code_search_index
+        let index_id = sqlx::query_scalar::<_, uuid::Uuid>(
+            "INSERT INTO code_search_index \
+             (repo_id, file_path, language, content, line_count, byte_size, commit_sha) \
+             VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7) \
+             RETURNING id",
+        )
+        .bind(repo_id)
+        .bind(&file.path)
+        .bind(&file.language)
+        .bind(&file.content)
+        .bind(file.line_count)
+        .bind(file.byte_size)
+        .bind(commit_sha)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        // Insert search tokens (one row per line)
+        for (line_number, line) in file.content.lines().enumerate() {
+            let line_content = line.trim();
+            if line_content.is_empty() {
+                continue;
+            }
+            sqlx::query(
+                "INSERT INTO code_search_tokens (index_id, token, line_number, line_content) \
+                 VALUES ($1, $2, $3, $4)",
+            )
+            .bind(index_id)
+            .bind(line_content)
+            .bind((line_number + 1) as i32)
+            .bind(line_content)
+            .execute(pool)
+            .await
+            .map_err(|e| CoreError::Database(e.to_string()))?;
+        }
+
+        // Update search_vector for full-text search
+        sqlx::query(
+            "UPDATE code_search_index \
+             SET search_vector = to_tsvector('english', coalesce(file_path, '') || ' ' || coalesce(content, '')) \
+             WHERE id = $1",
+        )
+        .bind(index_id)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        indexed += 1;
+    }
+
+    Ok(indexed)
 }
 
 // ---------------------------------------------------------------------------

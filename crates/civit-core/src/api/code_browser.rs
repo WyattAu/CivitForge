@@ -173,6 +173,7 @@ pub fn code_browser_routes() -> Router<AppState> {
         )
         .route("/api/v1/repos/{owner}/{name}/blame", get(blame_file))
         .route("/api/v1/repos/{owner}/{name}/size", get(repo_size))
+        .route("/api/v1/repos/{owner}/{name}/graph", get(commit_graph))
 }
 /// Convert a gix object error into our CoreError.
 fn git_err(e: impl std::fmt::Display) -> CoreError {
@@ -1333,6 +1334,169 @@ pub async fn blame_file(
 pub struct RepoSizeResponse {
     pub size_bytes: u64,
     pub size_human: String,
+}
+
+// ── Commit Graph Types ──
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphNode {
+    pub id: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+    pub parents: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphEdge {
+    pub from: String,
+    pub to: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GraphBranch {
+    pub name: String,
+    pub head: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CommitGraphResponse {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+    pub branches: Vec<GraphBranch>,
+}
+
+/// GET /repos/{owner}/{name}/graph
+/// Returns commit DAG for D3.js force-directed graph rendering.
+pub async fn commit_graph(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+) -> impl IntoResponse {
+    let repo_path = state.git_service.repo_path(&owner, &name);
+
+    if !repo_path.join("HEAD").exists() {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("repository not found".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "/usr/bin/git".to_string());
+
+    // Get commit data with parent info
+    let log_output = match tokio::process::Command::new(&git_bin)
+        .current_dir(&repo_path)
+        .args(["log", "--all", "--format=%H|%s|%an|%aI|%P", "-n", "200"])
+        .output()
+        .await
+    {
+        Ok(o) => o,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Git(format!("failed to run git log: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    if !log_output.status.success() {
+        return (
+            StatusCode::OK,
+            Json(CommitGraphResponse {
+                nodes: Vec::new(),
+                edges: Vec::new(),
+                branches: Vec::new(),
+            }),
+        )
+            .into_response();
+    }
+
+    let stdout = String::from_utf8_lossy(&log_output.stdout);
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.splitn(5, '|').collect();
+        if parts.len() < 4 {
+            continue;
+        }
+        let id = parts[0].to_string();
+        let short_id: String = id.chars().take(7).collect();
+        let message = parts[1].to_string();
+        let author = parts[2].to_string();
+        let date = parts[3].to_string();
+        let parents: Vec<String> = parts
+            .get(4)
+            .map(|s| s.split_whitespace().map(|p| p.to_string()).collect())
+            .unwrap_or_default();
+
+        if !seen.contains(&id) {
+            seen.insert(id.clone());
+            nodes.push(GraphNode {
+                id: short_id,
+                message,
+                author,
+                date,
+                parents: parents
+                    .iter()
+                    .map(|p| {
+                        let mut short = p.chars().take(7).collect::<String>();
+                        // Try to find matching node
+                        if !seen.contains(p) {
+                            short = p.chars().take(7).collect();
+                        }
+                        short
+                    })
+                    .collect(),
+            });
+        }
+
+        for parent_id in &parents {
+            let parent_short: String = parent_id.chars().take(7).collect();
+            let child_short: String = id.chars().take(7).collect();
+            edges.push(GraphEdge {
+                from: parent_short,
+                to: child_short,
+            });
+        }
+    }
+
+    // Get branch heads
+    let branch_output = tokio::process::Command::new(&git_bin)
+        .current_dir(&repo_path)
+        .args(["branch", "--format=%(refname:short)|%(objectname)"])
+        .output()
+        .await;
+
+    let branches = match branch_output {
+        Ok(o) if o.status.success() => {
+            let out = String::from_utf8_lossy(&o.stdout);
+            out.lines()
+                .filter_map(|line| {
+                    let parts: Vec<&str> = line.splitn(2, '|').collect();
+                    if parts.len() == 2 {
+                        Some(GraphBranch {
+                            name: parts[0].to_string(),
+                            head: parts[1].chars().take(7).collect(),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    };
+
+    let resp = CommitGraphResponse {
+        nodes,
+        edges,
+        branches,
+    };
+    (StatusCode::OK, Json(resp)).into_response()
 }
 
 /// Get the on-disk size of a repository.

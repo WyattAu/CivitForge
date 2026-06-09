@@ -96,3 +96,238 @@ pub fn sanitize_error(raw: &str) -> String {
         .trim()
         .to_string()
 }
+
+pub fn detect_language(path: &str) -> &'static str {
+    let ext = path.rsplit('.').next().unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "rs" => "rust",
+        "py" => "python",
+        "js" | "mjs" | "cjs" => "javascript",
+        "ts" | "mts" | "cts" => "typescript",
+        "jsx" => "jsx",
+        "tsx" => "tsx",
+        "go" => "go",
+        "java" => "java",
+        "kt" | "kts" => "kotlin",
+        "c" | "h" => "c",
+        "cpp" | "cc" | "cxx" | "hpp" | "hxx" | "hh" => "cpp",
+        "cs" => "csharp",
+        "rb" => "ruby",
+        "php" => "php",
+        "swift" => "swift",
+        "sql" => "sql",
+        "html" | "htm" | "xhtml" => "html",
+        "css" => "css",
+        "scss" | "sass" | "less" => "scss",
+        "xml" => "xml",
+        "json" | "geojson" => "json",
+        "yaml" | "yml" => "yaml",
+        "toml" => "toml",
+        "ini" => "ini",
+        "cfg" => "ini",
+        "sh" | "bash" | "zsh" | "fish" => "bash",
+        "ps1" => "powershell",
+        "bat" | "cmd" => "dos",
+        "md" | "mdx" | "markdown" => "markdown",
+        "tex" | "latex" => "latex",
+        "r" | "rmd" => "r",
+        "scala" | "sc" | "sbt" => "scala",
+        "ex" | "exs" => "elixir",
+        "erl" | "hrl" => "erlang",
+        "hs" => "haskell",
+        "dart" => "dart",
+        "lua" => "lua",
+        "vim" => "vim",
+        "dockerfile" => "dockerfile",
+        "makefile" => "makefile",
+        "cmake" => "cmake",
+        "proto" => "protobuf",
+        "graphql" | "gql" => "graphql",
+        "tf" | "tfvars" => "terraform",
+        "zig" => "zig",
+        "nim" => "nim",
+        "v" => "v",
+        "clj" | "cljs" | "cljc" => "clojure",
+        "ml" | "mli" => "ocaml",
+        "fs" | "fsx" | "fsi" => "fsharp",
+        "pas" | "pp" | "inc" => "pascal",
+        "adb" | "ads" => "ada",
+        "groovy" | "gradle" => "groovy",
+        "vue" => "vue",
+        "svelte" => "svelte",
+        _ => "",
+    }
+}
+
+#[cfg(feature = "csr")]
+pub fn inject_highlight_js() {
+    let doc = web_sys::window().and_then(|w| w.document());
+    if let Some(doc) = doc {
+        let already_loaded = doc.get_element_by_id("hljs-css");
+        if already_loaded.is_some() {
+            return;
+        }
+        let _ = js_sys::eval(
+            r#"
+            (function() {
+                if (window.hljs) return;
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+                link.id = 'hljs-css';
+                document.head.appendChild(link);
+                var script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js';
+                script.id = 'hljs-js';
+                document.head.appendChild(script);
+            })();
+            "#,
+        );
+    }
+}
+
+#[cfg(feature = "csr")]
+pub fn highlight_code_block(selector: &str) {
+    let script = format!(
+        r#"
+        (function() {{
+            if (!window.hljs) return;
+            document.querySelectorAll('{selector}').forEach(function(el) {{
+                if (!el.dataset.highlighted) {{
+                    hljs.highlightElement(el);
+                }}
+            }});
+        }})();
+        "#
+    );
+    let _ = js_sys::eval(&script);
+}
+
+#[cfg(feature = "csr")]
+pub fn inject_marked_js() {
+    let doc = web_sys::window().and_then(|w| w.document());
+    if let Some(doc) = doc {
+        let already_loaded = doc.get_element_by_id("marked-js");
+        if already_loaded.is_some() {
+            return;
+        }
+        let _ = js_sys::eval(
+            r#"
+            (function() {
+                if (window.marked) return;
+                var script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js';
+                script.id = 'marked-js';
+                script.onload = function() {
+                    if (window.marked) {
+                        marked.setOptions({
+                            breaks: true,
+                            gfm: true,
+                            headerIds: false,
+                            mangle: false
+                        });
+                    }
+                };
+                document.head.appendChild(script);
+            })();
+            "#,
+        );
+    }
+}
+
+#[cfg(feature = "csr")]
+pub fn inject_katex_js() {
+    let doc = web_sys::window().and_then(|w| w.document());
+    if let Some(doc) = doc {
+        if doc.get_element_by_id("katex-css").is_some() {
+            return;
+        }
+        let _ = js_sys::eval(
+            r#"
+            (function() {
+                if (window.katex) return;
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+                link.id = 'katex-css';
+                document.head.appendChild(link);
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js';
+                script.id = 'katex-js';
+                document.head.appendChild(script);
+            })();
+            "#,
+        );
+    }
+}
+
+#[cfg(feature = "csr")]
+pub fn inject_mermaid_js() {
+    let doc = web_sys::window().and_then(|w| w.document());
+    if let Some(doc) = doc {
+        if doc.get_element_by_id("mermaid-js").is_some() {
+            return;
+        }
+        let _ = js_sys::eval(
+            r#"
+            (function() {
+                if (window.mermaid) return;
+                var script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+                script.id = 'mermaid-js';
+                script.onload = function() {
+                    if (window.mermaid) {
+                        window.mermaid.initialize({ startOnLoad: false, theme: 'default' });
+                    }
+                };
+                document.head.appendChild(script);
+            })();
+            "#,
+        );
+    }
+}
+
+#[cfg(feature = "csr")]
+pub fn render_markdown(markdown: &str) -> String {
+    let escaped = markdown
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r");
+    let script = format!(
+        r#"
+        (function() {{
+            if (!window.marked) return '';
+            try {{
+                var html = window.marked.parse(`{escaped}`);
+                if (window.katex) {{
+                    html = html.replace(/\$\$([\s\S]+?)\$\$/g, function(match, tex) {{
+                        try {{
+                            return window.katex.renderToString(tex.trim(), {{ displayMode: true, throwOnError: false }});
+                        }} catch(e) {{ return match; }}
+                    }});
+                    html = html.replace(/\$([^\$\n]+?)\$/g, function(match, tex) {{
+                        try {{
+                            return window.katex.renderToString(tex.trim(), {{ displayMode: false, throwOnError: false }});
+                        }} catch(e) {{ return match; }}
+                    }});
+                }}
+                html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g, function(match, code) {{
+                    var decoded = code.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+                    return '<div class="mermaid">' + decoded + '</div>';
+                }});
+                if (window.mermaid && document.querySelectorAll('.mermaid').length > 0) {{
+                    try {{ window.mermaid.run(); }} catch(e) {{}}
+                }}
+                return html;
+            }} catch(e) {{
+                return '';
+            }}
+        }})();
+        "#
+    );
+    js_sys::eval(&script)
+        .ok()
+        .and_then(|v| v.as_string())
+        .unwrap_or_default()
+}

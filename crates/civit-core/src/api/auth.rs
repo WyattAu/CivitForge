@@ -12,6 +12,7 @@ use axum::response::Json;
 use civit_shared::id::{RepoId, UserId};
 use civit_shared::permissions::{Action, PermissionCheck, Resource};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AuthUser {
@@ -23,6 +24,41 @@ pub struct AuthUser {
 
 pub struct OptionalAuthUser(pub Option<AuthUser>);
 
+/// Hash a token for comparison (SHA-256, same as tokens.rs).
+fn hash_token(token: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Authenticate using a personal access token (PAT).
+///
+/// PATs are prefixed with `cf_pat_` to distinguish them from JWTs.
+/// The raw token is hashed and looked up in the `access_tokens` table.
+pub async fn authenticate_with_token(state: &AppState, token: &str) -> Result<AuthUser, CoreError> {
+    let token_hash = hash_token(token);
+    let (user_id, scopes, token_id) = state.db.validate_pat_token(&token_hash).await?;
+
+    // Check that the token has at least "read" scope (base permission)
+    if !scopes.iter().any(|s| s == "read" || s == "admin") {
+        return Err(CoreError::Auth("token lacks required scope".into()));
+    }
+
+    // Update last_used_at (best-effort)
+    let _ = state.db.touch_access_token(token_id).await;
+
+    let user = state.db.get_user_by_id(user_id).await?;
+    let role = Role::from_str(&user.role)
+        .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", user.role)))?;
+
+    Ok(AuthUser {
+        user_id: user.id.to_string(),
+        username: user.username,
+        role,
+        org_id: None,
+    })
+}
+
 fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreError> {
     let auth_header = parts
         .headers
@@ -30,8 +66,17 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| CoreError::Auth("missing authorization header".into()))?;
 
-    // Support Bearer token
+    // Support Bearer token (JWT or PAT)
     if let Some(token) = auth_header.strip_prefix("Bearer ") {
+        // Try PAT first (tokens starting with cf_pat_)
+        if token.starts_with("cf_pat_") {
+            return tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current()
+                    .block_on(async { authenticate_with_token(state, token).await })
+            });
+        }
+
+        // Otherwise try JWT
         let claims = state.jwt_service.validate_token(token)?;
         let role = Role::from_str(&claims.role)
             .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
@@ -55,7 +100,15 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
             .split_once(':')
             .ok_or_else(|| CoreError::Auth("invalid basic auth format".into()))?;
 
-        // Try as token first (password field is a JWT token)
+        // Try PAT first (password field starts with cf_pat_)
+        if password.starts_with("cf_pat_") {
+            return tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current()
+                    .block_on(async { authenticate_with_token(state, password).await })
+            });
+        }
+
+        // Try as JWT token (password field is a JWT token)
         if let Ok(claims) = state.jwt_service.validate_token(password) {
             let role = Role::from_str(&claims.role)
                 .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
@@ -67,9 +120,6 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
             });
         }
 
-        // Note: username/password basic auth is not supported here due to
-        // sync extractor constraints. Use token-based auth for git push:
-        //   http://username:JWT_TOKEN@host/owner/repo.git
         return Err(CoreError::Auth(
             "invalid credentials (use token as password)".into(),
         ));
@@ -348,5 +398,29 @@ mod tests {
         assert_eq!(user.username, "bob");
         assert_eq!(user.role, Role::Guest);
         assert!(user.org_id.is_none());
+    }
+
+    #[test]
+    fn test_hash_token_deterministic() {
+        let token = "cf_pat_abc123";
+        let h1 = hash_token(token);
+        let h2 = hash_token(token);
+        assert_eq!(h1, h2);
+        assert_eq!(h1.len(), 64); // SHA-256 hex = 64 chars
+    }
+
+    #[test]
+    fn test_hash_token_different_inputs() {
+        let h1 = hash_token("cf_pat_abc");
+        let h2 = hash_token("cf_pat_def");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_pat_token_prefix_detection() {
+        let token = "cf_pat_abc123def456";
+        assert!(token.starts_with("cf_pat_"));
+        let jwt = "eyJhbGciOiJIUzI1NiJ9.test";
+        assert!(!jwt.starts_with("cf_pat_"));
     }
 }

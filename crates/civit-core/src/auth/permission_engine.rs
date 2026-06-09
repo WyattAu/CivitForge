@@ -65,7 +65,7 @@ fn hex_decode(hex: &str) -> Result<Vec<u8>, &'static str> {
 
 /// Encrypt plaintext using AES-256-GCM. Returns (ciphertext_with_tag, nonce).
 /// The nonce is 12 bytes, prepended to the ciphertext.
-fn encrypt_value(plaintext: &str) -> Result<(Vec<u8>, Vec<u8>), CoreError> {
+pub(crate) fn encrypt_value(plaintext: &str) -> Result<(Vec<u8>, Vec<u8>), CoreError> {
     let key_bytes = get_encryption_key();
     let key = UnboundKey::new(&AES_256_GCM, &key_bytes)
         .map_err(|_| CoreError::Internal("failed to create AES key".into()))?;

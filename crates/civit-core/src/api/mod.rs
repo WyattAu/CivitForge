@@ -2,28 +2,44 @@
 
 pub mod activity;
 pub mod artifact_serving;
+pub mod audit_admin;
 pub mod auth;
 pub mod auth_routes;
+pub mod badges;
+pub mod boards;
+pub mod branch_protection;
 pub mod code_browser;
 pub mod deploy_keys;
 pub mod diagnostics;
+pub mod edit;
 pub mod error_reports;
 pub mod federation_routes;
 pub mod git_http;
+pub mod import;
 pub mod issues;
+pub mod lfs;
 pub mod marketplace;
+pub mod mentions;
+pub mod mirrors;
 pub mod notifications;
 pub mod oci;
 pub mod openapi_handler;
 pub mod orgs;
 pub mod password;
+pub mod pipeline_caches;
 pub mod pipeline_log_stream;
+pub mod pipeline_schedules;
+pub mod pipeline_secrets;
 pub mod pipelines;
 pub mod pull_requests;
+pub mod releases;
 pub mod repos;
 pub mod runners;
 pub mod search;
+pub mod secret_scanning;
+pub mod slsa_dashboard;
 pub mod ssh_keys;
+pub mod teams;
 pub mod tokens;
 pub mod users;
 pub mod webhooks;
@@ -80,6 +96,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(pipeline_log_stream::log_stream_routes())
         .route("/api/v1/auth/login", post(auth_routes::login))
         .route("/api/v1/auth/register", post(auth_routes::register))
+        .route("/api/v1/auth/verify-email", post(auth_routes::verify_email))
         .route("/api/v1/auth/me", get(auth_routes::me))
         .route("/api/v1/auth/refresh", post(auth_routes::refresh))
         .route(
@@ -98,15 +115,27 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         )
         .merge(repos::repo_routes())
         .merge(pipelines::pipeline_routes())
+        .merge(pipeline_schedules::schedule_routes())
+        .merge(badges::badge_routes())
+        .merge(pipeline_secrets::pipeline_secret_routes())
+        .merge(pipeline_caches::pipeline_cache_routes())
         .merge(runners::runner_routes())
         .merge(oci::registry_routes())
         .merge(issues::issue_routes())
+        .merge(boards::board_routes())
+        .merge(edit::edit_routes())
         .merge(pull_requests::pr_routes())
+        .merge(releases::release_routes())
+        .merge(branch_protection::branch_protection_routes())
         .merge(wiki::wiki_routes())
         .merge(search::search_routes())
         .merge(activity::activity_routes())
         .merge(code_browser::code_browser_routes())
+        .merge(secret_scanning::secret_scanning_routes())
+        .merge(slsa_dashboard::slsa_dashboard_routes())
         .merge(federation_routes::federation_routes())
+        .merge(mirrors::mirror_routes())
+        .merge(lfs::lfs_routes())
         .merge(password::password_routes())
         .merge(artifact_serving::artifact_serving_routes())
         .merge(openapi_handler::openapi_routes())
@@ -139,6 +168,12 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             "/api/v1/orgs/{id}",
             get(orgs::get_org).patch(orgs::update_org),
         )
+        .merge(teams::team_routes())
+        .merge(audit_admin::audit_admin_routes())
+        .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
+        .route("/api/v1/import/github", post(import::import_github))
+        .route("/api/v1/import/gitlab", post(import::import_gitlab))
+        .route("/api/v1/import/url", post(import::import_url))
         .route(
             "/api/v1/users/{user_id}/ssh-keys",
             get(ssh_keys::list_ssh_keys).post(ssh_keys::add_ssh_key),

@@ -1,8 +1,9 @@
 #![forbid(unsafe_code)]
 
 use crate::db::models::{
-    ActivityEvent, Issue, Org, Pipeline, PrComment, PrReviewer, PrStatusCheck, PrTimeline,
-    PullRequest, Repository, SshKey, User,
+    ActivityEvent, BranchProtectionRule, EmailVerificationCode, Issue, Org, Pipeline, PrComment,
+    PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release, ReleaseAsset, Repository, SshKey,
+    Team, TeamMember, User,
 };
 use crate::error::{CoreError, Result};
 use chrono::{DateTime, Utc};
@@ -906,6 +907,105 @@ impl DbRepository {
         Ok(())
     }
 
+    /// Validate a PAT token hash and return user_id + scopes + token_id.
+    pub async fn validate_pat_token(&self, token_hash: &str) -> Result<(Uuid, Vec<String>, Uuid)> {
+        let row: (Uuid, serde_json::Value, Uuid, Option<DateTime<Utc>>) = sqlx::query_as(
+            r#"SELECT user_id, scopes, id, expires_at FROM access_tokens
+               WHERE token_hash = $1"#,
+        )
+        .bind(token_hash)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("validate_pat_token: {e}")))?;
+
+        if let Some(exp) = row.3 {
+            if Utc::now() > exp {
+                return Err(CoreError::Auth("access token expired".into()));
+            }
+        }
+
+        let scopes: Vec<String> = serde_json::from_value(row.1).unwrap_or_default();
+
+        Ok((row.0, scopes, row.2))
+    }
+
+    /// Update last_used_at for an access token.
+    pub async fn touch_access_token(&self, token_id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE access_tokens SET last_used_at = NOW() WHERE id = $1")
+            .bind(token_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("touch_access_token: {e}")))?;
+        Ok(())
+    }
+
+    /// Set email_verified = true for a user.
+    pub async fn set_email_verified(&self, user_id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE users SET email_verified = true, updated_at = NOW() WHERE id = $1")
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("set_email_verified: {e}")))?;
+        Ok(())
+    }
+
+    /// Store an email verification code.
+    pub async fn store_verification_code(
+        &self,
+        user_id: Uuid,
+        email: &str,
+        code: &str,
+        expires_at: DateTime<Utc>,
+    ) -> Result<EmailVerificationCode> {
+        let row = sqlx::query_as::<_, EmailVerificationCode>(
+            r#"INSERT INTO email_verification_codes (user_id, email, code, expires_at)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(email)
+        .bind(code)
+        .bind(expires_at)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("store_verification_code: {e}")))?;
+        Ok(row)
+    }
+
+    /// Validate an email verification code (check exists, not expired, not used).
+    pub async fn validate_verification_code(
+        &self,
+        email: &str,
+        code: &str,
+    ) -> Result<EmailVerificationCode> {
+        let row = sqlx::query_as::<_, EmailVerificationCode>(
+            r#"SELECT * FROM email_verification_codes
+               WHERE email = $1 AND code = $2 AND used = false
+               ORDER BY created_at DESC LIMIT 1"#,
+        )
+        .bind(email)
+        .bind(code)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("validate_verification_code: {e}")))?;
+
+        if Utc::now() > row.expires_at {
+            return Err(CoreError::Auth("verification code expired".into()));
+        }
+
+        Ok(row)
+    }
+
+    /// Mark a verification code as used.
+    pub async fn mark_verification_code_used(&self, id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE email_verification_codes SET used = true WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("mark_verification_code_used: {e}")))?;
+        Ok(())
+    }
+
     // --- Audit Events ---
 
     #[allow(clippy::too_many_arguments)]
@@ -1318,6 +1418,649 @@ impl DbRepository {
         .map_err(|e| CoreError::Database(format!("list_forks: {e}")))?;
         Ok(rows)
     }
+
+    // --- Releases ---
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_release(
+        &self,
+        repo_id: Uuid,
+        tag_name: &str,
+        name: &str,
+        body: Option<&str>,
+        draft: bool,
+        prerelease: bool,
+        author_id: Uuid,
+    ) -> Result<Release> {
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS releases (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+                tag_name TEXT NOT NULL,
+                name TEXT NOT NULL,
+                body TEXT,
+                draft BOOLEAN NOT NULL DEFAULT false,
+                prerelease BOOLEAN NOT NULL DEFAULT false,
+                author_id UUID NOT NULL REFERENCES users(id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                published_at TIMESTAMPTZ,
+                UNIQUE(repo_id, tag_name)
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_release table: {e}")))?;
+
+        let row = sqlx::query_as::<_, Release>(
+            r#"INSERT INTO releases (repo_id, tag_name, name, body, draft, prerelease, author_id, published_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $5 = false THEN NOW() ELSE NULL END)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(tag_name)
+        .bind(name)
+        .bind(body)
+        .bind(draft)
+        .bind(prerelease)
+        .bind(author_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_release: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_releases(&self, repo_id: Uuid) -> Result<Vec<Release>> {
+        let rows = sqlx::query_as::<_, Release>(
+            "SELECT * FROM releases WHERE repo_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_releases: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_release(&self, id: Uuid) -> Result<Release> {
+        sqlx::query_as::<_, Release>("SELECT * FROM releases WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("get_release: {e}")))
+    }
+
+    pub async fn delete_release(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM releases WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("delete_release: {e}")))?;
+        Ok(())
+    }
+
+    // --- Release Assets ---
+
+    pub async fn create_release_asset(
+        &self,
+        release_id: Uuid,
+        name: &str,
+        content_type: &str,
+        size: i64,
+        author_id: Uuid,
+    ) -> Result<ReleaseAsset> {
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS release_assets (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                release_id UUID NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                size BIGINT NOT NULL DEFAULT 0,
+                download_count BIGINT NOT NULL DEFAULT 0,
+                author_id UUID NOT NULL REFERENCES users(id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_release_asset table: {e}")))?;
+
+        let row = sqlx::query_as::<_, ReleaseAsset>(
+            r#"INSERT INTO release_assets (release_id, name, content_type, size, author_id)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(release_id)
+        .bind(name)
+        .bind(content_type)
+        .bind(size)
+        .bind(author_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_release_asset: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_release_assets(&self, release_id: Uuid) -> Result<Vec<ReleaseAsset>> {
+        let rows = sqlx::query_as::<_, ReleaseAsset>(
+            "SELECT * FROM release_assets WHERE release_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(release_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_release_assets: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Branch Protection Rules ---
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn upsert_branch_protection(
+        &self,
+        repo_id: Uuid,
+        branch_pattern: &str,
+        require_pull_request: bool,
+        required_approving_reviews: i32,
+        required_status_checks: &[String],
+        enforce_admins: bool,
+        allow_force_pushes: bool,
+        allow_deletions: bool,
+    ) -> Result<BranchProtectionRule> {
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS branch_protection_rules (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+                branch_pattern TEXT NOT NULL,
+                require_pull_request BOOLEAN NOT NULL DEFAULT false,
+                required_approving_reviews INTEGER NOT NULL DEFAULT 0,
+                required_status_checks TEXT[] NOT NULL DEFAULT '{}',
+                enforce_admins BOOLEAN NOT NULL DEFAULT false,
+                allow_force_pushes BOOLEAN NOT NULL DEFAULT false,
+                allow_deletions BOOLEAN NOT NULL DEFAULT false,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(repo_id, branch_pattern)
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("upsert_branch_protection table: {e}")))?;
+
+        let row = sqlx::query_as::<_, BranchProtectionRule>(
+            r#"INSERT INTO branch_protection_rules
+                   (repo_id, branch_pattern, require_pull_request, required_approving_reviews,
+                    required_status_checks, enforce_admins, allow_force_pushes, allow_deletions)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (repo_id, branch_pattern)
+               DO UPDATE SET
+                   require_pull_request = $3,
+                   required_approving_reviews = $4,
+                   required_status_checks = $5,
+                   enforce_admins = $6,
+                   allow_force_pushes = $7,
+                   allow_deletions = $8,
+                   updated_at = NOW()
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(branch_pattern)
+        .bind(require_pull_request)
+        .bind(required_approving_reviews)
+        .bind(required_status_checks)
+        .bind(enforce_admins)
+        .bind(allow_force_pushes)
+        .bind(allow_deletions)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("upsert_branch_protection: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_branch_protection(&self, repo_id: Uuid) -> Result<Vec<BranchProtectionRule>> {
+        let rows = sqlx::query_as::<_, BranchProtectionRule>(
+            "SELECT * FROM branch_protection_rules WHERE repo_id = $1 ORDER BY branch_pattern",
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("get_branch_protection: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Issue auto-close on PR merge ---
+
+    /// Parse a PR title+body for "Fixes #NNN", "Closes #NNN", "Resolves #NNN" patterns
+    /// and close those issues, returning the list of closed issue numbers.
+    pub async fn close_issues_for_pr(
+        &self,
+        repo_id: Uuid,
+        pr_title: &str,
+        pr_body: &str,
+        actor_id: Uuid,
+    ) -> Result<Vec<i32>> {
+        let text = format!("{pr_title}\n{pr_body}");
+        let re = regex::Regex::new(r"(?i)(?:fix(?:es|ed)?|closes?|resolves?)\s+#(\d+)").unwrap();
+        let issue_numbers: Vec<i32> = re
+            .captures_iter(&text)
+            .filter_map(|c| c.get(1)?.as_str().parse::<i32>().ok())
+            .collect();
+
+        let mut closed = Vec::new();
+        for num in &issue_numbers {
+            let result: Option<(Uuid,)> = sqlx::query_as(
+                r#"UPDATE issues
+                   SET status = 'closed', closed_at = NOW(), updated_at = NOW()
+                   WHERE repo_id = $1 AND number = $2 AND status != 'closed'
+                   RETURNING id"#,
+            )
+            .bind(repo_id)
+            .bind(num)
+            .fetch_optional(&self.pool)
+            .await
+            .unwrap_or(None);
+            if let Some((issue_id,)) = result {
+                // Insert timeline event
+                let _ = sqlx::query(
+                    "INSERT INTO issue_timeline (issue_id, actor_id, event_type, event_detail, created_at) VALUES ($1, $2, 'closed_by_pr', $3, NOW())",
+                )
+                .bind(issue_id)
+                .bind(actor_id)
+                .bind("Closed by merge of PR")
+                .execute(&self.pool)
+                .await;
+                closed.push(*num);
+            }
+        }
+        Ok(closed)
+    }
+
+    // --- Teams ---
+
+    pub async fn create_team(
+        &self,
+        org_id: Uuid,
+        name: &str,
+        description: &str,
+        privacy: &str,
+    ) -> Result<Team> {
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS teams (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                privacy TEXT NOT NULL DEFAULT 'visible',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE(org_id, name)
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_team table: {e}")))?;
+
+        let row = sqlx::query_as::<_, Team>(
+            r#"INSERT INTO teams (org_id, name, description, privacy)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(org_id)
+        .bind(name)
+        .bind(description)
+        .bind(privacy)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("create_team: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_team(&self, id: Uuid) -> Result<Team> {
+        sqlx::query_as::<_, Team>("SELECT * FROM teams WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("get_team: {e}")))
+    }
+
+    pub async fn list_teams(&self, org_id: Uuid) -> Result<Vec<Team>> {
+        let rows = sqlx::query_as::<_, Team>("SELECT * FROM teams WHERE org_id = $1 ORDER BY name")
+            .bind(org_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("list_teams: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn update_team(
+        &self,
+        id: Uuid,
+        name: Option<&str>,
+        description: Option<&str>,
+        privacy: Option<&str>,
+    ) -> Result<Team> {
+        let row = sqlx::query_as::<_, Team>(
+            r#"UPDATE teams
+               SET name        = COALESCE($2, name),
+                   description = COALESCE($3, description),
+                   privacy     = COALESCE($4, privacy),
+                   updated_at  = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(description)
+        .bind(privacy)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("update_team: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_team(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM teams WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("delete_team: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn add_team_member(
+        &self,
+        team_id: Uuid,
+        user_id: Uuid,
+        role: &str,
+    ) -> Result<TeamMember> {
+        let _ = sqlx::query(
+            "CREATE TABLE IF NOT EXISTS team_members (
+                team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                role TEXT NOT NULL DEFAULT 'member',
+                joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (team_id, user_id)
+            )",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("add_team_member table: {e}")))?;
+
+        let row = sqlx::query_as::<_, TeamMember>(
+            r#"INSERT INTO team_members (team_id, user_id, role)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (team_id, user_id) DO UPDATE SET role = $3
+               RETURNING *"#,
+        )
+        .bind(team_id)
+        .bind(user_id)
+        .bind(role)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("add_team_member: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn remove_team_member(&self, team_id: Uuid, user_id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM team_members WHERE team_id = $1 AND user_id = $2")
+            .bind(team_id)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("remove_team_member: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn list_team_members(&self, team_id: Uuid) -> Result<Vec<TeamMember>> {
+        let rows = sqlx::query_as::<_, TeamMember>(
+            "SELECT * FROM team_members WHERE team_id = $1 ORDER BY joined_at",
+        )
+        .bind(team_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_team_members: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Audit Log Admin ---
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn query_audit_events_admin(
+        &self,
+        actor_id: Option<Uuid>,
+        action: Option<&str>,
+        resource_type: Option<&str>,
+        since: Option<DateTime<Utc>>,
+        until: Option<DateTime<Utc>>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<
+        Vec<(
+            i64,
+            Uuid,
+            String,
+            String,
+            Option<Uuid>,
+            Option<String>,
+            Option<String>,
+            String,
+            DateTime<Utc>,
+        )>,
+    > {
+        let rows = sqlx::query_as(
+            r#"SELECT id, actor_id, action, resource_type, resource_id, ip_address, user_agent, outcome, created_at
+               FROM audit_events
+               WHERE ($1::uuid IS NULL OR actor_id = $1)
+                 AND ($2::varchar IS NULL OR action = $2)
+                 AND ($3::varchar IS NULL OR resource_type = $3)
+                 AND ($4::timestamptz IS NULL OR created_at >= $4)
+                 AND ($5::timestamptz IS NULL OR created_at <= $5)
+               ORDER BY created_at DESC
+               LIMIT $6 OFFSET $7"#,
+        )
+        .bind(actor_id)
+        .bind(action)
+        .bind(resource_type)
+        .bind(since)
+        .bind(until)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("query_audit_events_admin: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn audit_event_stats(
+        &self,
+    ) -> Result<(
+        i64,
+        Vec<(String, i64)>,
+        Vec<(Uuid, i64)>,
+        Vec<(String, i64)>,
+    )> {
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM audit_events")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("audit_event_stats total: {e}")))?;
+
+        let per_day: Vec<(String, i64)> = sqlx::query_as(
+            r#"SELECT DATE(created_at) as date, COUNT(*) as count
+               FROM audit_events
+               WHERE created_at > NOW() - INTERVAL '30 days'
+               GROUP BY DATE(created_at)
+               ORDER BY date DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("audit_event_stats per_day: {e}")))?;
+
+        let top_actors: Vec<(Uuid, i64)> = sqlx::query_as(
+            r#"SELECT actor_id, COUNT(*) as count
+               FROM audit_events
+               WHERE created_at > NOW() - INTERVAL '30 days'
+               GROUP BY actor_id
+               ORDER BY count DESC
+               LIMIT 10"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("audit_event_stats top_actors: {e}")))?;
+
+        let top_actions: Vec<(String, i64)> = sqlx::query_as(
+            r#"SELECT action, COUNT(*) as count
+               FROM audit_events
+               WHERE created_at > NOW() - INTERVAL '30 days'
+               GROUP BY action
+               ORDER BY count DESC
+               LIMIT 10"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("audit_event_stats top_actions: {e}")))?;
+
+        Ok((total.0, per_day, top_actors, top_actions))
+    }
+
+    // --- Org Members ---
+
+    pub async fn list_org_members(&self, org_id: Uuid) -> Result<Vec<User>> {
+        let rows = sqlx::query_as::<_, User>(
+            r#"SELECT u.* FROM users u
+               INNER JOIN org_members om ON om.user_id = u.id
+               WHERE om.org_id = $1
+               ORDER BY u.username"#,
+        )
+        .bind(org_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("list_org_members: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Topics ---
+
+    pub async fn get_repo_topics(&self, repo_id: Uuid) -> Result<Vec<String>> {
+        let row: (Option<Vec<String>>,) =
+            sqlx::query_as("SELECT topics FROM repositories WHERE id = $1")
+                .bind(repo_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| CoreError::Database(format!("get_repo_topics: {e}")))?;
+        Ok(row.0.unwrap_or_default())
+    }
+
+    pub async fn set_repo_topics(&self, repo_id: Uuid, topics: &[String]) -> Result<()> {
+        sqlx::query("UPDATE repositories SET topics = $2, updated_at = NOW() WHERE id = $1")
+            .bind(repo_id)
+            .bind(topics)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("set_repo_topics: {e}")))?;
+        Ok(())
+    }
+
+    // --- Archive ---
+
+    pub async fn set_repo_archived(&self, repo_id: Uuid, archived: bool) -> Result<Repository> {
+        let row = sqlx::query_as::<_, Repository>(
+            r#"UPDATE repositories
+               SET archived = $2, updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(archived)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("set_repo_archived: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Transfer ---
+
+    pub async fn transfer_repo(&self, repo_id: Uuid, new_owner_id: Uuid) -> Result<Repository> {
+        let row = sqlx::query_as::<_, Repository>(
+            r#"UPDATE repositories
+               SET owner_id = $2, updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(new_owner_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("transfer_repo: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Default branch ---
+
+    pub async fn set_default_branch(&self, repo_id: Uuid, branch: &str) -> Result<Repository> {
+        let row = sqlx::query_as::<_, Repository>(
+            r#"UPDATE repositories
+               SET default_branch = $2, updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(branch)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("set_default_branch: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Admin: list repos with search ---
+
+    pub async fn admin_list_repos(
+        &self,
+        search: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<Repository>> {
+        let rows = if let Some(q) = search {
+            let pattern = format!("%{q}%");
+            sqlx::query_as::<_, Repository>(
+                r#"SELECT * FROM repositories
+                   WHERE name ILIKE $1 OR description ILIKE $1
+                   ORDER BY created_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(&pattern)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, Repository>(
+                "SELECT * FROM repositories ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| CoreError::Database(format!("admin_list_repos: {e}")))
+    }
+
+    // --- Admin: ban/unban user ---
+
+    pub async fn ban_user(&self, user_id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE users SET banned = true, updated_at = NOW() WHERE id = $1")
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("ban_user: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn unban_user(&self, user_id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE users SET banned = false, updated_at = NOW() WHERE id = $1")
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| CoreError::Database(format!("unban_user: {e}")))?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1640,5 +2383,71 @@ mod tests {
         let json = serde_json::to_string(&usage).unwrap();
         assert!(json.contains("\"repo_count\":5"));
         assert!(json.contains("\"member_count\":10"));
+    }
+
+    #[test]
+    fn test_create_team_error_message_format() {
+        let err = CoreError::Database("create_team: duplicate key".into());
+        assert!(err.to_string().contains("create_team"));
+    }
+
+    #[test]
+    fn test_get_team_error_message_format() {
+        let err = CoreError::Database("get_team: no rows returned".into());
+        assert!(err.to_string().contains("get_team"));
+    }
+
+    #[test]
+    fn test_list_teams_error_message_format() {
+        let err = CoreError::Database("list_teams: connection refused".into());
+        assert!(err.to_string().contains("list_teams"));
+    }
+
+    #[test]
+    fn test_update_team_error_message_format() {
+        let err = CoreError::Database("update_team: no rows returned".into());
+        assert!(err.to_string().contains("update_team"));
+    }
+
+    #[test]
+    fn test_delete_team_error_message_format() {
+        let err = CoreError::Database("delete_team: relation not found".into());
+        assert!(err.to_string().contains("delete_team"));
+    }
+
+    #[test]
+    fn test_add_team_member_error_message_format() {
+        let err = CoreError::Database("add_team_member: duplicate key".into());
+        assert!(err.to_string().contains("add_team_member"));
+    }
+
+    #[test]
+    fn test_remove_team_member_error_message_format() {
+        let err = CoreError::Database("remove_team_member: relation not found".into());
+        assert!(err.to_string().contains("remove_team_member"));
+    }
+
+    #[test]
+    fn test_list_team_members_error_message_format() {
+        let err = CoreError::Database("list_team_members: connection refused".into());
+        assert!(err.to_string().contains("list_team_members"));
+    }
+
+    #[test]
+    fn test_query_audit_events_admin_error_message_format() {
+        let err = CoreError::Database("query_audit_events_admin: connection refused".into());
+        assert!(err.to_string().contains("query_audit_events_admin"));
+    }
+
+    #[test]
+    fn test_audit_event_stats_error_message_format() {
+        let err = CoreError::Database("audit_event_stats: connection refused".into());
+        assert!(err.to_string().contains("audit_event_stats"));
+    }
+
+    #[test]
+    fn test_list_org_members_error_message_format() {
+        let err = CoreError::Database("list_org_members: connection refused".into());
+        assert!(err.to_string().contains("list_org_members"));
     }
 }

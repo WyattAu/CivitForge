@@ -134,8 +134,11 @@ fn CodeRepoOverview(
     lang_bar: Signal<String>,
     lang_legend: Signal<String>,
     readme: Signal<Option<ReadmeData>>,
+    readme_html: Signal<String>,
     is_root: Signal<bool>,
 ) -> impl IntoView {
+    let (show_rendered, set_show_rendered) = signal(true);
+
     view! {
         // LANGUAGE STATS BAR (root tree view only)
         <Show when=move || !lang_bar.get().is_empty() && is_root.get() fallback=|| view! { <div class="hidden"></div> }>
@@ -148,14 +151,48 @@ fn CodeRepoOverview(
         // README RENDERING (root tree view only)
         <Show when=move || readme.get().is_some() && is_root.get() fallback=|| view! { <div class="hidden"></div> }>
             <Card>
-                <div class="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
-                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{move || readme.get().map(|r| r.path.clone()).unwrap_or_default()}</span>
+                <div class="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{move || readme.get().map(|r| r.path.clone()).unwrap_or_default()}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button
+                            on:click=move |_| set_show_rendered.set(true)
+                            class=move || {
+                                if show_rendered.get() {
+                                    "px-2 py-1 text-xs font-medium rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                } else {
+                                    "px-2 py-1 text-xs font-medium rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                }
+                            }
+                        >
+                            "Rendered"
+                        </button>
+                        <button
+                            on:click=move |_| set_show_rendered.set(false)
+                            class=move || {
+                                if !show_rendered.get() {
+                                    "px-2 py-1 text-xs font-medium rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                } else {
+                                    "px-2 py-1 text-xs font-medium rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                }
+                            }
+                        >
+                            "Raw"
+                        </button>
+                    </div>
                 </div>
                 <div class="markdown-body">
-                    <pre class="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 break-words">{move || readme.get().map(|r| r.content.clone()).unwrap_or_default()}</pre>
+                    <Show when=move || show_rendered.get() fallback=move || {
+                        view! {
+                            <pre class="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 break-words font-mono">{move || readme.get().map(|r| r.content.clone()).unwrap_or_default()}</pre>
+                        }.into_any()
+                    }>
+                        <div inner_html=move || readme_html.get()></div>
+                    </Show>
                 </div>
             </Card>
         </Show>
@@ -211,14 +248,21 @@ fn CodeFileViewer(
             </div>
             <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
                 <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <span class="text-sm text-gray-500 dark:text-gray-400 truncate">{move || file_path.get()}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-500 dark:text-gray-400 truncate">{move || file_path.get()}</span>
+                        <Show when=move || !file_lang.get().is_empty()>
+                            <span class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 uppercase">
+                                {move || file_lang.get()}
+                            </span>
+                        </Show>
+                    </div>
                     <span class="text-xs text-gray-400 dark:text-gray-500">{move || format!(
                         "{}{}",
                         format_size(file_size.get()),
                         if file_is_binary.get() { " (binary)" } else { "" }
                     )}</span>
                 </div>
-                <pre class="p-4 text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap leading-relaxed tab-size-4"><code data-lang=move || file_lang.get()>{move || file_content.get()}</code></pre>
+                <pre class="p-4 text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap leading-relaxed tab-size-4"><code class=move || format!("language-{}", file_lang.get()) data-lang=move || file_lang.get()>{move || file_content.get()}</code></pre>
             </div>
         </Card>
     }
@@ -436,6 +480,7 @@ pub fn CodePage() -> impl IntoView {
     let (file_lang_sig, set_file_lang_sig) = signal(String::new());
     let (file_content_sig, set_file_content_sig) = signal(String::new());
     let (file_is_binary, set_file_is_binary) = signal(false);
+    let (readme_html, set_readme_html) = signal(String::new());
     // Derived signals for passing to sub-components
     #[allow(clippy::redundant_closure)]
     let owner_sig = Signal::derive(move || owner());
@@ -447,6 +492,16 @@ pub fn CodePage() -> impl IntoView {
 
     let ref_query = move || query.with(|q| q.get("ref").unwrap_or_default());
 
+    #[cfg(feature = "csr")]
+    Effect::new(move |_| {
+        let content = file_content_sig.get();
+        let path = file_path_sig.get();
+        if !content.is_empty() && !path.is_empty() {
+            // Small delay to ensure DOM is updated
+            let _ = js_sys::eval("setTimeout(function() { hljs.highlightAll(); }, 50)");
+        }
+    });
+
     leptos::task::spawn_local(async move {
         let token = auth.0.with(|a| a.token.clone());
         let client = ApiClient::new(token);
@@ -455,6 +510,11 @@ pub fn CodePage() -> impl IntoView {
         let path_val = path_param();
         let ref_val = ref_query();
         set_current_ref.set(ref_val.clone());
+
+        inject_highlight_js();
+        inject_marked_js();
+        inject_katex_js();
+        inject_mermaid_js();
 
         // Fetch branch list in background
         let branches_client = client.clone();
@@ -482,9 +542,14 @@ pub fn CodePage() -> impl IntoView {
             match client.get(&blob_url).await {
                 Ok(resp) if resp.status().is_success() => match resp.json::<BlobData>().await {
                     Ok(blob) => {
+                        let detected = if blob.language.is_empty() {
+                            detect_language(&blob.path).to_string()
+                        } else {
+                            blob.language.clone()
+                        };
                         set_file_path_sig.set(blob.path.clone());
                         set_file_size_sig.set(blob.size);
-                        set_file_lang_sig.set(blob.language.clone());
+                        set_file_lang_sig.set(detected);
                         set_file_content_sig.set(blob.content.clone());
                         set_file_is_binary.set(blob.encoding == "base64");
                     }
@@ -510,6 +575,10 @@ pub fn CodePage() -> impl IntoView {
                     match readme_client.get(&url).await {
                         Ok(resp) if resp.status().is_success() => {
                             if let Ok(data) = resp.json::<ReadmeData>().await {
+                                let html = render_markdown(&data.content);
+                                if !html.is_empty() {
+                                    set_readme_html.set(html);
+                                }
                                 set_readme_data.set(Some(data));
                             }
                         }
@@ -677,6 +746,7 @@ pub fn CodePage() -> impl IntoView {
                     lang_bar=lang_bar_html.into()
                     lang_legend=lang_legend_html.into()
                     readme=readme_data.into()
+                    readme_html=readme_html.into()
                     is_root=is_root_sig
                 />
 

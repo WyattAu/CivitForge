@@ -4,6 +4,7 @@
 //! (push branches/tags/paths, PR branches, schedule, manual dispatch).
 
 use crate::model::{Pipeline, TriggerConfig};
+use chrono::{Datelike, Duration, NaiveDate, TimeZone, Timelike, Utc};
 
 /// Event context for trigger evaluation.
 #[derive(Debug, Clone)]
@@ -261,6 +262,143 @@ fn glob_double_star(pattern: &str, value: &str) -> bool {
         }
         false
     }
+}
+
+/// Compute the next run time for a 5-field cron expression after `after`.
+///
+/// Returns `None` if the cron expression is invalid or no future run can be found
+/// within a reasonable horizon (366 days).
+pub fn compute_next_cron_run(
+    cron: &str,
+    after: &chrono::DateTime<Utc>,
+) -> Option<chrono::DateTime<Utc>> {
+    let fields: Vec<&str> = cron.split_whitespace().collect();
+    if fields.len() != 5 {
+        return None;
+    }
+
+    let minutes = parse_cron_field(fields[0], 0, 59)?;
+    let hours = parse_cron_field(fields[1], 0, 23)?;
+    let days_of_month = parse_cron_field(fields[2], 1, 31)?;
+    let months = parse_cron_field(fields[3], 1, 12)?;
+    let days_of_week = parse_cron_field(fields[4], 0, 6)?;
+
+    // Start searching from the next minute
+    let mut candidate = *after + Duration::minutes(1);
+    // Zero out seconds and sub-minute precision
+    candidate = candidate.with_second(0)?.with_nanosecond(0)?;
+
+    // Limit search to 366 days to avoid infinite loops
+    let horizon = *after + Duration::days(366);
+
+    while candidate <= horizon {
+        let month = candidate.month();
+        if !months.contains(&month) {
+            // Jump to first day of next month
+            candidate = advance_to_next_month(candidate)?;
+            continue;
+        }
+
+        let dom = candidate.day();
+        let dow = candidate.weekday().num_days_from_sunday();
+        if !days_of_month.contains(&dom) || !days_of_week.contains(&dow) {
+            // Jump to next day
+            candidate = advance_to_next_day(candidate)?;
+            continue;
+        }
+
+        let hour = candidate.hour();
+        if !hours.contains(&hour) {
+            // Jump to next hour
+            candidate = advance_to_next_hour(candidate)?;
+            continue;
+        }
+
+        let minute = candidate.minute();
+        if !minutes.contains(&minute) {
+            // Jump to next minute
+            candidate += Duration::minutes(1);
+            continue;
+        }
+
+        return Some(candidate);
+    }
+
+    None
+}
+
+fn parse_cron_field(field: &str, min: u32, max: u32) -> Option<Vec<u32>> {
+    let mut values = Vec::new();
+
+    for part in field.split(',') {
+        let part = part.trim();
+        if part == "*" {
+            values.extend(min..=max);
+        } else if let Some((range, step_str)) = part.split_once('/') {
+            let step: u32 = step_str.parse().ok()?;
+            if step == 0 {
+                return None;
+            }
+            if let Some((start_s, end_s)) = range.split_once('-') {
+                let start: u32 = start_s.parse().ok()?;
+                let end: u32 = end_s.parse().ok()?;
+                if start > end || start < min || end > max {
+                    return None;
+                }
+                let mut i = start;
+                while i <= end {
+                    values.push(i);
+                    i += step;
+                }
+            } else if range == "*" {
+                let mut i = min;
+                while i <= max {
+                    values.push(i);
+                    i += step;
+                }
+            } else {
+                return None;
+            }
+        } else if let Some((start_s, end_s)) = part.split_once('-') {
+            let start: u32 = start_s.parse().ok()?;
+            let end: u32 = end_s.parse().ok()?;
+            if start > end || start < min || end > max {
+                return None;
+            }
+            values.extend(start..=end);
+        } else {
+            let val: u32 = part.parse().ok()?;
+            if val < min || val > max {
+                return None;
+            }
+            values.push(val);
+        }
+    }
+
+    values.sort_unstable();
+    values.dedup();
+    Some(values)
+}
+
+fn advance_to_next_month(dt: chrono::DateTime<Utc>) -> Option<chrono::DateTime<Utc>> {
+    let (y, m) = if dt.month() == 12 {
+        (dt.year() + 1, 1)
+    } else {
+        (dt.year(), dt.month() + 1)
+    };
+    let naive = NaiveDate::from_ymd_opt(y, m, 1)?.and_hms_opt(0, 0, 0)?;
+    Utc.from_local_datetime(&naive).single()
+}
+
+fn advance_to_next_day(dt: chrono::DateTime<Utc>) -> Option<chrono::DateTime<Utc>> {
+    let next = dt.date_naive() + Duration::days(1);
+    let naive = next.and_hms_opt(0, 0, 0)?;
+    Utc.from_local_datetime(&naive).single()
+}
+
+fn advance_to_next_hour(dt: chrono::DateTime<Utc>) -> Option<chrono::DateTime<Utc>> {
+    let naive = dt.date_naive().and_hms_opt(dt.hour() + 1, 0, 0)?;
+    Utc.from_local_datetime(&naive).single()
 }
 
 /// Basic cron validation (5-field: min hour dom month dow).
@@ -550,5 +688,56 @@ jobs:
 
         let ctx = TriggerContext::push("main", vec![]);
         assert!(!matches_trigger(&pipeline, &ctx));
+    }
+
+    #[test]
+    fn compute_next_cron_every_minute() {
+        // "* * * * *" — every minute
+        let after = Utc.with_ymd_and_hms(2025, 6, 1, 12, 0, 0).unwrap();
+        let next = compute_next_cron_run("* * * * *", &after).unwrap();
+        assert_eq!(next, Utc.with_ymd_and_hms(2025, 6, 1, 12, 1, 0).unwrap());
+    }
+
+    #[test]
+    fn compute_next_cron_weekly_monday_2am() {
+        // "0 2 * * 1" — every Monday at 2:00am
+        // 2025-06-01 is a Sunday
+        let after = Utc.with_ymd_and_hms(2025, 6, 1, 12, 0, 0).unwrap();
+        let next = compute_next_cron_run("0 2 * * 1", &after).unwrap();
+        // Next Monday is 2025-06-02
+        assert_eq!(next, Utc.with_ymd_and_hms(2025, 6, 2, 2, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn compute_next_cron_weekday_830am() {
+        // "30 8 * * 1-5" — weekdays at 8:30am
+        // 2025-06-01 is Sunday, next weekday is Monday 2025-06-02
+        let after = Utc.with_ymd_and_hms(2025, 6, 1, 12, 0, 0).unwrap();
+        let next = compute_next_cron_run("30 8 * * 1-5", &after).unwrap();
+        assert_eq!(next, Utc.with_ymd_and_hms(2025, 6, 2, 8, 30, 0).unwrap());
+    }
+
+    #[test]
+    fn compute_next_cron_step() {
+        // "*/15 * * * *" — every 15 minutes
+        let after = Utc.with_ymd_and_hms(2025, 6, 1, 12, 7, 0).unwrap();
+        let next = compute_next_cron_run("*/15 * * * *", &after).unwrap();
+        assert_eq!(next, Utc.with_ymd_and_hms(2025, 6, 1, 12, 15, 0).unwrap());
+    }
+
+    #[test]
+    fn compute_next_cron_invalid() {
+        assert!(compute_next_cron_run("", &Utc::now()).is_none());
+        assert!(compute_next_cron_run("60 * * * *", &Utc::now()).is_none());
+        assert!(compute_next_cron_run("0 24 * * *", &Utc::now()).is_none());
+    }
+
+    #[test]
+    fn compute_next_cron_range() {
+        // "0 9-17 * * 1-5" — every hour from 9am to 5pm on weekdays
+        // 2025-06-06 is a Friday
+        let after = Utc.with_ymd_and_hms(2025, 6, 6, 14, 30, 0).unwrap();
+        let next = compute_next_cron_run("0 9-17 * * 1-5", &after).unwrap();
+        assert_eq!(next, Utc.with_ymd_and_hms(2025, 6, 6, 15, 0, 0).unwrap());
     }
 }

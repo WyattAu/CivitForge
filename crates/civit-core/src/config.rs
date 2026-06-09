@@ -10,6 +10,7 @@ pub struct SecurityConfig {
     pub login_max_attempts: u32,
     pub login_lockout_secs: i64,
     pub password_min_length: usize,
+    pub password_max_length: usize,
     pub password_require_uppercase: bool,
     pub password_require_lowercase: bool,
     pub password_require_digit: bool,
@@ -22,10 +23,11 @@ impl Default for SecurityConfig {
             login_max_attempts: 5,
             login_lockout_secs: 900,
             password_min_length: 8,
-            password_require_uppercase: false,
-            password_require_lowercase: false,
-            password_require_digit: false,
-            password_require_special: false,
+            password_max_length: 128,
+            password_require_uppercase: true,
+            password_require_lowercase: true,
+            password_require_digit: true,
+            password_require_special: true,
         }
     }
 }
@@ -157,22 +159,26 @@ impl AppConfig {
                     .ok()
                     .and_then(|v| v.parse::<usize>().ok())
                     .unwrap_or(8),
+                password_max_length: std::env::var("PASSWORD_MAX_LENGTH")
+                    .ok()
+                    .and_then(|v| v.parse::<usize>().ok())
+                    .unwrap_or(128),
                 password_require_uppercase: std::env::var("PASSWORD_REQUIRE_UPPERCASE")
                     .ok()
                     .and_then(|v| v.parse::<bool>().ok())
-                    .unwrap_or(false),
+                    .unwrap_or(true),
                 password_require_lowercase: std::env::var("PASSWORD_REQUIRE_LOWERCASE")
                     .ok()
                     .and_then(|v| v.parse::<bool>().ok())
-                    .unwrap_or(false),
+                    .unwrap_or(true),
                 password_require_digit: std::env::var("PASSWORD_REQUIRE_DIGIT")
                     .ok()
                     .and_then(|v| v.parse::<bool>().ok())
-                    .unwrap_or(false),
+                    .unwrap_or(true),
                 password_require_special: std::env::var("PASSWORD_REQUIRE_SPECIAL")
                     .ok()
                     .and_then(|v| v.parse::<bool>().ok())
-                    .unwrap_or(false),
+                    .unwrap_or(true),
             },
             tls_cert_path: std::env::var("TLS_CERT_PATH")
                 .ok()

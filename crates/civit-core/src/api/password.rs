@@ -2,6 +2,7 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
+use crate::config::SecurityConfig;
 use crate::error::CoreError;
 use axum::{
     extract::{Path, State},
@@ -21,13 +22,55 @@ pub struct MessageResponse {
     pub message: String,
 }
 
+pub fn validate_password_policy(password: &str, policy: &SecurityConfig) -> Vec<String> {
+    let mut violations = Vec::new();
+
+    if password.len() < policy.password_min_length {
+        violations.push(format!(
+            "Password must be at least {} characters",
+            policy.password_min_length
+        ));
+    }
+
+    if password.len() > policy.password_max_length {
+        violations.push(format!(
+            "Password must be at most {} characters",
+            policy.password_max_length
+        ));
+    }
+
+    if policy.password_require_uppercase && !password.chars().any(|c| c.is_ascii_uppercase()) {
+        violations.push("Password must contain at least one uppercase letter".into());
+    }
+
+    if policy.password_require_lowercase && !password.chars().any(|c| c.is_ascii_lowercase()) {
+        violations.push("Password must contain at least one lowercase letter".into());
+    }
+
+    if policy.password_require_digit && !password.chars().any(|c| c.is_ascii_digit()) {
+        violations.push("Password must contain at least one digit".into());
+    }
+
+    if policy.password_require_special && !password.chars().any(|c| !c.is_alphanumeric()) {
+        violations.push("Password must contain at least one special character".into());
+    }
+
+    for ch in password.chars() {
+        if ch.is_control() {
+            violations.push("Password contains invalid characters".into());
+            break;
+        }
+    }
+
+    violations
+}
+
 pub async fn change_password(
     State(state): State<AppState>,
     Path(user_id): Path<String>,
     auth: AuthUser,
     Json(req): Json<ChangePasswordRequest>,
 ) -> impl IntoResponse {
-    // Only the user themselves can change their password
     if auth.user_id != user_id {
         return (
             StatusCode::FORBIDDEN,
@@ -39,25 +82,11 @@ pub async fn change_password(
             .into_response();
     }
 
-    // Validate new password
-    if req.new_password.len() < 8 {
+    let violations = validate_password_policy(&req.new_password, &state.config.security);
+    if !violations.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(
-                CoreError::Config("new password must be at least 8 characters".into())
-                    .error_response(),
-            ),
-        )
-            .into_response();
-    }
-
-    if req.new_password.len() > 128 {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(
-                CoreError::Config("new password must be at most 128 characters".into())
-                    .error_response(),
-            ),
+            Json(CoreError::Config(violations.join("; ")).error_response()),
         )
             .into_response();
     }
@@ -71,20 +100,6 @@ pub async fn change_password(
             ),
         )
             .into_response();
-    }
-
-    // Check for control characters
-    for ch in req.new_password.chars() {
-        if ch.is_control() {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(
-                    CoreError::Config("password contains invalid characters".into())
-                        .error_response(),
-                ),
-            )
-                .into_response();
-        }
     }
 
     let uid = match uuid::Uuid::parse_str(&user_id) {
@@ -151,6 +166,122 @@ pub fn password_routes() -> axum::Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::SecurityConfig;
+
+    fn strict_policy() -> SecurityConfig {
+        SecurityConfig {
+            password_min_length: 8,
+            password_max_length: 128,
+            password_require_uppercase: true,
+            password_require_lowercase: true,
+            password_require_digit: true,
+            password_require_special: true,
+            ..SecurityConfig::default()
+        }
+    }
+
+    fn lenient_policy() -> SecurityConfig {
+        SecurityConfig {
+            password_min_length: 4,
+            password_max_length: 64,
+            password_require_uppercase: false,
+            password_require_lowercase: false,
+            password_require_digit: false,
+            password_require_special: false,
+            ..SecurityConfig::default()
+        }
+    }
+
+    #[test]
+    fn test_validate_password_valid() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("Abcdef1!", &policy);
+        assert!(violations.is_empty(), "got: {violations:?}");
+    }
+
+    #[test]
+    fn test_validate_password_too_short() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("Ab1!xyz", &policy);
+        assert!(violations.iter().any(|v| v.contains("at least 8")));
+    }
+
+    #[test]
+    fn test_validate_password_too_long() {
+        let policy = strict_policy();
+        let long = "Aa1!".to_string() + &"x".repeat(130);
+        let violations = validate_password_policy(&long, &policy);
+        assert!(violations.iter().any(|v| v.contains("at most 128")));
+    }
+
+    #[test]
+    fn test_validate_password_missing_uppercase() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("abcdef1!", &policy);
+        assert!(violations.iter().any(|v| v.contains("uppercase")));
+    }
+
+    #[test]
+    fn test_validate_password_missing_lowercase() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("ABCDEF1!", &policy);
+        assert!(violations.iter().any(|v| v.contains("lowercase")));
+    }
+
+    #[test]
+    fn test_validate_password_missing_digit() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("Abcdefg!", &policy);
+        assert!(violations.iter().any(|v| v.contains("digit")));
+    }
+
+    #[test]
+    fn test_validate_password_missing_special() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("Abcdefg1", &policy);
+        assert!(violations.iter().any(|v| v.contains("special")));
+    }
+
+    #[test]
+    fn test_validate_password_multiple_violations() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("short", &policy);
+        assert!(
+            violations.len() >= 3,
+            "expected >=3 violations, got: {violations:?}"
+        );
+    }
+
+    #[test]
+    fn test_validate_password_control_chars() {
+        let policy = lenient_policy();
+        let violations = validate_password_policy("abc\ndef", &policy);
+        assert!(violations.iter().any(|v| v.contains("invalid characters")));
+    }
+
+    #[test]
+    fn test_validate_password_lenient_policy() {
+        let policy = lenient_policy();
+        let violations = validate_password_policy("test", &policy);
+        assert!(violations.is_empty(), "got: {violations:?}");
+    }
+
+    #[test]
+    fn test_validate_password_at_min_boundary() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("Abcde1!x", &policy);
+        assert!(violations.is_empty(), "got: {violations:?}");
+    }
+
+    #[test]
+    fn test_validate_password_at_max_boundary() {
+        let policy = strict_policy();
+        let middle = "a".repeat(124);
+        let pw = format!("Ab{middle}1!");
+        assert_eq!(pw.len(), 128);
+        let violations = validate_password_policy(&pw, &policy);
+        assert!(violations.is_empty(), "got: {violations:?}");
+    }
 
     #[test]
     fn test_change_password_request_parse() {
@@ -182,7 +313,6 @@ mod tests {
         let mut hasher = Sha256::new();
         hasher.update(b"testpassword");
         let hash = hex::encode(hasher.finalize());
-        // SHA-256 hex is always 64 chars
         assert_eq!(hash.len(), 64);
     }
 
@@ -191,5 +321,16 @@ mod tests {
         fn _assert_routes() -> axum::Router<AppState> {
             password_routes()
         }
+    }
+
+    #[test]
+    fn test_security_config_default_password_fields() {
+        let policy = SecurityConfig::default();
+        assert_eq!(policy.password_min_length, 8);
+        assert_eq!(policy.password_max_length, 128);
+        assert!(policy.password_require_uppercase);
+        assert!(policy.password_require_lowercase);
+        assert!(policy.password_require_digit);
+        assert!(policy.password_require_special);
     }
 }

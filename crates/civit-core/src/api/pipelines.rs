@@ -11,7 +11,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use chrono::Utc;
 use civit_pipeline::trigger::TriggerContext;
-use civit_pipeline::{matches_trigger, parse_pipeline, validate_pipeline};
+use civit_pipeline::{expand_matrix, matches_trigger, parse_pipeline, validate_pipeline};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use uuid::Uuid;
@@ -97,6 +97,37 @@ pub struct CancelPipelineRequest {
     pub reason: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphResponse {
+    pub nodes: Vec<GraphNode>,
+    pub edges: Vec<GraphEdge>,
+    pub layout: GraphLayout,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphNode {
+    pub id: String,
+    pub name: String,
+    pub status: String,
+    pub job_index: i32,
+    pub runner_id: Option<String>,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphEdge {
+    pub source: String,
+    pub target: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphLayout {
+    pub rank_direction: String,
+    pub node_spacing: u32,
+    pub rank_spacing: u32,
+}
+
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
@@ -114,6 +145,10 @@ pub fn pipeline_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{repo}/pipelines/{pipeline_id}/jobs",
             get(get_pipeline_jobs),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/pipelines/{pipeline_id}/graph",
+            get(get_pipeline_graph),
         )
         .route("/api/v1/pipelines", get(list_all_pipelines))
 }
@@ -273,6 +308,18 @@ pub async fn trigger_pipeline(
             .into_response();
     }
 
+    // Expand matrix builds
+    let pipeline = match expand_matrix(&pipeline) {
+        Ok(p) => p,
+        Err(e) => {
+            return (
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                Json(CoreError::NotFound(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
     // Check triggers
     let event_type = req.event_type.as_deref().unwrap_or("push");
     let ctx = TriggerContext::push(&req.ref_name, req.changed_files.clone());
@@ -291,7 +338,24 @@ pub async fn trigger_pipeline(
     )
     .await
     {
-        Ok(run) => (axum::http::StatusCode::CREATED, Json(run)).into_response(),
+        Ok(run) => {
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool_clone = state.db.pool().clone();
+            let rid = repo_id;
+            let evt = crate::webhooks::WebhookEvent::Pipeline;
+            let pl = serde_json::json!({
+                "action": "started",
+                "pipeline_id": run.id,
+                "repo_id": rid.to_string(),
+                "trigger": run.trigger,
+                "ref_name": run.ref_name,
+                "commit_sha": run.commit_sha,
+                "status": run.status,
+            });
+            tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
+            (axum::http::StatusCode::CREATED, Json(run)).into_response()
+        }
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -336,7 +400,7 @@ pub async fn get_pipeline(
 /// Cancel a pipeline run.
 pub async fn cancel_pipeline(
     State(state): State<AppState>,
-    Path((_owner, _repo_name, pipeline_id)): Path<(String, String, String)>,
+    Path((owner, repo_name, pipeline_id)): Path<(String, String, String)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -351,8 +415,24 @@ pub async fn cancel_pipeline(
         }
     };
 
+    let repo_id_opt = get_repo_id(pool, &owner, &repo_name).await.ok().flatten();
+
     match cancel_pipeline_run(pool, id).await {
-        Ok(Some(run)) => (axum::http::StatusCode::OK, Json(run)).into_response(),
+        Ok(Some(run)) => {
+            if let Some(rid) = repo_id_opt {
+                let dispatcher = crate::webhooks::WebhookDispatcher::new();
+                let pool_clone = state.db.pool().clone();
+                let evt = crate::webhooks::WebhookEvent::Pipeline;
+                let pl = serde_json::json!({
+                    "action": "canceled",
+                    "pipeline_id": run.id,
+                    "repo_id": rid.to_string(),
+                    "status": run.status,
+                });
+                tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+            }
+            (axum::http::StatusCode::OK, Json(run)).into_response()
+        }
         Ok(None) => (
             axum::http::StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("pipeline run not found".into()).error_response()),
@@ -386,6 +466,38 @@ pub async fn get_pipeline_jobs(
 
     match get_pipeline_jobs_db(pool, id).await {
         Ok(jobs) => (axum::http::StatusCode::OK, Json(jobs)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Graph endpoint
+// ---------------------------------------------------------------------------
+
+/// Get pipeline DAG visualization data.
+pub async fn get_pipeline_graph(
+    State(state): State<AppState>,
+    Path((_owner, _repo_name, pipeline_id)): Path<(String, String, String)>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let id = match Uuid::parse_str(&pipeline_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::NotFound("invalid pipeline ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match get_pipeline_graph_db(pool, id).await {
+        Ok(graph) => (axum::http::StatusCode::OK, Json(graph)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -683,6 +795,64 @@ async fn get_pipeline_detail(
     }))
 }
 
+/// Get pipeline graph (DAG) visualization data.
+async fn get_pipeline_graph_db(
+    pool: &sqlx::PgPool,
+    run_id: Uuid,
+) -> std::result::Result<GraphResponse, sqlx::Error> {
+    // Get run jobs with their dependency info from the definition
+    let run_jobs: Vec<RunJobGraphRow> = sqlx::query_as(
+        "SELECT prj.id, prj.name, prj.status, pj.job_index, prj.runner_id, prj.started_at, prj.finished_at, pj.needs
+         FROM pipeline_run_jobs prj
+         JOIN pipeline_jobs pj ON prj.job_id = pj.id
+         WHERE prj.run_id = $1
+         ORDER BY pj.job_index",
+    )
+    .bind(run_id)
+    .fetch_all(pool)
+    .await?;
+
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+
+    for rj in &run_jobs {
+        nodes.push(GraphNode {
+            id: rj.id.to_string(),
+            name: rj.name.clone(),
+            status: rj.status.clone(),
+            job_index: rj.job_index,
+            runner_id: rj.runner_id.map(|id| id.to_string()),
+            started_at: rj.started_at.map(|t| t.to_rfc3339()),
+            finished_at: rj.finished_at.map(|t| t.to_rfc3339()),
+        });
+
+        // Parse needs (JSON array of job names) and create edges
+        if let Some(ref needs) = rj.needs {
+            if let Ok(deps) = serde_json::from_value::<Vec<String>>(needs.clone()) {
+                for dep_name in deps {
+                    // Find the source job by name
+                    if let Some(source) = run_jobs.iter().find(|j| j.name == dep_name) {
+                        edges.push(GraphEdge {
+                            source: source.id.to_string(),
+                            target: rj.id.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(GraphResponse {
+        nodes,
+        edges,
+        layout: GraphLayout {
+            rank_direction: "LR".to_string(),
+            node_spacing: 50,
+            rank_spacing: 80,
+        },
+    })
+}
+
 /// Get jobs for a pipeline run with their steps.
 async fn get_pipeline_jobs_db(
     pool: &sqlx::PgPool,
@@ -793,6 +963,12 @@ pub async fn trigger_pipelines_on_push(state: &AppState, owner: &str, repo_name:
             Ok(p) => p,
             _ => return, // Invalid YAML — skip (user can fix)
         };
+
+    // Expand matrix builds
+    let pipeline = match expand_matrix(&pipeline) {
+        Ok(p) => p,
+        _ => return, // Matrix expansion failed — skip
+    };
 
     // Check triggers
     let ctx = TriggerContext::push(&ref_name, vec![]);
@@ -928,6 +1104,18 @@ impl From<RunStepRow> for RunStepResponse {
             finished_at: r.finished_at.map(|t| t.to_rfc3339()),
         }
     }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RunJobGraphRow {
+    id: Uuid,
+    name: String,
+    status: String,
+    job_index: i32,
+    runner_id: Option<Uuid>,
+    started_at: Option<chrono::DateTime<chrono::Utc>>,
+    finished_at: Option<chrono::DateTime<chrono::Utc>>,
+    needs: Option<serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------

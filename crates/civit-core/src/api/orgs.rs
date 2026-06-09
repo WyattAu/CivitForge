@@ -15,6 +15,8 @@ use civit_shared::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::api::teams::TeamResponse;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct OrgResponse {
     pub id: String,
@@ -261,6 +263,85 @@ pub async fn update_org(
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct OrgProfileResponse {
+    pub org: OrgResponse,
+    pub repos: Vec<civit_shared::repo::RepoResponse>,
+    pub members: Vec<OrgMemberResponse>,
+    pub teams: Vec<TeamResponse>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OrgMemberResponse {
+    pub user_id: String,
+    pub username: String,
+    pub display_name: String,
+    pub role: String,
+}
+
+pub async fn get_org_profile(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
+    let org_uuid = match Uuid::parse_str(&id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::Config("invalid org id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let org = match state.db.get_org(org_uuid).await {
+        Ok(o) => o,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("org not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let repos = state
+        .db
+        .list_repos_by_org(org_uuid)
+        .await
+        .unwrap_or_default();
+    let members = state
+        .db
+        .list_org_members(org_uuid)
+        .await
+        .unwrap_or_default();
+    let teams = state.db.list_teams(org_uuid).await.unwrap_or_default();
+
+    let repo_responses = crate::api::repos::repos_to_responses(&state, repos).await;
+
+    let member_responses: Vec<OrgMemberResponse> = members
+        .into_iter()
+        .map(|u| OrgMemberResponse {
+            user_id: u.id.to_string(),
+            username: u.username,
+            display_name: u.display_name,
+            role: u.role,
+        })
+        .collect();
+
+    let team_responses: Vec<TeamResponse> = teams.into_iter().map(Into::into).collect();
+
+    let profile = OrgProfileResponse {
+        org: OrgResponse::from(org),
+        repos: repo_responses,
+        members: member_responses,
+        teams: team_responses,
+    };
+
+    (StatusCode::OK, Json(profile)).into_response()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,5 +434,54 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"name\":\"myorg\""));
         assert!(json.contains("\"visibility\":\"public\""));
+    }
+
+    #[test]
+    fn test_org_profile_response_serialization() {
+        let profile = OrgProfileResponse {
+            org: OrgResponse {
+                id: Uuid::nil().to_string(),
+                name: "test-org".into(),
+                display_name: "Test Org".into(),
+                description: "A test org".into(),
+                visibility: "public".into(),
+                owner_id: Uuid::nil().to_string(),
+                created_at: "2025-01-01T00:00:00+00:00".into(),
+                updated_at: "2025-01-01T00:00:00+00:00".into(),
+            },
+            repos: vec![],
+            members: vec![OrgMemberResponse {
+                user_id: Uuid::nil().to_string(),
+                username: "alice".into(),
+                display_name: "Alice".into(),
+                role: "admin".into(),
+            }],
+            teams: vec![crate::api::teams::TeamResponse {
+                id: Uuid::nil().to_string(),
+                org_id: Uuid::nil().to_string(),
+                name: "dev".into(),
+                description: "Dev team".into(),
+                privacy: "visible".into(),
+                created_at: "2025-01-01T00:00:00+00:00".into(),
+                updated_at: "2025-01-01T00:00:00+00:00".into(),
+            }],
+        };
+        let json = serde_json::to_string(&profile).unwrap();
+        assert!(json.contains("\"name\":\"test-org\""));
+        assert!(json.contains("\"username\":\"alice\""));
+        assert!(json.contains("\"role\":\"admin\""));
+    }
+
+    #[test]
+    fn test_org_member_response_serialization() {
+        let member = OrgMemberResponse {
+            user_id: Uuid::nil().to_string(),
+            username: "bob".into(),
+            display_name: "Bob".into(),
+            role: "member".into(),
+        };
+        let json = serde_json::to_string(&member).unwrap();
+        assert!(json.contains("\"username\":\"bob\""));
+        assert!(json.contains("\"role\":\"member\""));
     }
 }

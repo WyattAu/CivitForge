@@ -10,7 +10,7 @@ use crate::federation::{
 use axum::{
     Router,
     extract::{Query, State},
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Json},
     routing::{get, post},
 };
@@ -559,7 +559,26 @@ pub async fn inbox(
     (StatusCode::ACCEPTED, Json(resp)).into_response()
 }
 
-pub async fn outbox(State(state): State<AppState>) -> impl IntoResponse {
+#[derive(Debug, Deserialize)]
+pub struct OutboxPaginationParams {
+    #[serde(default = "default_page")]
+    pub page: u64,
+    #[serde(default = "default_per_page")]
+    pub per_page: u64,
+}
+
+fn default_page() -> u64 {
+    1
+}
+
+fn default_per_page() -> u64 {
+    10
+}
+
+pub async fn outbox(
+    State(state): State<AppState>,
+    Query(params): Query<OutboxPaginationParams>,
+) -> impl IntoResponse {
     if !state.config.federation_enabled {
         return (
             StatusCode::NOT_FOUND,
@@ -569,16 +588,88 @@ pub async fn outbox(State(state): State<AppState>) -> impl IntoResponse {
     }
 
     let domain = &state.config.federation_instance_domain;
+    let per_page = params.per_page.min(50);
+    let offset = ((params.page - 1) * per_page) as i64;
+    let limit = per_page as i64;
 
-    let resp = OutboxResponse {
-        context: "https://www.w3.org/ns/activitystreams".into(),
-        id: format!("https://{domain}/api/v1/federation/outbox"),
-        type_: "OrderedCollection".into(),
-        total_items: 0,
-        ordered_items: Vec::new(),
+    let activities = match state
+        .db
+        .list_activity_events(None, None, limit, offset)
+        .await
+    {
+        Ok(events) => events,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
     };
 
-    (StatusCode::OK, Json(resp)).into_response()
+    let ordered_items: Vec<serde_json::Value> = activities
+        .iter()
+        .map(|event| {
+            let actor_url = format!("https://{domain}/api/v1/users/{}", event.actor_id);
+            let mut activity = serde_json::json!({
+                "@context": "https://www.w3.org/ns/activitystreams",
+                "type": event.action,
+                "actor": actor_url,
+                "object": {
+                    "type": event.resource_type,
+                    "id": event.resource_id.map(|id| id.to_string()).unwrap_or_default(),
+                    "content": event.description,
+                },
+                "published": event.created_at.to_rfc3339(),
+            });
+            if let Some(obj) = activity.get_mut("object") {
+                if let Some(m) = obj.as_object_mut() {
+                    m.insert("attachment".into(), event.metadata.clone());
+                }
+            }
+            activity
+        })
+        .collect();
+
+    let total = match state.db.list_activity_events(None, None, 10000, 0).await {
+        Ok(all) => all.len() as u64,
+        Err(_) => 0,
+    };
+
+    let outbox_url = format!("https://{domain}/api/v1/federation/outbox");
+
+    let resp = serde_json::json!({
+        "@context": [
+            "https://www.w3.org/ns/activitystreams",
+            {
+                "totalItems": "https://www.w3.org/ns/activitystreams#totalItems",
+                "current": "https://www.w3.org/ns/activitystreams#current",
+                "next": "https://www.w3.org/ns/activitystreams#next",
+                "prev": "https://www.w3.org/ns/activitystreams#prev",
+                "PartOf": "https://www.w3.org/ns/activitystreams#PartOf",
+                "items": "https://www.w3.org/ns/activitystreams#items",
+                "orderedItems": "https://www.w3.org/ns/activitystreams#orderedItems",
+            }
+        ],
+        "id": &outbox_url,
+        "type": "OrderedCollection",
+        "totalItems": total,
+        "current": format!("{outbox_url}?page={}&per_page={}", params.page, per_page),
+        "partOf": &outbox_url,
+        "orderedItems": ordered_items,
+    });
+
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert(
+        axum::http::header::CONTENT_TYPE,
+        HeaderValue::from_static("application/activity+json; charset=utf-8"),
+    );
+    headers.insert(
+        axum::http::header::LINK,
+        HeaderValue::from_str(&format!("<{outbox_url}>; rel=\"self\"")).unwrap(),
+    );
+
+    (StatusCode::OK, headers, Json(resp)).into_response()
 }
 
 #[cfg(test)]

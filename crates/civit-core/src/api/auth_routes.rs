@@ -9,6 +9,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
 };
+use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -23,6 +24,18 @@ pub struct RegisterRequest {
     pub email: String,
     pub display_name: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VerifyEmailRequest {
+    pub email: String,
+    pub code: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct VerifyEmailResponse {
+    pub status: String,
+    pub message: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -75,8 +88,10 @@ async fn do_register(
     if req.email.is_empty() {
         return Err(CoreError::Auth("Email is required".into()));
     }
-    if let Err(e) = validate_password_policy(&req.password, &state.config.security) {
-        return Err(CoreError::Auth(e));
+    let violations =
+        crate::api::password::validate_password_policy(&req.password, &state.config.security);
+    if !violations.is_empty() {
+        return Err(CoreError::Auth(violations.join("; ")));
     }
 
     // Check if username or email already exists
@@ -104,6 +119,30 @@ async fn do_register(
             &password_hash,
         )
         .await?;
+
+    // Generate and store a 6-digit verification code
+    let verification_code = generate_verification_code();
+    let expires_at = Utc::now() + Duration::minutes(15);
+    if let Err(e) = state
+        .db
+        .store_verification_code(user.id, &req.email, &verification_code, expires_at)
+        .await
+    {
+        tracing::warn!("Failed to store verification code: {e}");
+    }
+
+    if state.config.debug_mode {
+        tracing::info!(
+            email = %req.email,
+            code = %verification_code,
+            "Email verification code (dev mode)"
+        );
+    } else {
+        tracing::info!(
+            email = %req.email,
+            "Email verification code generated (email sending not yet implemented)"
+        );
+    }
 
     let token =
         state
@@ -267,6 +306,48 @@ pub async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> impl 
     (StatusCode::OK, Json(RefreshResponse { token })).into_response()
 }
 
+/// Generate a random 6-digit verification code.
+fn generate_verification_code() -> String {
+    let code: u32 = rand::random::<u32>() % 1_000_000;
+    format!("{code:06}")
+}
+
+/// Verify email with a code sent during registration.
+pub async fn verify_email(
+    State(state): State<AppState>,
+    Json(req): Json<VerifyEmailRequest>,
+) -> impl IntoResponse {
+    match do_verify_email(&state, req).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+    }
+}
+
+async fn do_verify_email(
+    state: &AppState,
+    req: VerifyEmailRequest,
+) -> crate::error::Result<VerifyEmailResponse> {
+    if req.email.is_empty() || req.code.is_empty() {
+        return Err(CoreError::Auth("Email and code are required".into()));
+    }
+
+    let code_record = state
+        .db
+        .validate_verification_code(&req.email, &req.code)
+        .await?;
+
+    // Mark the code as used
+    state.db.mark_verification_code_used(code_record.id).await?;
+
+    // Set email_verified = true
+    state.db.set_email_verified(code_record.user_id).await?;
+
+    Ok(VerifyEmailResponse {
+        status: "ok".into(),
+        message: "Email verified successfully".into(),
+    })
+}
+
 #[allow(dead_code)]
 fn validate_input(username: &str, email: &str, display_name: &str) -> Result<(), CoreError> {
     if username.is_empty() || username.len() > 64 {
@@ -306,32 +387,6 @@ fn validate_input(username: &str, email: &str, display_name: &str) -> Result<(),
         }
     }
 
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn validate_password_policy(
-    password: &str,
-    policy: &crate::config::SecurityConfig,
-) -> Result<(), String> {
-    if password.len() < policy.password_min_length {
-        return Err(format!(
-            "Password must be at least {} characters",
-            policy.password_min_length
-        ));
-    }
-    if policy.password_require_uppercase && !password.chars().any(|c| c.is_ascii_uppercase()) {
-        return Err("Password must contain at least one uppercase letter".into());
-    }
-    if policy.password_require_lowercase && !password.chars().any(|c| c.is_ascii_lowercase()) {
-        return Err("Password must contain at least one lowercase letter".into());
-    }
-    if policy.password_require_digit && !password.chars().any(|c| c.is_ascii_digit()) {
-        return Err("Password must contain at least one digit".into());
-    }
-    if policy.password_require_special && !password.chars().any(|c| !c.is_alphanumeric()) {
-        return Err("Password must contain at least one special character".into());
-    }
     Ok(())
 }
 
@@ -486,5 +541,40 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"token\":\"jwt-token\""));
         assert!(json.contains("\"username\":\"alice\""));
+    }
+
+    #[test]
+    fn test_generate_verification_code_is_six_digits() {
+        let code = generate_verification_code();
+        assert_eq!(code.len(), 6);
+        assert!(code.chars().all(|c| c.is_ascii_digit()));
+        let num: u32 = code.parse().unwrap();
+        assert!(num < 1_000_000);
+    }
+
+    #[test]
+    fn test_generate_verification_code_varies() {
+        let codes: Vec<String> = (0..10).map(|_| generate_verification_code()).collect();
+        let unique: std::collections::HashSet<&str> = codes.iter().map(|s| s.as_str()).collect();
+        assert!(unique.len() > 1, "codes should vary across calls");
+    }
+
+    #[test]
+    fn test_verify_email_request_parse() {
+        let json = r#"{"email":"alice@example.com","code":"123456"}"#;
+        let req: VerifyEmailRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.email, "alice@example.com");
+        assert_eq!(req.code, "123456");
+    }
+
+    #[test]
+    fn test_verify_email_response_serialization() {
+        let resp = VerifyEmailResponse {
+            status: "ok".into(),
+            message: "Email verified successfully".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"status\":\"ok\""));
+        assert!(json.contains("Email verified successfully"));
     }
 }

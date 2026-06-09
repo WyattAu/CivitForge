@@ -34,6 +34,18 @@ pub const M_031_PR_TRACKING_DOWN: &str = include_str!("032_add_pr_tracking_down.
 pub const M_033_STAR_WATCH_COUNTS_UP: &str = include_str!("033_add_star_watch_counts.sql");
 pub const M_033_STAR_WATCH_COUNTS_DOWN: &str = include_str!("034_add_star_watch_counts_down.sql");
 pub const M_035_LOGIN_ATTEMPTS_UP: &str = include_str!("035_add_login_attempts.sql");
+pub const M_038_REPO_SECRETS_CACHES_UP: &str =
+    include_str!("038_add_repo_secrets_and_pipeline_caches.sql");
+pub const M_038_REPO_SECRETS_CACHES_DOWN: &str =
+    include_str!("038_add_repo_secrets_and_pipeline_caches_down.sql");
+pub const M_037_MENTIONS_XREFS_UP: &str = include_str!("037_add_mentions_and_crossrefs.sql");
+
+pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
+pub const M_041_BOARDS_DOWN: &str = include_str!("041_add_boards_down.sql");
+pub const M_039_SECRET_SCANNING_SLSA_UP: &str =
+    include_str!("039_add_secret_scanning_slsa_tables.sql");
+pub const M_039_SECRET_SCANNING_SLSA_DOWN: &str =
+    include_str!("040_add_secret_scanning_slsa_tables_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -166,6 +178,24 @@ impl MigrationManager {
             up_sql: M_035_LOGIN_ATTEMPTS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS login_attempts;".into(),
         });
+        self.add_migration(Migration {
+            version: 37,
+            name: "add_mentions_and_crossrefs".into(),
+            up_sql: M_037_MENTIONS_XREFS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS comment_mentions; DROP TABLE IF EXISTS comment_cross_references;".into(),
+        });
+        self.add_migration(Migration {
+            version: 38,
+            name: "add_repo_secrets_and_pipeline_caches".into(),
+            up_sql: M_038_REPO_SECRETS_CACHES_UP.into(),
+            down_sql: M_038_REPO_SECRETS_CACHES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 40,
+            name: "add_boards".into(),
+            up_sql: M_040_BOARDS_UP.into(),
+            down_sql: M_041_BOARDS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -207,7 +237,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 18);
+        assert_eq!(mgr.all().len(), 21);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -244,19 +274,25 @@ mod tests {
         assert_eq!(mgr.all()[16].name, "add_star_watch_counts");
         assert_eq!(mgr.all()[17].version, 35);
         assert_eq!(mgr.all()[17].name, "add_login_attempts");
+        assert_eq!(mgr.all()[18].version, 37);
+        assert_eq!(mgr.all()[18].name, "add_mentions_and_crossrefs");
+        assert_eq!(mgr.all()[19].version, 38);
+        assert_eq!(mgr.all()[19].name, "add_repo_secrets_and_pipeline_caches");
+        assert_eq!(mgr.all()[20].version, 40);
+        assert_eq!(mgr.all()[20].name, "add_boards");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 37,
+            version: 42,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 19);
-        assert_eq!(mgr.all()[18].version, 37);
+        assert_eq!(mgr.all().len(), 22);
+        assert_eq!(mgr.all()[21].version, 42);
     }
 
     #[test]
@@ -275,21 +311,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 18);
+        assert_eq!(pending.len(), 21);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(29);
-        assert_eq!(pending.len(), 3);
+        let pending = mgr.get_pending(40);
+        assert_eq!(pending.len(), 0);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 17);
+        assert_eq!(pending.len(), 20);
     }
 
     #[test]

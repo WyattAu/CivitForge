@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
+use crate::api::mentions;
 use crate::error::{CoreError, Result};
 
 fn err_response(e: CoreError) -> axum::response::Response {
@@ -55,6 +56,11 @@ pub struct CreatePrComment {
 #[derive(Debug, Deserialize)]
 pub struct SubmitReview {
     pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddPrAssigneeRequest {
+    pub assignee_id: Uuid,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -116,6 +122,14 @@ pub struct PrCommentResponse {
     pub line: Option<i32>,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cross_references: Vec<CrossReferenceResponse>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CrossReferenceResponse {
+    pub target_number: i32,
+    pub target_type: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -148,6 +162,91 @@ pub struct PrDiffResponse {
     pub total_additions: u32,
     pub total_deletions: u32,
     pub commit_count: u32,
+}
+
+// ── Inline / Side-by-side Diff Types ──
+
+#[derive(Debug, Serialize)]
+pub struct InlineDiffLine {
+    pub old_line_num: Option<u32>,
+    pub new_line_num: Option<u32>,
+    pub content: String,
+    pub line_type: String, // context, added, deleted
+}
+
+#[derive(Debug, Serialize)]
+pub struct DiffHunk {
+    pub old_start: u32,
+    pub old_count: u32,
+    pub new_start: u32,
+    pub new_count: u32,
+    pub lines: Vec<InlineDiffLine>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InlineDiffFile {
+    pub filename: String,
+    pub old_filename: Option<String>,
+    pub status: String,
+    pub hunks: Vec<DiffHunk>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InlineDiffResponse {
+    pub files: Vec<InlineDiffFile>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SideBySideHunk {
+    pub old_start: u32,
+    pub old_count: u32,
+    pub new_start: u32,
+    pub new_count: u32,
+    pub left: Vec<SideBySideLine>,
+    pub right: Vec<SideBySideLine>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SideBySideLine {
+    pub line_num: Option<u32>,
+    pub content: String,
+    pub line_type: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SideBySideFile {
+    pub filename: String,
+    pub old_filename: Option<String>,
+    pub status: String,
+    pub hunks: Vec<SideBySideHunk>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SideBySideDiffResponse {
+    pub files: Vec<SideBySideFile>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateInlineComment {
+    pub body: String,
+    pub path: String,
+    pub line: Option<i32>,
+    pub side: Option<String>, // LEFT or RIGHT
+    pub commit_sha: Option<String>,
+    pub in_reply_to_id: Option<Uuid>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct InlineCommentResponse {
+    pub id: String,
+    pub author_id: String,
+    pub body: String,
+    pub path: String,
+    pub line: Option<i32>,
+    pub side: Option<String>,
+    pub commit_sha: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -317,6 +416,22 @@ pub async fn create_pull_request(
     }
 
     let resp = pr_to_response(pr, None, None, None);
+
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    let pool_clone = state.db.pool().clone();
+    let rid = repo_id;
+    let evt = crate::webhooks::WebhookEvent::PullRequest;
+    let pl = serde_json::json!({
+        "action": "opened",
+        "pr_number": resp.number,
+        "repo_id": rid.to_string(),
+        "title": resp.title,
+        "source_branch": resp.source_branch,
+        "target_branch": resp.target_branch,
+        "author_id": resp.author_id,
+    });
+    tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
     (axum::http::StatusCode::CREATED, Json(resp)).into_response()
 }
 
@@ -371,6 +486,21 @@ pub async fn update_pull_request(
     };
 
     let resp = pr_to_response(final_pr, None, None, None);
+
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    let pool_clone = state.db.pool().clone();
+    let rid = repo_id;
+    let evt = crate::webhooks::WebhookEvent::PullRequest;
+    let pl = serde_json::json!({
+        "action": "updated",
+        "pr_number": resp.number,
+        "repo_id": rid.to_string(),
+        "title": resp.title,
+        "status": resp.status,
+        "author_id": resp.author_id,
+    });
+    tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
     (axum::http::StatusCode::OK, Json(resp)).into_response()
 }
 
@@ -403,6 +533,7 @@ pub async fn list_pr_comments(
             line: c.line,
             created_at: c.created_at.to_rfc3339(),
             updated_at: c.updated_at.to_rfc3339(),
+            cross_references: Vec::new(),
         })
         .collect();
     (axum::http::StatusCode::OK, Json(items)).into_response()
@@ -441,6 +572,57 @@ pub async fn create_pr_comment(
         Err(e) => return err_response(e),
     };
 
+    // Parse and store @mentions
+    let mentioned_usernames = mentions::parse_mentions(&comment.body);
+    for username in &mentioned_usernames {
+        if let Ok(Some(mentioned_id)) =
+            sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE username = $1")
+                .bind(username)
+                .fetch_optional(pool)
+                .await
+        {
+            let _ = sqlx::query(
+                "INSERT INTO comment_mentions (comment_id, comment_type, mentioned_user_id, repo_id) VALUES ($1, 'pr', $2, $3) ON CONFLICT DO NOTHING",
+            )
+            .bind(comment.id)
+            .bind(mentioned_id)
+            .bind(repo_id)
+            .execute(pool)
+            .await;
+
+            // Create notification for mentioned user (skip self-mentions)
+            if mentioned_id != author_id {
+                let _ = sqlx::query(
+                    "INSERT INTO notifications (user_id, kind, title, body, repo_name) VALUES ($1, 'mention', $2, $3, $4)",
+                )
+                .bind(mentioned_id)
+                .bind(format!("New mention in PR #{number}"))
+                .bind(format!("{} mentioned you in a PR comment", auth.username))
+                .bind(format!("{owner}/{name}"))
+                .execute(pool)
+                .await;
+            }
+        }
+    }
+
+    // Parse and store cross-references
+    let target_numbers = mentions::parse_cross_references(&comment.body);
+    let mut cross_references = Vec::new();
+    for target_number in &target_numbers {
+        let _ = sqlx::query(
+            "INSERT INTO comment_cross_references (source_comment_id, source_comment_type, source_repo_id, target_number, target_type) VALUES ($1, 'pr', $2, $3, 'issue')",
+        )
+        .bind(comment.id)
+        .bind(repo_id)
+        .bind(target_number)
+        .execute(pool)
+        .await;
+        cross_references.push(CrossReferenceResponse {
+            target_number: *target_number,
+            target_type: "issue".to_string(),
+        });
+    }
+
     let resp = PrCommentResponse {
         id: comment.id.to_string(),
         author_id: comment.author_id.to_string(),
@@ -450,6 +632,7 @@ pub async fn create_pr_comment(
         line: comment.line,
         created_at: comment.created_at.to_rfc3339(),
         updated_at: comment.updated_at.to_rfc3339(),
+        cross_references,
     };
     (axum::http::StatusCode::CREATED, Json(resp)).into_response()
 }
@@ -529,6 +712,21 @@ pub async fn submit_review(
                 review_status: rv.review_status,
                 submitted_at: rv.submitted_at.map(|t| t.to_rfc3339()),
             };
+
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool_clone = state.db.pool().clone();
+            let rid = repo_id;
+            let evt = crate::webhooks::WebhookEvent::PullRequest;
+            let pl = serde_json::json!({
+                "action": "reviewed",
+                "pr_number": number,
+                "repo_id": rid.to_string(),
+                "reviewer_id": uid.to_string(),
+                "review_status": req.status,
+                "author_id": pr.author_id.to_string(),
+            });
+            tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
             (axum::http::StatusCode::OK, Json(resp)).into_response()
         }
         Err(e) => err_response(e),
@@ -555,6 +753,12 @@ pub async fn merge_pull_request(
         return err_response(CoreError::BadRequest(format!(
             "PR #{} is {} (only open PRs can be merged)",
             number, pr.status
+        )));
+    }
+
+    if pr.draft {
+        return err_response(CoreError::BadRequest(format!(
+            "PR #{number} is a draft and cannot be merged",
         )));
     }
 
@@ -595,6 +799,13 @@ pub async fn merge_pull_request(
         .is_ok();
 
     if merged {
+        // Auto-close linked issues (Fixes #NNN, Closes #NNN, Resolves #NNN)
+        let _closed_issues = state
+            .db
+            .close_issues_for_pr(repo_id, &pr.title, &pr.body, pr.author_id)
+            .await
+            .unwrap_or_default();
+
         let _ = state
             .db
             .insert_pr_timeline(
@@ -627,6 +838,23 @@ pub async fn merge_pull_request(
             None
         },
     };
+
+    if merged {
+        let dispatcher = crate::webhooks::WebhookDispatcher::new();
+        let pool_clone = state.db.pool().clone();
+        let rid = repo_id;
+        let evt = crate::webhooks::WebhookEvent::PullRequest;
+        let pl = serde_json::json!({
+            "action": "merged",
+            "pr_number": number,
+            "repo_id": rid.to_string(),
+            "merge_commit_sha": resp.merge_commit_sha,
+            "strategy": merge_result.strategy_used,
+            "author_id": pr.author_id.to_string(),
+        });
+        tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+    }
+
     (axum::http::StatusCode::OK, Json(resp)).into_response()
 }
 
@@ -1122,6 +1350,423 @@ fn determine_file_status(
     }
 }
 
+// ── PR Assignees ──
+
+pub async fn add_pr_assignee(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<AddPrAssigneeRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    let actor_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
+
+    match state.db.add_pr_assignee(pr.id, req.assignee_id).await {
+        Ok(_) => {
+            // Notify the assignee
+            if req.assignee_id != actor_id {
+                let _ = sqlx::query(
+                    "INSERT INTO notifications (user_id, kind, title, body, repo_name) VALUES ($1, 'assignment', $2, $3, $4)",
+                )
+                .bind(req.assignee_id)
+                .bind(format!("Assigned to PR #{number}"))
+                .bind(format!("{} assigned you to PR #{number}", auth.username))
+                .bind(format!("{owner}/{name}"))
+                .execute(pool)
+                .await;
+            }
+
+            (
+                axum::http::StatusCode::CREATED,
+                Json(serde_json::json!({"status": "assigned"})),
+            )
+                .into_response()
+        }
+        Err(e) => err_response(e),
+    }
+}
+
+pub async fn remove_pr_assignee(
+    State(state): State<AppState>,
+    Path((owner, name, number, user_id)): Path<(String, String, i32, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    let uid = match Uuid::parse_str(&user_id) {
+        Ok(u) => u,
+        Err(_) => {
+            return err_response(CoreError::BadRequest("invalid user_id".into()));
+        }
+    };
+
+    match state.db.remove_pr_assignee(pr.id, uid).await {
+        Ok(_) => (axum::http::StatusCode::NO_CONTENT, ()).into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+// ── Unified Diff Parser ──
+
+fn parse_unified_diff(diff_output: &str) -> Vec<InlineDiffFile> {
+    let mut files = Vec::new();
+    let mut current_file: Option<InlineDiffFile> = None;
+    let mut current_hunk: Option<DiffHunk> = None;
+    let mut old_line: Option<u32> = None;
+    let mut new_line: Option<u32> = None;
+
+    for line in diff_output.lines() {
+        if let Some(rest) = line.strip_prefix("diff --git ") {
+            // Save previous file/hunk
+            if let Some(mut f) = current_file.take() {
+                if let Some(h) = current_hunk.take() {
+                    f.hunks.push(h);
+                }
+                files.push(f);
+            }
+            // Parse "a/path b/path" from the diff header
+            let parts: Vec<&str> = rest.splitn(2, " b/").collect();
+            let old_name = parts
+                .first()
+                .map(|s| s.strip_prefix("a/").unwrap_or(s).to_string());
+            let new_name = parts.get(1).map(|s| s.to_string()).unwrap_or_default();
+            current_file = Some(InlineDiffFile {
+                filename: new_name,
+                old_filename: old_name,
+                status: String::new(), // will be determined from hunks
+                hunks: Vec::new(),
+            });
+            current_hunk = None;
+        } else if let Some(header) = line.strip_prefix("@@ ") {
+            // Save previous hunk
+            if let Some(f) = current_file.as_mut() {
+                if let Some(h) = current_hunk.take() {
+                    f.hunks.push(h);
+                }
+            }
+            // Parse "@@ -old_start,old_count +new_start,new_count @@"
+            if let Some(plus_pos) = header.find('+') {
+                let old_part = &header[..plus_pos];
+                let rest = &header[plus_pos..];
+                let old_range = old_part.trim().trim_start_matches('-');
+                let new_range = rest
+                    .split(" @")
+                    .next()
+                    .unwrap_or("")
+                    .trim_start_matches('+');
+
+                let (os, oc) = parse_range(old_range);
+                let (ns, nc) = parse_range(new_range);
+
+                current_hunk = Some(DiffHunk {
+                    old_start: os,
+                    old_count: oc,
+                    new_start: ns,
+                    new_count: nc,
+                    lines: Vec::new(),
+                });
+                old_line = Some(os);
+                new_line = Some(ns);
+            }
+        } else if let Some(hunk) = current_hunk.as_mut() {
+            if let Some(content) = line.strip_prefix('+') {
+                hunk.lines.push(InlineDiffLine {
+                    old_line_num: None,
+                    new_line_num: new_line,
+                    content: content.to_string(),
+                    line_type: "added".into(),
+                });
+                new_line = new_line.map(|n| n + 1);
+            } else if let Some(content) = line.strip_prefix('-') {
+                hunk.lines.push(InlineDiffLine {
+                    old_line_num: old_line,
+                    new_line_num: None,
+                    content: content.to_string(),
+                    line_type: "deleted".into(),
+                });
+                old_line = old_line.map(|o| o + 1);
+            } else if line.strip_prefix(' ').is_some() || line.is_empty() {
+                let content = line.strip_prefix(' ').unwrap_or(line);
+                hunk.lines.push(InlineDiffLine {
+                    old_line_num: old_line,
+                    new_line_num: new_line,
+                    content: content.to_string(),
+                    line_type: "context".into(),
+                });
+                old_line = old_line.map(|o| o + 1);
+                new_line = new_line.map(|n| n + 1);
+            } else if line.strip_prefix('\\').is_some() {
+                // "\ No newline at end of file" — skip
+            }
+        }
+    }
+
+    // Push last file
+    if let Some(mut f) = current_file.take() {
+        if let Some(h) = current_hunk.take() {
+            f.hunks.push(h);
+        }
+        files.push(f);
+    }
+
+    // Determine file status from content
+    for file in &mut files {
+        let has_additions = file
+            .hunks
+            .iter()
+            .any(|h| h.lines.iter().any(|l| l.line_type == "added"));
+        let has_deletions = file
+            .hunks
+            .iter()
+            .any(|h| h.lines.iter().any(|l| l.line_type == "deleted"));
+        file.status = if file.old_filename.as_deref() == Some("") || file.old_filename.is_none() {
+            "added".into()
+        } else if file.filename.is_empty() {
+            "deleted".into()
+        } else if has_additions && !has_deletions {
+            "added".into()
+        } else if has_deletions && !has_additions {
+            "deleted".into()
+        } else {
+            "modified".into()
+        };
+        if file.old_filename.as_deref() == Some(&file.filename) {
+            file.old_filename = None;
+        }
+    }
+
+    files
+}
+
+fn parse_range(s: &str) -> (u32, u32) {
+    let parts: Vec<&str> = s.split(',').collect();
+    let start = parts.first().and_then(|p| p.parse().ok()).unwrap_or(1);
+    let count = parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(1);
+    (start, count)
+}
+
+fn inline_to_side_by_side(files: Vec<InlineDiffFile>) -> Vec<SideBySideFile> {
+    files
+        .into_iter()
+        .map(|f| SideBySideFile {
+            filename: f.filename,
+            old_filename: f.old_filename,
+            status: f.status,
+            hunks: f
+                .hunks
+                .into_iter()
+                .map(|h| {
+                    let mut left = Vec::new();
+                    let mut right = Vec::new();
+                    for line in &h.lines {
+                        match line.line_type.as_str() {
+                            "added" => {
+                                left.push(SideBySideLine {
+                                    line_num: None,
+                                    content: String::new(),
+                                    line_type: "empty".into(),
+                                });
+                                right.push(SideBySideLine {
+                                    line_num: line.new_line_num,
+                                    content: line.content.clone(),
+                                    line_type: "added".into(),
+                                });
+                            }
+                            "deleted" => {
+                                left.push(SideBySideLine {
+                                    line_num: line.old_line_num,
+                                    content: line.content.clone(),
+                                    line_type: "deleted".into(),
+                                });
+                                right.push(SideBySideLine {
+                                    line_num: None,
+                                    content: String::new(),
+                                    line_type: "empty".into(),
+                                });
+                            }
+                            _ => {
+                                left.push(SideBySideLine {
+                                    line_num: line.old_line_num,
+                                    content: line.content.clone(),
+                                    line_type: "context".into(),
+                                });
+                                right.push(SideBySideLine {
+                                    line_num: line.new_line_num,
+                                    content: line.content.clone(),
+                                    line_type: "context".into(),
+                                });
+                            }
+                        }
+                    }
+                    SideBySideHunk {
+                        old_start: h.old_start,
+                        old_count: h.old_count,
+                        new_start: h.new_start,
+                        new_count: h.new_count,
+                        left,
+                        right,
+                    }
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+/// GET /repos/{owner}/{name}/pulls/{number}/diff/inline
+pub async fn get_pr_diff_inline(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    let repo_path = state.git_service.repo_path(&owner, &name);
+    let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string());
+
+    let source_ref = format!("refs/heads/{}", pr.source_branch);
+    let target_ref = format!("refs/heads/{}", pr.target_branch);
+
+    let diff_output = run_git_diff(
+        &git_bin,
+        &repo_path,
+        &["diff", "-U3", &target_ref, &source_ref],
+    );
+
+    match diff_output {
+        Ok(output) => {
+            let files = parse_unified_diff(&output);
+            let resp = InlineDiffResponse { files };
+            (axum::http::StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => err_response(CoreError::Git(e)),
+    }
+}
+
+/// GET /repos/{owner}/{name}/pulls/{number}/diff/side-by-side
+pub async fn get_pr_diff_side_by_side(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    let repo_path = state.git_service.repo_path(&owner, &name);
+    let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string());
+
+    let source_ref = format!("refs/heads/{}", pr.source_branch);
+    let target_ref = format!("refs/heads/{}", pr.target_branch);
+
+    let diff_output = run_git_diff(
+        &git_bin,
+        &repo_path,
+        &["diff", "-U3", &target_ref, &source_ref],
+    );
+
+    match diff_output {
+        Ok(output) => {
+            let files = parse_unified_diff(&output);
+            let files = inline_to_side_by_side(files);
+            let resp = SideBySideDiffResponse { files };
+            (axum::http::StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => err_response(CoreError::Git(e)),
+    }
+}
+
+/// POST /repos/{owner}/{name}/pulls/{number}/inline-comments
+pub async fn create_inline_comment(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<CreateInlineComment>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let author_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
+
+    // Validate side if provided
+    if let Some(ref side) = req.side {
+        if side != "LEFT" && side != "RIGHT" {
+            return err_response(CoreError::BadRequest("side must be LEFT or RIGHT".into()));
+        }
+    }
+
+    let comment = match state
+        .db
+        .create_pr_comment(
+            pr.id,
+            author_id,
+            &req.body,
+            req.commit_sha.as_deref(),
+            Some(&req.path),
+            req.line,
+            req.in_reply_to_id,
+        )
+        .await
+    {
+        Ok(c) => c,
+        Err(e) => return err_response(e),
+    };
+
+    // Store the side info if provided (append to existing data via update)
+    // The PrComment model already supports file_path and line, side is stored in
+    // a separate column or we can store it in the metadata.
+    // For now we include it in the response — the DB column can be added later.
+
+    let resp = InlineCommentResponse {
+        id: comment.id.to_string(),
+        author_id: comment.author_id.to_string(),
+        body: comment.body,
+        path: req.path,
+        line: comment.line,
+        side: req.side,
+        commit_sha: comment.commit_sha,
+        created_at: comment.created_at.to_rfc3339(),
+        updated_at: comment.updated_at.to_rfc3339(),
+    };
+    (axum::http::StatusCode::CREATED, Json(resp)).into_response()
+}
+
 // ── Router ──
 
 pub fn pr_routes() -> Router<AppState> {
@@ -1166,4 +1811,225 @@ pub fn pr_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{name}/pulls/{number}/mergecheck",
             get(check_pr_mergeability),
         )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/assignees",
+            post(add_pr_assignee),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/assignees/{user_id}",
+            axum::routing::delete(remove_pr_assignee),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/diff/inline",
+            get(get_pr_diff_inline),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/diff/side-by-side",
+            get(get_pr_diff_side_by_side),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/inline-comments",
+            post(create_inline_comment),
+        )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_range_simple() {
+        assert_eq!(parse_range("10,5"), (10, 5));
+        assert_eq!(parse_range("1"), (1, 1));
+        assert_eq!(parse_range("0,0"), (0, 0));
+    }
+
+    #[test]
+    fn test_parse_unified_diff_single_file() {
+        let diff = r##"diff --git a/src/main.rs b/src/main.rs
+index abc1234..def5678 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,7 +1,8 @@
+ use std::io;
+ 
+ fn main() {
+-    println!("hello");
++    println!("world");
++    println!("extra");
+ }
+ 
+ fn helper() {}"##;
+
+        let files = parse_unified_diff(diff);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].filename, "src/main.rs");
+        assert_eq!(files[0].status, "modified");
+        assert_eq!(files[0].hunks.len(), 1);
+
+        let hunk = &files[0].hunks[0];
+        assert_eq!(hunk.old_start, 1);
+        assert_eq!(hunk.old_count, 7);
+        assert_eq!(hunk.new_start, 1);
+        assert_eq!(hunk.new_count, 8);
+
+        // Verify line types
+        let line_types: Vec<&str> = hunk.lines.iter().map(|l| l.line_type.as_str()).collect();
+        assert_eq!(
+            line_types,
+            vec![
+                "context", "context", "context", "deleted", "added", "added", "context", "context",
+                "context"
+            ]
+        );
+
+        // Verify line numbers
+        assert_eq!(hunk.lines[0].old_line_num, Some(1));
+        assert_eq!(hunk.lines[0].new_line_num, Some(1));
+        assert_eq!(hunk.lines[3].old_line_num, Some(4));
+        assert_eq!(hunk.lines[3].new_line_num, None);
+        assert_eq!(hunk.lines[4].old_line_num, None);
+        assert_eq!(hunk.lines[4].new_line_num, Some(4));
+    }
+
+    #[test]
+    fn test_parse_unified_diff_added_file() {
+        let diff = r##"diff --git a/new_file.txt b/new_file.txt
+new file mode 100644
+index 0000000..abc1234
+--- /dev/null
++++ b/new_file.txt
+@@ -0, +3 @@
++line one
++line two
++line three"##;
+
+        let files = parse_unified_diff(diff);
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].filename, "new_file.txt");
+        assert_eq!(files[0].hunks.len(), 1);
+
+        let hunk = &files[0].hunks[0];
+        assert_eq!(hunk.lines.len(), 3);
+        assert!(hunk.lines.iter().all(|l| l.line_type == "added"));
+    }
+
+    #[test]
+    fn test_parse_unified_diff_no_changes() {
+        let diff = "";
+        let files = parse_unified_diff(diff);
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_inline_to_side_by_side_conversion() {
+        let diff = r##"diff --git a/src/main.rs b/src/main.rs
+index abc1234..def5678 100644
+--- a/src/main.rs
++++ b/src/main.rs
+@@ -1,3 +1,3 @@
+ context line
+-old line
++new line"##;
+
+        let inline_files = parse_unified_diff(diff);
+        let side_by_side = inline_to_side_by_side(inline_files);
+
+        assert_eq!(side_by_side.len(), 1);
+        let file = &side_by_side[0];
+        assert_eq!(file.hunks.len(), 1);
+
+        let hunk = &file.hunks[0];
+        assert_eq!(hunk.left.len(), 3);
+        assert_eq!(hunk.right.len(), 3);
+
+        // Left: context, deleted, empty
+        assert_eq!(hunk.left[0].line_type, "context");
+        assert_eq!(hunk.left[1].line_type, "deleted");
+        assert_eq!(hunk.left[2].line_type, "empty");
+
+        // Right: context, empty, added
+        assert_eq!(hunk.right[0].line_type, "context");
+        assert_eq!(hunk.right[1].line_type, "empty");
+        assert_eq!(hunk.right[2].line_type, "added");
+    }
+
+    #[test]
+    fn test_pr_routes_type() {
+        fn _assert_routes() -> Router<AppState> {
+            pr_routes()
+        }
+    }
+
+    #[test]
+    fn test_inline_diff_response_serialization() {
+        let resp = InlineDiffResponse {
+            files: vec![InlineDiffFile {
+                filename: "test.rs".into(),
+                old_filename: None,
+                status: "modified".into(),
+                hunks: vec![DiffHunk {
+                    old_start: 1,
+                    old_count: 3,
+                    new_start: 1,
+                    new_count: 4,
+                    lines: vec![InlineDiffLine {
+                        old_line_num: Some(1),
+                        new_line_num: Some(1),
+                        content: "context".into(),
+                        line_type: "context".into(),
+                    }],
+                }],
+            }],
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"filename\":\"test.rs\""));
+        assert!(json.contains("\"line_type\":\"context\""));
+    }
+
+    #[test]
+    fn test_side_by_side_diff_response_serialization() {
+        let resp = SideBySideDiffResponse {
+            files: vec![SideBySideFile {
+                filename: "test.rs".into(),
+                old_filename: None,
+                status: "modified".into(),
+                hunks: vec![SideBySideHunk {
+                    old_start: 1,
+                    old_count: 1,
+                    new_start: 1,
+                    new_count: 1,
+                    left: vec![SideBySideLine {
+                        line_num: Some(1),
+                        content: "old".into(),
+                        line_type: "deleted".into(),
+                    }],
+                    right: vec![SideBySideLine {
+                        line_num: Some(1),
+                        content: "new".into(),
+                        line_type: "added".into(),
+                    }],
+                }],
+            }],
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"line_type\":\"deleted\""));
+        assert!(json.contains("\"line_type\":\"added\""));
+    }
+
+    #[test]
+    fn test_create_inline_comment_deserialization() {
+        let json = r##"{
+            "body": "nice change",
+            "path": "src/main.rs",
+            "line": 10,
+            "side": "RIGHT",
+            "commit_sha": "abc1234"
+        }"##;
+        let req: CreateInlineComment = serde_json::from_str(json).unwrap();
+        assert_eq!(req.body, "nice change");
+        assert_eq!(req.path, "src/main.rs");
+        assert_eq!(req.line, Some(10));
+        assert_eq!(req.side.as_deref(), Some("RIGHT"));
+    }
 }

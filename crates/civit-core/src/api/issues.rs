@@ -145,7 +145,7 @@ pub struct IssueAssignee {
     pub assigned_at: DateTime<Utc>,
 }
 
-#[derive(Debug, sqlx::FromRow, Serialize)]
+#[derive(Debug, Serialize)]
 pub struct CommentResponse {
     pub id: uuid::Uuid,
     pub issue_id: uuid::Uuid,
@@ -154,6 +154,45 @@ pub struct CommentResponse {
     pub is_edited: bool,
     pub edited_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cross_references: Vec<CrossReferenceResponse>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CommentRow {
+    pub id: uuid::Uuid,
+    pub issue_id: uuid::Uuid,
+    pub author_id: uuid::Uuid,
+    pub body: String,
+    pub is_edited: bool,
+    pub edited_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<CommentRow> for CommentResponse {
+    fn from(row: CommentRow) -> Self {
+        Self {
+            id: row.id,
+            issue_id: row.issue_id,
+            author_id: row.author_id,
+            body: row.body,
+            is_edited: row.is_edited,
+            edited_at: row.edited_at,
+            created_at: row.created_at,
+            cross_references: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct CrossReferenceResponse {
+    pub target_number: i32,
+    pub target_type: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AddIssueAssigneeRequest {
+    pub assignee_id: uuid::Uuid,
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
@@ -437,6 +476,20 @@ pub async fn create_issue(
 
     insert_timeline(pool, row.id, row.author_id, "opened", None).await;
 
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    let pool_clone = state.db.pool().clone();
+    let rid = repo_id;
+    let evt = crate::webhooks::WebhookEvent::Issue;
+    let pl = serde_json::json!({
+        "action": "opened",
+        "issue_number": row.number,
+        "repo_id": rid.to_string(),
+        "title": row.title,
+        "status": row.status,
+        "author_id": row.author_id.to_string(),
+    });
+    tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
     (StatusCode::CREATED, Json(row)).into_response()
 }
 
@@ -499,14 +552,14 @@ pub async fn get_issue(
         Err(e) => return internal_err(&e.to_string()),
     };
 
-    let comments = match sqlx::query_as::<_, CommentResponse>(
+    let comments = match sqlx::query_as::<_, CommentRow>(
         "SELECT id, issue_id, author_id, body, is_edited, edited_at, created_at FROM issue_comments WHERE issue_id = $1 ORDER BY created_at",
     )
     .bind(row.id)
     .fetch_all(pool)
     .await
     {
-        Ok(r) => r,
+        Ok(r) => r.into_iter().map(CommentResponse::from).collect(),
         Err(e) => return internal_err(&e.to_string()),
     };
 
@@ -629,6 +682,20 @@ pub async fn update_issue(
         insert_timeline(pool, row.id, row.author_id, "label_change", None).await;
     }
 
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    let pool_clone = state.db.pool().clone();
+    let rid = repo_id;
+    let evt = crate::webhooks::WebhookEvent::Issue;
+    let pl = serde_json::json!({
+        "action": "updated",
+        "issue_number": row.number,
+        "repo_id": rid.to_string(),
+        "title": row.title,
+        "status": row.status,
+        "author_id": row.author_id.to_string(),
+    });
+    tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
     (StatusCode::OK, Json(row)).into_response()
 }
 
@@ -712,7 +779,7 @@ pub async fn add_comment(
         Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
     };
 
-    match sqlx::query_as::<_, CommentResponse>(
+    let comment = match sqlx::query_as::<_, CommentRow>(
         "INSERT INTO issue_comments (issue_id, author_id, body, is_edited, created_at) VALUES ($1, $2, $3, false, NOW()) RETURNING id, issue_id, author_id, body, is_edited, edited_at, created_at",
     )
     .bind(issue_id)
@@ -721,8 +788,100 @@ pub async fn add_comment(
     .fetch_one(pool)
     .await
     {
+        Ok(row) => {
+            let id = row.id;
+            let issue_id_val = row.issue_id;
+            let author_id_val = row.author_id;
+            let body = row.body.clone();
+
+            // Parse and store @mentions
+            let mentioned_usernames = crate::api::mentions::parse_mentions(&body);
+            for username in &mentioned_usernames {
+                if let Ok(Some(mentioned_id)) = sqlx::query_scalar::<_, uuid::Uuid>(
+                    "SELECT id FROM users WHERE username = $1",
+                )
+                .bind(username)
+                .fetch_optional(pool)
+                .await
+                {
+                    let _ = sqlx::query(
+                        "INSERT INTO comment_mentions (comment_id, comment_type, mentioned_user_id, repo_id) VALUES ($1, 'issue', $2, $3) ON CONFLICT DO NOTHING",
+                    )
+                    .bind(id)
+                    .bind(mentioned_id)
+                    .bind(repo_id)
+                    .execute(pool)
+                    .await;
+
+                    // Create notification for mentioned user (skip self-mentions)
+                    if mentioned_id != author_id {
+                        let _ = sqlx::query(
+                            "INSERT INTO notifications (user_id, kind, title, body, repo_name) VALUES ($1, 'mention', $2, $3, $4)",
+                        )
+                        .bind(mentioned_id)
+                        .bind(format!("New mention in issue #{number}"))
+                        .bind(format!("{} mentioned you in a comment", auth.username))
+                        .bind(format!("{owner}/{name}"))
+                        .execute(pool)
+                        .await;
+                    }
+                }
+            }
+
+            // Parse and store cross-references
+            let target_numbers = crate::api::mentions::parse_cross_references(&body);
+            let mut cross_references = Vec::new();
+            for target_number in &target_numbers {
+                let _ = sqlx::query(
+                    "INSERT INTO comment_cross_references (source_comment_id, source_comment_type, source_repo_id, target_number, target_type) VALUES ($1, 'issue', $2, $3, 'issue')",
+                )
+                .bind(id)
+                .bind(repo_id)
+                .bind(target_number)
+                .execute(pool)
+                .await;
+                cross_references.push(CrossReferenceResponse {
+                    target_number: *target_number,
+                    target_type: "issue".to_string(),
+                });
+            }
+
+            // Insert timeline event
+            insert_timeline(pool, issue_id_val, author_id_val, "commented", None).await;
+
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool_clone = state.db.pool().clone();
+            let rid = repo_id;
+            let evt = crate::webhooks::WebhookEvent::IssueComment;
+            let pl = serde_json::json!({
+                "action": "created",
+                "issue_id": issue_id_val.to_string(),
+                "repo_id": rid.to_string(),
+                "comment_id": id.to_string(),
+                "author_id": author_id_val.to_string(),
+                "body": body,
+            });
+            tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
+            let comment = CommentResponse {
+                id,
+                issue_id: issue_id_val,
+                author_id: author_id_val,
+                body: row.body,
+                is_edited: row.is_edited,
+                edited_at: row.edited_at,
+                created_at: row.created_at,
+                cross_references,
+            };
+
+            Ok(comment)
+        }
+        Err(e) => Err(internal_err(&e.to_string())),
+    };
+
+    match comment {
         Ok(comment) => (StatusCode::CREATED, Json(comment)).into_response(),
-        Err(e) => internal_err(&e.to_string()),
+        Err(resp) => resp,
     }
 }
 
@@ -752,7 +911,7 @@ pub async fn edit_comment(
         }
     };
 
-    match sqlx::query_as::<_, CommentResponse>(
+    match sqlx::query_as::<_, CommentRow>(
         "UPDATE issue_comments SET body = $1, is_edited = true, edited_at = NOW() WHERE id = $2 AND issue_id IN (SELECT id FROM issues WHERE repo_id = $3) RETURNING id, issue_id, author_id, body, is_edited, edited_at, created_at",
     )
     .bind(&req.body)
@@ -761,7 +920,10 @@ pub async fn edit_comment(
     .fetch_optional(pool)
     .await
     {
-        Ok(Some(comment)) => (StatusCode::OK, Json(comment)).into_response(),
+        Ok(Some(row)) => {
+            let resp = CommentResponse::from(row);
+            (StatusCode::OK, Json(resp)).into_response()
+        }
         Ok(None) => err_response(
             StatusCode::NOT_FOUND,
             &format!("comment #{comment_id} not found"),
@@ -1270,6 +1432,143 @@ pub async fn delete_milestone(
 }
 
 // ---------------------------------------------------------------------------
+// 19. POST /issues/:number/assignees — add assignee
+// ---------------------------------------------------------------------------
+
+pub async fn add_issue_assignee(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<AddIssueAssigneeRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    match sqlx::query(
+        "INSERT INTO issue_assignees (issue_id, user_id, assigned_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING",
+    )
+    .bind(issue_id)
+    .bind(req.assignee_id)
+    .execute(pool)
+    .await
+    {
+        Ok(_) => {
+            insert_timeline(pool, issue_id, actor_id, "assigned", Some(&req.assignee_id.to_string())).await;
+
+            // Notify the assignee
+            if req.assignee_id != actor_id {
+                let _ = sqlx::query(
+                    "INSERT INTO notifications (user_id, kind, title, body, repo_name) VALUES ($1, 'assignment', $2, $3, $4)",
+                )
+                .bind(req.assignee_id)
+                .bind(format!("Assigned to issue #{number}"))
+                .bind(format!("{} assigned you to issue #{number}", auth.username))
+                .bind(format!("{owner}/{name}"))
+                .execute(pool)
+                .await;
+            }
+
+            (StatusCode::CREATED, Json(serde_json::json!({"status": "assigned"}))).into_response()
+        }
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 20. DELETE /issues/:number/assignees/:user_id — remove assignee
+// ---------------------------------------------------------------------------
+
+pub async fn remove_issue_assignee(
+    State(state): State<AppState>,
+    Path((owner, name, number, user_id)): Path<(String, String, i32, uuid::Uuid)>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    let result = sqlx::query("DELETE FROM issue_assignees WHERE issue_id = $1 AND user_id = $2")
+        .bind(issue_id)
+        .bind(user_id)
+        .execute(pool)
+        .await;
+
+    match result {
+        Ok(rows) if rows.rows_affected() == 0 => err_response(
+            StatusCode::NOT_FOUND,
+            &format!("assignee {user_id} not found on issue #{number}"),
+        ),
+        Ok(_) => {
+            insert_timeline(
+                pool,
+                issue_id,
+                actor_id,
+                "unassigned",
+                Some(&user_id.to_string()),
+            )
+            .await;
+            (StatusCode::NO_CONTENT, ()).into_response()
+        }
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route builder
 // ---------------------------------------------------------------------------
 
@@ -1300,6 +1599,14 @@ pub fn issue_routes() -> axum::Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/issues/{number}/reactions/{emoji}",
             delete(remove_reaction),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/assignees",
+            post(add_issue_assignee),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/assignees/{user_id}",
+            delete(remove_issue_assignee),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/labels",

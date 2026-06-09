@@ -165,6 +165,8 @@ pub struct Job {
     /// Target runner.
     #[serde(rename = "runs-on")]
     pub runs_on: Option<RunsOn>,
+    /// Matrix strategy for expanding this job into multiple variants.
+    pub strategy: Option<Strategy>,
     /// Time limit.
     pub timeout: Option<JobTimeout>,
     /// Job-level environment.
@@ -359,6 +361,68 @@ pub struct HealthCheck {
     pub interval: Option<String>,
     pub timeout: Option<String>,
     pub retries: Option<u32>,
+}
+
+// ---------------------------------------------------------------------------
+// Expression (CEL subset)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Matrix Builds
+// ---------------------------------------------------------------------------
+
+/// Strategy configuration for matrix builds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Strategy {
+    /// Matrix dimensions defining the cross-product of values.
+    #[serde(default)]
+    pub matrix: MatrixConfig,
+    /// Whether to cancel in-progress jobs when a matrix job fails (default: true).
+    #[serde(default = "default_true")]
+    pub fail_fast: bool,
+    /// Maximum number of concurrent matrix jobs (None = unlimited).
+    pub max_parallel: Option<u32>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// Matrix dimension values and inclusion/exclusion rules.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MatrixConfig {
+    /// Dynamic dimension keys mapping to lists of values.
+    /// e.g. `os: [ubuntu-latest, macos-latest]`, `rust: [stable, nightly]`
+    #[serde(flatten)]
+    pub dimensions: std::collections::HashMap<String, Vec<String>>,
+    /// Extra combinations to add after the cross-product.
+    #[serde(default)]
+    pub include: Vec<serde_yaml::Value>,
+    /// Combinations to remove from the cross-product.
+    #[serde(default)]
+    pub exclude: Vec<serde_yaml::Value>,
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Variables (extended)
+// ---------------------------------------------------------------------------
+
+/// Variable scope — determines when a variable is available.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VariableScope {
+    /// Available to all jobs in the repository.
+    Repo,
+    /// Available only on matching branches.
+    Branch,
+    /// Available only on matching pull requests.
+    Pr,
+}
+
+impl Default for VariableScope {
+    fn default() -> Self {
+        Self::Repo
+    }
 }
 
 // ---------------------------------------------------------------------------
