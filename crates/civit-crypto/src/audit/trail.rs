@@ -4,7 +4,8 @@ use chrono::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 use std::fmt;
 
-const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+pub const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+const DEFAULT_RETENTION_DAYS: u64 = 365;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AuditOutcome {
@@ -46,6 +47,8 @@ pub struct AuditTrail {
     entries: Vec<AuditEntry>,
     head_hash: String,
     next_id: u64,
+    retention_days: u64,
+    prune_boundary: String,
 }
 
 impl Default for AuditTrail {
@@ -60,6 +63,16 @@ impl AuditTrail {
             entries: Vec::new(),
             head_hash: GENESIS_HASH.to_string(),
             next_id: 1,
+            retention_days: DEFAULT_RETENTION_DAYS,
+            prune_boundary: GENESIS_HASH.to_string(),
+        }
+    }
+
+    pub fn with_retention(retention_days: u64) -> Self {
+        Self {
+            retention_days,
+            prune_boundary: GENESIS_HASH.to_string(),
+            ..Self::new()
         }
     }
 
@@ -212,6 +225,24 @@ impl AuditTrail {
 
     pub fn entries(&self) -> &[AuditEntry] {
         &self.entries
+    }
+
+    pub fn retention_days(&self) -> u64 {
+        self.retention_days
+    }
+
+    pub fn prune_retention(&mut self) -> usize {
+        let cutoff = Utc::now() - chrono::Duration::days(self.retention_days as i64);
+        let before = self.entries.len();
+        while let Some(front) = self.entries.first() {
+            if front.timestamp < cutoff {
+                self.prune_boundary = front.entry_hash.clone();
+                self.entries.remove(0);
+            } else {
+                break;
+            }
+        }
+        before - self.entries.len()
     }
 }
 

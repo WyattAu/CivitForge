@@ -5,28 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum AssetType {
-    Hardware,
-    Software,
-    Data,
-    Service,
-    Network,
-    Personnel,
-}
-
-impl fmt::Display for AssetType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Hardware => write!(f, "hardware"),
-            Self::Software => write!(f, "software"),
-            Self::Data => write!(f, "data"),
-            Self::Service => write!(f, "service"),
-            Self::Network => write!(f, "network"),
-            Self::Personnel => write!(f, "personnel"),
-        }
-    }
-}
+pub use crate::cmdb::AssetType;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Classification {
@@ -47,24 +26,7 @@ impl fmt::Display for Classification {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Criticality {
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-impl fmt::Display for Criticality {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Low => write!(f, "low"),
-            Self::Medium => write!(f, "medium"),
-            Self::High => write!(f, "high"),
-            Self::Critical => write!(f, "critical"),
-        }
-    }
-}
+pub use crate::cmdb::Criticality;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Asset {

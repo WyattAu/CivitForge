@@ -6,6 +6,9 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum AssetType {
+    Hardware,
+    Software,
+    Data,
     Server,
     Database,
     Network,
@@ -13,11 +16,15 @@ pub enum AssetType {
     Certificate,
     Application,
     Storage,
+    Personnel,
 }
 
 impl std::fmt::Display for AssetType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Hardware => write!(f, "hardware"),
+            Self::Software => write!(f, "software"),
+            Self::Data => write!(f, "data"),
             Self::Server => write!(f, "server"),
             Self::Database => write!(f, "database"),
             Self::Network => write!(f, "network"),
@@ -25,23 +32,26 @@ impl std::fmt::Display for AssetType {
             Self::Certificate => write!(f, "certificate"),
             Self::Application => write!(f, "application"),
             Self::Storage => write!(f, "storage"),
+            Self::Personnel => write!(f, "personnel"),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Criticality {
-    High,
-    Medium,
     Low,
+    Medium,
+    High,
+    Critical,
 }
 
 impl std::fmt::Display for Criticality {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::High => write!(f, "high"),
-            Self::Medium => write!(f, "medium"),
             Self::Low => write!(f, "low"),
+            Self::Medium => write!(f, "medium"),
+            Self::High => write!(f, "high"),
+            Self::Critical => write!(f, "critical"),
         }
     }
 }
@@ -136,16 +146,20 @@ impl std::fmt::Display for Treatment {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum RiskStatus {
     Open,
-    Closed,
+    Mitigated,
     Accepted,
+    Transferred,
+    Closed,
 }
 
 impl std::fmt::Display for RiskStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Open => write!(f, "open"),
-            Self::Closed => write!(f, "closed"),
+            Self::Mitigated => write!(f, "mitigated"),
             Self::Accepted => write!(f, "accepted"),
+            Self::Transferred => write!(f, "transferred"),
+            Self::Closed => write!(f, "closed"),
         }
     }
 }
@@ -281,6 +295,10 @@ impl Cmdb {
         let mut report = String::from("=== Access Review Report ===\n\n");
         report.push_str(&format!("Total Active Assets: {}\n\n", assets.len()));
 
+        let critical_crit: Vec<&Asset> = assets
+            .iter()
+            .filter(|a| a.criticality == Criticality::Critical)
+            .collect();
         let high_crit: Vec<&Asset> = assets
             .iter()
             .filter(|a| a.criticality == Criticality::High)
@@ -294,12 +312,13 @@ impl Cmdb {
             .filter(|a| a.criticality == Criticality::Low)
             .collect();
 
+        report.push_str(&format!("Critical: {}\n", critical_crit.len()));
         report.push_str(&format!("High Criticality: {}\n", high_crit.len()));
         report.push_str(&format!("Medium Criticality: {}\n", med_crit.len()));
         report.push_str(&format!("Low Criticality: {}\n", low_crit.len()));
         report.push('\n');
 
-        for asset in &high_crit {
+        for asset in critical_crit.iter().chain(high_crit.iter()) {
             report.push_str(&format!(
                 "  [{}] {} (type={}, owner={})\n",
                 asset.id, asset.name, asset.asset_type, asset.owner
@@ -325,6 +344,12 @@ impl Cmdb {
             .filter(|r| r.value().status == AssetStatus::Retired)
             .count();
         summary.insert("retired_assets".to_string(), retired);
+        let critical: usize = self
+            .assets
+            .iter()
+            .filter(|r| r.value().criticality == Criticality::Critical)
+            .count();
+        summary.insert("critical_criticality".to_string(), critical);
         let high: usize = self
             .assets
             .iter()
@@ -649,6 +674,9 @@ mod tests {
 
     #[test]
     fn test_asset_type_display() {
+        assert_eq!(AssetType::Hardware.to_string(), "hardware");
+        assert_eq!(AssetType::Software.to_string(), "software");
+        assert_eq!(AssetType::Data.to_string(), "data");
         assert_eq!(AssetType::Server.to_string(), "server");
         assert_eq!(AssetType::Database.to_string(), "database");
         assert_eq!(AssetType::Network.to_string(), "network");
@@ -656,6 +684,7 @@ mod tests {
         assert_eq!(AssetType::Certificate.to_string(), "certificate");
         assert_eq!(AssetType::Application.to_string(), "application");
         assert_eq!(AssetType::Storage.to_string(), "storage");
+        assert_eq!(AssetType::Personnel.to_string(), "personnel");
     }
 
     #[test]

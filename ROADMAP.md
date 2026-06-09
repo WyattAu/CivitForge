@@ -1,7 +1,7 @@
 # CivitForge Roadmap
 
-Post-v1.1.0 release plan for a Rust-native forge platform. This document covers
-versions v1.1.1 through v2.0.0. Timelines assume a core team of 3-5 engineers.
+Post-audit-cycle roadmap for a Rust-native forge platform. This document covers
+versions v2.1.3 through v3.0.0. Timelines assume a core team of 3-5 engineers.
 
 ---
 
@@ -15,338 +15,234 @@ access control without depending on proprietary cloud services.
 
 ---
 
+## Current State (v2.1.2)
+
+| Metric | Value |
+|---|---|
+| Workspace crates | 8 active + 1 standalone (desktop) |
+| Unit tests | 3,047 passing |
+| Clippy warnings | 0 |
+| Format violations | 0 |
+| `#![forbid(unsafe_code)]` | Enforced across all crates |
+| API endpoints | ~85 routes |
+| Database migrations | 001-027 |
+| CI/CD | GitHub Actions: fmt, clippy, test, audit, build |
+| Pre-commit hooks | Husky + .githooks (fmt, clippy, test) |
+| WASM bundle | 2.8MB |
+| E2E tests | Playwright (15 pages, 30 actions) |
+| GUI tests | Playwright (12 pages, 63 actions, 0 errors) |
+| Desktop smoke | Xvfb + GTK + WebKit (11 checks, 0 failures) |
+| Landing page | GitHub Pages (https://wyattau.github.io/CivitForge/) |
+
+---
+
 ## Version Timeline
 
 | Version | Focus | Status |
 |---|---|---|
-| v1.1.1 | Hotfix: accessibility and error hygiene | Shipped |
-| v1.2.0 | Quality and completeness | Shipped |
-| v1.3.0 | Advanced features | Shipped |
-| v1.4.0 | Federation and enterprise | Shipped |
-| v1.5.0 | Horizontal scaling | Shipped |
-| v2.0.0 | Platform expansion | Shipped |
-| v2.0.0 | Platform expansion | Planned |
+| v2.1.3 | Audit cycle: code quality, CI/CD, UI/UX, docs | In Progress |
+| v2.2.0 | Feature gap closure: Phase 0-1 from comparison matrix | Planned |
+| v2.3.0 | Collaboration: Phase 2 from comparison matrix | Planned |
+| v2.4.0 | CI/CD maturity: Phase 3 from comparison matrix | Planned |
+| v2.5.0 | Organization and admin: Phase 4 from comparison matrix | Planned |
+| v3.0.0 | Differentiation amplification: Phase 5-6 from comparison matrix | Planned |
 
 ---
 
-## v1.1.1 -- Hotfix: Accessibility and Error Hygiene
+## v2.1.3 -- Audit Cycle Completion
 
-**Goal:** Ship a focused patch that addresses the 3 critical accessibility
-failures and stops raw API error bodies from leaking to end users.
+**Goal:** Complete the comprehensive audit cycle across all 8 phases.
 
-### Key Deliverables
+### Completed Deliverables
 
-- Add skip-navigation link to `civit-ui/src/app.rs` (Leptos Router shell)
-- Implement modal focus trap in `civit-ui/src/components/modal.rs`
-  (`FocusTrap` via `web-sys` `Element::focus()` and `keydown` listener)
-- Add `aria-label` attributes to `civit-ui/src/components/toast.rs`
-  notifications (success, error, warning, info variants)
-- Sanitize error responses in `civit-core/src/api/mod.rs` -- intercept
-  `axum::extract::rejection` and `sqlx::Error` bodies, return structured
-  `civit_shared::ErrorResponse` instead of raw text
-- Replace 24 error-swallowing `let _ =` / `unwrap_or_default()` sites across
-  `civit-core/src/api/*.rs` with proper error propagation
-- Update `civit-ui/src/pages/login.rs` and `civit-ui/src/pages/settings.rs`
-  to display user-facing error messages from the new structured responses
+**Phase 1: Code Quality**
+- Replaced `expect()`/`unwrap()` with proper error propagation in `civit-core/src/main.rs`
+- Replaced `DefaultHasher` with SHA-256 for policy checksums in `civit-crypto`
+- Removed dead HMAC computation in `repo_keys.rs`
+- Fixed HSM `sign`/`verify` to strip session key prefix for correct key lookup
+- Fixed `fuse/remote.rs` mutex `unwrap()` to use safe patterns
+- Fixed `grpc_server.rs` address parsing with logged fallback
+- Consolidated duplicate type definitions within `civit-crypto`:
+  - `AssetType`: expanded to 11 variants (superset of cmdb + iso27001)
+  - `Criticality`: expanded to 4 variants (+Critical)
+  - `RiskStatus`: expanded to 5 variants (+Mitigated, +Transferred)
+  - `AuditTrail`: consolidated into single implementation with retention support
+- Updated test expectations for fixed HSM operations
 
-### Success Metrics
+**Phase 2: CI/CD**
+- Pinned Rust toolchain to 1.88 in `ci.yml` (was using `@stable`)
+- Added security audit job with `cargo-audit` (non-blocking for warnings)
+- Added `protobuf-compiler` installation for `civit-vfs` build
+- Removed `|| true` from release.yml artifact collection
+- CI pipeline: fmt, clippy, test, audit, build -- all passing
 
-- Zero critical WCAG 2.1 AA violations (automated via axe-core audit)
-- No raw SQL/HTTP error text visible in the browser network tab on failure
-- All existing 2,653 tests continue to pass
+**Phase 3: UI/UX**
+- Replaced `<a>` with `<A>` router component in sidebar for SPA navigation
+- Added `aria-label` to search input and PR comment textarea
+- Removed duplicated `get_input_value()` from `new_repo.rs`
+- Fixed redundant double `set_filter.set()` in `issues.rs`
 
-### Estimated Timeline
+**Phase 4: Documentation**
+- Replaced all emoji indicators with text equivalents in feature comparison docs
+- Landing page deployed to GitHub Pages
 
-1-2 weeks after v1.1.0 tag
+**Phase 5: CI/CD Debug Loop**
+- Fixed 3 CI pipeline failures (protobuf-compiler, cargo-audit toolchain, audit warnings)
+- All pipelines green on main branch
 
----
+### Remaining Work
 
-## v1.2.0 -- Quality and Completeness
-
-**Goal:** Resolve all audit findings, wire up every existing API endpoint to a
-working frontend, and raise test coverage to 85%+ across all workspace crates.
-
-### Key Deliverables
-
-**UI Completion (all pages backed by live API data)**
-
-- Code browser page (`civit-ui/src/pages/repo_detail.rs`): integrate with
-  `civit-vfs` gRPC layer to render file trees, file content, and directory
-  listings from bare git repos via `civit-core/src/git/operations.rs`
-- Pipelines dashboard page: new `civit-ui/src/pages/pipelines.rs` consuming
-  `GET /api/v1/pipelines` and `GET /api/v1/pipelines/{id}` from
-  `civit-core/src/api/pipelines.rs` -- list runs, step status, artifact links
-- Global search page: new `civit-ui/src/pages/search.rs` wired to
-  `GET /api/v1/search` in `civit-core/src/api/search.rs` with repo filter,
-  language filter, and ranked result display
-- Activity feed page: new `civit-ui/src/pages/activity.rs` consuming events
-  from `civit-core/src/events/websocket.rs` (event bus) rendered as a
-  chronological timeline
-- Settings page forms functional: `civit-ui/src/pages/settings.rs` -- wire
-  profile update, SSH key management (`api/ssh_keys.rs`), and 2FA toggle to
-  their respective `civit-core` API handlers
-- Org detail page: fix raw UUID display in `civit-ui/src/pages/orgs.rs`,
-  resolve org slug from `civit-shared::OrgResponse`
-- Repos page: replace hardcoded mock data in `civit-ui/src/pages/repos.rs`
-  with `GET /api/v1/repos` from `civit-core/src/api/repos.rs`
-
-**Code Quality**
-
-- Remove all 66 `#[allow(dead_code)]` annotations across workspace crates
-- Delete or justify all 2,202 commented-out lines (use `git log --blame` to
-  determine if code was once shipped; if not, remove)
-- Replace 43 stub patterns (`todo!()`, `unimplemented!()`, empty match arms,
-  `String::new()` returns in error paths) with real implementations or explicit
-  `unimplemented!("reason")` with tracking issues
-- Add form validation to all `civit-ui` input components
-  (`civit-ui/src/components/input.rs`): required-field checks, email format,
-  password strength, repo slug format, duplicate detection
-- Add integration tests for all 60+ API routes in `civit-core/src/api/*.rs`
-
-**Test Coverage**
-
-- `civit-ui` WASM component tests (wasm-bindgen-test) targeting >60% line coverage
-- `civit-core` API handler integration tests targeting >90% coverage
-- Overall workspace coverage target: 85%+
-
-**Technical Debt**
-
-- Add UUID-to-slug conversion utilities in `civit-shared/src/id.rs` so UI
-  never shows raw UUIDs for repos, orgs, users, or issues
-- Extract shared validation logic from `civit-pipeline/src/validate.rs` into
-  `civit-shared` for reuse in UI client-side validation
-
-### Success Metrics
-
-- Every API endpoint has a corresponding UI page or is explicitly documented
-  as API-only (e.g., internal runner protocol)
-- `cargo test --workspace` passes with 3,200+ tests
-- Code coverage >= 85% (measured via `cargo-llvm-cov`)
-- Zero `#[allow(dead_code)]` annotations
-- Zero stub patterns without linked tracking issues
-
-### Estimated Timeline
-
-6-8 weeks after v1.1.1
+- Complete stub implementations in `civit-vfs` (fetch_object, list_directory)
+- Complete stub implementations in `civit-crypto` HSM operations (import_key, export_public_key)
+- Add `aria-label` to remaining form inputs across UI pages
+- Complete WebAuthn ES-256/RS256 verification
+- Complete SAML XML-DSig canonicalization
 
 ---
 
-## v1.3.0 -- Advanced Features
+## v2.2.0 -- Feature Gap Closure (Phase 0-1)
 
-**Goal:** Add collaboration features that bring CivitForge to feature parity
-with GitLab/GitHub for day-to-day development workflows.
+**Goal:** Close the 52 critical feature gaps identified in the comparison matrix.
 
 ### Key Deliverables
 
-**Project Boards / Kanban**
+**Phase 0: Foundation**
+- Complete `NOT_IMPLEMENTED` stubs (archive download, collaborator add/remove)
+- Personal access tokens CRUD + scopes
+- Webhooks CRUD + delivery worker + retry
+- Email verification on registration
+- Account lockout after N failed attempts
+- Notifications backend (in-app + email)
 
-- DB schema: `boards`, `board_columns`, `board_cards` (migration 025+)
-- CRUD API in `civit-core/src/api/` -- create board per repo, drag-and-drop
-  columns, link cards to issues
-- Leptos board UI: column layout, card drag (via `web-sys` drag events),
-  issue linking
-
-**Merge Queue**
-
-- Wire existing `civit-core/src/merge_queue.rs` to a real sequential merge
-  pipeline: PRs enter queue, CI runs, merge on green
-- API endpoints: `POST /api/v1/repos/{id}/merge-queue`, status polling
-- UI: queue list page, per-PR merge queue status badge
-
-**Code Review Inline Comments**
-
-- DB schema: `review_comments` with `path`, `line`, `diff_hunk`, `body`
-  (migration 026+)
-- API: `POST /api/v1/pulls/{id}/comments`, list, update, resolve
-- Diff viewer enhancement in `civit-ui`: click-to-comment on diff lines
-
-**Real-Time WebSocket Log Streaming**
-
-- Integrate `civit-core/src/events/websocket.rs` with
-  `civit-runner/src/main.rs` log output -- runner sends log chunks via
-  WebSocket channel, browser renders in real time
-- Pipeline run detail page: live log panel with auto-scroll, step transition
-
-**WebAuthn Completion**
-
-- Complete ES-256 and RS256 signature verification in
-  `civit-crypto/src/hsm/operations.rs` (currently partial)
-- Wire to `civit-core/src/api/auth.rs` registration and authentication flows
-- UI: WebAuthn key management in settings page
-
-**Tantivy Code Search Upgrade**
-
-- Replace PostgreSQL `tsvector`/`tsquery` in `civit-core/src/api/search.rs`
-  with tantivy full-text index (trigram tokenizer, per-repo indexes)
-- Index on push: hook into `civit-core/src/git/hooks.rs` post-receive to
-  incrementally update the tantivy index
-- Cross-repo search with permission filtering via
-  `civit-core/src/auth/permission_engine.rs`
-
-### Success Metrics
-
-- Kanban board usable end-to-end (create, drag, link issues)
-- Merge queue accepts PRs, runs CI, merges on green without race conditions
-- Inline code comments render on diff view with resolve/unresolve toggle
-- Pipeline logs stream at <200ms latency via WebSocket
-- Code search returns ranked results with snippet highlighting
-- WebAuthn registration and authentication work with YubiKey 5 series
+**Phase 1: Code Browser Polish**
+- Syntax highlighting via highlight.js CDN
+- README rendering at repo root
+- Language stats bar
+- Commit history per file
+- Git blame view
+- Responsive / mobile-friendly layouts
+- Keyboard shortcuts
 
 ### Estimated Timeline
 
-8-12 weeks after v1.2.0
+4-6 weeks
 
 ---
 
-## v1.4.0 -- Federation and Enterprise
+## v2.3.0 -- Collaboration (Phase 2)
 
-**Goal:** Deliver production-grade federation via ActivityPub and enterprise
-SSO so CivitForge instances can interoperate and integrate with existing
-identity providers.
+**Goal:** Full issue/PR workflow with collaboration features.
 
 ### Key Deliverables
 
-**ActivityPub Federation**
-
-- Complete `civit-core/src/federation/delivery.rs` with 2-instance integration
-  tests (repo fork federation, issue cross-posting, star/like activities)
-- Implement inbox/outbox in `civit-core/src/federation/inbox_outbox.rs`
-  with persistent storage (DB-backed, not in-memory VecDeque)
-- WebFinger discovery via `civit-core/src/federation/webfinger.rs`
-- Federation documentation and test instance deployment guide
-
-**Multi-Tenancy**
-
-- Per-organization data isolation in `civit-core/src/db/repository.rs`
-  (row-level security or application-level filtering)
-- Org-scoped runner pools and CI variable namespaces
-- Resource quotas per org (storage, runners, pipeline minutes)
-
-**Per-Repo Encryption Keys**
-
-- AES-256-GCM key derivation per repository in `civit-crypto/` using
-  `ring::aead`, extending existing `civit-core/src/secrets.rs` pattern
-- Key rotation API with zero-downtime re-encryption
-- Pipeline variables and webhook secrets encrypted with repo-scoped keys
-
-**SAML SSO**
-
-- Complete XML-DSig canonicalization and signature verification in
-  `civit-crypto/src/` (currently SHA-256 digest integrity only)
-- IdP metadata parsing, SP metadata generation
-- SSO login flow wired to `civit-core/src/api/auth.rs`
-
-### Success Metrics
-
-- Two CivitForge instances successfully federate a repository fork
-- SAML login completes end-to-end with Okta/Keycloak IdP
-- Per-repo encryption keys rotate without pipeline interruption
-- Multi-tenant isolation prevents cross-org data access (automated test)
+- Assignees, cross-references, @mentions
+- Task lists in markdown
+- Issue templates, file attachments
+- Squash, rebase, fast-forward merge strategies
+- Draft PRs, merge message templates
+- Linked issues auto-close
+- Push to existing PR
+- Release management
+- Branch/tag protection rules
 
 ### Estimated Timeline
 
-10-14 weeks after v1.3.0
+6-8 weeks
 
 ---
 
-## v1.5.0 -- Horizontal Scaling
+## v2.4.0 -- CI/CD Maturity (Phase 3)
 
-**Goal:** Enable CivitForge to run across multiple regions with Kubernetes
-orchestration and read replicas for high availability.
+**Goal:** Bring CI/CD to competitive parity with Gitea Actions.
 
 ### Key Deliverables
 
-**Multi-Region Deployment**
-
-- Extend `civit-core/src/federation/multimaster.rs` with async replication
-  between regions using the existing `IncrementalSyncEngine`
-- Region-aware routing in `civit-core/src/scaling/partitioner.rs`
-- Conflict resolution for concurrent writes (last-writer-wins with tombstones)
-
-**Kubernetes Operator Enhancement**
-
-- Extend existing `civit-brain/` K8s operator with node affinity, pod
-  disruption budgets, and horizontal pod autoscaling
-- Custom resource definitions for CivitForge deployment, upgrade, and backup
-- Status subresource with condition-based readiness
-
-**Read Replicas**
-
-- PostgreSQL read replica support in `civit-core/src/db/pool.rs` -- primary for
-  writes, replica(s) for read queries via `sqlx::PgPoolOptions`
-- Replica health checks and automatic failover detection
-
-**CDN for Artifacts**
-
-- Artifact serving via edge cache in `civit-core/src/cache/edge.rs`
-  with `zstd` compression (already implemented)
-- Pre-signed URLs for private artifact downloads
-- Cache invalidation on artifact upload/overwrite
-
-### Success Metrics
-
-- CivitForge runs with 1 primary + 2 read replicas, all queries routed
-  correctly
-- Multi-region sync completes within 5s for a typical push
-- Kubernetes operator deploys, upgrades, and backs up without manual intervention
-- Artifact downloads served from cache with >80% hit rate
+- Matrix builds, parallelism
+- Secrets management, caches
+- Environments + deployments
+- Scheduled runs (cron)
+- Status badges, auto-cancel redundant runs
+- Runner management UI
+- Pipeline DAG visualization
+- GitHub Actions workflow compatibility (85%+)
+- OIDC workload identity
 
 ### Estimated Timeline
 
-12-16 weeks after v1.4.0
+6-8 weeks
 
 ---
 
-## v2.0.0 -- Platform Expansion
+## v2.5.0 -- Organization and Admin (Phase 4)
 
-**Goal:** Transform CivitForge from a web application into a cross-platform
-forge ecosystem with desktop and mobile clients, an extension marketplace,
-and a stable public API.
+**Goal:** Full org/team management, LDAP, audit, import/migration.
 
 ### Key Deliverables
 
-**Tauri Desktop Application**
-
-- Wrap `civit-ui` Leptos frontend in Tauri shell
-- Native git operations via `gix` through Tauri commands (no separate server
-  required for local repos)
-- System tray integration, native notifications, drag-and-drop file upload
-- Offline mode with local-first repo browsing
-
-**PWA Mobile**
-
-- Service worker for offline caching of read-only pages
-- Push notification support for issue mentions, CI results, review requests
-- Responsive touch-optimized layouts for issue list, repo browser, pipeline
-  status
-
-**Marketplace / Extensions**
-
-- Extension API: webhook-triggered actions, custom CI steps, UI panels
-- Extension manifest format (JSON schema, signed with existing
-  `civit-crypto/src/cosign.rs`)
-- Registry of community extensions with vulnerability scanning
-- Permission sandboxing for extensions (no direct DB access)
-
-**API Stability Guarantee**
-
-- Public API versioning (`/api/v1/` frozen, `/api/v2/` for new features)
-- OpenAPI spec generation from `civit-core/src/docs/openapi.rs` served at
-  `/api/v1/openapi.json`
-- Deprecation policy: 2 minor versions of notice before removal
-- API compatibility tests in CI
-
-### Success Metrics
-
-- Tauri desktop app installs and runs on Linux, macOS, and Windows
-- PWA passes Lighthouse audit with score >=90 for PWA category
-- At least 5 community extensions available in the registry
-- `/api/v1/` endpoints maintain backward compatibility across all v2.x
-  releases (verified by automated compatibility tests)
+- Team management within orgs
+- LDAP / AD auth backend
+- Audit log admin view
+- Org profile page
+- Topics/tags for repos
+- Transfer/rename/archive repo
+- Moderation tools
+- Import from GitHub/GitLab
 
 ### Estimated Timeline
 
-16-20 weeks after v1.5.0
+4-6 weeks
+
+---
+
+## v3.0.0 -- Differentiation Amplification (Phases 5-6)
+
+**Goal:** Leverage 22 unique advantages as the primary competitive moat.
+
+### Key Deliverables
+
+**Phase 5: Differentiation**
+- AI PR review in UI (RAG + AST pipeline)
+- AI code search (natural language to code)
+- VFS FUSE mount UI
+- Federation polish (cross-instance PRs, follow UX)
+- SLSA provenance dashboard
+- Edge caching UI
+- Compliance dashboard (ISO 27001, audit trail)
+- Secret scanning (AI-powered)
+- Inline diff + side-by-side for PRs
+- Commit graph visualization
+- KaTeX + Mermaid in markdown
+- Push/pull mirrors
+- Git LFS 2.0
+
+**Phase 6: Ecosystem**
+- Package registries (npm, PyPI, Maven, Go, Helm)
+- Static Pages (GitHub Pages equivalent)
+- Kanban boards
+- Web code editor (CodeMirror)
+- i18n framework
+
+### Estimated Timeline
+
+12-16 weeks
+
+---
+
+## Technical Debt Tracker
+
+| Item | Priority | Affected Crates | Target Version |
+|---|---|---|---|
+| VFS stub: fetch_object returns zeros | High | civit-vfs | v2.2.0 |
+| VFS stub: list_directory returns empty | High | civit-vfs | v2.2.0 |
+| HSM stub: import_key ignores data | Medium | civit-crypto | v2.3.0 |
+| HSM stub: export_public_key returns fake | Medium | civit-crypto | v2.3.0 |
+| HSM stub: generate_certificate returns synthetic DER | Medium | civit-crypto | v2.3.0 |
+| WebAuthn ES-256/RS256 attestation incomplete | Medium | civit-crypto | v2.4.0 |
+| SAML XML-DSig canonicalization incomplete | Medium | civit-crypto | v2.5.0 |
+| Dual error systems (civit-core vs civit-shared) | Medium | civit-core, civit-shared | v2.2.0 |
+| Duplicate API response types (server/client) | Medium | civit-core, civit-ui | v2.3.0 |
+| FUSE kernel mount incomplete | Low | civit-vfs | v2.5.0 |
+| Tauri desktop app (standalone build) | Low | civit-desktop | v3.0.0 |
 
 ---
 
@@ -359,76 +255,21 @@ CivitForge accepts contributions via GitHub pull requests. See
 
 ### Priority Areas
 
-The following areas have the highest impact for contributors:
-
-1. **`civit-ui` test coverage** -- the frontend crate has 0% test coverage.
-   Component unit tests (wasm-bindgen-test), integration tests for API client
-   calls, and screenshot regression tests are all needed.
-2. **Stub removal** -- 43 stub patterns exist across workspace crates. Check
-   `grep -rn "todo!\|unimplemented!\|FIXME\|STUB" crates/` for the current
-   list. Each stub should either be implemented or replaced with a tracked
-   issue reference.
-3. **Error handling** -- 24 sites swallow errors with `let _ =` or
-   `unwrap_or_default()`. Propagate errors properly and add user-facing
-   messages where appropriate.
-4. **Dead code cleanup** -- 66 `#[allow(dead_code)]` annotations need
-   investigation: either remove the dead code or wire it into the application.
-5. **Documentation** -- API endpoint docs, ADR updates, and user-facing
-   guides for new features.
+1. **Stub implementations** -- VFS client/server stubs, HSM key import/export
+2. **UI accessibility** -- Remaining form labels, keyboard navigation
+3. **Test coverage** -- `civit-ui` WASM component tests, `civit-core` API integration tests
+4. **Documentation** -- API endpoint docs, ADR updates, user-facing guides
+5. **Error handling** -- Replace remaining `let _ =` and `unwrap_or_default()` patterns
 
 ### Community Guidelines
 
-- All code must pass `cargo clippy --workspace -- -D warnings` and
-  `cargo fmt --check --all`
+- All code must pass `cargo clippy --workspace -- -D warnings` and `cargo fmt --check --all`
 - Every `.rs` file must start with `#![forbid(unsafe_code)]`
-- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
-  format: `<type>(<scope>): <description>`
+- Commit messages follow Conventional Commits format: `type(scope): description`
 - PRs require one approval and a green CI before merge (squash merge)
 - No emojis in code, commit messages, or documentation
-- Be respectful. See `CODE_OF_CONDUCT.md` (if present) for details
 
 ---
 
-## Technical Debt Tracker
-
-| Item | Priority | Affected Crates | Target Version |
-|---|---|---|---|
-| 3 critical WCAG 2.1 AA violations (skip nav, modal focus trap, toast aria-label) | Critical | civit-ui | v1.1.1 |
-| Error messages leak raw API bodies to users | Critical | civit-core, civit-ui | v1.1.1 |
-| 24 error-swallowing sites (`let _ =`, `unwrap_or_default`) | High | civit-core | v1.1.1 |
-| 10 high-severity UX issues (missing labels, hardcoded data, raw UUIDs) | High | civit-ui | v1.2.0 |
-| civit-ui at 0% test coverage | High | civit-ui | v1.2.0 |
-| Pipelines CI/CD dashboard UI missing (API exists) | High | civit-ui | v1.2.0 |
-| Global search UI missing (API exists) | High | civit-ui | v1.2.0 |
-| Activity feed / notifications UI missing | High | civit-ui | v1.2.0 |
-| Code browser page missing (needs gitfs/VFS integration) | High | civit-ui, civit-vfs | v1.2.0 |
-| Settings page form non-functional | Medium | civit-ui | v1.2.0 |
-| Org detail page shows raw UUID | Medium | civit-ui | v1.2.0 |
-| Repos page uses hardcoded mock data | Medium | civit-ui | v1.2.0 |
-| Form validation is minimal (empty checks only) | Medium | civit-ui | v1.2.0 |
-| 66 `#[allow(dead_code)]` annotations | Medium | all crates | v1.2.0 |
-| 2,202 commented-out lines | Medium | all crates | v1.2.0 |
-| 43 stub patterns (`todo!`, `unimplemented!`, empty returns) | Medium | all crates | v1.2.0 |
-| FUSE kernel mount incomplete (in-memory HashMap, no `mount()` syscall) | Low | civit-vfs | v1.2.0 |
-| SAML XML-DSig canonicalization and signature verification incomplete | Medium | civit-crypto | v1.4.0 |
-| WebAuthn ES-256/RS256 attestation verification incomplete | Medium | civit-crypto | v1.3.0 |
-| HSM PKCS#11 real hardware integration (currently software-only) | Low | civit-crypto | v1.4.0 |
-| Project boards / Kanban (no schema or API) | Medium | civit-core, civit-ui | v1.3.0 |
-| Merge queue (scaffold exists, not wired) | Medium | civit-core | v1.3.0 |
-| Dependency graph visualization (no implementation) | Low | civit-brain, civit-ui | v1.3.0 |
-| Real-time WebSocket log streaming (event bus exists, runner not connected) | Medium | civit-core, civit-runner | v1.3.0 |
-| Tantivy code search (PostgreSQL tsvector in use, tantivy deferred) | Medium | civit-brain, civit-core | v1.3.0 |
-| Git-backed wiki storage (currently DB-only) | Low | civit-core | v1.3.0 |
-| Per-repo encryption keys (global key currently) | Low | civit-crypto, civit-core | v1.4.0 |
-| Multi-region replication (transport layer + vector clocks shipped) | Low | civit-core | v1.5.0 |
-| K8s operator (CRD + reconciler shipped, node affinity done) | Low | civit-brain | v1.5.0 |
-| CDN artifact pre-signed URLs and cache headers (shipped) | Low | civit-core | v1.5.0 |
-| Password change does not verify current password | High | civit-core | v1.4.0 |
-| Tauri desktop app (no implementation) | Low | new crate | v2.0.0 |
-| PWA mobile (no implementation) | Low | civit-ui | v2.0.0 |
-| Marketplace / extensions (no implementation) | Low | new crate | v2.0.0 |
-
----
-
-*Last updated: 2026-06-04*
+*Last updated: 2026-06-09*
 *Document owner: CivitForge core team*

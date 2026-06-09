@@ -58,26 +58,7 @@ impl RiskLevel {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RiskStatus {
-    Open,
-    Mitigated,
-    Accepted,
-    Transferred,
-    Closed,
-}
-
-impl fmt::Display for RiskStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Open => write!(f, "open"),
-            Self::Mitigated => write!(f, "mitigated"),
-            Self::Accepted => write!(f, "accepted"),
-            Self::Transferred => write!(f, "transferred"),
-            Self::Closed => write!(f, "closed"),
-        }
-    }
-}
+pub use crate::cmdb::RiskStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Risk {
