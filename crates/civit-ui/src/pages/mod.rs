@@ -1,9 +1,13 @@
 #![forbid(unsafe_code)]
 
 pub mod activity;
+pub mod admin;
 pub mod blame;
+pub mod boards;
+pub mod branch_protection;
 pub mod code;
 pub mod explore;
+pub mod graph;
 pub mod home;
 pub mod issue_detail;
 pub mod issues;
@@ -14,16 +18,22 @@ pub mod orgs;
 pub mod pipelines;
 pub mod pull_request_detail;
 pub mod pull_requests;
+pub mod releases;
 pub mod repo_detail;
 pub mod repos;
 pub mod search;
 pub mod settings;
+pub mod teams;
 pub mod wiki;
 
 pub use activity::*;
+pub use admin::*;
 pub use blame::*;
+pub use boards::*;
+pub use branch_protection::*;
 pub use code::*;
 pub use explore::*;
+pub use graph::*;
 pub use home::*;
 pub use issue_detail::*;
 pub use issues::*;
@@ -34,8 +44,10 @@ pub use orgs::*;
 pub use pipelines::*;
 pub use pull_request_detail::*;
 pub use pull_requests::*;
+pub use releases::*;
 pub use repo_detail::*;
 pub use repos::*;
 pub use search::*;
 pub use settings::*;
+pub use teams::*;
 pub use wiki::*;

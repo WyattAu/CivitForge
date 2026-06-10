@@ -29,6 +29,7 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("/repos") view=ReposPage />
                             <Route path=path!("/new-repo") view=NewRepoPage />
                             <Route path=path!("/activity") view=ActivityPage />
+                            <Route path=path!("/admin") view=AdminPage />
                             <ParentRoute path=path!("/repos/:owner/:name") view=RepoDetailPage>
                                 <Route path=path!("") view=CodePage />
                                 <Route path=path!("code") view=CodePage />
@@ -41,11 +42,16 @@ pub fn App() -> impl IntoView {
                                 <Route path=path!("pipelines") view=PipelinesPage />
                                 <Route path=path!("pulls") view=PullRequestsPage />
                                 <Route path=path!("pulls/:number") view=PullRequestDetailPage />
+                                <Route path=path!("graph") view=GraphPage />
+                                <Route path=path!("releases") view=ReleasesPage />
+                                <Route path=path!("boards") view=BoardsPage />
                                 <Route path=path!("settings") view=RepoSettingsPage />
+                                <Route path=path!("branch-protection") view=BranchProtectionPage />
                             </ParentRoute>
                             <Route path=path!("/search") view=SearchPage />
                             <Route path=path!("/orgs") view=OrgsPage />
                             <Route path=path!("/orgs/:id") view=OrgDetailPage />
+                            <Route path=path!("/orgs/:id/teams") view=TeamsPage />
                             <Route path=path!("/settings") view=SettingsPage />
                             <Route path=path!("/explore") view=ExplorePage />
                             <Route path=path!("*") view=NotFoundPage />

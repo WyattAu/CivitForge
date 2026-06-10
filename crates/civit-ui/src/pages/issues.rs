@@ -254,7 +254,7 @@ pub fn IssuesPage() -> impl IntoView {
             </div>
 
             <Show when=move || show_new_form.get() fallback=|| view! { <div class="hidden"></div> }>
-                <Card title="New Issue">
+                <Card title="New Issue".to_string()>
                     <form on:submit=handle_new_issue_submit class="space-y-4">
                         <Show when=move || submit_error.get().is_some()>
                             <ErrorBanner message=move || submit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_submit_error.set(None)) />

@@ -4,6 +4,7 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::api::users::UserResponse;
 use crate::error::CoreError;
+use crate::ldap::LdapAuth;
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
@@ -47,6 +48,18 @@ pub struct LoginResponse {
 #[derive(Debug, Serialize)]
 pub struct RefreshResponse {
     pub token: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LdapSyncRequest {
+    pub username: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LdapSyncResponse {
+    pub status: String,
+    pub groups: Vec<String>,
+    pub message: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,6 +201,52 @@ async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<L
         )));
     }
 
+    // Try LDAP authentication first if enabled
+    if sec.ldap_enabled {
+        match LdapAuth::authenticate(sec, &req.username, &req.password).await {
+            Ok(ldap_info) => {
+                // Auto-provision or fetch the user
+                let user = match state.db.get_user_by_username(&ldap_info.username).await {
+                    Ok(u) => u,
+                    Err(_) => {
+                        // Create new user from LDAP
+                        state
+                            .db
+                            .create_user(
+                                &ldap_info.username,
+                                &ldap_info.email,
+                                &ldap_info.display_name,
+                                "member",
+                                "", // No local password for LDAP users
+                            )
+                            .await?
+                    }
+                };
+
+                let _ = state
+                    .db
+                    .record_login_attempt(&req.username, "ldap", true)
+                    .await;
+                let _ = state.db.clear_login_attempts(&req.username).await;
+
+                let token = state.jwt_service.generate_token(
+                    &user.id.to_string(),
+                    &user.username,
+                    &user.role,
+                    None,
+                )?;
+
+                return Ok(LoginResponse {
+                    token,
+                    user: UserResponse::from(user),
+                });
+            }
+            Err(_) => {
+                // Fall through to local auth on LDAP failure
+            }
+        }
+    }
+
     let user = match state.db.get_user_by_username(&req.username).await {
         Ok(u) => u,
         Err(_) => {
@@ -304,6 +363,38 @@ pub async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> impl 
     };
 
     (StatusCode::OK, Json(RefreshResponse { token })).into_response()
+}
+
+pub async fn ldap_sync(
+    State(state): State<AppState>,
+    Json(req): Json<LdapSyncRequest>,
+) -> impl IntoResponse {
+    match do_ldap_sync(&state, req).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+    }
+}
+
+async fn do_ldap_sync(
+    state: &AppState,
+    req: LdapSyncRequest,
+) -> crate::error::Result<LdapSyncResponse> {
+    if req.username.is_empty() {
+        return Err(CoreError::Auth("Username is required".into()));
+    }
+
+    let sec = &state.config.security;
+    if !sec.ldap_enabled {
+        return Err(CoreError::Auth("LDAP is not enabled".into()));
+    }
+
+    let groups = LdapAuth::sync_groups(sec, &req.username).await?;
+
+    Ok(LdapSyncResponse {
+        status: "ok".into(),
+        groups: groups.clone(),
+        message: format!("Synced {} LDAP groups", groups.len()),
+    })
 }
 
 /// Generate a random 6-digit verification code.

@@ -209,7 +209,7 @@ pub fn PullRequestsPage() -> impl IntoView {
             </div>
 
             <Show when=move || show_new_form.get() fallback=|| view! { <div class="hidden"></div> }>
-                <Card title="New Pull Request">
+                <Card title="New Pull Request".to_string()>
                     <form on:submit=handle_new_pr_submit class="space-y-4">
                         <Show when=move || submit_error.get().is_some()>
                             <ErrorBanner message=move || submit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_submit_error.set(None)) />

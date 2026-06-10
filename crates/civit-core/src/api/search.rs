@@ -831,6 +831,17 @@ async fn index_collected_files(
     Ok(indexed)
 }
 
+/// Incrementally re-index a repository after a push.
+/// Collects all files from the repo and updates the search index.
+pub async fn reindex_repo_after_push(
+    pool: &PgPool,
+    repo_id: &uuid::Uuid,
+    repo_path: &std::path::Path,
+) -> Result<usize, CoreError> {
+    let (commit_sha, files) = collect_repo_files(repo_path)?;
+    index_collected_files(pool, repo_id, &commit_sha, &files).await
+}
+
 // ---------------------------------------------------------------------------
 // Route builder
 // ---------------------------------------------------------------------------

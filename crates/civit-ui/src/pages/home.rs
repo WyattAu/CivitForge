@@ -139,7 +139,7 @@ fn HomeLoggedIn() -> impl IntoView {
                 </A>
             </div>
 
-            <Card title="Your Repositories" description="Your latest repositories">
+            <Card title="Your Repositories".to_string() description="Your latest repositories".to_string()>
                 <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
                     <div class="flex items-center justify-center py-8">
                         <Spinner />

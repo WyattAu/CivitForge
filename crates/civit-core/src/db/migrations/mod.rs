@@ -46,6 +46,9 @@ pub const M_039_SECRET_SCANNING_SLSA_UP: &str =
     include_str!("039_add_secret_scanning_slsa_tables.sql");
 pub const M_039_SECRET_SCANNING_SLSA_DOWN: &str =
     include_str!("040_add_secret_scanning_slsa_tables_down.sql");
+pub const M_042_WEBHOOK_DELIVERIES_UP: &str = include_str!("042_add_webhook_deliveries.sql");
+pub const M_042_WEBHOOK_DELIVERIES_DOWN: &str =
+    include_str!("042_add_webhook_deliveries_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -196,6 +199,12 @@ impl MigrationManager {
             up_sql: M_040_BOARDS_UP.into(),
             down_sql: M_041_BOARDS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 42,
+            name: "add_webhook_deliveries".into(),
+            up_sql: M_042_WEBHOOK_DELIVERIES_UP.into(),
+            down_sql: M_042_WEBHOOK_DELIVERIES_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -237,7 +246,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 21);
+        assert_eq!(mgr.all().len(), 22);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -280,19 +289,21 @@ mod tests {
         assert_eq!(mgr.all()[19].name, "add_repo_secrets_and_pipeline_caches");
         assert_eq!(mgr.all()[20].version, 40);
         assert_eq!(mgr.all()[20].name, "add_boards");
+        assert_eq!(mgr.all()[21].version, 42);
+        assert_eq!(mgr.all()[21].name, "add_webhook_deliveries");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 42,
+            version: 44,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 22);
-        assert_eq!(mgr.all()[21].version, 42);
+        assert_eq!(mgr.all().len(), 23);
+        assert_eq!(mgr.all()[22].version, 44);
     }
 
     #[test]
@@ -311,13 +322,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 21);
+        assert_eq!(pending.len(), 22);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(40);
+        let pending = mgr.get_pending(42);
         assert_eq!(pending.len(), 0);
     }
 
@@ -325,7 +336,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 20);
+        assert_eq!(pending.len(), 21);
     }
 
     #[test]
@@ -454,5 +465,27 @@ mod tests {
         assert_ne!(M_017_SEARCH_DOWN, "");
         assert!(M_017_SEARCH_DOWN.contains("DROP TABLE IF EXISTS code_search_tokens"));
         assert!(M_017_SEARCH_DOWN.contains("DROP TABLE IF EXISTS code_search_index"));
+    }
+
+    #[test]
+    fn test_webhook_deliveries_sql_not_empty() {
+        assert_ne!(M_042_WEBHOOK_DELIVERIES_UP, "");
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("CREATE TABLE IF NOT EXISTS webhook_deliveries"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("webhook_id"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("event"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("payload"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("status"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("attempts"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("last_error"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("next_retry_at"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("created_at"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("idx_webhook_deliveries_webhook_id"));
+        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("idx_webhook_deliveries_status_retry"));
+    }
+
+    #[test]
+    fn test_webhook_deliveries_down_sql_not_empty() {
+        assert_ne!(M_042_WEBHOOK_DELIVERIES_DOWN, "");
+        assert!(M_042_WEBHOOK_DELIVERIES_DOWN.contains("DROP TABLE IF EXISTS webhook_deliveries"));
     }
 }

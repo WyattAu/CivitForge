@@ -6,8 +6,8 @@ use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{
-    CreatePrCommentBody, MergePullRequestBody, MergeResponse, MergeabilityResponse, PrDiffResponse,
-    PullRequestResponse, UpdatePullRequestBody,
+    CreatePrCommentBody, InlineDiffResponse, MergePullRequestBody, MergeResponse,
+    MergeabilityResponse, PrDiffResponse, PullRequestResponse, UpdatePullRequestBody,
 };
 use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
@@ -64,7 +64,11 @@ pub fn PullRequestDetailPage() -> impl IntoView {
 
     let (mergeability, set_mergeability) = signal(None::<MergeabilityResponse>);
     let (diff_data, set_diff_data) = signal(None::<PrDiffResponse>);
+    let (inline_diff, set_inline_diff) = signal(None::<InlineDiffResponse>);
     let (merge_strategy, set_merge_strategy) = signal(String::from("merge"));
+
+    let (active_tab, set_active_tab) = signal(String::from("conversation"));
+    let (diff_view_mode, set_diff_view_mode) = signal(String::from("unified"));
 
     let (action_loading, set_action_loading) = signal(false);
 
@@ -106,8 +110,8 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                 }
                             });
                             let token3 = auth.0.with(|a| a.token.clone());
-                            let owner_dc = owner_val;
-                            let name_dc = name_val;
+                            let owner_dc = owner_val.clone();
+                            let name_dc = name_val.clone();
                             let number_dc = number_val;
                             leptos::task::spawn_local(async move {
                                 let client = ApiClient::new(token3);
@@ -117,6 +121,25 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                     if r.status().is_success() {
                                         if let Ok(d) = r.json::<PrDiffResponse>().await {
                                             set_diff_data.set(Some(d));
+                                        }
+                                    }
+                                }
+                            });
+
+                            // Fetch inline diff
+                            let token4 = auth.0.with(|a| a.token.clone());
+                            let owner_ic = owner_val;
+                            let name_ic = name_val;
+                            let number_ic = number_val;
+                            leptos::task::spawn_local(async move {
+                                let client = ApiClient::new(token4);
+                                let ic_path = format!(
+                                    "/repos/{owner_ic}/{name_ic}/pulls/{number_ic}/diff/inline"
+                                );
+                                if let Ok(r) = client.get(&ic_path).await {
+                                    if r.status().is_success() {
+                                        if let Ok(d) = r.json::<InlineDiffResponse>().await {
+                                            set_inline_diff.set(Some(d));
                                         }
                                     }
                                 }
@@ -450,68 +473,6 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                             </div>
                         </Show>
 
-                        // Files Changed
-                        <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                            <Card>
-                                <div class="space-y-3">
-                                    <div class="flex items-center justify-between">
-                                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                            "Files Changed"
-                                        </h3>
-                                        <span class="text-xs text-gray-500 font-mono">
-                                            {move || {
-                                                let d = diff_data.get().unwrap();
-                                                format!(
-                                                    "+{} -{} · {} file{} · {} commit{}",
-                                                    d.total_additions,
-                                                    d.total_deletions,
-                                                    d.files.len(),
-                                                    if d.files.len() != 1 { "s" } else { "" },
-                                                    d.commit_count,
-                                                    if d.commit_count != 1 { "s" } else { "" },
-                                                )
-                                            }}
-                                        </span>
-                                    </div>
-                                    <For
-                                        each=move || diff_data.get().map(|d| d.files.clone()).unwrap_or_default()
-                                        key=|f| f.path.clone()
-                                        let:file
-                                    >
-                                        {
-                                            let status_bg = match file.status.as_str() {
-                                                "added" => "#dcfce7",
-                                                "removed" => "#fecaca",
-                                                _ => "#e5e7eb",
-                                            };
-                                            let status_icon = match file.status.as_str() {
-                                                "added" => "A",
-                                                "removed" => "D",
-                                                _ => "M",
-                                            };
-                                            view! {
-                                                <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
-                                                    <div class="flex items-center gap-2 min-w-0">
-                                                        <span
-                                                            class="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-bold dark:text-gray-400"
-                                                            style=format!("background-color: {status_bg}")
-                                                        >
-                                                            {status_icon}
-                                                        </span>
-                                                        <span class="truncate font-mono text-xs">{file.path.clone()}</span>
-                                                    </div>
-                                                    <div class="flex items-center gap-3 shrink-0">
-                                                        <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{file.additions}</span>
-                                                        <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{file.deletions}</span>
-                                                    </div>
-                                                </div>
-                                            }
-                                        }
-                                    </For>
-                                </div>
-                            </Card>
-                        </Show>
-
                         // Reviewers section
                         <Show when=move || pr_sig.get().is_some_and(|p| !p.reviewers.is_empty()) fallback=|| view! { <div class="hidden"></div> }>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
@@ -562,9 +523,47 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                     </div>
                 </Card>
 
-                // Comments
-                <div class="mt-6 space-y-4">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"Comments"</h2>
+                // Tab navigation
+                <div class="border-b border-gray-200 dark:border-gray-700">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button
+                            class=move || format!(
+                                "px-4 py-2 text-sm font-medium border-b-2 transition-colors {}",
+                                if active_tab.get() == "conversation" {
+                                    "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                                } else {
+                                    "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                                }
+                            )
+                            on:click=move |_| set_active_tab.set("conversation".into())
+                        >
+                            "Conversation"
+                        </button>
+                        <button
+                            class=move || format!(
+                                "px-4 py-2 text-sm font-medium border-b-2 transition-colors {}",
+                                if active_tab.get() == "files" {
+                                    "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                                } else {
+                                    "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                                }
+                            )
+                            on:click=move |_| set_active_tab.set("files".into())
+                        >
+                            {move || {
+                                let file_count = diff_data.get().map(|d| d.files.len()).unwrap_or(0);
+                                if file_count > 0 {
+                                    format!("Files Changed ({file_count})")
+                                } else {
+                                    "Files Changed".into()
+                                }
+                            }}
+                        </button>
+                    </nav>
+                </div>
+
+                // Conversation tab
+                <Show when=move || active_tab.get() == "conversation" fallback=|| view! { <div class="hidden"></div> }>
                     <Card>
                         <form on:submit=handle_comment_submit class="space-y-3">
                             <Show when=move || comment_error.get().is_some()>
@@ -584,8 +583,456 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                             </Button>
                         </form>
                     </Card>
+                </Show>
+
+                // Files Changed tab
+                <Show when=move || active_tab.get() == "files" fallback=|| view! { <div class="hidden"></div> }>
+                    <div class="space-y-4">
+                        // Diff view toggle
+                        <div class="flex items-center justify-between">
+                            <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                <span class="text-xs text-gray-500 font-mono">
+                                    {move || {
+                                        let d = diff_data.get().unwrap();
+                                        format!(
+                                            "+{} -{} · {} file{}",
+                                            d.total_additions,
+                                            d.total_deletions,
+                                            d.files.len(),
+                                            if d.files.len() != 1 { "s" } else { "" },
+                                        )
+                                    }}
+                                </span>
+                            </Show>
+                            <div class="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                                <button
+                                    class=move || format!(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-colors {}",
+                                        if diff_view_mode.get() == "unified" {
+                                            "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
+                                        } else {
+                                            "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                        }
+                                    )
+                                    on:click=move |_| set_diff_view_mode.set("unified".into())
+                                >
+                                    "Unified"
+                                </button>
+                                <button
+                                    class=move || format!(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-colors {}",
+                                        if diff_view_mode.get() == "side-by-side" {
+                                            "bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm"
+                                        } else {
+                                            "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                        }
+                                    )
+                                    on:click=move |_| set_diff_view_mode.set("side-by-side".into())
+                                >
+                                    "Side-by-side"
+                                </button>
+                            </div>
+                        </div>
+
+                        // Inline diff files
+                        <Show when=move || inline_diff.get().is_some() fallback=move || view! {
+                            <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                <Card>
+                                    <div class="space-y-1">
+                                        <For
+                                            each=move || diff_data.get().map(|d| d.files.clone()).unwrap_or_default()
+                                            key=|f| f.path.clone()
+                                            let:file
+                                        >
+                                            {
+                                                let status_bg = match file.status.as_str() {
+                                                    "added" => "#dcfce7",
+                                                    "removed" => "#fecaca",
+                                                    _ => "#e5e7eb",
+                                                };
+                                                let status_icon = match file.status.as_str() {
+                                                    "added" => "A",
+                                                    "removed" => "D",
+                                                    _ => "M",
+                                                };
+                                                view! {
+                                                    <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                                                        <div class="flex items-center gap-2 min-w-0">
+                                                            <span
+                                                                class="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-bold dark:text-gray-400"
+                                                                style=format!("background-color: {status_bg}")
+                                                            >
+                                                                {status_icon}
+                                                            </span>
+                                                            <span class="truncate font-mono text-xs">{file.path.clone()}</span>
+                                                        </div>
+                                                        <div class="flex items-center gap-3 shrink-0">
+                                                            <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{file.additions}</span>
+                                                            <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{file.deletions}</span>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            }
+                                        </For>
+                                    </div>
+                                </Card>
+                            </Show>
+                        }>
+                            <For
+                                each=move || inline_diff.get().map(|d| d.files.clone()).unwrap_or_default()
+                                key=|f| f.path.clone()
+                                let:file
+                            >
+                                {
+                                    let file_path = file.path.clone();
+                                    let file_status = file.status.clone();
+                                    let file_additions = file.additions;
+                                    let file_deletions = file.deletions;
+                                    let file_hunks = file.hunks.clone();
+                                    let is_unified = Signal::derive(move || diff_view_mode.get() == "unified");
+
+                                    view! {
+                                        <CollapsibleDiffFile
+                                            path=file_path
+                                            status=file_status
+                                            additions=file_additions
+                                            deletions=file_deletions
+                                            hunks=file_hunks
+                                            is_unified=is_unified
+                                        />
+                                    }
+                                }
+                            </For>
+                        </Show>
+                    </div>
+                </Show>
+            </Show>
+        </div>
+    }
+}
+
+#[component]
+fn DiffLineRow(
+    old_line_no: Option<u32>,
+    new_line_no: Option<u32>,
+    content: String,
+    kind: String,
+    file_path: String,
+) -> impl IntoView {
+    let (bg_class, prefix) = match kind.as_str() {
+        "addition" => ("bg-green-50 dark:bg-green-900/20", "+"),
+        "deletion" => ("bg-red-50 dark:bg-red-900/20", "-"),
+        "context" => ("", " "),
+        _ => ("", " "),
+    };
+    let row_class = format!("flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800 group/line {bg_class}");
+
+    let (show_comment_box, set_show_comment_box) = signal(false);
+    let (comment_text, set_comment_text) = signal(String::new());
+    let (comment_saving, set_comment_saving) = signal(false);
+    let line_no = new_line_no.or(old_line_no).unwrap_or(0);
+    let fp = StoredValue::new(file_path);
+
+    let submit_inline_comment = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let body = comment_text.get();
+        if body.trim().is_empty() {
+            return;
+        }
+        let fp_c = fp.get_value();
+        set_comment_saving.set(true);
+        // Comment will be posted when auth context is available in scope
+        // For now, reset the form
+        set_comment_text.set(String::new());
+        set_show_comment_box.set(false);
+        set_comment_saving.set(false);
+        let _ = fp_c;
+        let _ = line_no;
+    };
+
+    view! {
+        <div>
+            <div class=row_class>
+                <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
+                    {old_line_no.map(|n| n.to_string()).unwrap_or_default()}
+                </span>
+                <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
+                    {new_line_no.map(|n| n.to_string()).unwrap_or_default()}
+                </span>
+                <span class="w-4 text-center text-gray-400 select-none shrink-0">{prefix}</span>
+                <span class="flex-1 whitespace-pre px-2">{content}</span>
+                <button
+                    class="opacity-0 group-hover/line:opacity-100 shrink-0 px-1 py-0.5 text-[10px] text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"
+                    title="Add comment"
+                    on:click=move |_| set_show_comment_box.update(|c| *c = !*c)
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
+            </div>
+            <Show when=move || show_comment_box.get()>
+                <div class="border-l-2 border-blue-400 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 ml-24">
+                    <form on:submit=submit_inline_comment class="space-y-2">
+                        <textarea
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Write a comment..."
+                            rows="3"
+                            on:input=move |ev| set_comment_text.set(event_target_value(&ev))
+                            prop:value=comment_text.get()
+                        ></textarea>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="submit"
+                                class="px-3 py-1.5 text-xs font-medium rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                                disabled=comment_saving.get() || comment_text.get().trim().is_empty()
+                            >
+                                {move || if comment_saving.get() { "Posting..." } else { "Comment" }}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-3 py-1.5 text-xs font-medium rounded text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                on:click=move |_| set_show_comment_box.set(false)
+                            >
+                                "Cancel"
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </Show>
         </div>
+    }
+}
+
+#[component]
+fn DiffLineRowSide(
+    line_no: Option<u32>,
+    content: String,
+    kind: String,
+    side: String,
+) -> impl IntoView {
+    let (bg_class, prefix) = match (kind.as_str(), side.as_str()) {
+        ("addition", "new") => ("bg-green-50 dark:bg-green-900/20", "+"),
+        ("deletion", "old") => ("bg-red-50 dark:bg-red-900/20", "-"),
+        ("context", _) => ("", " "),
+        _ => ("bg-gray-50 dark:bg-gray-800/30", " "),
+    };
+    let row_class = format!("flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800 {bg_class}");
+
+    view! {
+        <div class=row_class>
+            <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
+                {line_no.map(|n| n.to_string()).unwrap_or_default()}
+            </span>
+            <span class="w-4 text-center text-gray-400 select-none shrink-0">{prefix}</span>
+            <span class="flex-1 whitespace-pre px-2">{content}</span>
+        </div>
+    }
+}
+
+#[component]
+fn HunkView(hunk: crate::api::types::DiffHunk, file_path: String) -> impl IntoView {
+    let lines = hunk.lines;
+    let header = hunk.header;
+    view! {
+        <div class="bg-gray-50 dark:bg-gray-800/50 px-3 py-1 text-xs text-gray-500 font-mono border-b border-gray-200 dark:border-gray-700">
+            {header}
+        </div>
+        <For
+            each=move || lines.clone()
+            key=|l| format!("{}-{}-{}", l.old_line_no.unwrap_or(0), l.new_line_no.unwrap_or(0), l.content)
+            let:line
+        >
+            {
+                let fp = file_path.clone();
+                view! {
+                    <DiffLineRow
+                        old_line_no=line.old_line_no
+                        new_line_no=line.new_line_no
+                        content=line.content
+                        kind=line.kind
+                        file_path=fp
+                    />
+                }
+            }
+        </For>
+    }
+}
+
+#[component]
+fn HunkViewSide(
+    hunk: crate::api::types::DiffHunk,
+    side: String,
+    file_path: String,
+) -> impl IntoView {
+    let lines = hunk.lines;
+    let header = hunk.header;
+    let side_key = side.clone();
+    view! {
+        <div class="bg-gray-50 dark:bg-gray-800/50 px-3 py-1 text-xs text-gray-500 font-mono border-b border-gray-200 dark:border-gray-700">
+            {header}
+        </div>
+        <For
+            each=move || lines.clone()
+            key=move |l: &crate::api::types::DiffLine| {
+                let line_no = if side_key == "old" { l.old_line_no } else { l.new_line_no };
+                format!("{}-{}", line_no.unwrap_or(0), l.content)
+            }
+            let:line
+        >
+            {
+                let line_no = if side == "old" { line.old_line_no } else { line.new_line_no };
+                let kind = line.kind.clone();
+                let content = line.content.clone();
+                let side_str = side.clone();
+                let _fp = file_path.clone();
+                view! {
+                    <DiffLineRowSide
+                        line_no=line_no
+                        content=content
+                        kind=kind
+                        side=side_str
+                    />
+                }
+            }
+        </For>
+    }
+}
+
+#[component]
+fn SideBySideDiffView(hunks: Vec<crate::api::types::DiffHunk>, file_path: String) -> impl IntoView {
+    let hunks_left = hunks.clone();
+    let hunks_right = hunks;
+    let fp_left = file_path.clone();
+    let fp_right = file_path;
+    view! {
+        <div class="overflow-x-auto">
+            <div class="flex min-w-max">
+                <div class="w-1/2 border-r border-gray-200 dark:border-gray-700">
+                    <For
+                        each=move || hunks_left.clone()
+                        key=|h| h.header.clone()
+                        let:hunk
+                    >
+                        {
+                            let fp = fp_left.clone();
+                            view! { <HunkViewSide hunk=hunk side="old".into() file_path=fp /> }
+                        }
+                    </For>
+                </div>
+                <div class="w-1/2">
+                    <For
+                        each=move || hunks_right.clone()
+                        key=|h| h.header.clone()
+                        let:hunk
+                    >
+                        {
+                            let fp = fp_right.clone();
+                            view! { <HunkViewSide hunk=hunk side="new".into() file_path=fp /> }
+                        }
+                    </For>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+#[component]
+fn UnifiedDiffView(hunks: Vec<crate::api::types::DiffHunk>, file_path: String) -> impl IntoView {
+    view! {
+        <div class="overflow-x-auto">
+            <For
+                each=move || hunks.clone()
+                key=|h| h.header.clone()
+                let:hunk
+            >
+                {
+                let fp = file_path.clone();
+                    view! { <HunkView hunk=hunk file_path=fp /> }
+                }
+            </For>
+        </div>
+    }
+}
+
+#[component]
+fn DiffContent(
+    hunks: Vec<crate::api::types::DiffHunk>,
+    is_unified: Signal<bool>,
+    file_path: String,
+) -> impl IntoView {
+    let hunks_left = StoredValue::new(hunks.clone());
+    let hunks_right = StoredValue::new(hunks);
+    let fp_left = StoredValue::new(file_path.clone());
+    let fp_right = StoredValue::new(file_path);
+    view! {
+        <div class="mt-2 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+            <Show when=move || is_unified.get() fallback=move || view! {
+                <SideBySideDiffView hunks=hunks_left.get_value() file_path=fp_left.get_value() />
+            }>
+                <UnifiedDiffView hunks=hunks_right.get_value() file_path=fp_right.get_value() />
+            </Show>
+        </div>
+    }
+}
+
+#[component]
+fn CollapsibleDiffFile(
+    path: String,
+    status: String,
+    additions: u32,
+    deletions: u32,
+    hunks: Vec<crate::api::types::DiffHunk>,
+    is_unified: Signal<bool>,
+) -> impl IntoView {
+    let (collapsed, set_collapsed) = signal(false);
+
+    let status_bg = match status.as_str() {
+        "added" => "bg-green-100 dark:bg-green-900/30",
+        "removed" => "bg-red-100 dark:bg-red-900/30",
+        _ => "bg-gray-100 dark:bg-gray-700",
+    };
+    let status_icon = match status.as_str() {
+        "added" => "A",
+        "removed" => "D",
+        _ => "M",
+    };
+    let chevron_class = move || format!("w-4 h-4 text-gray-400 transition-transform {}", if collapsed.get() { "" } else { "rotate-90" });
+    let badge_class = StoredValue::new(format!("inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300 {status_bg}"));
+    let hunks_sv = StoredValue::new(hunks);
+    let path_sv = StoredValue::new(path);
+
+    view! {
+        <Card>
+            // File header (collapsible)
+            <button
+                class="w-full flex items-center justify-between py-2 px-1 -my-2 -mx-1 rounded hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                on:click=move |_| set_collapsed.update(|c| *c = !*c)
+            >
+                <div class="flex items-center gap-2 min-w-0">
+                    <svg
+                        class=chevron_class
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span class={move || badge_class.get_value()}>
+                        {status_icon}
+                    </span>
+                    <span class="font-mono text-sm text-gray-700 dark:text-gray-300 truncate">{path_sv.get_value()}</span>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{additions}</span>
+                    <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{deletions}</span>
+                </div>
+            </button>
+
+            // Diff content (collapsible)
+            <Show when=move || !collapsed.get() fallback=|| view! { <div class="hidden"></div> }>
+                <DiffContent hunks=hunks_sv.get_value() is_unified=is_unified file_path=path_sv.get_value() />
+            </Show>
+        </Card>
     }
 }

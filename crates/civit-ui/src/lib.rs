@@ -4,6 +4,7 @@ pub mod api;
 pub mod app;
 pub mod components;
 pub mod error_capture;
+pub mod i18n;
 pub mod pages;
 pub mod state;
 pub mod utils;

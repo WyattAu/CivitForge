@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 
 use crate::components::Avatar;
+use crate::i18n::{self, t, LOCALES};
 use crate::state::auth::use_auth;
 
 #[derive(Clone)]
@@ -17,36 +18,37 @@ struct NavItem {
 pub fn Sidebar() -> impl IntoView {
     let (mobile_open, set_mobile_open) = signal(false);
     let auth = use_auth();
+    let (current_locale, set_current_locale) = signal(i18n::get_locale());
 
     let main_nav_items = vec![
         NavItem {
             href: "/".into(),
-            label: "Home".into(),
+            label: "nav.home".to_string(),
             icon: "\u{1f3e0}\u{fe0f}",
         },
         NavItem {
             href: "/repos".into(),
-            label: "Repositories".into(),
+            label: "nav.repos".to_string(),
             icon: "\u{1f4c1}",
         },
         NavItem {
             href: "/activity".into(),
-            label: "Activity".into(),
+            label: "nav.activity".to_string(),
             icon: "activity",
         },
         NavItem {
             href: "/explore".into(),
-            label: "Explore".into(),
+            label: "nav.explore".to_string(),
             icon: "\u{1f50d}",
         },
         NavItem {
             href: "/orgs".into(),
-            label: "Organizations".into(),
+            label: "nav.orgs".to_string(),
             icon: "\u{1f3eb}",
         },
         NavItem {
             href: "/search".into(),
-            label: "Search".into(),
+            label: "nav.search".to_string(),
             icon: "svg",
         },
     ];
@@ -77,7 +79,7 @@ pub fn Sidebar() -> impl IntoView {
             <nav class="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
                 <For each=move || main_nav_sig.get() key=|item| item.href.clone() let:item>
                     {
-                        let label = item.label.clone();
+                        let label_key = item.label.clone();
                         let href = item.href.clone();
                         view! {
                             <A href=href attr:class=link_class>
@@ -94,7 +96,7 @@ pub fn Sidebar() -> impl IntoView {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                     </svg>
                                 </Show>
-                                {label}
+                                {move || t(&label_key)}
                             </A>
                         }
                     }
@@ -103,17 +105,39 @@ pub fn Sidebar() -> impl IntoView {
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! { <div class="hidden"></div> }>
                     <div class="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            "Create"
+                            {move || t("nav.create")}
                         </div>
                         <A href="/new-repo" attr:class=link_class>
                             <span class="mr-2">"\u{2795}"</span>
-                            "New Repo"
+                            {move || t("nav.new_repo")}
                         </A>
                     </div>
                 </Show>
             </nav>
 
             <div class="border-t border-gray-200 dark:border-gray-700 p-3 shrink-0">
+                // Locale switcher
+                <div class="mb-2">
+                    <select
+                        class="w-full px-2 py-1 rounded text-xs \
+                               bg-gray-100 dark:bg-gray-700 \
+                               text-gray-700 dark:text-gray-300 \
+                               border border-gray-200 dark:border-gray-600"
+                        on:change=move |ev| {
+                            let val = event_target_value(&ev);
+                            i18n::save_locale_to_storage(&val);
+                            set_current_locale.set(val);
+                        }
+                    >
+                        {LOCALES.iter().map(|(code, name)| {
+                            let code = *code;
+                            let name = *name;
+                            view! {
+                                <option value=code selected=move || current_locale.get() == code>{name}</option>
+                            }
+                        }).collect_view()}
+                    </select>
+                </div>
                 // Theme toggle — uses data-theme-toggle attribute with JS-attached
                 // click handler to avoid Leptos on:click WebKit auto-fire bug
                 <div
@@ -128,7 +152,9 @@ pub fn Sidebar() -> impl IntoView {
                 </div>
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
                     <A href="/login">
-                        <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">"Sign In"</div>
+                        <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">
+                            {move || t("auth.sign_in")}
+                        </div>
                     </A>
                 }>
                     <div class="space-y-1">
@@ -140,7 +166,7 @@ pub fn Sidebar() -> impl IntoView {
                         </div>
                         <A href="/settings" attr:class=link_class>
                             <span class="mr-2">"\u{2699}\u{fe0f}"</span>
-                            "Settings"
+                            {move || t("settings.title")}
                         </A>
                         // Sign out uses <a href> instead of <button on:click> to
                         // avoid WebKit auto-fire bug. Link triggers JS logout function.
@@ -151,7 +177,8 @@ pub fn Sidebar() -> impl IntoView {
                             role="button"
                             aria-label="Sign out of CivitForge"
                         >
-                            "\u{1f6aa} Sign Out"
+                            "\u{1f6aa} "
+                            {move || t("auth.sign_out")}
                         </a>
                     </div>
                 </Show>

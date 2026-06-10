@@ -120,4 +120,167 @@ impl ApiClient {
         }
         req.send().await
     }
+
+    // ── Board helpers ──
+
+    pub async fn get_boards(
+        &self,
+        owner: &str,
+        repo: &str,
+    ) -> Result<Vec<super::types::BoardResponse>, String> {
+        let path = format!("/repos/{owner}/{repo}/boards");
+        let resp = self.get(&path).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn create_board(
+        &self,
+        owner: &str,
+        repo: &str,
+        body: &super::types::CreateBoardBody,
+    ) -> Result<super::types::BoardResponse, String> {
+        let path = format!("/repos/{owner}/{repo}/boards");
+        let resp = self.post(&path, body).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn update_board(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        body: &super::types::UpdateBoardBody,
+    ) -> Result<super::types::BoardResponse, String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}");
+        let resp = self.patch(&path, body).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn delete_board(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+    ) -> Result<(), String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}");
+        let resp = self.delete(&path).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn create_column(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        body: &super::types::CreateColumnBody,
+    ) -> Result<super::types::BoardColumnResponse, String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}/columns");
+        let resp = self.post(&path, body).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn update_column(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        column_id: &str,
+        body: &super::types::UpdateColumnBody,
+    ) -> Result<super::types::BoardColumnResponse, String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}/columns/{column_id}");
+        let resp = self.patch(&path, body).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn delete_column(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        column_id: &str,
+    ) -> Result<(), String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}/columns/{column_id}");
+        let resp = self.delete(&path).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn create_card(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        column_id: &str,
+        body: &super::types::CreateCardBody,
+    ) -> Result<super::types::BoardCardResponse, String> {
+        let path = format!(
+            "/repos/{owner}/{repo}/boards/{board_id}/columns/{column_id}/cards"
+        );
+        let resp = self.post(&path, body).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn move_card(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        card_id: &str,
+        body: &super::types::MoveCardBody,
+    ) -> Result<super::types::BoardCardResponse, String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}/cards/{card_id}/move");
+        let resp = self.post(&path, body).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
+
+    pub async fn delete_card(
+        &self,
+        owner: &str,
+        repo: &str,
+        board_id: &str,
+        card_id: &str,
+    ) -> Result<(), String> {
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}/cards/{card_id}");
+        let resp = self.delete(&path).await.map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            Ok(())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
 }

@@ -151,6 +151,15 @@ pub async fn receive_pack(
 
                 // Auto-update open PRs whose source branch was pushed to
                 update_prs_on_push(&state_clone, &owner_clone, &name_clone).await;
+
+                // Incremental search re-index after push
+                if let Some(repo_id) = get_repo_id_from_owner_name(&state_clone, &owner_clone, &name_clone).await {
+                    let pool = state_clone.db.pool();
+                    let rp = state_clone.git_service.repo_path(&owner_clone, &name_clone);
+                    if let Err(e) = crate::api::search::reindex_repo_after_push(pool, &repo_id, &rp).await {
+                        tracing::warn!(error = %e, "failed to re-index search after push for {owner_clone}/{name_clone}");
+                    }
+                }
             });
 
             Response::builder()
@@ -338,6 +347,23 @@ fn get_branch_head_sha(
     Ok(Some(
         String::from_utf8_lossy(&output.stdout).trim().to_string(),
     ))
+}
+
+async fn get_repo_id_from_owner_name(
+    state: &AppState,
+    owner: &str,
+    name: &str,
+) -> Option<uuid::Uuid> {
+    let pool = state.db.pool();
+    sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(name)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
 }
 
 #[cfg(test)]

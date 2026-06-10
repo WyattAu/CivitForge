@@ -15,6 +15,7 @@ pub mod feature_flags;
 pub mod federation;
 pub mod git;
 pub mod health;
+pub mod ldap;
 pub mod license_scanner;
 pub mod loadtest;
 pub mod merge_queue;

@@ -377,12 +377,12 @@ pub fn OrgDetailPage() -> impl IntoView {
                         </div>
 
                         <Show when=move || has_desc fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="Description">
+                            <Card title="Description".to_string()>
                                 <p class="text-sm text-gray-700 dark:text-gray-300">{move || desc_sig.get()}</p>
                             </Card>
                         </Show>
 
-                        <Card title="Repositories">
+                        <Card title="Repositories".to_string()>
                             <div class="py-8 text-center text-gray-400 dark:text-gray-500">
                                 "Organization repositories will be listed here."
                             </div>

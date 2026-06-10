@@ -306,6 +306,53 @@ pub struct PrDiffResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineDiffFile {
+    pub path: String,
+    pub status: String,
+    pub additions: u32,
+    pub deletions: u32,
+    pub hunks: Vec<DiffHunk>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffHunk {
+    pub header: String,
+    pub lines: Vec<DiffLine>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiffLine {
+    pub old_line_no: Option<u32>,
+    pub new_line_no: Option<u32>,
+    pub content: String,
+    pub kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InlineDiffResponse {
+    pub files: Vec<InlineDiffFile>,
+    pub total_additions: u32,
+    pub total_deletions: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphNode {
+    pub sha: String,
+    pub message: String,
+    pub author: String,
+    pub date: String,
+    pub parents: Vec<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GraphResponse {
+    pub nodes: Vec<GraphNode>,
+    pub branches: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestReviewBody {
     pub reviewers: Vec<String>,
 }
@@ -325,4 +372,84 @@ pub struct UpdateRepoRequest {
     pub visibility: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_branch: Option<String>,
+}
+
+// ── Board Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardResponse {
+    pub id: String,
+    pub name: String,
+    pub repo_id: String,
+    pub created_at: String,
+    pub updated_at: String,
+    #[serde(default)]
+    pub columns: Vec<BoardColumnResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardColumnResponse {
+    pub id: String,
+    pub name: String,
+    pub board_id: String,
+    pub position: i32,
+    #[serde(default)]
+    pub cards: Vec<BoardCardResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardCardResponse {
+    pub id: String,
+    pub title: String,
+    pub column_id: String,
+    pub position: i32,
+    #[serde(default)]
+    pub issue_number: Option<i64>,
+    #[serde(default)]
+    pub issue_id: Option<String>,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    #[serde(default)]
+    pub assignee: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateBoardBody {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateBoardBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateColumnBody {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateColumnBody {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCardBody {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issue_number: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub issue_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MoveCardBody {
+    pub column_id: String,
+    pub position: i32,
 }

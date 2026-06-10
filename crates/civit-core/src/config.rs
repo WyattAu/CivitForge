@@ -15,6 +15,22 @@ pub struct SecurityConfig {
     pub password_require_lowercase: bool,
     pub password_require_digit: bool,
     pub password_require_special: bool,
+    #[serde(default)]
+    pub ldap_enabled: bool,
+    #[serde(default)]
+    pub ldap_url: String,
+    #[serde(default)]
+    pub ldap_bind_dn: String,
+    #[serde(default)]
+    pub ldap_bind_password: String,
+    #[serde(default)]
+    pub ldap_user_search_base: String,
+    #[serde(default)]
+    pub ldap_user_filter: String,
+    #[serde(default)]
+    pub ldap_group_search_base: String,
+    #[serde(default)]
+    pub ldap_group_search_filter: String,
 }
 
 impl Default for SecurityConfig {
@@ -28,6 +44,14 @@ impl Default for SecurityConfig {
             password_require_lowercase: true,
             password_require_digit: true,
             password_require_special: true,
+            ldap_enabled: false,
+            ldap_url: String::new(),
+            ldap_bind_dn: String::new(),
+            ldap_bind_password: String::new(),
+            ldap_user_search_base: String::new(),
+            ldap_user_filter: String::new(),
+            ldap_group_search_base: String::new(),
+            ldap_group_search_filter: String::new(),
         }
     }
 }
@@ -179,6 +203,24 @@ impl AppConfig {
                     .ok()
                     .and_then(|v| v.parse::<bool>().ok())
                     .unwrap_or(true),
+                ldap_enabled: std::env::var("LDAP_ENABLED")
+                    .ok()
+                    .and_then(|v| v.parse::<bool>().ok())
+                    .unwrap_or(false),
+                ldap_url: std::env::var("LDAP_URL")
+                    .unwrap_or_else(|_| "ldap://localhost:389".into()),
+                ldap_bind_dn: std::env::var("LDAP_BIND_DN")
+                    .unwrap_or_default(),
+                ldap_bind_password: std::env::var("LDAP_BIND_PASSWORD")
+                    .unwrap_or_default(),
+                ldap_user_search_base: std::env::var("LDAP_USER_SEARCH_BASE")
+                    .unwrap_or_else(|_| "ou=users".into()),
+                ldap_user_filter: std::env::var("LDAP_USER_FILTER")
+                    .unwrap_or_else(|_| "(uid={})".into()),
+                ldap_group_search_base: std::env::var("LDAP_GROUP_SEARCH_BASE")
+                    .unwrap_or_else(|_| "ou=groups".into()),
+                ldap_group_search_filter: std::env::var("LDAP_GROUP_FILTER")
+                    .unwrap_or_else(|_| "(memberUid={})".into()),
             },
             tls_cert_path: std::env::var("TLS_CERT_PATH")
                 .ok()

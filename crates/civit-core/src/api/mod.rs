@@ -99,6 +99,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/api/v1/auth/verify-email", post(auth_routes::verify_email))
         .route("/api/v1/auth/me", get(auth_routes::me))
         .route("/api/v1/auth/refresh", post(auth_routes::refresh))
+        .route("/api/v1/auth/ldap/sync", post(auth_routes::ldap_sync))
         .route(
             "/api/v1/repos",
             get(repos::list_repos).post(repos::create_repo),

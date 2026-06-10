@@ -41,6 +41,8 @@ web-sys = { version = "0.3", optional = true, features = [
   "HtmlScriptElement",
   "Performance",
   "History",
+  "DragEvent",
+  "DataTransfer",
 ] }
 js-sys = { version = "0.3", optional = true }
 civit-shared = { path = "../civit-shared" }

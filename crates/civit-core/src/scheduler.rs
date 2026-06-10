@@ -30,6 +30,11 @@ pub fn start_scheduler(pool: sqlx::PgPool, storage_path: String) -> Arc<Notify> 
                 tracing::warn!("scheduler tick error: {e}");
             }
 
+            // Sync due mirrors
+            if let Err(e) = tick_mirrors(&pool, &storage_path).await {
+                tracing::warn!("mirror sync tick error: {e}");
+            }
+
             // Wait for next tick or manual wake
             tokio::select! {
                 _ = interval.tick() => {},
@@ -37,6 +42,9 @@ pub fn start_scheduler(pool: sqlx::PgPool, storage_path: String) -> Arc<Notify> 
                     // Immediately re-check
                     if let Err(e) = tick_schedules(&pool, &storage_path).await {
                         tracing::warn!("scheduler wake tick error: {e}");
+                    }
+                    if let Err(e) = tick_mirrors(&pool, &storage_path).await {
+                        tracing::warn!("mirror sync wake tick error: {e}");
                     }
                 }
             }
@@ -384,6 +392,185 @@ struct ScheduleRow {
     next_run_at: Option<chrono::DateTime<chrono::Utc>>,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Process all due mirror syncs.
+async fn tick_mirrors(
+    pool: &sqlx::PgPool,
+    storage_path: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Ensure table exists (idempotent)
+    let _ = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS repo_mirrors (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+            url TEXT NOT NULL,
+            direction TEXT NOT NULL CHECK (direction IN ('push', 'pull', 'both')),
+            enabled BOOLEAN NOT NULL DEFAULT true,
+            sync_interval_minutes INT NOT NULL DEFAULT 60,
+            last_sync_at TIMESTAMPTZ,
+            last_sync_status TEXT,
+            last_sync_error TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(pool)
+    .await?;
+
+    let now = Utc::now();
+    let rows: Vec<MirrorRow> = sqlx::query_as(
+        r#"SELECT m.id, m.repo_id, m.url, m.direction, m.sync_interval_minutes, m.last_sync_at,
+                  r.name AS repo_name, u.username AS owner_name
+           FROM repo_mirrors m
+           JOIN repositories r ON m.repo_id = r.id
+           JOIN users u ON r.owner_id = u.id
+           WHERE m.enabled = true
+             AND (m.last_sync_at IS NULL
+                  OR m.last_sync_at + (m.sync_interval_minutes || ' minutes')::interval <= $1)"#,
+    )
+    .bind(now)
+    .fetch_all(pool)
+    .await?;
+
+    for mirror in rows {
+        if let Err(e) = sync_single_mirror(pool, storage_path, &mirror).await {
+            tracing::warn!("mirror sync failed for {}: {e}", mirror.id);
+        }
+    }
+
+    Ok(())
+}
+
+/// Sync a single mirror.
+async fn sync_single_mirror(
+    pool: &sqlx::PgPool,
+    storage_path: &str,
+    mirror: &MirrorRow,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let repo_path = std::path::Path::new(storage_path)
+        .join(&mirror.owner_name)
+        .join(format!("{}.git", mirror.repo_name));
+
+    if !repo_path.exists() {
+        tracing::warn!(
+            "mirror sync skipped: repo path {} does not exist",
+            repo_path.display()
+        );
+        return Ok(());
+    }
+
+    // Log mirror metadata for observability
+    let last_sync_info = mirror
+        .last_sync_at
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_else(|| "never".to_string());
+    tracing::info!(
+        mirror_id = %mirror.id,
+        repo_id = %mirror.repo_id,
+        interval_min = mirror.sync_interval_minutes,
+        last_sync = %last_sync_info,
+        "syncing mirror"
+    );
+
+    let sync_result = match mirror.direction.as_str() {
+        "push" => {
+            let output = tokio::process::Command::new("git")
+                .args(["push", "--mirror", &mirror.url])
+                .current_dir(&repo_path)
+                .output()
+                .await;
+            handle_sync_output(output).await
+        }
+        "pull" => {
+            let output = tokio::process::Command::new("git")
+                .args(["fetch", "--all"])
+                .current_dir(&repo_path)
+                .output()
+                .await;
+            handle_sync_output(output).await
+        }
+        "both" => {
+            let fetch_result = {
+                let output = tokio::process::Command::new("git")
+                    .args(["fetch", "--all"])
+                    .current_dir(&repo_path)
+                    .output()
+                    .await;
+                handle_sync_output(output).await
+            };
+            if fetch_result.is_err() {
+                fetch_result
+            } else {
+                let output = tokio::process::Command::new("git")
+                    .args(["push", "--mirror", &mirror.url])
+                    .current_dir(&repo_path)
+                    .output()
+                    .await;
+                handle_sync_output(output).await
+            }
+        }
+        _ => {
+            tracing::warn!("mirror sync: invalid direction '{}' for {}", mirror.direction, mirror.id);
+            return Ok(());
+        }
+    };
+
+    let (status, error_msg) = match &sync_result {
+        Ok(_) => ("success".to_string(), None),
+        Err(e) => ("failed".to_string(), Some(e.clone())),
+    };
+
+    sqlx::query(
+        r#"UPDATE repo_mirrors
+           SET last_sync_at = NOW(),
+               last_sync_status = $2,
+               last_sync_error = $3,
+               updated_at = NOW()
+           WHERE id = $1"#,
+    )
+    .bind(mirror.id)
+    .bind(&status)
+    .bind(error_msg.as_deref())
+    .execute(pool)
+    .await?;
+
+    if status == "success" {
+        tracing::info!("mirror synced: id={}, direction={}", mirror.id, mirror.direction);
+    } else {
+        tracing::warn!("mirror sync failed: id={}, error={:?}", mirror.id, error_msg);
+    }
+
+    Ok(())
+}
+
+async fn handle_sync_output(
+    output: std::result::Result<std::process::Output, std::io::Error>,
+) -> Result<String, String> {
+    match output {
+        Ok(out) => {
+            if out.status.success() {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                Ok(stderr.to_string())
+            } else {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                Err(stderr.to_string())
+            }
+        }
+        Err(e) => Err(format!("failed to execute git: {e}")),
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct MirrorRow {
+    id: uuid::Uuid,
+    repo_id: uuid::Uuid,
+    url: String,
+    direction: String,
+    sync_interval_minutes: i32,
+    last_sync_at: Option<chrono::DateTime<chrono::Utc>>,
+    owner_name: String,
+    repo_name: String,
 }
 
 #[cfg(test)]

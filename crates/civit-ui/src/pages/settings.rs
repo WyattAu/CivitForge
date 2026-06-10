@@ -265,7 +265,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
                     // -- Content --
                     <div class="flex-1 min-w-0 space-y-6">
                         <Show when=move || active_section.get() == SettingsSection::General fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="General" description="Basic repository settings">
+                            <Card title="General".to_string() description="Basic repository settings".to_string()>
                                 <form on:submit=handle_submit class="space-y-5">
                                     <Show when=move || success.get() fallback=|| view! { <div class="hidden"></div> }>
                                         <div class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 dark:border-green-400 text-sm text-green-700 dark:text-green-400">
@@ -354,7 +354,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
                         </Show>
 
                         <Show when=move || active_section.get() == SettingsSection::Collaborators fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="Collaborators" description="Manage repository collaborators">
+                            <Card title="Collaborators".to_string() description="Manage repository collaborators".to_string()>
                                 <div class="py-8 text-center text-gray-400 dark:text-gray-500">
                                     <p class="text-sm">"Coming soon"</p>
                                 </div>
@@ -362,7 +362,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
                         </Show>
 
                         <Show when=move || active_section.get() == SettingsSection::Branches fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="Branches" description="Manage repository branches and defaults">
+                            <Card title="Branches".to_string() description="Manage repository branches and defaults".to_string()>
                                 <div class="py-8 text-center text-gray-400 dark:text-gray-500">
                                     <p class="text-sm">"Coming soon"</p>
                                 </div>
@@ -370,7 +370,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
                         </Show>
 
                         <Show when=move || active_section.get() == SettingsSection::Labels fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="Labels" description="Manage issue and pull request labels">
+                            <Card title="Labels".to_string() description="Manage issue and pull request labels".to_string()>
                                 <div class="py-8 text-center text-gray-400 dark:text-gray-500">
                                     <p class="text-sm">"Coming soon"</p>
                                 </div>
@@ -378,7 +378,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
                         </Show>
 
                         <Show when=move || active_section.get() == SettingsSection::Danger fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="Danger Zone" description="Irreversible and destructive actions">
+                            <Card title="Danger Zone".to_string() description="Irreversible and destructive actions".to_string()>
                                 <div class="space-y-6">
                                     <div class="border-2 border-red-200 dark:border-red-800 p-4">
                                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">"Change Visibility"</h3>
@@ -703,7 +703,7 @@ pub fn SettingsPage() -> impl IntoView {
             </Show>
 
             // -- Profile --
-            <Card title="Profile" description="Manage your public profile information">
+            <Card title="Profile".to_string() description="Manage your public profile information".to_string()>
                 <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
                     <div class="flex items-center justify-center py-6">
                         <Spinner />
@@ -745,7 +745,7 @@ pub fn SettingsPage() -> impl IntoView {
             </Card>
 
             // -- SSH Keys --
-            <Card title="SSH Keys" description="Manage your SSH keys for repository access">
+            <Card title="SSH Keys".to_string() description="Manage your SSH keys for repository access".to_string()>
                 <Show when=move || ssh_loading.get() fallback=|| view! { <div class="hidden"></div> }>
                     <div class="flex items-center justify-center py-4">
                         <Spinner />
@@ -803,7 +803,7 @@ pub fn SettingsPage() -> impl IntoView {
             </Card>
 
             // -- Password --
-            <Card title="Change Password" description="Update your account password">
+            <Card title="Change Password".to_string() description="Update your account password".to_string()>
                 <form on:submit=handle_password_submit class="space-y-5">
                     <Show when=move || pw_success.get() fallback=|| view! { <div class="hidden"></div> }>
                         <div class="p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 dark:border-green-400 rounded-r-sm text-sm text-green-700 dark:text-green-400">
@@ -825,7 +825,7 @@ pub fn SettingsPage() -> impl IntoView {
             </Card>
 
             // -- Danger Zone --
-            <Card title="Danger Zone" description="Irreversible and destructive actions">
+            <Card title="Danger Zone".to_string() description="Irreversible and destructive actions".to_string()>
                 <div class="border border-red-200 dark:border-red-800 rounded-md p-4">
                     <h3 class="text-sm font-medium text-red-600 dark:text-red-400">"Delete Account"</h3>
                     <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">

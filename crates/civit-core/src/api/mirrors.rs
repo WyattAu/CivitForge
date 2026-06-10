@@ -56,6 +56,23 @@ pub struct MirrorRecord {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+impl MirrorRecord {
+    /// Returns the interval in minutes between sync attempts.
+    pub fn sync_interval(&self) -> i32 {
+        self.sync_interval_minutes
+    }
+
+    /// Returns the last successful sync timestamp, if any.
+    pub fn last_sync(&self) -> Option<&chrono::DateTime<chrono::Utc>> {
+        self.last_sync_at.as_ref()
+    }
+
+    /// Returns the repository that owns this mirror.
+    pub fn repository_id(&self) -> Uuid {
+        self.repo_id
+    }
+}
+
 async fn ensure_mirrors_table(pool: &sqlx::postgres::PgPool) {
     let _ = sqlx::query(
         "CREATE TABLE IF NOT EXISTS repo_mirrors (
@@ -411,6 +428,15 @@ pub async fn sync_mirror(
             }
         };
 
+    // Validate the mirror belongs to this repo
+    if mirror.repo_id != _repo_id {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("mirror not found in this repository".into()).error_response()),
+        )
+            .into_response();
+    }
+
     let repo_path = state.git_service.repo_path(&owner, &name);
     if !repo_path.join("HEAD").exists() {
         return (
@@ -419,6 +445,21 @@ pub async fn sync_mirror(
         )
             .into_response();
     }
+
+    // Validate mirror fields and compute sync metadata
+    if mirror.repository_id().is_nil() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Internal("mirror has no repo_id".into()).error_response()),
+        )
+            .into_response();
+    }
+    let sync_interval = mirror.sync_interval();
+    let last_sync_str = match mirror.last_sync() {
+        Some(dt) => dt.to_rfc3339(),
+        None => "never".to_string(),
+    };
+    tracing::info!(interval = sync_interval, last = %last_sync_str, "mirror sync metadata");
 
     let sync_result = match mirror.direction.as_str() {
         "push" => {

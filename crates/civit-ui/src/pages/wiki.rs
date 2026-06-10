@@ -346,7 +346,7 @@ pub fn WikiPage() -> impl IntoView {
             </Show>
 
             <Show when=move || show_new_form.get() fallback=|| view! { <div class="hidden"></div> }>
-                <Card title="Create New Page">
+                <Card title="Create New Page".to_string()>
                     <form on:submit=handle_new_page_submit class="space-y-4">
                         <Show when=move || submit_error.get().is_some()>
                             <ErrorBanner message=move || submit_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_submit_error.set(None)) />
@@ -395,7 +395,7 @@ pub fn WikiPage() -> impl IntoView {
 
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div class="lg:col-span-1">
-                    <Card title="Pages" class="p-0".to_string()>
+                    <Card title="Pages".to_string() class="p-0".to_string()>
                         <div class="divide-y divide-gray-100 dark:divide-gray-700">
                             <Show when=move || pages_loading.get() fallback=|| view! { <div class="hidden"></div> }>
                                 <div class="p-4 flex items-center justify-center">
@@ -457,7 +457,7 @@ pub fn WikiPage() -> impl IntoView {
                     </form>
 
                     <Show when=move || !search_results.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
-                        <Card title="Search Results">
+                        <Card title="Search Results".to_string()>
                             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                                 <For each=move || search_results.get() key=|p| p.slug.clone() let:result>
                                     {

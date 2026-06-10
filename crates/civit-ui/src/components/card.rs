@@ -4,8 +4,8 @@ use leptos::prelude::*;
 
 #[component]
 pub fn Card(
-    #[prop(optional)] title: &'static str,
-    #[prop(optional)] description: &'static str,
+    #[prop(optional)] title: String,
+    #[prop(optional)] description: String,
     #[prop(optional)] class: String,
     children: ChildrenFn,
 ) -> impl IntoView {

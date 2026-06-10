@@ -49,6 +49,7 @@ tar = "0.4"
 tantivy = "0.22"
 urlencoding = "2"
 bcrypt = "0.17"
+ldap3 = { version = "0.11", default-features = false, features = ["tls", "sync"] }
 civit-shared = { path = "../civit-shared" }
 civit-pipeline = { path = "../civit-pipeline" }
 

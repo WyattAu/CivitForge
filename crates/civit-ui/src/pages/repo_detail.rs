@@ -262,6 +262,8 @@ fn RepoTabs(
             "issues"
         } else if rest.starts_with("/pulls") {
             "pulls"
+        } else if rest.starts_with("/boards") {
+            "boards"
         } else if rest.starts_with("/wiki") {
             "wiki"
         } else if rest.starts_with("/pipelines") {
@@ -291,6 +293,12 @@ fn RepoTabs(
                 <span class=move || if active_tab() == "pulls" { tab_active } else { tab_inactive }>
                     <span class="text-xs opacity-60">{icon_prs}</span>
                     <span>"Pull Requests"</span>
+                </span>
+            </A>
+            <A href=format!("/repos/{}/{}/boards", owner(), name())>
+                <span class=move || if active_tab() == "boards" { tab_active } else { tab_inactive }>
+                    <span class="text-xs opacity-60">"K"</span>
+                    <span>"Boards"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/pipelines", owner(), name())>

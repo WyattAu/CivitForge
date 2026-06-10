@@ -7,6 +7,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
+    routing::get,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -287,10 +288,97 @@ pub async fn delete_webhook(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ListDeliveriesParams {
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_per_page")]
+    pub per_page: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeliveryResponse {
+    pub id: String,
+    pub event: String,
+    pub status: String,
+    pub attempts: i32,
+    pub last_error: Option<String>,
+    pub next_retry_at: Option<String>,
+    pub created_at: String,
+}
+
+pub async fn list_webhook_deliveries(
+    State(state): State<AppState>,
+    Path((owner, name, webhook_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Query(params): Query<ListDeliveriesParams>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo(&state, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
+    let rows = sqlx::query_as::<_, (Uuid, String, String, i32, Option<String>, Option<DateTime<Utc>>, DateTime<Utc>)>(
+        "SELECT id, event, status, attempts, last_error, next_retry_at, created_at \
+         FROM webhook_deliveries WHERE webhook_id = $1 \
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(wid)
+    .bind(params.per_page as i64)
+    .bind(offset)
+    .fetch_all(pool)
+    .await;
+
+    match rows {
+        Ok(rows) => {
+            let deliveries: Vec<DeliveryResponse> = rows
+                .into_iter()
+                .map(
+                    |(id, event, status, attempts, last_error, next_retry_at, created_at)| {
+                        DeliveryResponse {
+                            id: id.to_string(),
+                            event,
+                            status,
+                            attempts,
+                            last_error,
+                            next_retry_at: next_retry_at.map(|t| t.to_rfc3339()),
+                            created_at: created_at.to_rfc3339(),
+                        }
+                    },
+                )
+                .collect();
+            (StatusCode::OK, Json(deliveries)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 pub fn webhook_routes() -> axum::Router<AppState> {
     use axum::routing::delete;
-    axum::Router::new().route(
-        "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}",
-        delete(delete_webhook),
-    )
+    axum::Router::new()
+        .route(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}",
+            delete(delete_webhook),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/deliveries",
+            get(list_webhook_deliveries),
+        )
 }

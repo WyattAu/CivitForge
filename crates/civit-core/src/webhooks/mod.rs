@@ -37,6 +37,25 @@ impl WebhookEvent {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeliveryStatus {
+    Pending,
+    Delivered,
+    Failed,
+    Retrying,
+}
+
+impl DeliveryStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DeliveryStatus::Pending => "pending",
+            DeliveryStatus::Delivered => "delivered",
+            DeliveryStatus::Failed => "failed",
+            DeliveryStatus::Retrying => "retrying",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookDelivery {
     pub id: String,
@@ -83,14 +102,23 @@ impl WebhookDispatcher {
         };
 
         for webhook in webhooks {
+            let delivery_id = Uuid::new_v4().to_string();
             let delivery = WebhookDelivery {
-                id: Uuid::new_v4().to_string(),
+                id: delivery_id.clone(),
                 event: event.clone(),
                 payload: payload.clone(),
                 timestamp: Utc::now(),
             };
 
-            if let Err(e) = self.deliver_with_retry(&webhook, &delivery).await {
+            if let Err(e) = self
+                .persist_delivery(pool, &webhook.id.to_string(), &delivery)
+                .await
+            {
+                tracing::error!("Failed to persist webhook delivery {delivery_id}: {e}");
+                continue;
+            }
+
+            if let Err(e) = self.deliver_with_retry(pool, &webhook, &delivery).await {
                 tracing::error!(
                     "Webhook delivery failed for {} after {} attempts: {e}",
                     webhook.url,
@@ -124,8 +152,53 @@ impl WebhookDispatcher {
             .collect())
     }
 
+    async fn persist_delivery(
+        &self,
+        pool: &sqlx::PgPool,
+        webhook_id: &str,
+        delivery: &WebhookDelivery,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO webhook_deliveries (id, webhook_id, event, payload, status, attempts) \
+             VALUES ($1, $2, $3, $4, $5, 0)",
+        )
+        .bind(Uuid::parse_str(&delivery.id).unwrap_or_default())
+        .bind(Uuid::parse_str(webhook_id).unwrap_or_default())
+        .bind(delivery.event.as_str())
+        .bind(&delivery.payload)
+        .bind(DeliveryStatus::Pending.as_str())
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    async fn update_delivery_status(
+        &self,
+        pool: &sqlx::PgPool,
+        delivery_id: &str,
+        status: DeliveryStatus,
+        attempts: i32,
+        last_error: Option<&str>,
+        next_retry_at: Option<DateTime<Utc>>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE webhook_deliveries \
+             SET status = $2, attempts = $3, last_error = $4, next_retry_at = $5 \
+             WHERE id = $1",
+        )
+        .bind(Uuid::parse_str(delivery_id).unwrap_or_default())
+        .bind(status.as_str())
+        .bind(attempts)
+        .bind(last_error)
+        .bind(next_retry_at)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
     async fn deliver_with_retry(
         &self,
+        pool: &sqlx::PgPool,
         webhook: &StoredWebhook,
         delivery: &WebhookDelivery,
     ) -> Result<(), DeliveryError> {
@@ -161,6 +234,16 @@ impl WebhookDispatcher {
                         webhook.url,
                         resp.status()
                     );
+                    let _ = self
+                        .update_delivery_status(
+                            pool,
+                            &delivery.id,
+                            DeliveryStatus::Delivered,
+                            (attempt + 1) as i32,
+                            None,
+                            None,
+                        )
+                        .await;
                     return Ok(());
                 }
                 Ok(resp) => {
@@ -181,7 +264,113 @@ impl WebhookDispatcher {
             }
         }
 
+        let error_msg = last_err
+            .as_ref()
+            .map(|e| e.to_string())
+            .unwrap_or_default();
+        let next_retry = self.compute_next_retry(self.max_retries);
+        let final_status = if next_retry.is_some() {
+            DeliveryStatus::Retrying
+        } else {
+            DeliveryStatus::Failed
+        };
+
+        let _ = self
+            .update_delivery_status(
+                pool,
+                &delivery.id,
+                final_status,
+                self.max_retries as i32,
+                Some(&error_msg),
+                next_retry,
+            )
+            .await;
+
         Err(last_err.unwrap_or(DeliveryError::MaxRetriesExceeded))
+    }
+
+    fn compute_next_retry(&self, attempts: u32) -> Option<DateTime<Utc>> {
+        if attempts >= self.max_retries {
+            None
+        } else {
+            let backoff_secs = 60 * 2u64.pow(attempts);
+            Some(Utc::now() + chrono::Duration::from_std(Duration::from_secs(backoff_secs)).unwrap_or_default())
+        }
+    }
+
+    pub async fn retry_pending_deliveries(&self, pool: &sqlx::PgPool) -> u32 {
+        let pending = match sqlx::query_as::<_, PendingDelivery>(
+            "SELECT id, webhook_id, event, payload, attempts \
+             FROM webhook_deliveries \
+             WHERE status IN ('pending', 'retrying') \
+               AND (next_retry_at IS NULL OR next_retry_at <= NOW()) \
+             ORDER BY created_at ASC \
+             LIMIT 50",
+        )
+        .fetch_all(pool)
+        .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                tracing::error!("Failed to query pending webhook deliveries: {e}");
+                return 0;
+            }
+        };
+
+        let mut retried = 0u32;
+        for row in pending {
+            if row.attempts >= self.max_retries as i32 {
+                let _ = self
+                    .update_delivery_status(
+                        pool,
+                        &row.id,
+                        DeliveryStatus::Failed,
+                        row.attempts,
+                        Some("max retries exceeded"),
+                        None,
+                    )
+                    .await;
+                continue;
+            }
+
+            let webhook = match self.get_webhook(pool, &row.webhook_id).await {
+                Some(w) => w,
+                None => continue,
+            };
+
+            let delivery = WebhookDelivery {
+                id: row.id.clone(),
+                event: match row.event.as_str() {
+                    "push" => WebhookEvent::Push,
+                    "pull_request" => WebhookEvent::PullRequest,
+                    "issue" => WebhookEvent::Issue,
+                    "issue_comment" => WebhookEvent::IssueComment,
+                    "pipeline" => WebhookEvent::Pipeline,
+                    "release" => WebhookEvent::Release,
+                    "star" => WebhookEvent::Star,
+                    "fork" => WebhookEvent::Fork,
+                    _ => WebhookEvent::Push,
+                },
+                payload: row.payload,
+                timestamp: Utc::now(),
+            };
+
+            if self.deliver_with_retry(pool, &webhook, &delivery).await.is_ok() {
+                retried += 1;
+            }
+        }
+        retried
+    }
+
+    async fn get_webhook(&self, pool: &sqlx::PgPool, webhook_id: &str) -> Option<StoredWebhook> {
+        sqlx::query_as::<_, StoredWebhook>(
+            "SELECT id, url, events, secret, active FROM webhooks WHERE id = $1",
+        )
+        .bind(Uuid::parse_str(webhook_id).unwrap_or_default())
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
     }
 }
 
@@ -194,6 +383,15 @@ struct StoredWebhook {
     secret: Option<String>,
     #[allow(dead_code)]
     active: bool,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct PendingDelivery {
+    id: String,
+    webhook_id: String,
+    event: String,
+    payload: serde_json::Value,
+    attempts: i32,
 }
 
 #[derive(Debug)]
@@ -222,6 +420,19 @@ pub fn compute_hmac_signature(secret: &str, body: &[u8]) -> String {
     let result = mac.finalize();
     let bytes = result.into_bytes();
     format!("sha256={}", hex::encode(bytes))
+}
+
+pub fn start_webhook_retry_loop(pool: sqlx::PgPool) {
+    tokio::spawn(async move {
+        let dispatcher = WebhookDispatcher::new();
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            let retried = dispatcher.retry_pending_deliveries(&pool).await;
+            if retried > 0 {
+                tracing::info!("Retried {retried} pending webhook deliveries");
+            }
+        }
+    });
 }
 
 #[cfg(test)]
@@ -321,5 +532,45 @@ mod tests {
 
         let err = DeliveryError::Serialization("bad json".into());
         assert!(err.to_string().contains("serialization"));
+    }
+
+    #[test]
+    fn test_delivery_status_as_str() {
+        assert_eq!(DeliveryStatus::Pending.as_str(), "pending");
+        assert_eq!(DeliveryStatus::Delivered.as_str(), "delivered");
+        assert_eq!(DeliveryStatus::Failed.as_str(), "failed");
+        assert_eq!(DeliveryStatus::Retrying.as_str(), "retrying");
+    }
+
+    #[test]
+    fn test_delivery_status_serialization_roundtrip() {
+        let statuses = vec![
+            DeliveryStatus::Pending,
+            DeliveryStatus::Delivered,
+            DeliveryStatus::Failed,
+            DeliveryStatus::Retrying,
+        ];
+        for status in &statuses {
+            let json = serde_json::to_string(status).unwrap();
+            let back: DeliveryStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(*status, back);
+        }
+    }
+
+    #[test]
+    fn test_compute_next_retry_none_when_max() {
+        let dispatcher = WebhookDispatcher::new();
+        assert!(dispatcher.compute_next_retry(3).is_none());
+    }
+
+    #[test]
+    fn test_compute_next_retry_some_when_below_max() {
+        let dispatcher = WebhookDispatcher::new();
+        let next = dispatcher.compute_next_retry(0);
+        assert!(next.is_some());
+        let next = dispatcher.compute_next_retry(1);
+        assert!(next.is_some());
+        let next = dispatcher.compute_next_retry(2);
+        assert!(next.is_some());
     }
 }
