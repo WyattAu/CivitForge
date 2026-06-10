@@ -842,6 +842,26 @@ pub async fn reindex_repo_after_push(
     index_collected_files(pool, repo_id, &commit_sha, &files).await
 }
 
+/// Background search indexing for a repository.
+/// Resolves the repo path, walks the git tree, and indexes files into code_search_index.
+pub async fn trigger_repo_index_background(
+    state: &AppState,
+    owner: &str,
+    name: &str,
+) -> Result<(), String> {
+    let pool = state.db.pool();
+    let repo_id = get_repo_id(pool, owner, name)
+        .await
+        .ok_or_else(|| format!("repository {owner}/{name} not found"))?;
+    let repo_path: PathBuf = state.git_service.repo_path(owner, name);
+    let (commit_sha, files) = collect_repo_files(&repo_path)
+        .map_err(|e| format!("failed to collect repo files: {e}"))?;
+    index_collected_files(pool, &repo_id, &commit_sha, &files)
+        .await
+        .map_err(|e| format!("failed to index files: {e}"))?;
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Route builder
 // ---------------------------------------------------------------------------

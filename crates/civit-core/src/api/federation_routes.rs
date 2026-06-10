@@ -107,7 +107,10 @@ pub fn federation_routes() -> Router<AppState> {
         .route("/.well-known/webfinger", get(webfinger))
         .route("/api/v1/federation/actor", get(actor_endpoint))
         .route("/api/v1/federation/inbox", post(inbox))
-        .route("/api/v1/federation/outbox", get(outbox))
+        .route(
+            "/api/v1/federation/outbox",
+            get(outbox).post(outbox_post),
+        )
 }
 
 pub async fn webfinger(
@@ -670,6 +673,146 @@ pub async fn outbox(
     );
 
     (StatusCode::OK, headers, Json(resp)).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OutboxPostRequest {
+    #[serde(rename = "@context")]
+    pub context: Option<serde_json::Value>,
+    #[serde(rename = "type")]
+    pub type_: String,
+    pub actor: Option<String>,
+    pub object: serde_json::Value,
+    pub target: Option<String>,
+    #[serde(default)]
+    pub to: Vec<String>,
+    #[serde(default)]
+    pub cc: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OutboxPostResponse {
+    pub status: String,
+    pub message: String,
+    pub activity_id: String,
+}
+
+/// POST /api/v1/federation/outbox — accept an activity and deliver it to followers.
+pub async fn outbox_post(
+    State(state): State<AppState>,
+    Json(body): Json<OutboxPostRequest>,
+) -> impl IntoResponse {
+    if !state.config.federation_enabled {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("federation disabled".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let domain = &state.config.federation_instance_domain;
+    let activity_id = format!(
+        "https://{}/activities/{}",
+        domain,
+        uuid::Uuid::new_v4()
+    );
+
+    let activity = crate::federation::activitypub::Activity {
+        r#type: match body.type_.as_str() {
+            "Create" => crate::federation::activitypub::ActivityType::Create,
+            "Update" => crate::federation::activitypub::ActivityType::Update,
+            "Delete" => crate::federation::activitypub::ActivityType::Delete,
+            "Follow" => crate::federation::activitypub::ActivityType::Follow,
+            "Accept" => crate::federation::activitypub::ActivityType::Accept,
+            "Reject" => crate::federation::activitypub::ActivityType::Reject,
+            "Add" => crate::federation::activitypub::ActivityType::Add,
+            "Like" => crate::federation::activitypub::ActivityType::Like,
+            "Announce" => crate::federation::activitypub::ActivityType::Announce,
+            "Undo" => crate::federation::activitypub::ActivityType::Undo,
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(
+                        CoreError::BadRequest(format!("unsupported activity type: {}", body.type_))
+                            .error_response(),
+                    ),
+                )
+                    .into_response();
+            }
+        },
+        id: activity_id.clone(),
+        actor: body
+            .actor
+            .unwrap_or_else(|| format!("https://{domain}/api/v1/federation/actor")),
+        object: crate::federation::activitypub::ActivityObject::Unknown(body.object),
+        target: body.target,
+        published: chrono::Utc::now().to_rfc3339(),
+        to: body.to,
+        cc: body.cc,
+    };
+
+    // Spawn background delivery — resolve followers and deliver via HTTP signatures
+    let private_key = get_federation_key().private_key_bytes.clone();
+    let pool = state.db.pool().clone();
+    let activity_id_for_log = activity_id.clone();
+
+    tokio::spawn(async move {
+        let follower_urls = match get_follower_inbox_urls(&pool).await {
+            Ok(urls) => urls,
+            Err(e) => {
+                tracing::warn!(error = %e, "failed to resolve follower inbox URLs for delivery");
+                return;
+            }
+        };
+
+        if follower_urls.is_empty() {
+            tracing::debug!("no followers to deliver activity to");
+            return;
+        }
+
+        for inbox_url in &follower_urls {
+            if let Err(e) = crate::federation::delivery::FederationDelivery::deliver_activity(
+                &activity,
+                inbox_url,
+                &private_key,
+            )
+            .await
+            {
+                tracing::warn!(
+                    inbox = %inbox_url,
+                    error = %e,
+                    activity_id = %activity_id_for_log,
+                    "failed to deliver activity to follower inbox"
+                );
+            }
+        }
+
+        tracing::info!(
+            activity_id = %activity_id_for_log,
+            followers = follower_urls.len(),
+            "activity delivered to followers"
+        );
+    });
+
+    let resp = OutboxPostResponse {
+        status: "accepted".into(),
+        message: "Activity queued for delivery".into(),
+        activity_id,
+    };
+
+    (StatusCode::ACCEPTED, Json(resp)).into_response()
+}
+
+/// Resolve follower inbox URLs from the database.
+async fn get_follower_inbox_urls(
+    pool: &sqlx::PgPool,
+) -> Result<Vec<String>, sqlx::Error> {
+    let rows = sqlx::query_scalar::<_, String>(
+        "SELECT inbox_url FROM federation_followers WHERE status = 'accepted'",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
 }
 
 #[cfg(test)]

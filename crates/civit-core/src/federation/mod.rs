@@ -12,7 +12,7 @@ pub mod vector_clock;
 pub mod webfinger;
 
 pub use activitypub::{Activity, Actor, InboxHandler};
-pub use delivery::{DeliveryResult, FederationDeliveryConfig, FederationDeliveryService};
+pub use delivery::{DeliveryResult, FederationDelivery, FederationDeliveryConfig, FederationDeliveryService, compute_signature};
 pub use forgefed::{
     CrossInstanceIdentityResolver, FederatedFork, FederatedIssue, FederatedPR, FederatedPRReview,
     FederatedRepo, FederatedStar, ForgeFedActivity, ForgeFedProcessor, IdempotencyTracker,

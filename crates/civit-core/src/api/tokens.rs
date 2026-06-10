@@ -83,11 +83,11 @@ fn hash_token(token: &str) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-/// Generate a random token string (40 bytes hex = 80 chars)
+/// Generate a random token string with cf_pat_ prefix (40 bytes hex = 80 chars)
 fn generate_token() -> String {
     let mut random_bytes = [0u8; 40];
     rand::fill(&mut random_bytes);
-    hex::encode(random_bytes)
+    format!("cf_pat_{}", hex::encode(random_bytes))
 }
 
 /// Parse user_id from AuthUser

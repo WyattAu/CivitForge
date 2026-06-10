@@ -477,6 +477,155 @@ fn httpdate_format() -> String {
         .to_string()
 }
 
+/// Compute an HTTP Signature (draft-cavage-http-signatures) for the given request components.
+///
+/// Returns the `Signature` header value string.
+pub fn compute_signature(
+    _method: &str,
+    _path: &str,
+    headers: &HashMap<String, String>,
+    signing_key: &[u8],
+) -> Result<String, DeliveryError> {
+    let config = HttpSigningConfig {
+        algorithm: SignatureAlgorithm::Ed25519,
+        required_headers: vec![
+            "(request-target)".into(),
+            "host".into(),
+            "date".into(),
+            "digest".into(),
+        ],
+        expires_in_secs: 300,
+    };
+
+    let verifier = SignatureVerifier::new();
+    let sig = verifier
+        .sign_request(&config, headers, b"", signing_key, "main-key")
+        .map_err(DeliveryError::SignatureError)?;
+    Ok(sig.to_header_value())
+}
+
+/// Simple synchronous delivery interface for pushing a single Activity to a target inbox.
+///
+/// Wraps the full `FederationDeliveryService` for one-shot use (e.g., from route handlers).
+pub struct FederationDelivery;
+
+impl FederationDelivery {
+    /// Deliver an ActivityPub activity to a remote inbox URL.
+    ///
+    /// Performs an HTTP POST with Content-Type `application/activity+json`,
+    /// a SHA-256 Digest header, an HTTP Date header, and an HTTP Signature
+    /// (draft-cavage-http-signatures) signed with the provided Ed25519 key.
+    ///
+    /// Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+    pub async fn deliver_activity(
+        activity: &crate::federation::activitypub::Activity,
+        target_url: &str,
+        signing_key: &[u8],
+    ) -> Result<(), DeliveryError> {
+        let body = serde_json::to_vec(activity)
+            .map_err(|e| DeliveryError::HttpClientError(format!("serialize activity: {e}")))?;
+
+        let digest = compute_digest(&body);
+        let date = httpdate_format();
+
+        let parsed_url = reqwest::Url::parse(target_url)
+            .map_err(|e| DeliveryError::HttpClientError(format!("invalid target URL: {e}")))?;
+        let host = parsed_url
+            .host_str()
+            .unwrap_or("")
+            .to_string();
+        let path = parsed_url.path().to_string();
+
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .user_agent("CivitForge/0.1 (ForgeFed)")
+            .build()
+            .map_err(|e| DeliveryError::HttpClientError(e.to_string()))?;
+
+        let mut last_err = None;
+        for attempt in 0..3u32 {
+            if attempt > 0 {
+                let backoff_ms = 1000u64 * 2u64.pow(attempt - 1);
+                tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+            }
+
+            // Build signing headers
+            let mut sig_headers = HashMap::new();
+            sig_headers.insert("(method)".into(), "POST".into());
+            sig_headers.insert("(path)".into(), path.clone());
+            sig_headers.insert("host".into(), host.clone());
+            sig_headers.insert("date".into(), date.clone());
+            sig_headers.insert("digest".into(), digest.clone());
+
+            let signature_header = if signing_key.is_empty() {
+                None
+            } else {
+                match compute_signature("POST", &path, &sig_headers, signing_key) {
+                    Ok(sig) => Some(sig),
+                    Err(e) => {
+                        tracing::warn!(
+                            attempt,
+                            error = %e,
+                            target = %target_url,
+                            "failed to compute HTTP signature"
+                        );
+                        last_err = Some(e);
+                        continue;
+                    }
+                }
+            };
+
+            let mut req = client
+                .post(target_url)
+                .header("Content-Type", "application/activity+json")
+                .header("Date", &date)
+                .header("Digest", &digest);
+
+            if let Some(ref sig) = signature_header {
+                req = req.header("Signature", sig);
+            }
+
+            match req.body(body.clone()).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    tracing::info!(
+                        target = %target_url,
+                        status = %resp.status(),
+                        attempt,
+                        "activity delivered"
+                    );
+                    return Ok(());
+                }
+                Ok(resp) => {
+                    let status = resp.status().as_u16();
+                    tracing::warn!(
+                        target = %target_url,
+                        status,
+                        attempt,
+                        "activity delivery returned non-success"
+                    );
+                    last_err = Some(DeliveryError::HttpError {
+                        status,
+                        inbox: target_url.to_string(),
+                    });
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        target = %target_url,
+                        error = %e,
+                        attempt,
+                        "activity delivery network error"
+                    );
+                    last_err = Some(DeliveryError::HttpClientError(e.to_string()));
+                }
+            }
+        }
+
+        Err(last_err.unwrap_or(DeliveryError::HttpClientError(
+            "delivery failed after 3 attempts".into(),
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -600,5 +749,47 @@ mod tests {
             ttl: Duration::from_secs(1),
         };
         assert!(expired.is_expired());
+    }
+
+    #[test]
+    fn test_compute_signature_returns_header_value() {
+        let (private_key, _public_key) =
+            crate::federation::http_signatures::generate_ed25519_keypair();
+        let mut headers = HashMap::new();
+        headers.insert("(method)".into(), "POST".into());
+        headers.insert("(path)".into(), "/users/alice/inbox".into());
+        headers.insert("host".into(), "remote.example.com".into());
+        headers.insert("date".into(), "Mon, 10 Jun 2026 12:00:00 GMT".into());
+        headers.insert(
+            "digest".into(),
+            "SHA-256=abc123".into(),
+        );
+
+        let result = compute_signature("POST", "/users/alice/inbox", &headers, &private_key);
+        assert!(result.is_ok());
+        let header_val = result.unwrap();
+        assert!(header_val.contains("keyId=\"main-key\""));
+        assert!(header_val.contains("algorithm=\"ed25519\""));
+        assert!(header_val.contains("signature=\""));
+    }
+
+    #[test]
+    fn test_compute_signature_empty_key_fails() {
+        let mut headers = HashMap::new();
+        headers.insert("(method)".into(), "POST".into());
+        headers.insert("(path)".into(), "/inbox".into());
+
+        let result = compute_signature("POST", "/inbox", &headers, &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_compute_signature_invalid_key_fails() {
+        let mut headers = HashMap::new();
+        headers.insert("(method)".into(), "POST".into());
+        headers.insert("(path)".into(), "/inbox".into());
+
+        let result = compute_signature("POST", "/inbox", &headers, b"not-a-valid-key");
+        assert!(result.is_err());
     }
 }

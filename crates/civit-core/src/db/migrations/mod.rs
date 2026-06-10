@@ -1,54 +1,57 @@
 #![forbid(unsafe_code)]
 
 pub const M_001_INITIAL_SCHEMA_UP: &str = include_str!("001_initial_schema.sql");
-pub const M_001_INITIAL_SCHEMA_DOWN: &str = include_str!("002_initial_schema_down.sql");
+pub const M_001_INITIAL_SCHEMA_DOWN: &str = include_str!("down/002_initial_schema_down.sql");
 pub const M_003_PHASE1_UP: &str = include_str!("003_add_ssh_keys_branches_steps_events.sql");
-pub const M_003_PHASE1_DOWN: &str = include_str!("004_add_ssh_keys_branches_steps_events_down.sql");
+pub const M_003_PHASE1_DOWN: &str = include_str!("down/004_add_ssh_keys_branches_steps_events_down.sql");
 pub const M_005_AUTH_UP: &str = include_str!("005_add_auth_identity_tables.sql");
-pub const M_005_AUTH_DOWN: &str = include_str!("006_add_auth_identity_tables_down.sql");
+pub const M_005_AUTH_DOWN: &str = include_str!("down/006_add_auth_identity_tables_down.sql");
 pub const M_007_PERMISSIONS_UP: &str = include_str!("007_add_permissions_tables.sql");
-pub const M_007_PERMISSIONS_DOWN: &str = include_str!("007_add_permissions_tables_down.sql");
+pub const M_007_PERMISSIONS_DOWN: &str = include_str!("down/007_add_permissions_tables_down.sql");
 pub const M_009_PIPELINE_UP: &str = include_str!("009_add_ci_cd_pipeline_tables.sql");
-pub const M_009_PIPELINE_DOWN: &str = include_str!("010_add_ci_cd_pipeline_tables_down.sql");
+pub const M_009_PIPELINE_DOWN: &str = include_str!("down/010_add_ci_cd_pipeline_tables_down.sql");
 pub const M_011_OCI_REGISTRY_UP: &str = include_str!("011_add_oci_registry_tables.sql");
-pub const M_011_OCI_REGISTRY_DOWN: &str = include_str!("012_add_oci_registry_tables_down.sql");
+pub const M_011_OCI_REGISTRY_DOWN: &str = include_str!("down/012_add_oci_registry_tables_down.sql");
 pub const M_013_ISSUES_UP: &str = include_str!("013_add_issue_tracking_tables.sql");
-pub const M_013_ISSUES_DOWN: &str = include_str!("014_add_issue_tracking_tables_down.sql");
+pub const M_013_ISSUES_DOWN: &str = include_str!("down/014_add_issue_tracking_tables_down.sql");
 pub const M_015_WIKI_UP: &str = include_str!("015_add_wiki_tables.sql");
-pub const M_015_WIKI_DOWN: &str = include_str!("016_add_wiki_tables_down.sql");
+pub const M_015_WIKI_DOWN: &str = include_str!("down/016_add_wiki_tables_down.sql");
 pub const M_017_SEARCH_UP: &str = include_str!("017_add_code_search_tables.sql");
-pub const M_017_SEARCH_DOWN: &str = include_str!("018_add_code_search_tables_down.sql");
+pub const M_017_SEARCH_DOWN: &str = include_str!("down/018_add_code_search_tables_down.sql");
 pub const M_019_WIKI_SNAPSHOT_UP: &str = include_str!("019_add_wiki_content_snapshot.sql");
-pub const M_019_WIKI_SNAPSHOT_DOWN: &str = include_str!("020_add_wiki_content_snapshot_down.sql");
+pub const M_019_WIKI_SNAPSHOT_DOWN: &str = include_str!("down/020_add_wiki_content_snapshot_down.sql");
 pub const M_021_FTS_UP: &str = include_str!("021_add_fulltext_search.sql");
-pub const M_021_FTS_DOWN: &str = include_str!("022_add_fulltext_search_down.sql");
+pub const M_021_FTS_DOWN: &str = include_str!("down/022_add_fulltext_search_down.sql");
 pub const M_023_WIKI_FK_UP: &str = include_str!("023_drop_wiki_created_by_fk.sql");
-pub const M_023_WIKI_FK_DOWN: &str = include_str!("024_drop_wiki_created_by_fk_down.sql");
+pub const M_023_WIKI_FK_DOWN: &str = include_str!("down/024_drop_wiki_created_by_fk_down.sql");
 pub const M_025_ACTIVITY_FED_UP: &str = include_str!("025_add_activity_federation.sql");
-pub const M_025_ACTIVITY_FED_DOWN: &str = include_str!("026_add_activity_federation_down.sql");
+pub const M_025_ACTIVITY_FED_DOWN: &str = include_str!("down/026_add_activity_federation_down.sql");
 pub const M_027_WIKI_GIT_UP: &str = include_str!("027_add_wiki_git_enabled.sql");
-pub const M_027_WIKI_GIT_DOWN: &str = include_str!("028_add_wiki_git_enabled_down.sql");
+pub const M_027_WIKI_GIT_DOWN: &str = include_str!("down/028_add_wiki_git_enabled_down.sql");
 pub const M_029_PASSWORD_HASH_UP: &str = include_str!("029_add_password_hash.sql");
 pub const M_031_PR_TRACKING_UP: &str = include_str!("031_add_pr_tracking.sql");
-pub const M_031_PR_TRACKING_DOWN: &str = include_str!("032_add_pr_tracking_down.sql");
+pub const M_031_PR_TRACKING_DOWN: &str = include_str!("down/032_add_pr_tracking_down.sql");
 pub const M_033_STAR_WATCH_COUNTS_UP: &str = include_str!("033_add_star_watch_counts.sql");
-pub const M_033_STAR_WATCH_COUNTS_DOWN: &str = include_str!("034_add_star_watch_counts_down.sql");
+pub const M_033_STAR_WATCH_COUNTS_DOWN: &str = include_str!("down/034_add_star_watch_counts_down.sql");
 pub const M_035_LOGIN_ATTEMPTS_UP: &str = include_str!("035_add_login_attempts.sql");
+pub const M_036_EMAIL_VERIFICATION_UP: &str = include_str!("036_add_email_verification.sql");
 pub const M_038_REPO_SECRETS_CACHES_UP: &str =
     include_str!("038_add_repo_secrets_and_pipeline_caches.sql");
 pub const M_038_REPO_SECRETS_CACHES_DOWN: &str =
-    include_str!("038_add_repo_secrets_and_pipeline_caches_down.sql");
+    include_str!("down/038_add_repo_secrets_and_pipeline_caches_down.sql");
 pub const M_037_MENTIONS_XREFS_UP: &str = include_str!("037_add_mentions_and_crossrefs.sql");
+pub const M_043_PIPELINE_SCHEDULES_UP: &str = include_str!("043_add_pipeline_schedules.sql");
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
-pub const M_041_BOARDS_DOWN: &str = include_str!("041_add_boards_down.sql");
+pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
+pub const M_041_WEBHOOKS_UP: &str = include_str!("041_add_webhooks.sql");
 pub const M_039_SECRET_SCANNING_SLSA_UP: &str =
     include_str!("039_add_secret_scanning_slsa_tables.sql");
 pub const M_039_SECRET_SCANNING_SLSA_DOWN: &str =
-    include_str!("040_add_secret_scanning_slsa_tables_down.sql");
+    include_str!("down/040_add_secret_scanning_slsa_tables_down.sql");
 pub const M_042_WEBHOOK_DELIVERIES_UP: &str = include_str!("042_add_webhook_deliveries.sql");
 pub const M_042_WEBHOOK_DELIVERIES_DOWN: &str =
-    include_str!("042_add_webhook_deliveries_down.sql");
+    include_str!("down/042_add_webhook_deliveries_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -182,6 +185,12 @@ impl MigrationManager {
             down_sql: "DROP TABLE IF EXISTS login_attempts;".into(),
         });
         self.add_migration(Migration {
+            version: 36,
+            name: "add_email_verification".into(),
+            up_sql: M_036_EMAIL_VERIFICATION_UP.into(),
+            down_sql: "ALTER TABLE users DROP COLUMN IF EXISTS email_verified; DROP TABLE IF EXISTS email_verification_codes;".into(),
+        });
+        self.add_migration(Migration {
             version: 37,
             name: "add_mentions_and_crossrefs".into(),
             up_sql: M_037_MENTIONS_XREFS_UP.into(),
@@ -194,16 +203,34 @@ impl MigrationManager {
             down_sql: M_038_REPO_SECRETS_CACHES_DOWN.into(),
         });
         self.add_migration(Migration {
+            version: 39,
+            name: "add_secret_scanning_slsa".into(),
+            up_sql: M_039_SECRET_SCANNING_SLSA_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
             version: 40,
             name: "add_boards".into(),
             up_sql: M_040_BOARDS_UP.into(),
             down_sql: M_041_BOARDS_DOWN.into(),
         });
         self.add_migration(Migration {
+            version: 41,
+            name: "add_webhooks".into(),
+            up_sql: M_041_WEBHOOKS_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
             version: 42,
             name: "add_webhook_deliveries".into(),
             up_sql: M_042_WEBHOOK_DELIVERIES_UP.into(),
             down_sql: M_042_WEBHOOK_DELIVERIES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 43,
+            name: "add_pipeline_schedules".into(),
+            up_sql: M_043_PIPELINE_SCHEDULES_UP.into(),
+            down_sql: String::new(),
         });
     }
 
@@ -246,7 +273,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 22);
+        assert_eq!(mgr.all().len(), 26);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -283,14 +310,22 @@ mod tests {
         assert_eq!(mgr.all()[16].name, "add_star_watch_counts");
         assert_eq!(mgr.all()[17].version, 35);
         assert_eq!(mgr.all()[17].name, "add_login_attempts");
-        assert_eq!(mgr.all()[18].version, 37);
-        assert_eq!(mgr.all()[18].name, "add_mentions_and_crossrefs");
-        assert_eq!(mgr.all()[19].version, 38);
-        assert_eq!(mgr.all()[19].name, "add_repo_secrets_and_pipeline_caches");
-        assert_eq!(mgr.all()[20].version, 40);
-        assert_eq!(mgr.all()[20].name, "add_boards");
-        assert_eq!(mgr.all()[21].version, 42);
-        assert_eq!(mgr.all()[21].name, "add_webhook_deliveries");
+        assert_eq!(mgr.all()[18].version, 36);
+        assert_eq!(mgr.all()[18].name, "add_email_verification");
+        assert_eq!(mgr.all()[19].version, 37);
+        assert_eq!(mgr.all()[19].name, "add_mentions_and_crossrefs");
+        assert_eq!(mgr.all()[20].version, 38);
+        assert_eq!(mgr.all()[20].name, "add_repo_secrets_and_pipeline_caches");
+        assert_eq!(mgr.all()[21].version, 39);
+        assert_eq!(mgr.all()[21].name, "add_secret_scanning_slsa");
+        assert_eq!(mgr.all()[22].version, 40);
+        assert_eq!(mgr.all()[22].name, "add_boards");
+        assert_eq!(mgr.all()[23].version, 41);
+        assert_eq!(mgr.all()[23].name, "add_webhooks");
+        assert_eq!(mgr.all()[24].version, 42);
+        assert_eq!(mgr.all()[24].name, "add_webhook_deliveries");
+        assert_eq!(mgr.all()[25].version, 43);
+        assert_eq!(mgr.all()[25].name, "add_pipeline_schedules");
     }
 
     #[test]
@@ -302,8 +337,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 23);
-        assert_eq!(mgr.all()[22].version, 44);
+        assert_eq!(mgr.all().len(), 27);
+        assert_eq!(mgr.all()[26].version, 44);
     }
 
     #[test]
@@ -322,13 +357,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 22);
+        assert_eq!(pending.len(), 26);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(42);
+        let pending = mgr.get_pending(43);
         assert_eq!(pending.len(), 0);
     }
 
@@ -336,7 +371,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 21);
+        assert_eq!(pending.len(), 25);
     }
 
     #[test]

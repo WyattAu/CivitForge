@@ -160,6 +160,16 @@ pub async fn receive_pack(
                         tracing::warn!(error = %e, "failed to re-index search after push for {owner_clone}/{name_clone}");
                     }
                 }
+
+                // After successful push, trigger search indexing in background
+                let indexing_state = state_clone.clone();
+                let indexing_owner = owner_clone.clone();
+                let indexing_name = name_clone.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = crate::api::search::trigger_repo_index_background(&indexing_state, &indexing_owner, &indexing_name).await {
+                        tracing::warn!("background search indexing failed: {e}");
+                    }
+                });
             });
 
             Response::builder()

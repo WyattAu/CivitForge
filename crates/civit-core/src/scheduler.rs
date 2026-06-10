@@ -19,34 +19,39 @@ use tokio::sync::Notify;
 pub fn start_scheduler(pool: sqlx::PgPool, storage_path: String) -> Arc<Notify> {
     let notify = Arc::new(Notify::new());
     let notify_clone = notify.clone();
+    let pool_for_mirrors = pool.clone();
+    let storage_path_for_mirrors = storage_path.clone();
 
+    // Pipeline schedule check: every 60 seconds
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
         loop {
             interval.tick().await;
 
-            // Check for due schedules
             if let Err(e) = tick_schedules(&pool, &storage_path).await {
                 tracing::warn!("scheduler tick error: {e}");
-            }
-
-            // Sync due mirrors
-            if let Err(e) = tick_mirrors(&pool, &storage_path).await {
-                tracing::warn!("mirror sync tick error: {e}");
             }
 
             // Wait for next tick or manual wake
             tokio::select! {
                 _ = interval.tick() => {},
                 _ = notify_clone.notified() => {
-                    // Immediately re-check
                     if let Err(e) = tick_schedules(&pool, &storage_path).await {
                         tracing::warn!("scheduler wake tick error: {e}");
                     }
-                    if let Err(e) = tick_mirrors(&pool, &storage_path).await {
-                        tracing::warn!("mirror sync wake tick error: {e}");
-                    }
                 }
+            }
+        }
+    });
+
+    // Mirror sync: separate 5-minute interval
+    tokio::spawn(async move {
+        let mut mirror_interval = tokio::time::interval(std::time::Duration::from_secs(300));
+        loop {
+            mirror_interval.tick().await;
+
+            if let Err(e) = tick_mirrors(&pool_for_mirrors, &storage_path_for_mirrors).await {
+                tracing::warn!("mirror sync tick error: {e}");
             }
         }
     });
