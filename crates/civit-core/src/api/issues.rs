@@ -490,6 +490,26 @@ pub async fn create_issue(
     });
     tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
 
+    // Deliver federation activity to followers
+    if state.config.federation_enabled {
+        let domain = &state.config.federation_instance_domain;
+        let activity = crate::federation::activitypub::Activity {
+            r#type: crate::federation::activitypub::ActivityType::Create,
+            id: format!("https://{domain}/activities/{}", uuid::Uuid::new_v4()),
+            actor: format!("https://{domain}/api/v1/users/{}", auth.user_id),
+            object: crate::federation::activitypub::ActivityObject::Issue {
+                id: row.id.to_string(),
+                name: row.title.clone(),
+                attributed_to: auth.username.clone(),
+            },
+            target: None,
+            published: chrono::Utc::now().to_rfc3339(),
+            to: vec![format!("https://{domain}/api/v1/federation/actor")],
+            cc: vec![],
+        };
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+    }
+
     (StatusCode::CREATED, Json(row)).into_response()
 }
 
@@ -590,7 +610,7 @@ pub async fn get_issue(
 pub async fn update_issue(
     State(state): State<AppState>,
     Path((owner, name, number)): Path<(String, String, i32)>,
-    _auth: AuthUser,
+    auth: AuthUser,
     Json(req): Json<UpdateIssueRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -695,6 +715,26 @@ pub async fn update_issue(
         "author_id": row.author_id.to_string(),
     });
     tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
+    // Deliver federation activity on state change
+    if state.config.federation_enabled && req.state.is_some() {
+        let domain = &state.config.federation_instance_domain;
+        let activity = crate::federation::activitypub::Activity {
+            r#type: crate::federation::activitypub::ActivityType::Update,
+            id: format!("https://{domain}/activities/{}", uuid::Uuid::new_v4()),
+            actor: format!("https://{domain}/api/v1/users/{}", auth.user_id),
+            object: crate::federation::activitypub::ActivityObject::Issue {
+                id: row.id.to_string(),
+                name: row.title.clone(),
+                attributed_to: auth.username.clone(),
+            },
+            target: None,
+            published: chrono::Utc::now().to_rfc3339(),
+            to: vec![format!("https://{domain}/api/v1/federation/actor")],
+            cc: vec![],
+        };
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+    }
 
     (StatusCode::OK, Json(row)).into_response()
 }

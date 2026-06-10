@@ -12,6 +12,16 @@ use sqlx::Row;
 use std::sync::Arc;
 use tokio::sync::Notify;
 
+/// Row from webhook_deliveries for retry processing.
+#[derive(Debug, sqlx::FromRow)]
+struct FailedDeliveryRow {
+    id: uuid::Uuid,
+    webhook_id: uuid::Uuid,
+    event: String,
+    payload: serde_json::Value,
+    attempts: i32,
+}
+
 /// Start the pipeline scheduler as a background task.
 ///
 /// Returns a `Notify` that can be used to wake the scheduler immediately
@@ -21,6 +31,7 @@ pub fn start_scheduler(pool: sqlx::PgPool, storage_path: String) -> Arc<Notify> 
     let notify_clone = notify.clone();
     let pool_for_mirrors = pool.clone();
     let storage_path_for_mirrors = storage_path.clone();
+    let pool_for_webhooks = pool.clone();
 
     // Pipeline schedule check: every 60 seconds
     tokio::spawn(async move {
@@ -52,6 +63,18 @@ pub fn start_scheduler(pool: sqlx::PgPool, storage_path: String) -> Arc<Notify> 
 
             if let Err(e) = tick_mirrors(&pool_for_mirrors, &storage_path_for_mirrors).await {
                 tracing::warn!("mirror sync tick error: {e}");
+            }
+        }
+    });
+
+    // Webhook retry: every 60 seconds
+    tokio::spawn(async move {
+        let mut retry_interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            retry_interval.tick().await;
+
+            if let Err(e) = tick_webhook_retries(&pool_for_webhooks).await {
+                tracing::warn!("webhook retry tick error: {e}");
             }
         }
     });
@@ -383,6 +406,165 @@ async fn create_scheduled_pipeline_run(
     Ok(())
 }
 
+/// Retry failed webhook deliveries that are eligible for retry.
+///
+/// Queries webhook_deliveries for status='failed' AND attempts < 3 AND next_retry_at <= now().
+/// For each eligible delivery, retries the HTTP POST with the original payload and HMAC signature.
+/// On success: updates status to 'delivered'. On failure: increments attempts, sets
+/// next_retry_at with exponential backoff (1min, 5min, 15min).
+async fn tick_webhook_retries(
+    pool: &sqlx::PgPool,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let rows: Vec<FailedDeliveryRow> = sqlx::query_as(
+        "SELECT id, webhook_id, event, payload, attempts \
+         FROM webhook_deliveries \
+         WHERE status = 'failed' \
+           AND attempts < 3 \
+           AND (next_retry_at IS NULL OR next_retry_at <= NOW()) \
+         ORDER BY created_at ASC \
+         LIMIT 50",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    if rows.is_empty() {
+        return Ok(());
+    }
+
+    let retried_count = rows.len();
+    let mut succeeded = 0u32;
+    let mut failed = 0u32;
+
+    for row in &rows {
+        let webhook = match sqlx::query_as::<_, StoredWebhookRetry>(
+            "SELECT id, url, secret FROM webhooks WHERE id = $1",
+        )
+        .bind(row.webhook_id)
+        .fetch_optional(pool)
+        .await?
+        {
+            Some(w) => w,
+            None => {
+                tracing::warn!(
+                    "webhook retry: webhook {} not found for delivery {}, skipping",
+                    row.webhook_id,
+                    row.id
+                );
+                continue;
+            }
+        };
+
+        let body = serde_json::to_vec(&row.payload)
+            .map_err(|e| format!("webhook retry serialization error: {e}"))?;
+
+        let mut req = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .unwrap_or_default()
+            .post(&webhook.url)
+            .header("Content-Type", "application/json")
+            .header("X-CivitForge-Event", &row.event)
+            .header("X-CivitForge-Delivery", row.id.to_string())
+            .body(body.clone());
+
+        if let Some(ref secret) = webhook.secret {
+            let signature = crate::webhooks::compute_hmac_signature(secret, &body);
+            req = req.header("X-CivitForge-Signature", signature);
+        }
+
+        let new_attempts = row.attempts + 1;
+
+        match req.send().await {
+            Ok(resp) if resp.status().is_success() => {
+                tracing::info!(
+                    "webhook retry: delivery {} delivered successfully (attempt {})",
+                    row.id,
+                    new_attempts
+                );
+                sqlx::query(
+                    "UPDATE webhook_deliveries \
+                     SET status = 'delivered', attempts = $2, last_error = NULL, next_retry_at = NULL \
+                     WHERE id = $1",
+                )
+                .bind(row.id)
+                .bind(new_attempts)
+                .execute(pool)
+                .await?;
+                succeeded += 1;
+            }
+            Ok(resp) => {
+                let status = resp.status().as_u16();
+                let next_retry = compute_next_retry_backoff(row.attempts);
+                tracing::warn!(
+                    "webhook retry: delivery {} returned HTTP {status} (attempt {}), next_retry={:?}",
+                    row.id,
+                    new_attempts,
+                    next_retry
+                );
+                sqlx::query(
+                    "UPDATE webhook_deliveries \
+                     SET status = 'failed', attempts = $2, last_error = $3, next_retry_at = $4 \
+                     WHERE id = $1",
+                )
+                .bind(row.id)
+                .bind(new_attempts)
+                .bind(format!("HTTP {status}"))
+                .bind(next_retry)
+                .execute(pool)
+                .await?;
+                failed += 1;
+            }
+            Err(e) => {
+                let next_retry = compute_next_retry_backoff(row.attempts);
+                tracing::warn!(
+                    "webhook retry: delivery {} network error: {e} (attempt {}), next_retry={:?}",
+                    row.id,
+                    new_attempts,
+                    next_retry
+                );
+                sqlx::query(
+                    "UPDATE webhook_deliveries \
+                     SET status = 'failed', attempts = $2, last_error = $3, next_retry_at = $4 \
+                     WHERE id = $1",
+                )
+                .bind(row.id)
+                .bind(new_attempts)
+                .bind(e.to_string())
+                .bind(next_retry)
+                .execute(pool)
+                .await?;
+                failed += 1;
+            }
+        }
+    }
+
+    if succeeded > 0 || failed > 0 {
+        tracing::info!(
+            "webhook retry tick: {retried_count} deliveries processed, {succeeded} succeeded, {failed} failed"
+        );
+    }
+
+    Ok(())
+}
+
+/// Compute next retry time with exponential backoff: 1min, 5min, 15min.
+fn compute_next_retry_backoff(attempts: i32) -> Option<chrono::DateTime<chrono::Utc>> {
+    let backoff_secs = match attempts {
+        0 => 60,       // 1 minute
+        1 => 300,      // 5 minutes
+        _ => 900,      // 15 minutes
+    };
+    Some(Utc::now() + chrono::Duration::from_std(std::time::Duration::from_secs(backoff_secs)).unwrap_or_default())
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct StoredWebhookRetry {
+    #[allow(dead_code)]
+    id: uuid::Uuid,
+    url: String,
+    secret: Option<String>,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 #[allow(dead_code)]
 struct ScheduleRow {
@@ -593,5 +775,32 @@ mod tests {
     fn test_get_head_commit_sha_missing() {
         let result = get_head_commit_sha("/nonexistent", "owner", "repo", "main");
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_compute_next_retry_backoff_first_attempt() {
+        let next = compute_next_retry_backoff(0);
+        assert!(next.is_some());
+        let next = next.unwrap();
+        let diff = next - Utc::now();
+        assert!(diff.num_seconds() >= 55 && diff.num_seconds() <= 65);
+    }
+
+    #[test]
+    fn test_compute_next_retry_backoff_second_attempt() {
+        let next = compute_next_retry_backoff(1);
+        assert!(next.is_some());
+        let next = next.unwrap();
+        let diff = next - Utc::now();
+        assert!(diff.num_seconds() >= 295 && diff.num_seconds() <= 305);
+    }
+
+    #[test]
+    fn test_compute_next_retry_backoff_third_attempt() {
+        let next = compute_next_retry_backoff(2);
+        assert!(next.is_some());
+        let next = next.unwrap();
+        let diff = next - Utc::now();
+        assert!(diff.num_seconds() >= 895 && diff.num_seconds() <= 905);
     }
 }

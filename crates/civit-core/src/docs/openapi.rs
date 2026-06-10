@@ -2328,6 +2328,1503 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
                 summary: None,
                 description: None,
             },
+        )
+        // ── Boards ────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/boards",
+            PathItem {
+                get: Some({
+                    let mut o = op("listBoards", "List project boards", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Boards", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createBoard", "Create a project board", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Board to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("description", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Created board", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/boards/{id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getBoard", "Get board details", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Board", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteBoard", "Delete a board", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/columns",
+            PathItem {
+                post: Some({
+                    let mut o = op("addBoardColumn", "Add column to board", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Column to add".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![("name", "string")])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Added column", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/columns/{col_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deleteBoardColumn", "Delete board column", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                        p("col_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards",
+            PathItem {
+                post: Some({
+                    let mut o = op("addBoardCard", "Add card to board column", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Card to add".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("column_id", "string"),
+                                    ("content", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Added card", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deleteBoardCard", "Delete board card", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                        p("card_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                patch: Some({
+                    let mut o = op("moveBoardCard", "Move board card between columns", "boards");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                        p("card_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Move card".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![("column_id", "string")])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("200".into(), resp("Moved card", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Releases ──────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/releases",
+            PathItem {
+                get: Some({
+                    let mut o = op("listReleases", "List releases", "releases");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("page", ParameterLocation::Query, false, "integer"),
+                        p("per_page", ParameterLocation::Query, false, "integer"),
+                    ];
+                    o.responses = [("200".into(), resp("Releases", ""))].into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createRelease", "Create a release", "releases");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Release to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("tag_name", "string"),
+                                    ("name", "string"),
+                                    ("body", "string"),
+                                    ("draft", "boolean"),
+                                    ("prerelease", "boolean"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Created release", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/releases/{id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getRelease", "Get release details", "releases");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Release", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteRelease", "Delete a release", "releases");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/releases/{id}/assets",
+            PathItem {
+                post: Some({
+                    let mut o = op("uploadReleaseAsset", "Upload release asset", "releases");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Asset file upload".into()),
+                        content: [(
+                            "multipart/form-data".into(),
+                            MediaType { schema: None },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Uploaded asset", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Branch Protection ──────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/branch-protection",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "getBranchProtection",
+                        "Get branch protection rules",
+                        "branch_protection",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Branch protection", ""))].into();
+                    o
+                }),
+                put: Some({
+                    let mut o = op(
+                        "setBranchProtection",
+                        "Set branch protection rules",
+                        "branch_protection",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Branch protection config".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("branch", "string"),
+                                    ("require_pull_request", "boolean"),
+                                    ("required_approvals", "integer"),
+                                    ("require_status_checks", "boolean"),
+                                    ("enforce_admins", "boolean"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("200".into(), resp("Updated protection", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op(
+                        "deleteBranchProtection",
+                        "Delete branch protection rules",
+                        "branch_protection",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Teams ──────────────────────────────────────────────
+        .register_path(
+            "/api/v1/orgs/{org_id}/teams",
+            PathItem {
+                get: Some({
+                    let mut o = op("listTeams", "List organization teams", "teams");
+                    o.parameters = vec![p("org_id", ParameterLocation::Path, true, "string")];
+                    o.responses = [("200".into(), resp("Teams", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createTeam", "Create a team", "teams");
+                    o.parameters = vec![p("org_id", ParameterLocation::Path, true, "string")];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Team to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("description", "string"),
+                                    ("permission", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Created team", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/orgs/{org_id}/teams/{team_id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getTeam", "Get team details", "teams");
+                    o.parameters = vec![
+                        p("org_id", ParameterLocation::Path, true, "string"),
+                        p("team_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Team", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteTeam", "Delete a team", "teams");
+                    o.parameters = vec![
+                        p("org_id", ParameterLocation::Path, true, "string"),
+                        p("team_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/orgs/{org_id}/teams/{team_id}/members",
+            PathItem {
+                get: Some({
+                    let mut o = op("listTeamMembers", "List team members", "teams");
+                    o.parameters = vec![
+                        p("org_id", ParameterLocation::Path, true, "string"),
+                        p("team_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Members", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("addTeamMember", "Add member to team", "teams");
+                    o.parameters = vec![
+                        p("org_id", ParameterLocation::Path, true, "string"),
+                        p("team_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Member to add".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("user_id", "string"),
+                                    ("role", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Added member", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/orgs/{org_id}/teams/{team_id}/members/{user_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("removeTeamMember", "Remove member from team", "teams");
+                    o.parameters = vec![
+                        p("org_id", ParameterLocation::Path, true, "string"),
+                        p("team_id", ParameterLocation::Path, true, "string"),
+                        p("user_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Removed", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Audit Log ──────────────────────────────────────────
+        .register_path(
+            "/api/v1/audit-log",
+            PathItem {
+                get: Some({
+                    let mut o = op("listAuditLog", "List audit log entries", "audit_admin");
+                    o.responses = [("200".into(), resp("Audit log", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/audit-log/stats",
+            PathItem {
+                get: Some({
+                    let mut o = op("auditStats", "Get audit log statistics", "audit_admin");
+                    o.responses = [("200".into(), resp("Audit stats", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/audit-log/export",
+            PathItem {
+                get: Some({
+                    let mut o = op("exportAuditLog", "Export audit log", "audit_admin");
+                    o.responses = [("200".into(), resp("Exported audit log", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Pipeline Secrets ───────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/secrets",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "listPipelineSecrets",
+                        "List pipeline secrets",
+                        "pipelines",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Secrets", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("setPipelineSecret", "Set a pipeline secret", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Secret value".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("value", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Secret set", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/secrets/{secret_name}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deletePipelineSecret", "Delete a pipeline secret", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("secret_name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Pipeline Caches ────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/caches",
+            PathItem {
+                get: Some({
+                    let mut o = op("listPipelineCaches", "List pipeline caches", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Caches", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{repo}/caches/{cache_key}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deletePipelineCache", "Delete a pipeline cache", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("cache_key", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Pipeline Schedules ─────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/schedules",
+            PathItem {
+                get: Some({
+                    let mut o = op("listPipelineSchedules", "List pipeline schedules", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Schedules", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createPipelineSchedule", "Create pipeline schedule", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Schedule config".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("cron", "string"),
+                                    ("ref", "string"),
+                                    ("enabled", "boolean"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Created schedule", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/schedules/{id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getPipelineSchedule", "Get pipeline schedule", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Schedule", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deletePipelineSchedule", "Delete pipeline schedule", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/schedules/{id}/run",
+            PathItem {
+                post: Some({
+                    let mut o = op("triggerSchedule", "Trigger pipeline schedule now", "pipelines");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Triggered", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Badges ─────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/badge.svg",
+            PathItem {
+                get: Some({
+                    let mut o = op("pipelineBadge", "Pipeline status badge SVG", "badges");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("branch", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("SVG badge", ""))].into();
+                    o.security = Some(vec![Map::new()]);
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Secret Scanning ────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/secret-scanning",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "listSecretScanningResults",
+                        "List secret scanning results",
+                        "secret_scanning",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Results", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/secret-scanning/rotate",
+            PathItem {
+                post: Some({
+                    let mut o = op(
+                        "rotateSecretScanningKeys",
+                        "Rotate secret scanning encryption keys",
+                        "secret_scanning",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Keys rotated", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/secret-scanning/history",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "secretScanningHistory",
+                        "Get secret scanning audit history",
+                        "secret_scanning",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("History", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── SLSA Dashboard ─────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/slsa/provenance",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "getSlsaProvenance",
+                        "Get SLSA provenance attestation",
+                        "slsa",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("commit_sha", ParameterLocation::Query, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Provenance", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/slsa/verify/{attestation_id}",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "verifySlsaAttestation",
+                        "Verify SLSA attestation",
+                        "slsa",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("attestation_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Verification result", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/slsa/scorecard",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "getSlsaScorecard",
+                        "Get OpenSSF Scorecard for repo",
+                        "slsa",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Scorecard", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Mirrors ────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/mirrors",
+            PathItem {
+                get: Some({
+                    let mut o = op("listMirrors", "List mirror configurations", "mirrors");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Mirrors", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createMirror", "Create a mirror", "mirrors");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Mirror config".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("remote_url", "string"),
+                                    ("sync_interval_secs", "integer"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Created mirror", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/mirrors/{mirror_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deleteMirror", "Delete a mirror", "mirrors");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("mirror_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/mirrors/{mirror_id}/sync",
+            PathItem {
+                post: Some({
+                    let mut o = op("syncMirror", "Trigger mirror sync now", "mirrors");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("mirror_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Sync triggered", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── LFS ────────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/lfs/objects/batch",
+            PathItem {
+                post: Some({
+                    let mut o = op("lfsBatch", "LFS batch API", "lfs");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("LFS batch request".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType { schema: None },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("200".into(), resp("Batch response", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/lfs/objects/{oid}",
+            PathItem {
+                get: Some({
+                    let mut o = op("lfsGetObject", "Download LFS object", "lfs");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("oid", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Object data", ""))].into();
+                    o
+                }),
+                put: Some({
+                    let mut o = op("lfsUploadObject", "Upload LFS object", "lfs");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("oid", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Uploaded", ""))].into();
+                    o
+                }),
+                post: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/lfs/verify",
+            PathItem {
+                post: Some({
+                    let mut o = op("lfsVerify", "Verify LFS object", "lfs");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("Verify request".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType { schema: None },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("200".into(), resp("Verify result", ""))].into();
+                    o
+                }),
+                get: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Edit ───────────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/edit/{path}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getFileForEdit", "Get file for editing", "edit");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("path", ParameterLocation::Path, true, "string"),
+                        p("ref", ParameterLocation::Query, false, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("File contents", ""))].into();
+                    o
+                }),
+                put: Some({
+                    let mut o = op("updateFile", "Update file via editor", "edit");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("path", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.request_body = Some(RequestBody {
+                        description: Some("File update".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("content", "string"),
+                                    ("message", "string"),
+                                    ("branch", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("200".into(), resp("Updated file", ""))].into();
+                    o
+                }),
+                post: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Webhooks ───────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getWebhook", "Get webhook details", "webhooks");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("webhook_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Webhook", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteWebhook", "Delete a webhook", "webhooks");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("webhook_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/deliveries",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "listWebhookDeliveries",
+                        "List webhook delivery history",
+                        "webhooks",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("webhook_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Deliveries", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Tokens ─────────────────────────────────────────────
+        .register_path(
+            "/api/v1/user/tokens",
+            PathItem {
+                get: Some({
+                    let mut o = op("listTokens", "List personal access tokens", "auth");
+                    o.responses = [("200".into(), resp("Tokens", ""))].into();
+                    o
+                }),
+                post: Some({
+                    let mut o = op("createToken", "Create a personal access token", "auth");
+                    o.request_body = Some(RequestBody {
+                        description: Some("Token to create".into()),
+                        content: [(
+                            "application/json".into(),
+                            MediaType {
+                                schema: Some(schema_obj(vec![
+                                    ("name", "string"),
+                                    ("scopes", "string"),
+                                ])),
+                            },
+                        )]
+                        .into(),
+                        required: true,
+                    });
+                    o.responses = [("201".into(), resp("Created token", ""))].into();
+                    o
+                }),
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/user/tokens/{token_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deleteToken", "Delete a personal access token", "auth");
+                    o.parameters = vec![p("token_id", ParameterLocation::Path, true, "string")];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Notifications ──────────────────────────────────────
+        .register_path(
+            "/api/v1/notifications",
+            PathItem {
+                get: Some({
+                    let mut o = op("listNotifications", "List notifications", "notifications");
+                    o.responses = [("200".into(), resp("Notifications", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/notifications/unread-count",
+            PathItem {
+                get: Some({
+                    let mut o = op("unreadCount", "Get unread notification count", "notifications");
+                    o.responses = [("200".into(), resp("Count", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/notifications/{notification_id}/read",
+            PathItem {
+                patch: Some({
+                    let mut o = op(
+                        "markNotificationRead",
+                        "Mark notification as read",
+                        "notifications",
+                    );
+                    o.parameters = vec![p(
+                        "notification_id",
+                        ParameterLocation::Path,
+                        true,
+                        "string",
+                    )];
+                    o.responses = [("200".into(), resp("Updated", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                delete: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Deploy Keys ────────────────────────────────────────
+        .register_path(
+            "/api/v1/repos/{owner}/{name}/deploy-keys/{key_id}",
+            PathItem {
+                delete: Some({
+                    let mut o = op("deleteDeployKey", "Delete a deploy key", "repos");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("name", ParameterLocation::Path, true, "string"),
+                        p("key_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                get: None,
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        // ── Artifacts ──────────────────────────────────────────
+        .register_path(
+            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}",
+            PathItem {
+                get: Some({
+                    let mut o = op("getArtifact", "Get artifact metadata", "artifacts");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("artifact_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Artifact", ""))].into();
+                    o
+                }),
+                delete: Some({
+                    let mut o = op("deleteArtifact", "Delete an artifact", "artifacts");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("artifact_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("204".into(), resp("Deleted", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}/download",
+            PathItem {
+                get: Some({
+                    let mut o = op("downloadArtifact", "Download artifact", "artifacts");
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("artifact_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Artifact file", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}/download-url",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "getArtifactDownloadUrl",
+                        "Get artifact download URL",
+                        "artifacts",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("artifact_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Download URL", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
+        )
+        .register_path(
+            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}/cache",
+            PathItem {
+                get: Some({
+                    let mut o = op(
+                        "getArtifactCacheInfo",
+                        "Get artifact cache info",
+                        "artifacts",
+                    );
+                    o.parameters = vec![
+                        p("owner", ParameterLocation::Path, true, "string"),
+                        p("repo", ParameterLocation::Path, true, "string"),
+                        p("artifact_id", ParameterLocation::Path, true, "string"),
+                    ];
+                    o.responses = [("200".into(), resp("Cache info", ""))].into();
+                    o
+                }),
+                post: None,
+                put: None,
+                delete: None,
+                patch: None,
+                parameters: Vec::new(),
+                summary: None,
+                description: None,
+            },
         );
 
     // ── Component Schemas ─────────────────────────────────────

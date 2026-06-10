@@ -415,7 +415,7 @@ pub async fn create_pull_request(
         let _ = state.db.add_pr_reviewer(pr.id, user_id).await;
     }
 
-    let resp = pr_to_response(pr, None, None, None);
+    let resp = pr_to_response(pr.clone(), None, None, None);
 
     let dispatcher = crate::webhooks::WebhookDispatcher::new();
     let pool_clone = state.db.pool().clone();
@@ -431,6 +431,26 @@ pub async fn create_pull_request(
         "author_id": resp.author_id,
     });
     tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
+    // Deliver federation activity to followers
+    if state.config.federation_enabled {
+        let domain = &state.config.federation_instance_domain;
+        let activity = crate::federation::activitypub::Activity {
+            r#type: crate::federation::activitypub::ActivityType::Create,
+            id: format!("https://{domain}/activities/{}", uuid::Uuid::new_v4()),
+            actor: format!("https://{domain}/api/v1/users/{}", auth.user_id),
+            object: crate::federation::activitypub::ActivityObject::PullRequest {
+                id: pr.id.to_string(),
+                name: pr.title.clone(),
+                attributed_to: auth.username.clone(),
+            },
+            target: None,
+            published: chrono::Utc::now().to_rfc3339(),
+            to: vec![format!("https://{domain}/api/v1/federation/actor")],
+            cc: vec![],
+        };
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+    }
 
     (axum::http::StatusCode::CREATED, Json(resp)).into_response()
 }
@@ -853,6 +873,26 @@ pub async fn merge_pull_request(
             "author_id": pr.author_id.to_string(),
         });
         tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
+
+        // Deliver federation activity to followers
+        if state.config.federation_enabled {
+            let domain = &state.config.federation_instance_domain;
+            let activity = crate::federation::activitypub::Activity {
+                r#type: crate::federation::activitypub::ActivityType::Update,
+                id: format!("https://{domain}/activities/{}", uuid::Uuid::new_v4()),
+                actor: format!("https://{domain}/api/v1/users/{}", auth.user_id),
+                object: crate::federation::activitypub::ActivityObject::PullRequest {
+                    id: pr.id.to_string(),
+                    name: pr.title.clone(),
+                    attributed_to: auth.username.clone(),
+                },
+                target: None,
+                published: chrono::Utc::now().to_rfc3339(),
+                to: vec![format!("https://{domain}/api/v1/federation/actor")],
+                cc: vec![],
+            };
+            crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+        }
     }
 
     (axum::http::StatusCode::OK, Json(resp)).into_response()

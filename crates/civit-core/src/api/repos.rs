@@ -943,7 +943,7 @@ pub async fn star_repo(
     Path((owner, name)): Path<(String, String)>,
     auth: AuthUser,
 ) -> impl IntoResponse {
-    let (owner_uuid, _owner_name) = match resolve_owner(&state, &owner).await {
+    let (owner_uuid, owner_name) = match resolve_owner(&state, &owner).await {
         Ok(r) => r,
         Err(resp) => return resp,
     };
@@ -996,6 +996,26 @@ pub async fn star_repo(
         "stars_count": new_count,
     });
     tokio::spawn(async move { dispatcher.dispatch(&pool, rid, &evt, pl).await });
+
+    // Deliver federation activity to followers
+    if state.config.federation_enabled && starred {
+        let domain = &state.config.federation_instance_domain;
+        let activity = crate::federation::activitypub::Activity {
+            r#type: crate::federation::activitypub::ActivityType::Like,
+            id: format!("https://{domain}/activities/{}", uuid::Uuid::new_v4()),
+            actor: format!("https://{domain}/api/v1/users/{}", auth.user_id),
+            object: crate::federation::activitypub::ActivityObject::Repository {
+                id: repo.id.to_string(),
+                name: repo.name.clone(),
+                attributed_to: owner_name.clone(),
+            },
+            target: None,
+            published: chrono::Utc::now().to_rfc3339(),
+            to: vec![format!("https://{domain}/api/v1/federation/actor")],
+            cc: vec![],
+        };
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+    }
 
     let resp = StarToggleResponse {
         starred,
@@ -1166,6 +1186,26 @@ pub async fn fork_repo(
                 "forker": forker_name,
             });
             tokio::spawn(async move { dispatcher.dispatch(&pool, rid, &evt, pl).await });
+
+            // Deliver federation activity to followers
+            if state.config.federation_enabled {
+                let domain = &state.config.federation_instance_domain;
+                let activity = crate::federation::activitypub::Activity {
+                    r#type: crate::federation::activitypub::ActivityType::Create,
+                    id: format!("https://{domain}/activities/{}", uuid::Uuid::new_v4()),
+                    actor: format!("https://{domain}/api/v1/users/{}", auth.user_id),
+                    object: crate::federation::activitypub::ActivityObject::Repository {
+                        id: forked.id.to_string(),
+                        name: forked.name.clone(),
+                        attributed_to: forker_name.clone(),
+                    },
+                    target: None,
+                    published: chrono::Utc::now().to_rfc3339(),
+                    to: vec![format!("https://{domain}/api/v1/federation/actor")],
+                    cc: vec![],
+                };
+                crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+            }
 
             let resp = repo_to_response(forked, Some(forker_name), &state);
             (StatusCode::CREATED, Json(resp)).into_response()

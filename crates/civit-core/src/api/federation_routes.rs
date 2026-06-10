@@ -815,6 +815,57 @@ async fn get_follower_inbox_urls(
     Ok(rows)
 }
 
+/// Deliver an activity to all federated followers of the given actor.
+///
+/// Queries accepted follower inbox URLs from the database, then for each inbox URL
+/// delivers the ActivityPub activity via HTTP Signatures. Runs as a background
+/// task (`tokio::spawn`) so the calling API handler is not blocked.
+pub async fn deliver_to_followers(
+    activity: crate::federation::activitypub::Activity,
+    pool: sqlx::PgPool,
+) {
+    tokio::spawn(async move {
+        let follower_urls = match get_follower_inbox_urls(&pool).await {
+            Ok(urls) => urls,
+            Err(e) => {
+                tracing::warn!(error = %e, "failed to resolve follower inbox URLs for federation delivery");
+                return;
+            }
+        };
+
+        if follower_urls.is_empty() {
+            tracing::debug!("no followers to deliver activity to");
+            return;
+        }
+
+        let private_key = get_federation_key().private_key_bytes.clone();
+        let activity_id = activity.id.clone();
+
+        for inbox_url in &follower_urls {
+            if let Err(e) = crate::federation::delivery::FederationDelivery::deliver_activity(
+                &activity,
+                inbox_url,
+                &private_key,
+            )
+            .await
+            {
+                tracing::warn!(
+                    inbox = %inbox_url,
+                    error = %e,
+                    activity_id = %activity_id,
+                    "failed to deliver activity to follower inbox"
+                );
+            }
+        }
+
+        tracing::info!(
+            activity_id = %activity_id,
+            followers = follower_urls.len(),
+            "activity delivered to followers"
+        );
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

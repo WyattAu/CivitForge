@@ -775,7 +775,288 @@ async function testOrgs(browser) {
   ]);
 }
 
-// === 14. NAVIGATION ===
+// === 14. RELEASES ===
+
+async function testReleases(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping releases test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+
+  await traversePage(browser, `/repos/${repoPath}/releases`, 'repo-releases', [
+    { name: 'verify-releases-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on releases page');
+      const text = await h1.textContent();
+      if (!text.includes('Release')) throw new Error(`Unexpected h1: ${text}`);
+    }},
+    { name: 'check-create-release-btn', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Release"), button:has-text("Create Release")');
+      if (btn) {
+        console.log('    Create Release button found');
+      } else {
+        console.log('    Create Release button not found (may require permissions)');
+      }
+    }},
+    { name: 'check-release-list', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No releases') || body.includes('no releases')) {
+        console.log('    No releases yet (expected for new repo)');
+      } else {
+        console.log('    Release list has content');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'repo-releases');
+    }},
+  ]);
+}
+
+// === 15. BOARDS ===
+
+async function testBoards(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping boards test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+
+  await traversePage(browser, `/repos/${repoPath}/boards`, 'repo-boards', [
+    { name: 'verify-boards-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on boards page');
+      const text = await h1.textContent();
+      if (!text.includes('Board')) throw new Error(`Unexpected h1: ${text}`);
+    }},
+    { name: 'check-board-columns', fn: async (p) => {
+      const body = await p.textContent('body');
+      const hasColumns = body.includes('Todo') || body.includes('In Progress') || body.includes('Done');
+      if (hasColumns) {
+        console.log('    Kanban columns detected');
+      } else {
+        console.log('    Board may be empty or not yet created');
+      }
+    }},
+    { name: 'check-create-board-btn', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Board"), button:has-text("Create Board")');
+      if (btn) {
+        console.log('    Create Board button found');
+      } else {
+        console.log('    Create Board button not found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'repo-boards');
+    }},
+  ]);
+}
+
+// === 16. COMMIT GRAPH ===
+
+async function testGraph(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping graph test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+
+  await traversePage(browser, `/repos/${repoPath}/graph`, 'repo-graph', [
+    { name: 'verify-graph-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on graph page');
+      const text = await h1.textContent();
+      if (!text.includes('Graph') && !text.includes('Commit') && !text.includes('History')) {
+        throw new Error(`Unexpected h1: ${text}`);
+      }
+    }},
+    { name: 'check-graph-canvas', fn: async (p) => {
+      const svg = await p.$('svg');
+      const canvas = await p.$('canvas');
+      if (svg || canvas) {
+        console.log('    Graph visualization element found');
+      } else {
+        console.log('    No SVG/canvas graph element (may use DOM-based graph)');
+      }
+    }},
+    { name: 'check-graph-entries', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No commits') || body.includes('no commits')) {
+        console.log('    No commits yet (expected for new repo)');
+      } else {
+        console.log('    Commit history has entries');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'repo-graph');
+    }},
+  ]);
+}
+
+// === 17. ADMIN PANEL ===
+
+async function testAdmin(browser) {
+  await traversePage(browser, '/admin', 'admin', [
+    { name: 'verify-admin-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body.includes('Admin') && !body.includes('admin')) {
+        throw new Error('Admin panel did not load');
+      }
+    }},
+    { name: 'check-admin-nav', fn: async (p) => {
+      const body = await p.textContent('body');
+      const hasSections = body.includes('Users') || body.includes('Repos') || body.includes('System');
+      if (hasSections) {
+        console.log('    Admin sections detected');
+      } else {
+        console.log('    Admin page loaded (sections may require permissions)');
+      }
+    }},
+    { name: 'check-user-management', fn: async (p) => {
+      const usersLink = await p.$('a:has-text("Users"), button:has-text("Users")');
+      if (usersLink) {
+        console.log('    User management link found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'admin');
+    }},
+  ]);
+}
+
+// === 18. SIDEBAR LOCALE SWITCHER ===
+
+async function testSidebarLocaleSwitcher(browser) {
+  await traversePage(browser, '/', 'sidebar-locale', [
+    { name: 'verify-sidebar-loads', fn: async (p) => {
+      await waitForContent(p);
+      const sidebar = await p.$('aside');
+      if (!sidebar) throw new Error('Sidebar not found');
+    }},
+    { name: 'check-locale-switcher', fn: async (p) => {
+      const select = await p.$('select');
+      const langBtn = await p.$('button:has-text("EN"), button:has-text("Language"), button:has-text("Locale")');
+      if (select) {
+        const options = await select.$$('option');
+        const optionTexts = [];
+        for (const opt of options) {
+          optionTexts.push(await opt.textContent());
+        }
+        console.log(`    Locale dropdown found with options: ${optionTexts.join(', ')}`);
+      } else if (langBtn) {
+        console.log('    Language button found in sidebar');
+      } else {
+        console.log('    Locale switcher not found (may not be implemented)');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'sidebar-locale');
+    }},
+  ]);
+}
+
+// === 19. BRANCH PROTECTION ===
+
+async function testBranchProtection(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping branch protection test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+
+  await traversePage(browser, `/repos/${repoPath}/branch-protection`, 'repo-branch-protection', [
+    { name: 'verify-branch-protection-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on branch protection page');
+      const text = await h1.textContent();
+      if (!text.includes('Branch') && !text.includes('Protection')) {
+        throw new Error(`Unexpected h1: ${text}`);
+      }
+    }},
+    { name: 'check-protection-rules', fn: async (p) => {
+      const body = await p.textContent('body');
+      const hasRules = body.includes('main') || body.includes('master') || body.includes('default branch');
+      if (hasRules) {
+        console.log('    Branch protection rules detected');
+      } else {
+        console.log('    Branch protection page loaded (may have no rules)');
+      }
+    }},
+    { name: 'check-require-pr-toggle', fn: async (p) => {
+      const toggles = await p.$$('input[type="checkbox"], button[role="switch"]');
+      if (toggles.length > 0) {
+        console.log(`    Found ${toggles.length} toggle(s) for protection settings`);
+      } else {
+        console.log('    No toggle elements found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'repo-branch-protection');
+    }},
+  ]);
+}
+
+// === 20. TEAM MANAGEMENT ===
+
+async function testTeamManagement(browser) {
+  if (!created.org) {
+    console.log('    Skipping team management test (no org created)');
+    return;
+  }
+
+  const orgId = created.org;
+
+  await traversePage(browser, `/orgs/${orgId}/teams`, 'org-teams', [
+    { name: 'verify-teams-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on teams page');
+      const text = await h1.textContent();
+      if (!text.includes('Team')) throw new Error(`Unexpected h1: ${text}`);
+    }},
+    { name: 'check-create-team-btn', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Team"), button:has-text("Create Team")');
+      if (btn) {
+        console.log('    Create Team button found');
+      } else {
+        console.log('    Create Team button not found');
+      }
+    }},
+    { name: 'check-team-list', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No teams') || body.includes('no teams')) {
+        console.log('    No teams yet (expected for new org)');
+      } else {
+        console.log('    Team list has content');
+      }
+    }},
+    { name: 'click-create-team', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Team"), button:has-text("Create Team")');
+      if (btn) {
+        await btn.click();
+        await p.waitForTimeout(500);
+      }
+    }},
+    { name: 'fill-team-form', fn: async (p) => {
+      await fillIfExists(p, 'input#team-name', `gui-test-team-${Date.now() % 100000}`);
+      await fillIfExists(p, 'textarea#team-description', 'Created by GUI traverse test');
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'org-teams');
+    }},
+  ]);
+}
+
+// === 21. NAVIGATION ===
 
 async function testNavigation(browser) {
   const BASE = 'http://localhost:9091';
@@ -834,7 +1115,7 @@ async function testNavigation(browser) {
   ]);
 }
 
-// === 15. 404 PAGE ===
+// === 22. 404 PAGE ===
 
 async function testNotFound(browser) {
   await traversePage(browser, '/this-page-does-not-exist-at-all', 'not-found', [
@@ -942,11 +1223,18 @@ async function main() {
     await testWiki(browser);
     await testCodeBrowser(browser);
     await testPipelines(browser);
+    await testReleases(browser);
+    await testBoards(browser);
+    await testGraph(browser);
     await testExplore(browser);
     await testSearch(browser);
     await testSettings(browser);
     await testActivity(browser);
     await testOrgs(browser);
+    await testAdmin(browser);
+    await testSidebarLocaleSwitcher(browser);
+    await testBranchProtection(browser);
+    await testTeamManagement(browser);
     await testNavigation(browser);
     await testNotFound(browser);
   } catch (e) {

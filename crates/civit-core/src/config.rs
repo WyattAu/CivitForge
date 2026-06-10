@@ -31,6 +31,20 @@ pub struct SecurityConfig {
     pub ldap_group_search_base: String,
     #[serde(default)]
     pub ldap_group_search_filter: String,
+    #[serde(default = "default_ldap_max_connections")]
+    pub ldap_max_connections: usize,
+    #[serde(default)]
+    pub ldap_tls_ca_path: Option<String>,
+    #[serde(default = "default_ldap_connection_timeout_secs")]
+    pub ldap_connection_timeout_secs: u64,
+}
+
+fn default_ldap_max_connections() -> usize {
+    10
+}
+
+fn default_ldap_connection_timeout_secs() -> u64 {
+    10
 }
 
 impl Default for SecurityConfig {
@@ -52,6 +66,9 @@ impl Default for SecurityConfig {
             ldap_user_filter: String::new(),
             ldap_group_search_base: String::new(),
             ldap_group_search_filter: String::new(),
+            ldap_max_connections: 10,
+            ldap_tls_ca_path: None,
+            ldap_connection_timeout_secs: 10,
         }
     }
 }
@@ -221,6 +238,17 @@ impl AppConfig {
                     .unwrap_or_else(|_| "ou=groups".into()),
                 ldap_group_search_filter: std::env::var("LDAP_GROUP_FILTER")
                     .unwrap_or_else(|_| "(memberUid={})".into()),
+                ldap_max_connections: std::env::var("LDAP_MAX_CONNECTIONS")
+                    .ok()
+                    .and_then(|v| v.parse::<usize>().ok())
+                    .unwrap_or(10),
+                ldap_tls_ca_path: std::env::var("LDAP_TLS_CA_PATH")
+                    .ok()
+                    .filter(|s| !s.is_empty()),
+                ldap_connection_timeout_secs: std::env::var("LDAP_CONNECTION_TIMEOUT_SECS")
+                    .ok()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(10),
             },
             tls_cert_path: std::env::var("TLS_CERT_PATH")
                 .ok()
