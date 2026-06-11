@@ -1,0 +1,152 @@
+use crate::error::{AuthError, Result};
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SshKeyInfo {
+    pub id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub key_type: String,
+    pub public_key: String,
+    pub fingerprint: String,
+    pub label: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddSshKeyRequest {
+    pub key_type: String,
+    pub public_key: String,
+    pub fingerprint: String,
+    pub label: Option<String>,
+}
+
+pub fn validate_ssh_key_type(key_type: &str) -> Result<()> {
+    let valid_types = ["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"];
+    if valid_types.contains(&key_type) {
+        Ok(())
+    } else {
+        Err(AuthError::BadRequest(format!(
+            "unsupported key type: {key_type}"
+        )))
+    }
+}
+
+pub fn validate_public_key(key: &str) -> Result<()> {
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return Err(AuthError::BadRequest("public_key required".into()));
+    }
+    if trimmed.len() > 10000 {
+        return Err(AuthError::BadRequest("public_key too long".into()));
+    }
+    Ok(())
+}
+
+pub fn validate_fingerprint(fingerprint: &str) -> Result<()> {
+    let trimmed = fingerprint.trim();
+    if trimmed.is_empty() {
+        return Err(AuthError::BadRequest("fingerprint required".into()));
+    }
+    Ok(())
+}
+
+pub fn validate_label(label: &str) -> Result<()> {
+    if label.len() > 255 {
+        return Err(AuthError::BadRequest("label too long".into()));
+    }
+    Ok(())
+}
+
+pub fn from_db_key(key: civit_db::models::SshKey) -> SshKeyInfo {
+    SshKeyInfo {
+        id: key.id,
+        user_id: key.user_id,
+        key_type: key.key_type,
+        public_key: key.public_key,
+        fingerprint: key.fingerprint,
+        label: key.label,
+        created_at: key.created_at,
+    }
+}
+
+pub fn parse_user_id(user_id: &str) -> Result<uuid::Uuid> {
+    uuid::Uuid::parse_str(user_id)
+        .map_err(|_| AuthError::BadRequest("invalid user id".into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_ssh_key_type_valid() {
+        assert!(validate_ssh_key_type("ssh-ed25519").is_ok());
+        assert!(validate_ssh_key_type("ssh-rsa").is_ok());
+    }
+
+    #[test]
+    fn test_validate_ssh_key_type_invalid() {
+        assert!(validate_ssh_key_type("ssh-dss").is_err());
+    }
+
+    #[test]
+    fn test_validate_public_key_empty() {
+        assert!(validate_public_key("").is_err());
+        assert!(validate_public_key("  ").is_err());
+    }
+
+    #[test]
+    fn test_validate_public_key_valid() {
+        assert!(validate_public_key("AAAAC3NzaC1lZDI1NTE5AAAAI...").is_ok());
+    }
+
+    #[test]
+    fn test_validate_fingerprint_empty() {
+        assert!(validate_fingerprint("").is_err());
+        assert!(validate_fingerprint("  ").is_err());
+    }
+
+    #[test]
+    fn test_validate_fingerprint_valid() {
+        assert!(validate_fingerprint("SHA256:abc123def456").is_ok());
+    }
+
+    #[test]
+    fn test_validate_label_too_long() {
+        let long = "a".repeat(256);
+        assert!(validate_label(&long).is_err());
+    }
+
+    #[test]
+    fn test_validate_label_valid() {
+        assert!(validate_label("my-laptop").is_ok());
+        assert!(validate_label("").is_ok());
+    }
+
+    #[test]
+    fn test_parse_user_id_valid() {
+        let id = parse_user_id("550e8400-e29b-41d4-a716-446655440000").unwrap();
+        assert_eq!(id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn test_parse_user_id_invalid() {
+        assert!(parse_user_id("not-a-uuid").is_err());
+    }
+
+    #[test]
+    fn test_from_db_key() {
+        let db_key = civit_db::models::SshKey {
+            id: uuid::Uuid::nil(),
+            user_id: uuid::Uuid::nil(),
+            key_type: "ssh-ed25519".into(),
+            public_key: "AAAAC3NzaC1lZDI1NTE5AAAAI...".into(),
+            fingerprint: "SHA256:abc123def456".into(),
+            label: "my-laptop".into(),
+            created_at: chrono::Utc::now(),
+        };
+        let info = from_db_key(db_key);
+        assert_eq!(info.key_type, "ssh-ed25519");
+        assert_eq!(info.fingerprint, "SHA256:abc123def456");
+    }
+}

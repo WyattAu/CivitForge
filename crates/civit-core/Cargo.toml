@@ -52,6 +52,11 @@ bcrypt = "0.17"
 ldap3 = { version = "0.11", default-features = false, features = ["tls", "sync"] }
 civit-shared = { path = "../civit-shared" }
 civit-pipeline = { path = "../civit-pipeline" }
+civit-ci = { path = "../civit-ci" }
+civit-storage = { path = "../civit-storage" }
+civit-db = { path = "../civit-db" }
+civit-git = { path = "../civit-git" }
+civit-auth = { path = "../civit-auth" }
 
 [features]
 default = []

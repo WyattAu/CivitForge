@@ -1,4 +1,4 @@
-//! Pipeline schedule API endpoints (cron-triggered runs).
+//! Pipeline schedule API endpoints.
 
 #![forbid(unsafe_code)]
 
@@ -10,69 +10,12 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use chrono::Utc;
+use civit_ci::schedules::{
+    self, CreateScheduleRequest, ManualRunResponse, ScheduleResponse, UpdateScheduleRequest,
+};
 use civit_pipeline::compute_next_cron_run;
-use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use uuid::Uuid;
-
-// ---------------------------------------------------------------------------
-// Request / Response types
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Deserialize)]
-pub struct CreateScheduleRequest {
-    pub cron: String,
-    pub name: Option<String>,
-    pub ref_name: Option<String>,
-    #[serde(default = "default_yaml_path")]
-    pub yaml_path: String,
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-}
-
-fn default_yaml_path() -> String {
-    ".civit/pipeline.yaml".to_string()
-}
-
-fn default_true() -> bool {
-    true
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateScheduleRequest {
-    pub cron: Option<String>,
-    pub name: Option<Option<String>>,
-    pub ref_name: Option<Option<String>>,
-    pub yaml_path: Option<String>,
-    pub enabled: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScheduleResponse {
-    pub id: String,
-    pub repo_id: String,
-    pub cron: String,
-    pub name: Option<String>,
-    pub ref_name: Option<String>,
-    pub yaml_path: String,
-    pub enabled: bool,
-    pub last_run_at: Option<String>,
-    pub next_run_at: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManualRunResponse {
-    pub schedule_id: String,
-    pub run_id: String,
-    pub status: String,
-    pub triggered_at: String,
-}
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
 
 pub fn schedule_routes() -> Router<AppState> {
     Router::new()
@@ -90,11 +33,21 @@ pub fn schedule_routes() -> Router<AppState> {
         )
 }
 
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
+async fn resolve_repo_id(
+    pool: &sqlx::PgPool,
+    owner: &str,
+    repo_name: &str,
+) -> std::result::Result<Option<Uuid>, sqlx::Error> {
+    let row = sqlx::query_as::<_, (Uuid,)>(
+        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(repo_name)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| r.0))
+}
 
-/// List scheduled triggers for a repository.
 pub async fn list_schedules(
     State(state): State<AppState>,
     Path((owner, repo_name)): Path<(String, String)>,
@@ -119,8 +72,8 @@ pub async fn list_schedules(
         }
     };
 
-    match list_schedules_db(pool, repo_id).await {
-        Ok(schedules) => (axum::http::StatusCode::OK, Json(schedules)).into_response(),
+    match schedules::list_schedules_db(pool, repo_id).await {
+        Ok(s) => (axum::http::StatusCode::OK, Json(s)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -129,7 +82,6 @@ pub async fn list_schedules(
     }
 }
 
-/// Create a new pipeline schedule.
 pub async fn create_schedule(
     State(state): State<AppState>,
     Path((owner, repo_name)): Path<(String, String)>,
@@ -208,7 +160,6 @@ pub async fn create_schedule(
     }
 }
 
-/// Update an existing pipeline schedule.
 pub async fn update_schedule(
     State(state): State<AppState>,
     Path((_owner, _repo_name, schedule_id)): Path<(String, String, String)>,
@@ -227,7 +178,6 @@ pub async fn update_schedule(
         }
     };
 
-    // Validate cron if provided
     if let Some(ref cron) = req.cron {
         if !civit_pipeline::validate_cron(cron) {
             return (
@@ -240,7 +190,6 @@ pub async fn update_schedule(
 
     let now = Utc::now();
 
-    // Build dynamic update query
     let mut sets: Vec<String> = Vec::new();
     let mut idx = 1u32;
 
@@ -273,7 +222,6 @@ pub async fn update_schedule(
             .into_response();
     }
 
-    // Compute next_run_at if cron changed
     let next_run = req
         .cron
         .as_deref()
@@ -297,7 +245,7 @@ pub async fn update_schedule(
         idx
     );
 
-    let mut query = sqlx::query_as::<_, ScheduleRow>(&sql);
+    let mut query = sqlx::query_as::<_, schedules::ScheduleRow>(&sql);
 
     if let Some(ref cron) = req.cron {
         query = query.bind(cron);
@@ -339,7 +287,6 @@ pub async fn update_schedule(
     }
 }
 
-/// Delete a pipeline schedule.
 pub async fn delete_schedule(
     State(state): State<AppState>,
     Path((_owner, _repo_name, schedule_id)): Path<(String, String, String)>,
@@ -376,7 +323,6 @@ pub async fn delete_schedule(
     }
 }
 
-/// Manually trigger a pipeline schedule (fire immediately).
 pub async fn manual_trigger(
     State(state): State<AppState>,
     Path((_owner, _repo_name, schedule_id)): Path<(String, String, String)>,
@@ -394,8 +340,7 @@ pub async fn manual_trigger(
         }
     };
 
-    // Fetch the schedule
-    let schedule: Option<ScheduleRow> = sqlx::query_as(
+    let schedule: Option<schedules::ScheduleRow> = sqlx::query_as(
         "SELECT id, repo_id, cron, name, ref_name, yaml_path, enabled, last_run_at, next_run_at, created_at, updated_at FROM pipeline_schedules WHERE id = $1",
     )
     .bind(id)
@@ -415,7 +360,6 @@ pub async fn manual_trigger(
         }
     };
 
-    // Resolve repo owner/name
     let (owner, repo_name) = match get_repo_owner_name(pool, schedule.repo_id).await {
         Ok(names) => names,
         Err(e) => {
@@ -433,7 +377,6 @@ pub async fn manual_trigger(
         .unwrap_or_else(|| "main".to_string());
     let yaml_path = &schedule.yaml_path;
 
-    // Read pipeline YAML
     let yaml_content = match read_pipeline_yaml_from_fs(
         &state.config.storage_path,
         &owner,
@@ -456,7 +399,6 @@ pub async fn manual_trigger(
         }
     };
 
-    // Parse and validate
     let pipeline = match civit_pipeline::parse_pipeline(&yaml_content) {
         Ok(p) => p,
         Err(e) => {
@@ -489,11 +431,9 @@ pub async fn manual_trigger(
         }
     };
 
-    // Get HEAD commit SHA
     let commit_sha = get_head_commit_sha(&state.config.storage_path, &owner, &repo_name, &ref_name)
         .unwrap_or_else(|| "0000000000000000000000000000000000000000".to_string());
 
-    // Create pipeline run
     let run_id = match create_manual_pipeline_run(
         pool,
         schedule.repo_id,
@@ -524,39 +464,6 @@ pub async fn manual_trigger(
     };
 
     (axum::http::StatusCode::CREATED, Json(resp)).into_response()
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-async fn resolve_repo_id(
-    pool: &sqlx::PgPool,
-    owner: &str,
-    repo_name: &str,
-) -> std::result::Result<Option<Uuid>, sqlx::Error> {
-    let row = sqlx::query_as::<_, (Uuid,)>(
-        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
-    )
-    .bind(owner)
-    .bind(repo_name)
-    .fetch_optional(pool)
-    .await?;
-    Ok(row.map(|r| r.0))
-}
-
-async fn list_schedules_db(
-    pool: &sqlx::PgPool,
-    repo_id: Uuid,
-) -> std::result::Result<Vec<ScheduleResponse>, sqlx::Error> {
-    let rows: Vec<ScheduleRow> = sqlx::query_as(
-        "SELECT id, repo_id, cron, name, ref_name, yaml_path, enabled, last_run_at, next_run_at, created_at, updated_at FROM pipeline_schedules WHERE repo_id = $1 ORDER BY created_at",
-    )
-    .bind(repo_id)
-    .fetch_all(pool)
-    .await?;
-
-    Ok(rows.into_iter().map(|r| r.into()).collect())
 }
 
 async fn get_repo_owner_name(
@@ -753,101 +660,4 @@ async fn create_manual_pipeline_run(
     }
 
     Ok(run_id)
-}
-
-// ---------------------------------------------------------------------------
-// DB row types
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, sqlx::FromRow)]
-struct ScheduleRow {
-    id: Uuid,
-    repo_id: Uuid,
-    cron: String,
-    name: Option<String>,
-    ref_name: Option<String>,
-    yaml_path: String,
-    enabled: bool,
-    last_run_at: Option<chrono::DateTime<chrono::Utc>>,
-    next_run_at: Option<chrono::DateTime<chrono::Utc>>,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
-}
-
-impl From<ScheduleRow> for ScheduleResponse {
-    fn from(r: ScheduleRow) -> Self {
-        Self {
-            id: r.id.to_string(),
-            repo_id: r.repo_id.to_string(),
-            cron: r.cron,
-            name: r.name,
-            ref_name: r.ref_name,
-            yaml_path: r.yaml_path,
-            enabled: r.enabled,
-            last_run_at: r.last_run_at.map(|t| t.to_rfc3339()),
-            next_run_at: r.next_run_at.map(|t| t.to_rfc3339()),
-            created_at: r.created_at.to_rfc3339(),
-            updated_at: r.updated_at.to_rfc3339(),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_create_schedule_request_deserialize() {
-        let json = r#"{"cron": "0 6 * * 1", "name": "weekly"}"#;
-        let req: CreateScheduleRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(req.cron, "0 6 * * 1");
-        assert_eq!(req.name, Some("weekly".to_string()));
-        assert_eq!(req.yaml_path, ".civit/pipeline.yaml");
-        assert!(req.enabled);
-    }
-
-    #[test]
-    fn test_update_schedule_request_deserialize() {
-        let json = r#"{"cron": "*/15 * * * *", "enabled": false}"#;
-        let req: UpdateScheduleRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(req.cron, Some("*/15 * * * *".to_string()));
-        assert_eq!(req.enabled, Some(false));
-        assert!(req.name.is_none());
-    }
-
-    #[test]
-    fn test_schedule_response_serialize() {
-        let resp = ScheduleResponse {
-            id: "00000000-0000-0000-0000-000000000001".to_string(),
-            repo_id: "00000000-0000-0000-0000-000000000002".to_string(),
-            cron: "0 6 * * 1".to_string(),
-            name: Some("weekly".to_string()),
-            ref_name: Some("main".to_string()),
-            yaml_path: ".civit/pipeline.yaml".to_string(),
-            enabled: true,
-            last_run_at: None,
-            next_run_at: Some("2025-06-02T06:00:00+00:00".to_string()),
-            created_at: "2025-06-01T00:00:00+00:00".to_string(),
-            updated_at: "2025-06-01T00:00:00+00:00".to_string(),
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        assert!(json.contains("0 6 * * 1"));
-        assert!(json.contains("weekly"));
-    }
-
-    #[test]
-    fn test_manual_run_response_serialize() {
-        let resp = ManualRunResponse {
-            schedule_id: "s1".to_string(),
-            run_id: "r1".to_string(),
-            status: "pending".to_string(),
-            triggered_at: "2025-06-01T00:00:00+00:00".to_string(),
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        assert!(json.contains("pending"));
-    }
 }

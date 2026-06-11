@@ -696,6 +696,7 @@ pub async fn resolve_secrets(
 
 /// Cancel in-progress pipeline runs in the same concurrency group.
 /// Called when a new run is created with a concurrency group.
+#[allow(dead_code)]
 pub(crate) async fn enforce_concurrency(
     pool: &sqlx::PgPool,
     repo_id: Uuid,

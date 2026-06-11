@@ -1,8 +1,4 @@
 //! Pipeline Secrets API endpoints.
-//!
-//! Manages encrypted repository secrets for CI/CD pipelines.
-//! Secrets are stored with AES-256-GCM encryption and only decrypted
-//! when resolved by an authenticated runner.
 
 #![forbid(unsafe_code)]
 
@@ -15,40 +11,8 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use civit_ci::secrets::{self, CreateSecretRequest, SecretDetailResponse, SecretNameResponse};
 use uuid::Uuid;
-
-// ---------------------------------------------------------------------------
-// Response / Request types
-// ---------------------------------------------------------------------------
-
-/// Secret name entry (no values exposed).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecretNameResponse {
-    pub name: String,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-/// Full secret detail (admin-only, value decrypted).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SecretDetailResponse {
-    pub name: String,
-    pub value: String,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-/// Request body for creating/updating a secret.
-#[derive(Debug, Deserialize)]
-pub struct CreateSecretRequest {
-    pub name: String,
-    pub value: String,
-}
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
 
 pub fn pipeline_secret_routes() -> Router<AppState> {
     Router::new()
@@ -62,11 +26,21 @@ pub fn pipeline_secret_routes() -> Router<AppState> {
         )
 }
 
-// ---------------------------------------------------------------------------
-// Handlers
-// ---------------------------------------------------------------------------
+async fn get_repo_id(
+    pool: &sqlx::PgPool,
+    owner: &str,
+    repo_name: &str,
+) -> std::result::Result<Option<Uuid>, sqlx::Error> {
+    let row = sqlx::query_as::<_, (Uuid,)>(
+        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
+    )
+    .bind(owner)
+    .bind(repo_name)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| r.0))
+}
 
-/// List secret names for a repository (no values exposed).
 pub async fn list_secrets(
     State(state): State<AppState>,
     Path((owner, repo_name)): Path<(String, String)>,
@@ -91,8 +65,8 @@ pub async fn list_secrets(
         }
     };
 
-    match list_secrets_db(pool, repo_id).await {
-        Ok(secrets) => (axum::http::StatusCode::OK, Json(secrets)).into_response(),
+    match secrets::list_secrets_db(pool, repo_id).await {
+        Ok(s) => (axum::http::StatusCode::OK, Json(s)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -101,7 +75,6 @@ pub async fn list_secrets(
     }
 }
 
-/// Create or update a secret (AES-256-GCM encrypted).
 pub async fn upsert_secret(
     State(state): State<AppState>,
     Path((owner, repo_name)): Path<(String, String)>,
@@ -127,7 +100,6 @@ pub async fn upsert_secret(
         }
     };
 
-    // Encrypt the secret value
     let (value_enc, nonce) = match encrypt_value(&req.value) {
         Ok(v) => v,
         Err(e) => {
@@ -184,7 +156,6 @@ pub async fn upsert_secret(
     }
 }
 
-/// Get secret value (admin only).
 pub async fn get_secret(
     State(state): State<AppState>,
     Path((owner, repo_name, secret_name)): Path<(String, String, String)>,
@@ -213,8 +184,25 @@ pub async fn get_secret(
         }
     };
 
-    match get_secret_value_db(pool, repo_id, &secret_name).await {
-        Ok(Some(secret)) => (axum::http::StatusCode::OK, Json(secret)).into_response(),
+    match secrets::get_secret_value_db(pool, repo_id, &secret_name).await {
+        Ok(Some((ciphertext, nonce, created_at, updated_at))) => {
+            let value = match decrypt_value(&ciphertext, &nonce) {
+                Ok(v) => v,
+                Err(e) => {
+                    return (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(CoreError::Internal(format!("decryption failed: {e}")).error_response()),
+                    )
+                        .into_response();
+                }
+            };
+            (axum::http::StatusCode::OK, Json(SecretDetailResponse {
+                name: secret_name,
+                value,
+                created_at: created_at.to_rfc3339(),
+                updated_at: updated_at.to_rfc3339(),
+            })).into_response()
+        }
         Ok(None) => (
             axum::http::StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("secret not found".into()).error_response()),
@@ -228,7 +216,6 @@ pub async fn get_secret(
     }
 }
 
-/// Delete a secret.
 pub async fn delete_secret(
     State(state): State<AppState>,
     Path((owner, repo_name, secret_name)): Path<(String, String, String)>,
@@ -272,136 +259,5 @@ pub async fn delete_secret(
             Json(CoreError::Database(e.to_string()).error_response()),
         )
             .into_response(),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-async fn get_repo_id(
-    pool: &sqlx::PgPool,
-    owner: &str,
-    repo_name: &str,
-) -> std::result::Result<Option<Uuid>, sqlx::Error> {
-    let row = sqlx::query_as::<_, (Uuid,)>(
-        "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
-    )
-    .bind(owner)
-    .bind(repo_name)
-    .fetch_optional(pool)
-    .await?;
-    Ok(row.map(|r| r.0))
-}
-
-async fn list_secrets_db(
-    pool: &sqlx::PgPool,
-    repo_id: Uuid,
-) -> std::result::Result<Vec<SecretNameResponse>, sqlx::Error> {
-    let rows: Vec<(String, chrono::DateTime<Utc>, chrono::DateTime<Utc>)> = sqlx::query_as(
-        "SELECT name, created_at, updated_at FROM repo_secrets WHERE repo_id = $1 ORDER BY name",
-    )
-    .bind(repo_id)
-    .fetch_all(pool)
-    .await?;
-
-    Ok(rows
-        .into_iter()
-        .map(|(name, created_at, updated_at)| SecretNameResponse {
-            name,
-            created_at: created_at.to_rfc3339(),
-            updated_at: updated_at.to_rfc3339(),
-        })
-        .collect())
-}
-
-type SecretValueRow = (
-    Vec<u8>,
-    Vec<u8>,
-    chrono::DateTime<Utc>,
-    chrono::DateTime<Utc>,
-);
-
-async fn get_secret_value_db(
-    pool: &sqlx::PgPool,
-    repo_id: Uuid,
-    secret_name: &str,
-) -> std::result::Result<Option<SecretDetailResponse>, sqlx::Error> {
-    let row: Option<SecretValueRow> = sqlx::query_as(
-        "SELECT value_enc, nonce, created_at, updated_at FROM repo_secrets WHERE repo_id = $1 AND name = $2",
-    )
-    .bind(repo_id)
-    .bind(secret_name)
-    .fetch_optional(pool)
-    .await?;
-
-    match row {
-        Some((ciphertext, nonce, created_at, updated_at)) => {
-            let value = decrypt_value(&ciphertext, &nonce)
-                .map_err(|e| sqlx::Error::Decode(e.to_string().into()))?;
-            Ok(Some(SecretDetailResponse {
-                name: secret_name.to_string(),
-                value,
-                created_at: created_at.to_rfc3339(),
-                updated_at: updated_at.to_rfc3339(),
-            }))
-        }
-        None => Ok(None),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_secret_name_response_serialize() {
-        let resp = SecretNameResponse {
-            name: "MY_SECRET".to_string(),
-            created_at: "2025-01-01T00:00:00+00:00".to_string(),
-            updated_at: "2025-01-01T00:00:00+00:00".to_string(),
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        assert!(json.contains("MY_SECRET"));
-        assert!(json.contains("created_at"));
-    }
-
-    #[test]
-    fn test_secret_detail_response_serialize() {
-        let resp = SecretDetailResponse {
-            name: "API_KEY".to_string(),
-            value: "super-secret-value".to_string(),
-            created_at: "2025-01-01T00:00:00+00:00".to_string(),
-            updated_at: "2025-01-01T00:00:00+00:00".to_string(),
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        assert!(json.contains("API_KEY"));
-        assert!(json.contains("super-secret-value"));
-    }
-
-    #[test]
-    fn test_create_secret_request_deserialize() {
-        let json = r#"{"name": "MY_TOKEN", "value": "abc123"}"#;
-        let req: CreateSecretRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(req.name, "MY_TOKEN");
-        assert_eq!(req.value, "abc123");
-    }
-
-    #[test]
-    fn test_secret_detail_response_roundtrip() {
-        let resp = SecretDetailResponse {
-            name: "DB_PASSWORD".to_string(),
-            value: "p@ssw0rd!".to_string(),
-            created_at: "2025-01-01T00:00:00+00:00".to_string(),
-            updated_at: "2025-01-01T00:00:00+00:00".to_string(),
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        let decoded: SecretDetailResponse = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.name, "DB_PASSWORD");
-        assert_eq!(decoded.value, "p@ssw0rd!");
     }
 }

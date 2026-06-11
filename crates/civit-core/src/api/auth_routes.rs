@@ -115,8 +115,7 @@ async fn do_register(
         return Err(CoreError::Auth("Email already registered".into()));
     }
 
-    let password_hash = bcrypt::hash(&req.password, bcrypt::DEFAULT_COST)
-        .map_err(|e| CoreError::Internal(format!("Failed to hash password: {e}")))?;
+    let password_hash = civit_auth::password::hash_password(&req.password)?;
 
     let user = state
         .db
@@ -203,7 +202,8 @@ async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<L
 
     // Try LDAP authentication first if enabled
     if sec.ldap_enabled {
-        match LdapAuth::authenticate(sec, &req.username, &req.password).await {
+        let ldap_config: crate::ldap::LdapConfig = sec.into();
+        match LdapAuth::authenticate(&ldap_config, &req.username, &req.password).await {
             Ok(ldap_info) => {
                 // Auto-provision or fetch the user
                 let user = match state.db.get_user_by_username(&ldap_info.username).await {
@@ -265,7 +265,7 @@ async fn do_login(state: &AppState, req: LoginRequest) -> crate::error::Result<L
         }
     };
 
-    if !bcrypt::verify(&req.password, &stored_hash).unwrap_or(false) {
+    if !civit_auth::password::verify_password(&req.password, &stored_hash) {
         let _ = state
             .db
             .record_login_attempt(&req.username, "unknown", false)
@@ -388,7 +388,8 @@ async fn do_ldap_sync(
         return Err(CoreError::Auth("LDAP is not enabled".into()));
     }
 
-    let groups = LdapAuth::sync_groups(sec, &req.username).await?;
+    let ldap_config: crate::ldap::LdapConfig = sec.into();
+    let groups = LdapAuth::sync_groups(&ldap_config, &req.username).await?;
 
     Ok(LdapSyncResponse {
         status: "ok".into(),

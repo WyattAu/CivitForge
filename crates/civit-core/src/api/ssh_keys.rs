@@ -49,12 +49,12 @@ pub async fn list_ssh_keys(
     Path(user_id): Path<String>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
-    let user_uuid = match Uuid::parse_str(&user_id) {
+    let user_uuid = match civit_auth::ssh::parse_user_id(&user_id) {
         Ok(id) => id,
-        Err(_) => {
+        Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(CoreError::Config("invalid user id".into()).error_response()),
+                Json(CoreError::Config(e.to_string()).error_response()),
             )
                 .into_response();
         }
@@ -79,29 +79,29 @@ pub async fn add_ssh_key(
     _auth: AuthUser,
     Json(req): Json<AddSshKeyRequest>,
 ) -> impl IntoResponse {
-    let user_uuid = match Uuid::parse_str(&user_id) {
+    let user_uuid = match civit_auth::ssh::parse_user_id(&user_id) {
         Ok(id) => id,
-        Err(_) => {
+        Err(e) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(CoreError::Config("invalid user id".into()).error_response()),
+                Json(CoreError::Config(e.to_string()).error_response()),
             )
                 .into_response();
         }
     };
 
-    if req.public_key.trim().is_empty() {
+    if let Err(e) = civit_auth::ssh::validate_public_key(&req.public_key) {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::Config("public_key required".into()).error_response()),
+            Json(CoreError::Config(e.to_string()).error_response()),
         )
             .into_response();
     }
 
-    if req.fingerprint.trim().is_empty() {
+    if let Err(e) = civit_auth::ssh::validate_fingerprint(&req.fingerprint) {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::Config("fingerprint required".into()).error_response()),
+            Json(CoreError::Config(e.to_string()).error_response()),
         )
             .into_response();
     }

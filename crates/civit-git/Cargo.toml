@@ -1,0 +1,31 @@
+[package]
+name = "civit-git"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+gix = { workspace = true }
+tempfile = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+flate2 = { workspace = true }
+tar = "0.4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = { workspace = true }
+civit-db = { path = "../civit-db" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
+[features]
+default = []

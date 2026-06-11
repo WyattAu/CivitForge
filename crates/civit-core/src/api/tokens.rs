@@ -10,7 +10,6 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,7 +27,7 @@ pub struct CreateTokenRequest {
     pub name: String,
     #[serde(default = "default_scopes")]
     pub scopes: Vec<String>,
-    pub expires_at: Option<String>, // ISO8601 datetime or days string like "90d"
+    pub expires_at: Option<String>,
 }
 
 fn default_scopes() -> Vec<String> {
@@ -50,44 +49,14 @@ fn default_per_page() -> u32 {
     20
 }
 
-/// Validate scope names against allowed set
-fn validate_scopes(scopes: &[String]) -> Result<(), String> {
-    let allowed = [
-        "read",
-        "write",
-        "admin",
-        "repo:read",
-        "repo:write",
-        "user:read",
-        "org:read",
-        "org:write",
-        "ci:read",
-        "ci:write",
-        "issues:read",
-        "issues:write",
-        "packages:read",
-        "packages:write",
-    ];
-    for s in scopes {
-        if !allowed.contains(&s.as_str()) {
-            return Err(format!("invalid scope: {s}"));
-        }
-    }
-    Ok(())
-}
-
 /// Hash a token for storage (SHA-256)
 fn hash_token(token: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(token.as_bytes());
-    format!("{:x}", hasher.finalize())
+    civit_auth::pat::hash_token(token)
 }
 
 /// Generate a random token string with cf_pat_ prefix (40 bytes hex = 80 chars)
 fn generate_token() -> String {
-    let mut random_bytes = [0u8; 40];
-    rand::fill(&mut random_bytes);
-    format!("cf_pat_{}", hex::encode(random_bytes))
+    civit_auth::pat::generate_token()
 }
 
 /// Parse user_id from AuthUser
@@ -166,10 +135,10 @@ pub async fn create_token(
     let user_id = parse_user_id(&_auth);
 
     // Validate scopes
-    if let Err(e) = validate_scopes(&req.scopes) {
+    if let Err(e) = civit_auth::pat::validate_scopes(&req.scopes) {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::BadRequest(e).error_response()),
+            Json(CoreError::BadRequest(e.to_string()).error_response()),
         )
             .into_response();
     }
@@ -226,7 +195,6 @@ pub async fn create_token(
 
     match result {
         Ok((id, created_at)) => {
-            // Return the raw token ONLY on creation
             #[derive(Serialize)]
             struct CreatedToken {
                 id: String,

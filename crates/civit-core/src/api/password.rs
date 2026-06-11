@@ -23,46 +23,15 @@ pub struct MessageResponse {
 }
 
 pub fn validate_password_policy(password: &str, policy: &SecurityConfig) -> Vec<String> {
-    let mut violations = Vec::new();
-
-    if password.len() < policy.password_min_length {
-        violations.push(format!(
-            "Password must be at least {} characters",
-            policy.password_min_length
-        ));
-    }
-
-    if password.len() > policy.password_max_length {
-        violations.push(format!(
-            "Password must be at most {} characters",
-            policy.password_max_length
-        ));
-    }
-
-    if policy.password_require_uppercase && !password.chars().any(|c| c.is_ascii_uppercase()) {
-        violations.push("Password must contain at least one uppercase letter".into());
-    }
-
-    if policy.password_require_lowercase && !password.chars().any(|c| c.is_ascii_lowercase()) {
-        violations.push("Password must contain at least one lowercase letter".into());
-    }
-
-    if policy.password_require_digit && !password.chars().any(|c| c.is_ascii_digit()) {
-        violations.push("Password must contain at least one digit".into());
-    }
-
-    if policy.password_require_special && !password.chars().any(|c| !c.is_alphanumeric()) {
-        violations.push("Password must contain at least one special character".into());
-    }
-
-    for ch in password.chars() {
-        if ch.is_control() {
-            violations.push("Password contains invalid characters".into());
-            break;
-        }
-    }
-
-    violations
+    let auth_policy = civit_auth::password::PasswordPolicy {
+        min_length: policy.password_min_length,
+        max_length: policy.password_max_length,
+        require_uppercase: policy.password_require_uppercase,
+        require_lowercase: policy.password_require_lowercase,
+        require_digit: policy.password_require_digit,
+        require_special: policy.password_require_special,
+    };
+    civit_auth::password::validate_password_policy(password, &auth_policy)
 }
 
 pub async fn change_password(
@@ -113,13 +82,11 @@ pub async fn change_password(
         }
     };
 
-    // Hash the new password with SHA-256
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(req.new_password.as_bytes());
     let new_hash = hex::encode(hasher.finalize());
 
-    // Verify current_password against stored hash
     let stored_hash = match state.db.get_password_hash(uid).await {
         Ok(Some(h)) => h,
         Ok(None) => {

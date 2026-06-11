@@ -1,3 +1,5 @@
+//! Artifact serving API endpoints.
+
 #![forbid(unsafe_code)]
 
 use axum::{
@@ -7,7 +9,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{delete, get, head},
 };
-use serde::Deserialize;
+use civit_storage::artifacts::{self, ArtifactDownloadQuery};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
@@ -24,37 +26,12 @@ fn artifact_config_from_env() -> PreSignedUrlConfig {
     }
 }
 
-fn artifact_storage_path(state: &AppState, owner: &str, repo: &str, artifact_id: &str) -> PathBuf {
-    PathBuf::from(&state.config.storage_path)
-        .join("artifacts")
-        .join(owner)
-        .join(repo)
-        .join(artifact_id)
-}
-
 pub fn artifact_serving_routes() -> Router<super::AppState> {
     Router::new()
-        .route(
-            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}/download",
-            get(download_artifact),
-        )
-        .route(
-            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}/download-url",
-            get(get_download_url),
-        )
-        .route(
-            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}",
-            head(head_artifact),
-        )
-        .route(
-            "/api/v1/artifacts/{owner}/{repo}/{artifact_id}/cache",
-            delete(invalidate_cache),
-        )
-}
-
-#[derive(Deserialize)]
-pub struct ArtifactDownloadQuery {
-    token: Option<String>,
+        .route("/api/v1/artifacts/{owner}/{repo}/{artifact_id}/download", get(download_artifact))
+        .route("/api/v1/artifacts/{owner}/{repo}/{artifact_id}/download-url", get(get_download_url))
+        .route("/api/v1/artifacts/{owner}/{repo}/{artifact_id}", head(head_artifact))
+        .route("/api/v1/artifacts/{owner}/{repo}/{artifact_id}/cache", delete(invalidate_cache))
 }
 
 async fn download_artifact(
@@ -68,11 +45,7 @@ async fn download_artifact(
     let token_str = match query.token {
         Some(t) => t,
         None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                "pre-signed token required for download",
-            )
-                .into_response();
+            return (StatusCode::UNAUTHORIZED, "pre-signed token required for download").into_response();
         }
     };
 
@@ -97,59 +70,31 @@ async fn download_artifact(
         }
     }
 
-    let dir = artifact_storage_path(&state, &owner, &repo, &artifact_id);
+    let dir = artifacts::artifact_storage_path(&state.config.storage_path, &owner, &repo, &artifact_id);
     if !dir.exists() || !dir.is_dir() {
-        return (
-            StatusCode::NOT_FOUND,
-            json!({ "error": "artifact not found" }).to_string(),
-        )
-            .into_response();
+        return (StatusCode::NOT_FOUND, json!({ "error": "artifact not found" }).to_string()).into_response();
     }
 
     let files: Vec<PathBuf> = match std::fs::read_dir(&dir) {
-        Ok(rd) => rd
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .filter(|p| p.is_file())
-            .collect(),
+        Ok(rd) => rd.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.is_file()).collect(),
         Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to read artifact directory",
-            )
-                .into_response();
+            return (StatusCode::INTERNAL_SERVER_ERROR, "failed to read artifact directory").into_response();
         }
     };
 
     if files.len() == 1 {
         let file_path = &files[0];
-        let file_name = file_path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| artifact_id.clone());
+        let file_name = file_path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| artifact_id.clone());
 
         match std::fs::read(file_path) {
             Ok(bytes) => {
                 let cache_control = CacheHeaders::private_cache();
                 let disposition = format!("attachment; filename=\"{file_name}\"");
-                let content_type = mime_from_extension(&file_name);
+                let content_type = artifacts::mime_from_extension(&file_name);
 
-                (
-                    StatusCode::OK,
-                    [
-                        ("cache-control", cache_control.as_str()),
-                        ("content-disposition", disposition.as_str()),
-                        ("content-type", content_type.as_str()),
-                    ],
-                    bytes,
-                )
-                    .into_response()
+                (StatusCode::OK, [("cache-control", cache_control.as_str()), ("content-disposition", disposition.as_str()), ("content-type", content_type.as_str())], bytes).into_response()
             }
-            Err(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "failed to read artifact file",
-            )
-                .into_response(),
+            Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "failed to read artifact file").into_response(),
         }
     } else {
         let cache_control = CacheHeaders::private_cache();
@@ -159,41 +104,22 @@ async fn download_artifact(
         let mut has_files = false;
         for file_path in &files {
             if let Ok(_file) = std::fs::File::open(file_path) {
-                let relative = file_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
+                let relative = file_path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
                 if builder.append_path_with_name(file_path, &relative).is_ok() {
                     has_files = true;
                 }
             }
         }
         if !has_files {
-            return (
-                StatusCode::NOT_FOUND,
-                json!({ "error": "artifact directory is empty" }).to_string(),
-            )
-                .into_response();
+            return (StatusCode::NOT_FOUND, json!({ "error": "artifact directory is empty" }).to_string()).into_response();
         }
         let archive_data = match builder.into_inner() {
             Ok(data) => data,
-            Err(_) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, "failed to build archive")
-                    .into_response();
-            }
+            Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "failed to build archive").into_response(),
         };
 
         let content_type = "application/gzip".to_string();
-        (
-            StatusCode::OK,
-            [
-                ("cache-control", cache_control.as_str()),
-                ("content-disposition", disposition.as_str()),
-                ("content-type", content_type.as_str()),
-            ],
-            archive_data,
-        )
-            .into_response()
+        (StatusCode::OK, [("cache-control", cache_control.as_str()), ("content-disposition", disposition.as_str()), ("content-type", content_type.as_str())], archive_data).into_response()
     }
 }
 
@@ -204,27 +130,14 @@ async fn get_download_url(
     let config = artifact_config_from_env();
     let generator = PreSignedUrlGenerator::new(config);
 
-    let dir = artifact_storage_path(&state, &owner, &repo, &artifact_id);
+    let dir = artifacts::artifact_storage_path(&state.config.storage_path, &owner, &repo, &artifact_id);
     if !dir.exists() || !dir.is_dir() {
-        return (
-            StatusCode::NOT_FOUND,
-            json!({ "error": "artifact not found" }).to_string(),
-        )
-            .into_response();
+        return (StatusCode::NOT_FOUND, json!({ "error": "artifact not found" }).to_string()).into_response();
     }
 
     match generator.generate_url(&artifact_id, "authenticated-user", None) {
-        Ok(url) => (
-            StatusCode::OK,
-            [("content-type", "application/json")],
-            json!({ "download_url": url, "expires_in_secs": 3600 }).to_string(),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            json!({ "error": e.to_string() }).to_string(),
-        )
-            .into_response(),
+        Ok(url) => (StatusCode::OK, [("content-type", "application/json")], json!({ "download_url": url, "expires_in_secs": 3600 }).to_string()).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, json!({ "error": e.to_string() }).to_string()).into_response(),
     }
 }
 
@@ -232,20 +145,14 @@ async fn head_artifact(
     Path((owner, repo, artifact_id)): Path<(String, String, String)>,
     State(state): State<AppState>,
 ) -> Response {
-    let dir = artifact_storage_path(&state, &owner, &repo, &artifact_id);
+    let dir = artifacts::artifact_storage_path(&state.config.storage_path, &owner, &repo, &artifact_id);
     if !dir.exists() || !dir.is_dir() {
         return (StatusCode::NOT_FOUND, "").into_response();
     }
 
     let files: Vec<PathBuf> = match std::fs::read_dir(&dir) {
-        Ok(rd) => rd
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .filter(|p| p.is_file())
-            .collect(),
-        Err(_) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, "").into_response();
-        }
+        Ok(rd) => rd.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.is_file()).collect(),
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "").into_response(),
     };
 
     if files.is_empty() {
@@ -273,9 +180,7 @@ async fn head_artifact(
 
     let etag = CacheHeaders::etag_from_hash(&format!("{:x}", hasher.finalize()));
     let cache_control = CacheHeaders::public_cache(86400);
-    let last_modified_str = last_modified
-        .format("%a, %d %b %Y %H:%M:%S GMT")
-        .to_string();
+    let last_modified_str = last_modified.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
 
     let headers = [
         ("etag", etag.as_str()),
@@ -292,7 +197,7 @@ async fn invalidate_cache(
     Path((owner, repo, artifact_id)): Path<(String, String, String)>,
     State(state): State<AppState>,
 ) -> Response {
-    let dir = artifact_storage_path(&state, &owner, &repo, &artifact_id);
+    let dir = artifacts::artifact_storage_path(&state.config.storage_path, &owner, &repo, &artifact_id);
     let mut cleared = 0u64;
 
     if dir.exists() {
@@ -309,90 +214,10 @@ async fn invalidate_cache(
         }
     }
 
-    (
-        StatusCode::OK,
-        [("content-type", "application/json")],
-        json!({
-            "status": "ok",
-            "artifact_id": artifact_id,
-            "cache_invalidated": true,
-            "entries_cleared": cleared,
-        })
-        .to_string(),
-    )
-        .into_response()
-}
-
-fn mime_from_extension(filename: &str) -> String {
-    let ext = filename.rsplit('.').next().unwrap_or("").to_lowercase();
-    match ext.as_str() {
-        "json" => "application/json",
-        "yaml" | "yml" => "text/yaml",
-        "xml" => "application/xml",
-        "csv" => "text/csv",
-        "txt" | "log" => "text/plain",
-        "html" => "text/html",
-        "css" => "text/css",
-        "js" => "application/javascript",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "svg" => "image/svg+xml",
-        "zip" => "application/zip",
-        "gz" | "tgz" => "application/gzip",
-        "tar" => "application/x-tar",
-        "pdf" => "application/pdf",
-        "wasm" => "application/wasm",
-        "bin" | "exe" | "dll" | "so" => "application/octet-stream",
-        _ => "application/octet-stream",
-    }
-    .to_string()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_artifact_config_from_env_defaults() {
-        let config = artifact_config_from_env();
-        assert_eq!(
-            config.secret_key,
-            "placeholder-dev-only-secret-key-do-not-use-in-prod"
-        );
-        assert_eq!(config.base_url, "https://localhost");
-        assert_eq!(config.default_ttl_secs, 3600);
-    }
-
-    #[test]
-    fn test_mime_from_extension_common() {
-        assert_eq!(mime_from_extension("file.json"), "application/json");
-        assert_eq!(mime_from_extension("file.yaml"), "text/yaml");
-        assert_eq!(mime_from_extension("file.txt"), "text/plain");
-        assert_eq!(mime_from_extension("file.zip"), "application/zip");
-        assert_eq!(mime_from_extension("file.gz"), "application/gzip");
-        assert_eq!(mime_from_extension("file.png"), "image/png");
-        assert_eq!(mime_from_extension("file.pdf"), "application/pdf");
-        assert_eq!(
-            mime_from_extension("file.unknown"),
-            "application/octet-stream"
-        );
-    }
-
-    #[test]
-    fn test_mime_from_extension_case_insensitive() {
-        assert_eq!(mime_from_extension("FILE.JSON"), "application/json");
-        assert_eq!(mime_from_extension("file.PNG"), "image/png");
-    }
-
-    #[test]
-    fn test_mime_from_extension_no_dot() {
-        assert_eq!(mime_from_extension("noext"), "application/octet-stream");
-    }
-
-    #[test]
-    fn test_artifact_serving_routes_count() {
-        let router = artifact_serving_routes();
-        let _ = router;
-    }
+    (StatusCode::OK, [("content-type", "application/json")], json!({
+        "status": "ok",
+        "artifact_id": artifact_id,
+        "cache_invalidated": true,
+        "entries_cleared": cleared,
+    }).to_string()).into_response()
 }

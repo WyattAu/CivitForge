@@ -48,6 +48,23 @@ pub enum CoreError {
     TooManyRequests(String),
 }
 
+impl From<civit_auth::error::AuthError> for CoreError {
+    fn from(e: civit_auth::error::AuthError) -> Self {
+        match e {
+            civit_auth::error::AuthError::Auth(msg) => CoreError::Auth(msg),
+            civit_auth::error::AuthError::Forbidden(msg) => CoreError::Forbidden(msg),
+            civit_auth::error::AuthError::Config(msg) => CoreError::Config(msg),
+            civit_auth::error::AuthError::Database(msg) => CoreError::Database(msg),
+            civit_auth::error::AuthError::Jwt(e) => CoreError::Jwt(e),
+            civit_auth::error::AuthError::Ldap(msg) => CoreError::Auth(msg),
+            civit_auth::error::AuthError::Internal(msg) => CoreError::Internal(msg),
+            civit_auth::error::AuthError::NotFound(msg) => CoreError::NotFound(msg),
+            civit_auth::error::AuthError::BadRequest(msg) => CoreError::BadRequest(msg),
+            civit_auth::error::AuthError::TooManyRequests(msg) => CoreError::TooManyRequests(msg),
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct ErrorResponse {
     error: String,
