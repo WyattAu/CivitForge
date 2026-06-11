@@ -17,8 +17,8 @@ ARG TARGETARCH
 # ---------------------------------------------------------------------------
 FROM rust:1.88-slim AS builder
 
-# Install protobuf compiler for civit-vfs
-RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
+# Install protobuf compiler and build dependencies for civit-vfs
+RUN apt-get update && apt-get install -y protobuf-compiler pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
