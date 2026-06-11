@@ -42,10 +42,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY crates/civit-shared/ crates/civit-shared/
-COPY crates/civit-pipeline/ crates/civit-pipeline/
-COPY crates/civit-core/ crates/civit-core/
-COPY crates/civit-runner/ crates/civit-runner/
+COPY crates/ crates/
 
 RUN cargo build --release --locked -p civit-runner
 RUN strip /src/target/release/civit-runner 2>/dev/null || true
