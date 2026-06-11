@@ -2,67 +2,202 @@
 
 Crate-level architecture, data flow, and design decisions for the CivitForge workspace.
 
+## Workspace Structure
+
+12-crate workspace (plus `civit-desktop`, excluded from workspace build), Rust edition 2024, `#![forbid(unsafe_code)]` enforced.
+
+```
+CivitForge/
+├── Cargo.toml              # Workspace root
+├── rust-toolchain.toml     # Rust 1.88, clippy, rustfmt
+├── docker-compose.yml      # Full-stack local deployment
+├── Dockerfile              # Convenience build
+├── container/
+│   ├── civitforge/         # Main server image (tier: critical)
+│   └── runner/             # CI pipeline daemon (tier: standard)
+├── crates/
+│   ├── civit-shared/       # Shared types (backend + frontend)
+│   ├── civit-pipeline/     # Pipeline YAML parsing and validation
+│   ├── civit-db/           # Database layer, migrations, models
+│   ├── civit-git/          # Git operations (gitoxide)
+│   ├── civit-auth/         # Authentication: JWT, LDAP, PAT, SSH keys
+│   ├── civit-ci/           # CI/CD: badges, caches, DAG, schedules
+│   ├── civit-storage/      # Storage: artifacts, LFS, mirrors, OCI
+│   ├── civit-core/         # HTTP API server, events, federation
+│   ├── civit-runner/       # CI execution, K8s operator, Podman
+│   ├── civit-brain/        # AI/ML, RAG, AST parsing
+│   ├── civit-crypto/       # Crypto primitives, CEL, enterprise auth
+│   ├── civit-vfs/          # gRPC filesystem
+│   ├── civit-ui/           # Leptos web frontend (WASM + SSR)
+│   └── civit-desktop/      # Tauri desktop app (excluded, requires webkit2gtk)
+├── deploy/
+│   └── helm/civitforge/    # Kubernetes Helm chart
+├── docs/                   # Operator guide, API reference, ADRs
+└── .specs/                 # Architecture specs, traceability
+```
+
 ## Crate Dependency Graph
 
 ```
-                     ┌─────────────┐
-                     │  civit-core  │  HTTP API, auth, DB, sessions, events
-                     │   (binary)   │
-                     └──────┬──────┘
-                            │ uses
-               ┌────────────┼────────────┐
-               │            │            │
-     ┌─────────▼──────┐   │   ┌────────▼───────┐
-     │   civit-brain    │   │   │   civit-vfs    │
-     │  (binary, lib)   │   │   │  (binary, lib) │
-     │  AI / RAG / LLM  │   │   │  gRPC / VFS    │
-     └────────┬─────────┘   │   └────────┬────────┘
-              │             │            │
-              └──────┬──────┘            │
-                     │                    │
-     ┌───────────────▼────────────────────▼──────┐
-     │            civit-crypto (library)            │
-     │  CEL evaluator, HMAC, OIDC, SAML, WebAuthn  │
-     └───────────────────────────────────────────┘
-                     │
-     ┌───────────────▼───────────────────────────┐
-     │            civit-runner (binary)              │
-     │  CI pipeline execution, K8s operator, Podman │
-     └───────────────────────────────────────────┘
-                     ▲
-                     │
-     ┌───────────────┘
-     │   civit-pipeline (library)
-     │   YAML spec parsing, validation
-     └───────────────┘
-                     ▲
-                     │
-     ┌───────────────┘
-     │   civit-shared (library)
-     │   Shared API types (backend + frontend)
-     └───────────────┘
+                         ┌──────────────┐
+                         │   civit-ui   │  Leptos WASM + SSR frontend
+                         └──────┬───────┘
+                                │ uses types from
+                    ┌───────────▼───────────┐
+                    │     civit-shared       │  Shared API request/response types
+                    └───────┬───────┬───────┘
+                            │       │
+               ┌────────────▼─┐   ┌─▼────────────┐
+               │  civit-auth   │   │  civit-storage │
+               │ JWT, LDAP,   │   │ Artifacts, LFS,│
+               │ PAT, SSH keys│   │ Mirrors, OCI   │
+               └──────┬───────┘   └────────────────┘
+                      │ depends on
+               ┌──────▼───────┐
+               │    civit-db   │  PostgreSQL: migrations, models, pool
+               └──────┬───────┘
+                      │
+         ┌────────────▼────────────┐
+         │       civit-core        │  HTTP API (45 route modules), events,
+         │  (main binary)          │  federation, search, notifications
+         └──┬─────────┬──────────┬─┘
+            │         │          │
+  ┌─────────▼──┐  ┌───▼────┐  ┌─▼──────────┐
+  │  civit-ci   │  │civit-  │  │  civit-brain │
+  │ Badges,     │  │git     │  │ AI/ML, RAG,  │
+  │ Caches, DAG │  │Archive,│  │ AST (19 lang)│
+  │ Schedules   │  │Blame,  │  │ Vector DB    │
+  └──────┬──────┘  │Diff,   │  └──────────────┘
+         │         │Graph   │
+         ▼         └────────┘
+  ┌──────────────┐
+  │ civit-pipeline│  YAML spec parsing, validation
+  └──────────────┘
+
+  ┌──────────────┐    ┌──────────────┐
+  │ civit-crypto  │    │  civit-runner │
+  │ CEL, HMAC,   │    │ CI execution, │
+  │ OIDC, SAML,  │    │ K8s operator, │
+  │ WebAuthn,    │    │ Podman sandbox│
+  │ mTLS, HSM    │    └──────────────┘
+  └──────────────┘
+
+  ┌──────────────┐
+  │  civit-vfs    │
+  │ gRPC filesystem│
+  └──────────────┘
 ```
 
 ## Crate Responsibilities
 
-### civit-core (binary)
+### civit-shared (library)
 
-Central server binary. HTTP API, database, authentication, events, Git engine, SSH daemon.
+Shared API request/response types for backend-frontend type sharing via `civit-ui`. Standalone, no internal dependencies.
+
+### civit-pipeline (library)
+
+CI/CD pipeline YAML spec parsing and validation.
 
 | Module | Responsibility |
 |--------|---------------|
-| `api/` | Axum router: ~60 routes (repos, users, orgs, auth, SSH keys, WebSocket, Git smart HTTP, pipelines, runners, OCI registry, issues, wiki, search) |
-| `db/` | sqlx PostgreSQL: connection pool, migrations, sessions |
-| `auth/` | JWT encode/decode, RBAC role hierarchy, TOTP 2FA, session management |
-| `git/` | gitoxide (gix): bare repo init, commit walking, ref reading, smart HTTP |
-| `ssh/` | russh: Ed25519 host key, pubkey auth, rate limiting, git command routing |
+| YAML parser | Full pipeline spec: triggers, services, cache, secrets, workspace, concurrency |
+| Expression evaluator | CEL-based conditions for `if:`, trigger filters |
+| Validation | 80+ test vectors |
+
+### civit-db (library)
+
+Database abstraction layer. Standalone, no internal dependencies.
+
+| Module | Responsibility |
+|--------|---------------|
+| `migrations/` | 32 numbered SQL migrations (001-049) with rollback scripts |
+| `models/` | Data structs: User, Org, Repository, Pipeline, Issue, PullRequest, Wiki, etc. |
+| `pool/` | sqlx connection pool wrapper |
+| `repository/` | Database access methods, org usage tracking |
+| `session/` | Session management and storage |
+| `error.rs` | `DbError` type with thiserror |
+
+### civit-git (library)
+
+Git operations via gitoxide. Depends on `civit-db`.
+
+| Module | Responsibility |
+|--------|---------------|
+| `operations/` | `GitService`: clone, commit, merge, ref management |
+| `diff/` | Diff generation between commits/refs |
+| `blame/` | Line-by-line blame information |
+| `graph/` | Commit graph traversal and branch info |
+| `archive/` | Archive generation (tar.gz, zip) |
+| `tree/` | Tree walking, blob reading, language statistics |
+
+### civit-auth (library)
+
+Authentication and authorization. Depends on `civit-db`, `civit-shared`.
+
+| Module | Responsibility |
+|--------|---------------|
+| `jwt/` | JWT encode/decode with RS256/HS256 |
+| `ldap/` | LDAP connection pool, bind, user/group search |
+| `password/` | bcrypt hashing, password policy enforcement |
+| `pat/` | Personal access token management |
+| `ssh/` | SSH key storage and validation |
+| `middleware/` | Auth middleware for Axum routes |
+| `error.rs` | `AuthError` type |
+
+### civit-ci (library)
+
+CI/CD orchestration. Depends on `civit-pipeline`.
+
+| Module | Responsibility |
+|--------|---------------|
+| `pipeline/` | Pipeline execution engine, step sequencing |
+| `graph/` | DAG-based dependency resolution |
+| `caches/` | Cache management and restoration |
+| `schedules/` | Cron-based pipeline scheduling |
+| `secrets/` | Secret injection into pipeline steps |
+| `badges/` | Status badge SVG generation |
+| `runner_protocol/` | Runner communication protocol types |
+
+### civit-storage (library)
+
+File and artifact storage. Depends on `civit-shared`.
+
+| Module | Responsibility |
+|--------|---------------|
+| `artifacts/` | Build artifact storage and retrieval |
+| `lfs/` | Git LFS (Large File Storage) pointer and blob management |
+| `mirrors/` | Repository mirror storage |
+| `oci/` | OCI container registry storage backend |
+
+### civit-core (binary)
+
+Central HTTP API server. Depends on all library crates.
+
+| Module | Responsibility |
+|--------|---------------|
+| `api/` | Axum router: 45 route modules (repos, users, orgs, auth, pipelines, runners, OCI, issues, wiki, search, boards, releases, PRs, teams, tokens, webhooks, federation, etc.) |
+| `config.rs` | Environment-based configuration with validation |
 | `events/` | DashMap pub/sub, WebSocket broadcast, bounded log replay |
-| `federation/` | ForgeFed: WebFinger lookup, HTTP signing, delivery, backoff |
+| `federation/` | ForgeFed: ActivityPub, WebFinger, HTTP signing, inbox/outbox, multi-master sync, vector clocks |
+| `ssh/` | russh: Ed25519 host key, pubkey auth, rate limiting, git command routing |
 | `webhooks/` | HMAC-SHA256 payload signing, HTTP dispatch |
 | `notifications/` | SMTP (lettre), Slack, webhook, log-only modes |
-| `scanning/` | Secret scanner (15+ regex patterns), license scanner (50+ SPDX) |
+| `search/` | Full-text code search across repositories |
+| `wiki/` | Wiki page CRUD, history, diff |
+| `health/` | Health check endpoints |
 | `telemetry/` | OTLP exporter (reqwest POST) |
-| `config.rs` | Environment-based configuration with validation |
+
+### civit-runner (binary)
+
+CI/CD execution engine.
+
+| Module | Responsibility |
+|--------|---------------|
+| `pipeline.rs` | Pipeline step execution in real Podman containers |
+| `podman.rs` | Podman service: auto-detect Unix socket vs HTTP, CLI transport |
+| `kube_controller.rs` | K8s operator: `kube::runtime::Reconciler`, leader election via Lease CRD |
+| `sync.rs` | Multi-master DAG sync: `IncrementalSyncEngine`, checkpointing, conflict resolution |
+| `redis_session.rs` | Redis-backed token rotation |
 
 ### civit-brain (binary, lib)
 
@@ -76,16 +211,6 @@ AI/ML services. Air-gap compatible -- all inference via local or self-hosted end
 | `rag.rs` | `RAGPipeline<T: VectorDb>` generic. `LlmCodeReviewer<T, P>`. |
 | `inference.rs` | `InferenceService` HTTP client to `/v1/chat/completions`. SSE streaming. |
 | `review/` | `DiffAnalyzerReviewAgent` -- static analysis to `ReviewAgent` trait. |
-
-### civit-vfs (binary, lib)
-
-Remote filesystem via gRPC.
-
-| Module | Responsibility |
-|--------|---------------|
-| `vfs.proto` | 8 RPCs (ReadDir, ReadFile, WriteFile, Delete, Stat, etc.) |
-| `grpc_server.rs` | tonic gRPC server with mTLS support |
-| `vfs/` | In-memory HashMap VFS with libc error codes (FUSE mount deferred to v1.2) |
 
 ### civit-crypto (library)
 
@@ -104,54 +229,54 @@ Cryptographic primitives and enterprise auth protocols.
 | `mtls.rs` | rcgen X.509 CA creation, cert issuance, SHA-256 fingerprints |
 | `policy.rs` | CAS-style policy engine (Subject/Action/Resource/Condition/Effect) |
 
-### civit-pipeline (library)
+### civit-vfs (binary, lib)
 
-CI/CD pipeline YAML spec parsing and validation.
-
-| Module | Responsibility |
-|--------|---------------|
-| YAML parser | Full pipeline spec: triggers, services, cache, secrets, workspace, concurrency |
-| Expression evaluator | CEL-based conditions for `if:`, trigger filters |
-| Validation | 80+ test vectors |
-
-### civit-shared (library)
-
-Shared API request/response types for backend-frontend type sharing via `civit-ui`.
-
-### civit-runner (binary)
-
-CI/CD execution engine.
+Remote filesystem via gRPC.
 
 | Module | Responsibility |
 |--------|---------------|
-| `pipeline.rs` | Pipeline step execution in real Podman containers |
-| `podman.rs` | Podman service: auto-detect Unix socket vs HTTP, CLI transport |
-| `kube_controller.rs` | K8s operator: `kube::runtime::Reconciler`, leader election via Lease CRD |
-| `sync.rs` | Multi-master DAG sync: `IncrementalSyncEngine`, checkpointing, conflict resolution |
-| `redis_session.rs` | Redis-backed token rotation |
+| `vfs.proto` | 8 RPCs (ReadDir, ReadFile, WriteFile, Delete, Stat, etc.) |
+| `grpc_server.rs` | tonic gRPC server with mTLS support |
+| `vfs/` | In-memory HashMap VFS with libc error codes |
+
+### civit-ui (library)
+
+Leptos CSR WASM frontend with Tailwind CSS v4. Includes Kanban boards for issue tracking.
 
 ## Data Flow
 
 ### Git push to code review
 
 ```
-Developer -> SSH/HTTP -> civit-core API -> gitoxide (store) -> EventBus
-                                                               |
-                                           DiffAnalyzer -> ReviewAgent<T: VectorDb>
-                                                               |
-                                           RAGPipeline.retrieve() -> LlmCodeReviewer
-                                                               |
-                                           LlmProvider.infer() -> LlmReviewResult -> Notification
+Developer -> SSH/HTTP -> civit-core API -> civit-git (gitoxide store) -> EventBus
+                                                                      |
+                                              DiffAnalyzer -> ReviewAgent<T: VectorDb>
+                                                                      |
+                                              RAGPipeline.retrieve() -> LlmCodeReviewer
+                                                                      |
+                                              LlmProvider.infer() -> LlmReviewResult -> Notification
 ```
 
 ### CI pipeline
 
 ```
-Push Event -> EventBus -> PipelineEngine.execute_step()
-                           |
-              Podman CLI -> Container Build/Test -> stdout/stderr capture
-                           |
-              PipelineResult -> NotificationService.dispatch()
+Push Event -> EventBus -> civit-ci PipelineEngine.execute_step()
+                          |
+             civit-pipeline YAML parse -> step validation
+                          |
+             civit-runner -> Podman CLI -> Container Build/Test -> stdout/stderr capture
+                          |
+             PipelineResult -> civit-core NotificationService.dispatch()
+```
+
+### Authentication flow
+
+```
+Request -> civit-core middleware -> civit-auth (JWT/LDAP/PAT validation)
+                                        |
+                               civit-db session lookup
+                                        |
+                               RBAC role check -> Route handler
 ```
 
 ## Feature Flags
@@ -173,6 +298,7 @@ Push Event -> EventBus -> PipelineEngine.execute_step()
 | RPITIT VectorDb trait | `impl Future<Output=...> + Send` | Native Rust 1.88 RPITIT, zero overhead |
 | Podman CLI transport | `tokio::process::Command` | Zero new dependencies |
 | Direct OTLP export | Raw reqwest POST | Avoids transitive unsafe from opentelemetry SDK |
+| Crate decomposition | 12 focused crates | Single-responsibility, faster incremental builds |
 
 ## Technology Stack
 
@@ -183,36 +309,10 @@ Push Event -> EventBus -> PipelineEngine.execute_step()
 | Database | sqlx (PostgreSQL) | 0.8 |
 | Crypto | ring, sha2, hmac | 0.17, 0.10, 0.12 |
 | TLS/mTLS | rcgen, x509-parser, rustls | 0.13, 0.17 |
-| Auth | jsonwebtoken | 9 |
+| Auth | jsonwebtoken, ldap3, bcrypt | 9, 0.11, 0.17 |
 | Kubernetes | kube-rs, k8s-openapi | 0.98, v1_30 |
 | gRPC | tonic, prost | 0.12, 0.13 |
 | Edge cache | Redis + zstd | 7 |
 | Serialization | serde, serde_json, serde_yaml | 1, 1, 0.9 |
 | Email | lettre | 0.11 |
 | Web UI | Leptos (WASM + SSR) + Tailwind CSS | 0.7, v4 |
-
-## Workspace Structure
-
-```
-CivitForge/
-├── Cargo.toml              # Workspace root
-├── rust-toolchain.toml     # Rust 1.88, clippy, rustfmt
-├── docker-compose.yml      # Full-stack local deployment
-├── Dockerfile              # Convenience build
-├── container/
-│   ├── civitforge/         # Main server image (tier: critical)
-│   └── runner/             # CI pipeline daemon (tier: standard)
-├── crates/
-│   ├── civit-shared/       # Shared types (backend + frontend)
-│   ├── civit-pipeline/     # Pipeline YAML parsing and validation
-│   ├── civit-core/         # API server, auth, DB, events
-│   ├── civit-runner/       # CI execution, K8s operator, Podman
-│   ├── civit-brain/        # AI/ML, RAG, AST parsing
-│   ├── civit-crypto/       # Crypto primitives, CEL, enterprise auth
-│   ├── civit-vfs/          # gRPC filesystem
-│   └── civit-ui/           # Leptos web frontend (WASM + SSR)
-├── deploy/
-│   └── helm/civitforge/    # Kubernetes Helm chart
-├── docs/                   # Operator guide, API reference, ADRs
-└── .specs/                 # Architecture specs, traceability
-```

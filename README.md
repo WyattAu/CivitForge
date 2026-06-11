@@ -1,24 +1,30 @@
 # CivitForge
 
-Federated, Rust-native software forge for large-scale monorepos. Provides Git hosting, CI/CD pipeline execution with rootless Podman, OCI container registry, issue tracking, wiki, code search, and an air-gapped AI subsystem.
+Federated, Rust-native software forge for large-scale monorepos. Provides Git hosting, CI/CD pipeline execution with rootless Podman, OCI container registry, issue tracking with Kanban boards, wiki, code search, and an air-gapped AI subsystem.
 
 [![Rust Version](https://img.shields.io/badge/rust-1.88%2B-blue.svg)](https://www.rust-lang.org)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 ## Architecture
 
-8-workspace Cargo crate, Rust edition 2024, `#![forbid(unsafe_code)]` enforced:
+12-workspace Cargo crate, Rust edition 2024, `#![forbid(unsafe_code)]` enforced, 3,659 tests:
 
 | Crate | Role |
 |-------|------|
-| `civit-core` | Axum HTTP server, authentication (JWT, RBAC, TOTP), gitoxide Git engine, SSH daemon, federation, events |
+| `civit-core` | Axum HTTP server, authentication, gitoxide Git engine, SSH daemon, federation, events, notifications |
+| `civit-db` | Database layer: migrations, models, connection pool, session management |
+| `civit-git` | Git operations: archive, blame, diff, commit graph, tree walking |
+| `civit-auth` | Authentication: JWT, LDAP, personal access tokens, SSH key validation |
+| `civit-ci` | CI/CD: pipeline execution, DAG scheduling, badges, caches, secrets |
+| `civit-storage` | Storage: build artifacts, Git LFS, mirrors, OCI registry backend |
 | `civit-runner` | CI/CD pipeline execution, Kubernetes operator (kube-rs), rootless Podman sandbox |
 | `civit-brain` | AI agent workflows, AST parsing (19 languages, 3-tier), RAG pipeline, vector DB, LLM inference |
 | `civit-vfs` | gRPC filesystem server (tonic/prost), remote file operations |
 | `civit-crypto` | CEL expression evaluator, HMAC/SHA, OIDC, SAML, WebAuthn, HSM, OSV vuln scanning, SLSA provenance, mTLS |
 | `civit-pipeline` | YAML pipeline spec parsing and validation (80+ test vectors) |
 | `civit-shared` | Shared API request/response types for backend-frontend type sharing |
-| `civit-ui` | Leptos CSR WASM frontend with Tailwind CSS v4 |
+
+Plus `civit-ui` (Leptos CSR WASM frontend with Tailwind CSS v4) and `civit-desktop` (Tauri desktop app, excluded from workspace build).
 
 ## Quick Start
 
@@ -50,6 +56,16 @@ curl http://localhost:9091/healthz
 cargo build --release --workspace
 ```
 
+### Helm (Kubernetes)
+
+```bash
+helm install civitforge deploy/helm/civitforge \
+  --namespace civitforge --create-namespace \
+  --set postgresql.host=your-pg-host \
+  --set redis.host=your-redis-host \
+  --set jwtSecret=$(openssl rand -base64 32)
+```
+
 ## Configuration
 
 All configuration is via environment variables.
@@ -59,7 +75,7 @@ All configuration is via environment variables.
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | `postgres://user:pass@host:5432/civit` |
-| `JWT_SECRET` | JWT signing key (min 16 chars) | `openssl rand -base64 32` |
+| `JWT_SECRET` | JWT signing key (min 32 chars) | `openssl rand -base64 32` |
 
 ### Optional
 
@@ -74,7 +90,13 @@ All configuration is via environment variables.
 | `FEDERATION_ENABLED` | `false` | Enable ForgeFed ActivityPub federation |
 | `FEDERATION_INSTANCE_ID` | `default-instance` | Federation instance ID |
 | `FEDERATION_INSTANCE_DOMAIN` | `localhost` | Public domain for federation |
+| `LDAP_ENABLED` | `false` | Enable LDAP authentication backend |
+| `LDAP_URL` | `ldap://localhost:389` | LDAP server URL |
+| `TLS_CERT_PATH` | *(none)* | TLS certificate path (enables HTTPS) |
+| `TLS_KEY_PATH` | *(none)* | TLS private key path |
 | `RUST_LOG` | `civit_core=info,tower_http=debug` | Log filter |
+
+See [docs/OPERATOR_GUIDE.md](docs/OPERATOR_GUIDE.md) for the full configuration reference including LDAP, security, rate limiting, and CORS settings.
 
 ### Default credentials (Docker Compose, development only)
 
@@ -89,7 +111,7 @@ Authentication: `Authorization: Bearer <jwt-token>` (register-on-login, token vi
 
 Full reference: [docs/API_REFERENCE.md](docs/API_REFERENCE.md)
 
-Key endpoint groups: auth, users, organizations, repositories, branches, tags, pipelines, runners, OCI registry, issues, wiki, code search, SSH keys, WebSocket events.
+Key endpoint groups: auth, users, organizations, repositories, branches, tags, pipelines, runners, OCI registry, issues, wiki, code search, SSH keys, Kanban boards, releases, pull requests, teams, tokens, webhooks, federation, WebSocket events.
 
 ## Dependency Services
 
