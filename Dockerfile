@@ -17,11 +17,19 @@ ARG TARGETARCH
 # ---------------------------------------------------------------------------
 FROM rust:1.88-slim AS builder
 
+# Install protobuf compiler for civit-vfs
+RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Cache dependencies by copying Cargo files first
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates/civit-shared/ crates/civit-shared/
+COPY crates/civit-db/ crates/civit-db/
+COPY crates/civit-git/ crates/civit-git/
+COPY crates/civit-auth/ crates/civit-auth/
+COPY crates/civit-ci/ crates/civit-ci/
+COPY crates/civit-storage/ crates/civit-storage/
 COPY crates/civit-pipeline/ crates/civit-pipeline/
 COPY crates/civit-core/ crates/civit-core/
 COPY crates/civit-brain/ crates/civit-brain/
