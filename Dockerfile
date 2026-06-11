@@ -46,10 +46,10 @@ ARG VERSION=1.1.0
 RUN apk add --no-cache ca-certificates git su-exec wget
 
 # Create nonroot user and directories
-RUN addgroup -g 65532 civit 2>/dev/null || true && \
-    adduser -D -u 65532 -G civit -h /data -s /bin/sh civit 2>/dev/null || true && \
+RUN addgroup -g 65532 civit 2>/dev/null; \
+    adduser -D -u 65532 -G civit -h /data -s /bin/sh civit 2>/dev/null; \
     mkdir -p /data /var/lib/civit/repos /var/log/civit /srv/civit-ui && \
-    chown -R civit:civit /data /var/lib/civit /var/log/civit /srv/civit-ui
+    chown -R 65532:65532 /data /var/lib/civit /var/log/civit /srv/civit-ui
 
 # Copy binaries
 COPY --from=builder /app/target/release/civit-core  /usr/local/bin/civit-core
