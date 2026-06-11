@@ -110,4 +110,59 @@ mod tests {
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("\"commit_id\":\"abc1234\""));
     }
+
+    fn create_repo_with_file(path: &Path, filename: &str, content: &[u8]) {
+        // Create a regular repo with a workdir, then convert to bare
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        std::process::Command::new("git").args(["init", work.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        std::fs::write(work.join(filename), content).unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "init"]).current_dir(work).output().unwrap();
+        // Convert to bare repo
+        std::fs::create_dir_all(path).unwrap();
+        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+    }
+
+    #[test]
+    fn test_git_blame_basic() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_file(tmp.path(), "hello.txt", b"line1\nline2\nline3\n");
+        let result = git_blame(tmp.path(), "HEAD", "hello.txt").unwrap();
+        assert_eq!(result.lines.len(), 3);
+        assert_eq!(result.lines[0].content, "line1");
+        assert_eq!(result.lines[1].content, "line2");
+        assert_eq!(result.lines[2].content, "line3");
+        assert_eq!(result.lines[0].line_number, 1);
+        assert_eq!(result.lines[1].line_number, 2);
+        assert_eq!(result.lines[2].line_number, 3);
+        assert_eq!(result.path, "hello.txt");
+        assert!(!result.lines[0].commit_id.is_empty());
+        assert!(!result.lines[0].author.is_empty());
+    }
+
+    #[test]
+    fn test_git_blame_nonexistent_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_file(tmp.path(), "a.txt", b"a");
+        let result = git_blame(tmp.path(), "HEAD", "nope.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_git_blame_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = git_blame(tmp.path(), "HEAD", "file.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_git_blame_empty_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_file(tmp.path(), "empty.txt", b"");
+        let result = git_blame(tmp.path(), "HEAD", "empty.txt").unwrap();
+        assert_eq!(result.lines.len(), 0);
+    }
 }

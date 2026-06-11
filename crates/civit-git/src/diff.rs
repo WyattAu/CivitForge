@@ -184,4 +184,83 @@ mod tests {
         assert!(json.contains("\"total_additions\":10"));
         assert!(json.contains("\"total_deletions\":5"));
     }
+
+    fn create_repo_with_commits(path: &Path) -> Vec<String> {
+        // Create a work directory, then convert to bare (since diff functions check for HEAD at root)
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        std::process::Command::new("git").args(["init", "-b", "main", work.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+
+        // Commit 1: initial
+        std::fs::write(work.join("file.txt"), "line1\nline2\n").unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "initial"]).current_dir(work).output().unwrap();
+        let sha1 = String::from_utf8(std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(work).output().unwrap().stdout).unwrap().trim().to_string();
+
+        // Commit 2: modify
+        std::fs::write(work.join("file.txt"), "line1\nchanged\nline3\n").unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "modify"]).current_dir(work).output().unwrap();
+        let sha2 = String::from_utf8(std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(work).output().unwrap().stdout).unwrap().trim().to_string();
+
+        // Commit 3: add new file
+        std::fs::write(work.join("new.txt"), "new content").unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "add file"]).current_dir(work).output().unwrap();
+        let sha3 = String::from_utf8(std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(work).output().unwrap().stdout).unwrap().trim().to_string();
+
+        // Convert to bare
+        std::fs::create_dir_all(path).unwrap();
+        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+
+        vec![sha1, sha2, sha3]
+    }
+
+    #[test]
+    fn test_generate_commit_diff_basic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let shas = create_repo_with_commits(tmp.path());
+        let result = generate_commit_diff(tmp.path(), &shas[1]).unwrap();
+        assert!(!result.entries.is_empty());
+        assert_eq!(result.head_ref, shas[1]);
+    }
+
+    #[test]
+    fn test_generate_commit_diff_additions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let shas = create_repo_with_commits(tmp.path());
+        let result = generate_commit_diff(tmp.path(), &shas[2]).unwrap();
+        // Commit 3 adds new.txt - diff --numstat shows additions > 0
+        let new_file = result.entries.iter().find(|e| e.path == "new.txt");
+        assert!(new_file.is_some());
+        assert!(new_file.unwrap().additions > 0);
+    }
+
+    #[test]
+    fn test_generate_commit_diff_between_commits() {
+        let tmp = tempfile::tempdir().unwrap();
+        let shas = create_repo_with_commits(tmp.path());
+        // Use generate_commit_diff on sha2 which compares sha2~1 (sha1) to sha2
+        let result = generate_commit_diff(tmp.path(), &shas[1]).unwrap();
+        assert!(!result.entries.is_empty());
+        assert!(result.total_additions > 0 || result.total_deletions > 0);
+        assert_eq!(result.base_ref, format!("{}~1", shas[1]));
+        assert_eq!(result.head_ref, shas[1]);
+    }
+
+    #[test]
+    fn test_generate_diff_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = generate_diff(tmp.path(), "a", "b");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generate_commit_diff_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = generate_commit_diff(tmp.path(), "abc1234");
+        assert!(result.is_err());
+    }
 }

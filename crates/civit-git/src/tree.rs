@@ -109,7 +109,10 @@ pub fn read_tree(repo_path: &Path, ref_name: &str, path_prefix: &str) -> Result<
 pub fn read_blob(repo_path: &Path, ref_name: &str, file_path: &str) -> Result<BlobResult> {
     let repo = gix::open(repo_path).context("failed to open repo")?;
 
-    let rev_id = repo.rev_parse_single(ref_name)?;
+    let rev_id = match ref_name {
+        "HEAD" => repo.head_id().context("failed to get HEAD")?,
+        _ => repo.rev_parse_single(ref_name).context("failed to parse rev")?,
+    };
     let commit_obj = rev_id.object()?;
     let commit = commit_obj.try_into_commit()?;
     let tree_id = commit.tree_id()?;
@@ -466,5 +469,132 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"encoding\":\"utf-8\""));
         assert!(json.contains("\"language\":\"markdown\""));
+    }
+
+    fn create_repo_with_files(path: &Path, files: &[(&str, &str)]) {
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        std::process::Command::new("git").args(["init", work.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+
+        for (name, content) in files {
+            let full_path = work.join(name);
+            std::fs::create_dir_all(full_path.parent().unwrap()).unwrap();
+            std::fs::write(&full_path, content).unwrap();
+        }
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "init"]).current_dir(work).output().unwrap();
+        std::fs::create_dir_all(path).unwrap();
+        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+    }
+
+    #[test]
+    fn test_read_tree_root() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[("file.txt", "hello"), ("src/main.rs", "fn main() {}")]);
+        let entries = read_tree(tmp.path(), "HEAD", "").unwrap();
+        assert_eq!(entries.len(), 2);
+        let names: Vec<&str> = entries.iter().map(|e| e.path.as_str()).collect();
+        assert!(names.contains(&"file.txt"));
+        assert!(names.contains(&"src"));
+    }
+
+    #[test]
+    fn test_read_tree_subdir() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[("src/main.rs", "fn main() {}"), ("src/lib.rs", "pub fn foo() {}"), ("README.md", "hi")]);
+        let entries = read_tree(tmp.path(), "HEAD", "src").unwrap();
+        assert_eq!(entries.len(), 2);
+        let names: Vec<&str> = entries.iter().map(|e| e.path.as_str()).collect();
+        assert!(names.contains(&"main.rs"));
+        assert!(names.contains(&"lib.rs"));
+    }
+
+    #[test]
+    fn test_read_tree_empty_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[("a.txt", "a")]);
+        let entries = read_tree(tmp.path(), "HEAD", "nonexistent").unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_read_blob_text() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[("hello.txt", "hello world")]);
+        let blob = read_blob(tmp.path(), "HEAD", "hello.txt").unwrap();
+        assert_eq!(blob.content, "hello world");
+        assert_eq!(blob.encoding, "utf-8");
+        assert_eq!(blob.language, "");
+    }
+
+    #[test]
+    fn test_read_blob_binary() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo_path = tmp.path().join("repo.git");
+        std::fs::create_dir_all(&repo_path).unwrap();
+        std::process::Command::new("git").args(["init", "--bare", "-b", "main", repo_path.to_str().unwrap()]).output().unwrap();
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        std::process::Command::new("git").args(["clone", repo_path.to_str().unwrap(), "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["checkout", "-b", "main"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        let binary_data: &[u8] = &[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
+        std::fs::write(work.join("image.png"), binary_data).unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "binary"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["push", "origin", "main"]).current_dir(work).output().unwrap();
+
+        let blob = read_blob(&repo_path, "HEAD", "image.png").unwrap();
+        assert_eq!(blob.encoding, "base64");
+        assert_eq!(blob.language, "");
+    }
+
+    #[test]
+    fn test_read_blob_nonexistent() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[("a.txt", "a")]);
+        assert!(read_blob(tmp.path(), "HEAD", "nope.txt").is_err());
+    }
+
+    #[test]
+    fn test_language_stats() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[
+            ("main.rs", "fn main() {}"),
+            ("lib.rs", "pub fn foo() {}"),
+            ("app.py", "print('hi')"),
+        ]);
+        let stats = language_stats(tmp.path()).unwrap();
+        assert!(stats.total_bytes > 0);
+        assert!(!stats.languages.is_empty());
+        let names: Vec<&str> = stats.languages.iter().map(|l| l.name.as_str()).collect();
+        assert!(names.contains(&"Rust"));
+        assert!(names.contains(&"Python"));
+    }
+
+    #[test]
+    fn test_language_stats_empty_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::process::Command::new("git")
+            .args(["init", "--bare", tmp.path().to_str().unwrap()])
+            .output()
+            .unwrap();
+        let stats = language_stats(tmp.path()).unwrap();
+        assert_eq!(stats.total_bytes, 0);
+        assert!(stats.languages.is_empty());
+    }
+
+    #[test]
+    fn test_tree_dirs_before_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_files(tmp.path(), &[("z_file.txt", "z"), ("a_dir/file.txt", "a")]);
+        let entries = read_tree(tmp.path(), "HEAD", "").unwrap();
+        // dirs should come before files
+        let dir_idx = entries.iter().position(|e| e.entry_type == "dir").unwrap();
+        let file_idx = entries.iter().position(|e| e.entry_type == "file").unwrap();
+        assert!(dir_idx < file_idx);
     }
 }

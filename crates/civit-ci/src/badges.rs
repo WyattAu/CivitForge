@@ -89,4 +89,92 @@ mod tests {
         let (_, svg) = badge_response("passing", "#4c1", "#333");
         assert!(svg.contains("width=\"73\""));
     }
+
+    #[test]
+    fn test_badge_svg_pending() {
+        let (headers, svg) = badge_response("pending", "#dfb317", "#333");
+        assert!(headers.iter().any(|(k, _v)| k == &"content-type"));
+        assert!(svg.contains("pending"));
+        assert!(svg.contains("#dfb317"));
+    }
+
+    #[test]
+    fn test_badge_svg_unknown() {
+        let (_, svg) = badge_response("unknown", "#9f9f9f", "#333");
+        assert!(svg.contains("unknown"));
+        assert!(svg.contains("#9f9f9f"));
+    }
+
+    #[test]
+    fn test_badge_svg_is_valid_xml() {
+        let (_, svg) = badge_response("passing", "#4c1", "#333");
+        assert!(svg.starts_with("<?xml"));
+        assert!(svg.contains("<svg"));
+        assert!(svg.ends_with("</svg>"));
+    }
+
+    #[test]
+    fn test_badge_svg_contains_build_text() {
+        let (_, svg) = badge_response("passing", "#4c1", "#333");
+        assert!(svg.contains(">build<"));
+    }
+
+    #[test]
+    fn test_badge_svg_width_scales_with_label() {
+        // badge_response has a width formula that requires label.len()*7+24 >= 70
+        // "passing" = 7*7+24=73, "failing!" = 8*7+24=80
+        let (_, svg_short) = badge_response("passing", "#4c1", "#333");
+        let (_, svg_long) = badge_response("failing!", "#e05d44", "#333");
+        assert!(svg_short.contains("width=\"73\""));
+        assert!(svg_long.contains("width=\"80\""));
+    }
+
+    #[test]
+    fn test_badge_svg_color_params() {
+        let (_, svg) = badge_response("passing", "#ff0000", "#0000ff");
+        assert!(svg.contains("#ff0000"));
+        assert!(svg.contains("#0000ff"));
+    }
+
+    #[test]
+    fn test_badge_svg_special_chars_label() {
+        let (_, svg) = badge_response("100 pct", "#4c1", "#333");
+        assert!(svg.contains("100 pct"));
+    }
+
+    #[test]
+    fn test_badge_response_headers_content_type() {
+        let (headers, _) = badge_response("passing", "#4c1", "#333");
+        assert_eq!(headers.len(), 1);
+        assert_eq!(headers[0].0, "content-type");
+        assert!(headers[0].1.contains("image/svg+xml"));
+    }
+
+    #[test]
+    fn test_badge_query_params() {
+        let params = BadgeQueryParams {
+            branch: Some("main".into()),
+        };
+        assert_eq!(params.branch.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn test_badge_query_params_no_branch() {
+        let params = BadgeQueryParams { branch: None };
+        assert!(params.branch.is_none());
+    }
+
+    #[test]
+    fn test_badge_query_params_deserialize() {
+        let json = r#"{"branch": "develop"}"#;
+        let params: BadgeQueryParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.branch.as_deref(), Some("develop"));
+    }
+
+    #[test]
+    fn test_badge_query_params_deserialize_empty() {
+        let json = r#"{}"#;
+        let params: BadgeQueryParams = serde_json::from_str(json).unwrap();
+        assert!(params.branch.is_none());
+    }
 }

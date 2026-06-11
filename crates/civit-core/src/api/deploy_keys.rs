@@ -94,20 +94,6 @@ pub async fn list_deploy_keys(
         }
     };
 
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS deploy_keys (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            public_key TEXT NOT NULL,
-            fingerprint TEXT NOT NULL,
-            read_only BOOLEAN NOT NULL DEFAULT true,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
-
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
     let rows = sqlx::query_as::<_, (Uuid, String, String, String, bool, chrono::DateTime<chrono::Utc>)>(
         "SELECT id, title, public_key, fingerprint, read_only, created_at FROM deploy_keys WHERE repo_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
@@ -176,20 +162,6 @@ pub async fn create_deploy_key(
 
     let read_only = req.read_only.unwrap_or(true);
     let fp = fingerprint(&req.public_key);
-
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS deploy_keys (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-            title TEXT NOT NULL,
-            public_key TEXT NOT NULL,
-            fingerprint TEXT NOT NULL,
-            read_only BOOLEAN NOT NULL DEFAULT true,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
 
     let result = sqlx::query_as::<_, (Uuid, String, String, String, bool, chrono::DateTime<chrono::Utc>) >(
         "INSERT INTO deploy_keys (repo_id, title, public_key, fingerprint, read_only) VALUES ($1, $2, $3, $4, $5) RETURNING id, title, public_key, fingerprint, read_only, created_at",

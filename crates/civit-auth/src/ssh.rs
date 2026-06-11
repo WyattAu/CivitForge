@@ -149,4 +149,75 @@ mod tests {
         assert_eq!(info.key_type, "ssh-ed25519");
         assert_eq!(info.fingerprint, "SHA256:abc123def456");
     }
+
+    #[test]
+    fn test_validate_ssh_key_type_ecdsa() {
+        assert!(validate_ssh_key_type("ecdsa-sha2-nistp256").is_ok());
+        assert!(validate_ssh_key_type("ecdsa-sha2-nistp384").is_ok());
+        assert!(validate_ssh_key_type("ecdsa-sha2-nistp521").is_ok());
+    }
+
+    #[test]
+    fn test_validate_ssh_key_type_all_valid() {
+        let valid = ["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"];
+        for k in valid {
+            assert!(validate_ssh_key_type(k).is_ok(), "expected ok for {k}");
+        }
+    }
+
+    #[test]
+    fn test_validate_ssh_key_type_invalid_various() {
+        let invalid = ["ssh-dss", "ssh-dsa", "ecdsa-sha2-nistp192", "", "ssh-ed25519-cert-v01@openssh.com"];
+        for k in invalid {
+            assert!(validate_ssh_key_type(k).is_err(), "expected err for {k}");
+        }
+    }
+
+    #[test]
+    fn test_validate_public_key_max_length() {
+        let long_key = "a".repeat(10001);
+        assert!(validate_public_key(&long_key).is_err());
+    }
+
+    #[test]
+    fn test_validate_public_key_exact_max() {
+        let max_key = "a".repeat(10000);
+        assert!(validate_public_key(&max_key).is_ok());
+    }
+
+    #[test]
+    fn test_validate_label_at_boundary() {
+        let label_255 = "a".repeat(255);
+        assert!(validate_label(&label_255).is_ok());
+    }
+
+    #[test]
+    fn test_validate_fingerprint_whitespace_only() {
+        assert!(validate_fingerprint("   ").is_err());
+        assert!(validate_fingerprint("\t\n").is_err());
+    }
+
+    #[test]
+    fn test_from_db_key_rsa() {
+        let db_key = civit_db::models::SshKey {
+            id: uuid::Uuid::new_v4(),
+            user_id: uuid::Uuid::new_v4(),
+            key_type: "ssh-rsa".into(),
+            public_key: "AAAAB3NzaC1yc2EAAAADAQAB...".into(),
+            fingerprint: "MD5:ab:cd:ef:12".into(),
+            label: "server-key".into(),
+            created_at: chrono::Utc::now(),
+        };
+        let info = from_db_key(db_key);
+        assert_eq!(info.key_type, "ssh-rsa");
+        assert_eq!(info.label, "server-key");
+    }
+
+    #[test]
+    fn test_parse_user_id_valid_various() {
+        let id = parse_user_id("00000000-0000-0000-0000-000000000000").unwrap();
+        assert_eq!(id, uuid::Uuid::nil());
+        let id2 = parse_user_id("ffffffff-ffff-ffff-ffff-ffffffffffff").unwrap();
+        assert_eq!(id2.to_string(), "ffffffff-ffff-ffff-ffff-ffffffffffff");
+    }
 }

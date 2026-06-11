@@ -221,4 +221,87 @@ mod tests {
         assert!(policy.require_digit);
         assert!(policy.require_special);
     }
+
+    #[test]
+    fn test_hash_and_verify_roundtrip() {
+        let password = "MySecureP@ss1";
+        let hash = hash_password(password).unwrap();
+        assert!(verify_password(password, &hash));
+    }
+
+    #[test]
+    fn test_wrong_password_rejected() {
+        let hash = hash_password("CorrectPassword1!").unwrap();
+        assert!(!verify_password("WrongPassword1!", &hash));
+        assert!(!verify_password("", &hash));
+        assert!(!verify_password("CorrectPassword1", &hash));
+    }
+
+    #[test]
+    fn test_hash_unique_per_call() {
+        let h1 = hash_password("same-password").unwrap();
+        let h2 = hash_password("same-password").unwrap();
+        // bcrypt uses random salt, so hashes should differ
+        assert_ne!(h1, h2);
+        // but both should verify
+        assert!(verify_password("same-password", &h1));
+        assert!(verify_password("same-password", &h2));
+    }
+
+    #[test]
+    fn test_empty_password_policy() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("", &policy);
+        // empty string fails multiple checks: length, uppercase, lowercase, digit, special
+        assert!(
+            violations.len() >= 4,
+            "expected >=4 violations for empty, got: {violations:?}"
+        );
+    }
+
+    #[test]
+    fn test_all_violations_returned() {
+        let policy = strict_policy();
+        // short string, no uppercase, no digit, no special (all lowercase)
+        let violations = validate_password_policy("abc", &policy);
+        assert!(violations.iter().any(|v| v.contains("at least 8")));
+        assert!(violations.iter().any(|v| v.contains("uppercase")));
+        assert!(violations.iter().any(|v| v.contains("digit")));
+        assert!(violations.iter().any(|v| v.contains("special")));
+    }
+
+    #[test]
+    fn test_only_uppercase_violations() {
+        let policy = PasswordPolicy {
+            min_length: 4,
+            max_length: 128,
+            require_uppercase: true,
+            require_lowercase: false,
+            require_digit: false,
+            require_special: false,
+        };
+        let violations = validate_password_policy("abcd", &policy);
+        assert_eq!(violations.len(), 1);
+        assert!(violations[0].contains("uppercase"));
+    }
+
+    #[test]
+    fn test_only_digit_violation() {
+        let policy = PasswordPolicy {
+            min_length: 4,
+            max_length: 128,
+            require_uppercase: false,
+            require_lowercase: false,
+            require_digit: true,
+            require_special: false,
+        };
+        let violations = validate_password_policy("abcd", &policy);
+        assert_eq!(violations.len(), 1);
+        assert!(violations[0].contains("digit"));
+    }
+
+    #[test]
+    fn test_verify_invalid_hash() {
+        assert!(!verify_password("anything", "not-a-valid-hash"));
+    }
 }

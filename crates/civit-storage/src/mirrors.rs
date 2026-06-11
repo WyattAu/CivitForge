@@ -81,6 +81,35 @@ pub async fn ensure_mirrors_table(pool: &sqlx::postgres::PgPool) {
     .await;
 }
 
+pub const VALID_DIRECTIONS: &[&str] = &["push", "pull", "both"];
+
+pub fn validate_direction(direction: &str) -> bool {
+    VALID_DIRECTIONS.contains(&direction)
+}
+
+pub fn validate_mirror_url(url: &str) -> Result<(), String> {
+    if url.is_empty() {
+        return Err("URL must not be empty".into());
+    }
+    if !url.starts_with("http://") && !url.starts_with("https://") && !url.starts_with("git@") {
+        return Err("URL must start with http://, https://, or git@".into());
+    }
+    if (url.starts_with("http://") || url.starts_with("https://"))
+        && !url.contains('.')
+        && !url.contains("localhost")
+    {
+        return Err("URL must contain a valid hostname".into());
+    }
+    Ok(())
+}
+
+pub fn compute_next_sync(last_sync: Option<chrono::DateTime<chrono::Utc>>, interval_minutes: i32) -> chrono::DateTime<chrono::Utc> {
+    match last_sync {
+        Some(last) => last + chrono::Duration::minutes(interval_minutes as i64),
+        None => chrono::Utc::now(),
+    }
+}
+
 pub async fn handle_sync_output(
     output: std::result::Result<std::process::Output, std::io::Error>,
 ) -> Result<String, String> {
@@ -118,5 +147,140 @@ mod tests {
         let req: CreateMirrorRequest = serde_json::from_str(json).unwrap();
         assert!(req.enabled);
         assert_eq!(req.sync_interval_minutes, 60);
+    }
+
+    #[test]
+    fn test_create_mirror_request_both_direction() {
+        let json = r#"{"url":"https://example.com/repo.git","direction":"both"}"#;
+        let req: CreateMirrorRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.direction, "both");
+    }
+
+    #[test]
+    fn test_validate_direction_valid() {
+        assert!(validate_direction("push"));
+        assert!(validate_direction("pull"));
+        assert!(validate_direction("both"));
+    }
+
+    #[test]
+    fn test_validate_direction_invalid() {
+        assert!(!validate_direction("up"));
+        assert!(!validate_direction("down"));
+        assert!(!validate_direction(""));
+        assert!(!validate_direction("PUSH"));
+    }
+
+    #[test]
+    fn test_validate_mirror_url_https() {
+        assert!(validate_mirror_url("https://github.com/user/repo.git").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_http() {
+        assert!(validate_mirror_url("http://gitlab.com/user/repo.git").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_git_ssh() {
+        assert!(validate_mirror_url("git@github.com:user/repo.git").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_localhost() {
+        assert!(validate_mirror_url("https://localhost/repo.git").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_empty() {
+        assert!(validate_mirror_url("").is_err());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_no_protocol() {
+        assert!(validate_mirror_url("github.com/repo.git").is_err());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_ftp() {
+        assert!(validate_mirror_url("ftp://example.com/repo.git").is_err());
+    }
+
+    #[test]
+    fn test_compute_next_sync_with_last_sync() {
+        let last = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let next = compute_next_sync(Some(last), 30);
+        let expected = last + chrono::Duration::minutes(30);
+        assert_eq!(next, expected);
+    }
+
+    #[test]
+    fn test_compute_next_sync_no_last_sync() {
+        let before = chrono::Utc::now();
+        let next = compute_next_sync(None, 60);
+        let after = chrono::Utc::now();
+        assert!(next >= before);
+        assert!(next <= after);
+    }
+
+    #[test]
+    fn test_update_mirror_request_parse() {
+        let json = r#"{"url":"https://new-url.com/repo.git","direction":"pull"}"#;
+        let req: UpdateMirrorRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.url, Some("https://new-url.com/repo.git".into()));
+        assert_eq!(req.direction, Some("pull".into()));
+        assert!(req.enabled.is_none());
+        assert!(req.sync_interval_minutes.is_none());
+    }
+
+    #[test]
+    fn test_update_mirror_request_empty() {
+        let json = r#"{}"#;
+        let req: UpdateMirrorRequest = serde_json::from_str(json).unwrap();
+        assert!(req.url.is_none());
+        assert!(req.direction.is_none());
+        assert!(req.enabled.is_none());
+        assert!(req.sync_interval_minutes.is_none());
+    }
+
+    #[test]
+    fn test_valid_directions_constant() {
+        assert_eq!(VALID_DIRECTIONS, &["push", "pull", "both"]);
+    }
+
+    #[tokio::test]
+    async fn test_handle_sync_output_success() {
+        use std::os::unix::process::ExitStatusExt;
+        let output = Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(0),
+            stdout: b"done".to_vec(),
+            stderr: b"warn: something".to_vec(),
+        });
+        let result = handle_sync_output(output).await;
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "warn: something");
+    }
+
+    #[tokio::test]
+    async fn test_handle_sync_output_failure() {
+        use std::os::unix::process::ExitStatusExt;
+        let output = Ok(std::process::Output {
+            status: std::process::ExitStatus::from_raw(1),
+            stdout: vec![],
+            stderr: b"error: failed".to_vec(),
+        });
+        let result = handle_sync_output(output).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "error: failed");
+    }
+
+    #[tokio::test]
+    async fn test_handle_sync_output_io_error() {
+        let output = Err(std::io::Error::new(std::io::ErrorKind::NotFound, "git not found"));
+        let result = handle_sync_output(output).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("git not found"));
     }
 }

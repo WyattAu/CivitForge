@@ -120,4 +120,83 @@ mod tests {
         assert!(claims.exp > now);
         assert!(claims.exp <= now + (48 * 3600));
     }
+
+    #[test]
+    fn test_token_expiry_short_lived() {
+        let svc = JwtService::new("test-secret-key-32bytes-minimums", 1);
+        let token = svc.generate_token("u1", "charlie", "guest", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        let now = chrono::Utc::now().timestamp() as u64;
+        // exp should be iat + 1 hour = iat + 3600
+        assert_eq!(claims.exp, claims.iat + 3600);
+        assert!(claims.exp > now);
+    }
+
+    #[test]
+    fn test_malformed_token_rejected() {
+        let svc = make_service();
+        assert!(svc.validate_token("not-a-jwt").is_err());
+        assert!(svc.validate_token("").is_err());
+        assert!(svc.validate_token("aaa.bbb").is_err());
+        assert!(svc.validate_token("aaa.bbb.ccc.ddd").is_err());
+    }
+
+    #[test]
+    fn test_claims_extraction() {
+        let svc = make_service();
+        let token = svc
+            .generate_token("user-42", "dave", "admin", Some("org-99"))
+            .unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.sub, "user-42");
+        assert_eq!(claims.username, "dave");
+        assert_eq!(claims.role, "admin");
+        assert_eq!(claims.org_id.as_deref(), Some("org-99"));
+        assert!(claims.iat > 0);
+        assert!(claims.exp > claims.iat);
+    }
+
+    #[test]
+    fn test_claims_no_org() {
+        let svc = make_service();
+        let token = svc.generate_token("u1", "eve", "viewer", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert!(claims.org_id.is_none());
+    }
+
+    #[test]
+    fn test_different_roles() {
+        let svc = make_service();
+        for role in &["admin", "member", "guest", "viewer", "owner"] {
+            let token = svc
+                .generate_token("u1", "user", role, None)
+                .unwrap();
+            let claims = svc.validate_token(&token).unwrap();
+            assert_eq!(claims.role, *role);
+        }
+    }
+
+    #[test]
+    fn test_extract_bearer_full_header() {
+        assert_eq!(JwtService::extract_bearer("Bearer tok123"), Some("tok123"));
+    }
+
+    #[test]
+    fn test_extract_bearer_empty() {
+        assert_eq!(JwtService::extract_bearer(""), None);
+    }
+
+    #[test]
+    fn test_extract_bearer_no_prefix() {
+        assert_eq!(JwtService::extract_bearer("Token abc"), None);
+    }
+
+    #[test]
+    fn test_token_uses_correct_secret() {
+        let svc_a = JwtService::new("secret-a-32-bytes-padding-pad", 24);
+        let svc_b = JwtService::new("secret-b-32-bytes-padding-pad", 24);
+        let token = svc_a.generate_token("u1", "alice", "admin", None).unwrap();
+        assert!(svc_a.validate_token(&token).is_ok());
+        assert!(svc_b.validate_token(&token).is_err());
+    }
 }

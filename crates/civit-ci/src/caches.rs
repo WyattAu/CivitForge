@@ -113,4 +113,74 @@ mod tests {
         assert_eq!(req.key, "deps-v1");
         assert_eq!(req.path, "node_modules/");
     }
+
+    #[test]
+    fn test_cache_entry_no_expiry() {
+        let resp = CacheEntryResponse {
+            key: "temp-cache".into(),
+            path: "/tmp/".into(),
+            size_bytes: 512,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("temp-cache"));
+    }
+
+    #[test]
+    fn test_cache_list_params_defaults() {
+        let json = r#"{}"#;
+        let params: CacheListParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.limit, 50);
+        assert_eq!(params.offset, 0);
+        assert!(params.prefix.is_none());
+    }
+
+    #[test]
+    fn test_cache_list_params_with_prefix() {
+        let json = r#"{"limit": 10, "offset": 0, "prefix": "cargo-"}"#;
+        let params: CacheListParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.prefix.as_deref(), Some("cargo-"));
+    }
+
+    #[test]
+    fn test_create_cache_request_no_ttl() {
+        let json = r#"{"key": "k", "path": "p"}"#;
+        let req: CreateCacheRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.size_bytes, 0);
+        assert!(req.ttl_secs.is_none());
+    }
+
+    #[test]
+    fn test_create_cache_request_with_ttl() {
+        let json = r#"{"key": "k", "path": "p", "ttl_secs": 3600}"#;
+        let req: CreateCacheRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.ttl_secs, Some(3600));
+    }
+
+    #[test]
+    fn test_cache_entry_large_size() {
+        let resp = CacheEntryResponse {
+            key: "big-cache".into(),
+            path: "target/".into(),
+            size_bytes: 5_000_000_000,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("5000000000"));
+    }
+
+    #[test]
+    fn test_cache_entry_zero_size() {
+        let resp = CacheEntryResponse {
+            key: "empty".into(),
+            path: "empty/".into(),
+            size_bytes: 0,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("empty"));
+    }
 }

@@ -135,4 +135,127 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("0 6 * * 1"));
     }
+
+    #[test]
+    fn test_cron_expressions() {
+        let crons = [
+            "0 6 * * 1",
+            "*/15 * * * *",
+            "0 0 1 * *",
+            "30 4 * * 0",
+            "0 22 * * 1-5",
+            "0 0 * * 1,4",
+        ];
+        for cron in crons {
+            let req = CreateScheduleRequest {
+                cron: cron.to_string(),
+                name: None,
+                ref_name: None,
+                yaml_path: default_yaml_path(),
+                enabled: true,
+            };
+            assert_eq!(req.cron, cron);
+        }
+    }
+
+    #[test]
+    fn test_create_schedule_request_defaults() {
+        let json = r#"{"cron": "0 * * * *"}"#;
+        let req: CreateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert!(req.enabled);
+        assert_eq!(req.yaml_path, ".civit/pipeline.yaml");
+        assert!(req.name.is_none());
+        assert!(req.ref_name.is_none());
+    }
+
+    #[test]
+    fn test_create_schedule_request_disabled() {
+        let json = r#"{"cron": "0 0 * * *", "enabled": false}"#;
+        let req: CreateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert!(!req.enabled);
+    }
+
+    #[test]
+    fn test_create_schedule_request_with_ref() {
+        let json = r#"{"cron": "0 6 * * *", "ref_name": "develop", "name": "nightly"}"#;
+        let req: CreateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.ref_name.as_deref(), Some("develop"));
+        assert_eq!(req.name.as_deref(), Some("nightly"));
+    }
+
+    #[test]
+    fn test_update_schedule_request_partial() {
+        let json = r#"{"enabled": false}"#;
+        let req: UpdateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.enabled, Some(false));
+        assert!(req.cron.is_none());
+    }
+
+    #[test]
+    fn test_update_schedule_request_name_to_none() {
+        let json = r#"{"name": null}"#;
+        let req: UpdateScheduleRequest = serde_json::from_str(json).unwrap();
+        // name field is present but null — may deserialize as None or Some(None)
+        // depending on serde version; just ensure it's not a string
+        assert!(req.name.as_ref().and_then(|o| o.as_ref()).is_none());
+    }
+
+    #[test]
+    fn test_update_schedule_request_cron_update() {
+        let json = r#"{"cron": "0 8 * * 1-5"}"#;
+        let req: UpdateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.cron.as_deref(), Some("0 8 * * 1-5"));
+    }
+
+    #[test]
+    fn test_manual_run_response_serialize() {
+        let resp = ManualRunResponse {
+            schedule_id: "sch-1".into(),
+            run_id: "run-1".into(),
+            status: "pending".into(),
+            triggered_at: "2025-06-01T06:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("sch-1"));
+        assert!(json.contains("pending"));
+    }
+
+    #[test]
+    fn test_schedule_response_no_next_run() {
+        let resp = ScheduleResponse {
+            id: "s1".into(),
+            repo_id: "r1".into(),
+            cron: "0 0 30 2 *".into(),
+            name: None,
+            ref_name: None,
+            yaml_path: ".civit/pipeline.yaml".into(),
+            enabled: false,
+            last_run_at: None,
+            next_run_at: None,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            updated_at: "2025-01-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn test_schedule_response_with_last_run() {
+        let resp = ScheduleResponse {
+            id: "s1".into(),
+            repo_id: "r1".into(),
+            cron: "0 0 * * *".into(),
+            name: Some("daily".into()),
+            ref_name: None,
+            yaml_path: ".civit/pipeline.yaml".into(),
+            enabled: true,
+            last_run_at: Some("2025-06-01T00:00:00Z".into()),
+            next_run_at: Some("2025-06-02T00:00:00Z".into()),
+            created_at: "2025-01-01T00:00:00Z".into(),
+            updated_at: "2025-06-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("daily"));
+        assert!(json.contains("2025-06-01T00:00:00Z"));
+    }
 }

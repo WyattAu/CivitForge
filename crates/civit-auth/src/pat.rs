@@ -115,4 +115,70 @@ mod tests {
     fn test_parse_user_id_invalid() {
         assert!(parse_user_id("not-a-uuid").is_err());
     }
+
+    #[test]
+    fn test_generate_token_unique() {
+        let t1 = generate_token();
+        let t2 = generate_token();
+        assert_ne!(t1, t2);
+    }
+
+    #[test]
+    fn test_generate_token_length() {
+        let token = generate_token();
+        // cf_pat_ (7 chars) + 80 hex chars = 87 chars
+        assert_eq!(token.len(), 87);
+    }
+
+    #[test]
+    fn test_hash_token_length() {
+        let hash = hash_token("any-token");
+        assert_eq!(hash.len(), 64); // SHA-256 hex output
+    }
+
+    #[test]
+    fn test_hash_token_empty() {
+        let h = hash_token("");
+        assert_eq!(h.len(), 64);
+    }
+
+    #[test]
+    fn test_validate_scopes_all_valid() {
+        let scopes: Vec<String> = vec![
+            "read", "write", "admin", "repo:read", "repo:write",
+            "user:read", "org:read", "org:write", "ci:read", "ci:write",
+            "issues:read", "issues:write", "packages:read", "packages:write",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect();
+        assert!(validate_scopes(&scopes).is_ok());
+    }
+
+    #[test]
+    fn test_validate_scopes_single_invalid() {
+        let scopes = vec!["read".to_string(), "dangerous:write".to_string()];
+        let result = validate_scopes(&scopes);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_is_pat_token_various() {
+        assert!(is_pat_token("cf_pat_abc123def456"));
+        assert!(is_pat_token("cf_pat_"));
+        assert!(!is_pat_token("CF_PAT_abc"));
+        assert!(!is_pat_token("cf_pat")); // no underscore
+        assert!(!is_pat_token(""));
+        assert!(!is_pat_token("ghp_abc123"));
+    }
+
+    #[test]
+    fn test_parse_user_id_empty() {
+        assert!(parse_user_id("").is_err());
+    }
+
+    #[test]
+    fn test_parse_user_id_random_string() {
+        assert!(parse_user_id("hello-world").is_err());
+    }
 }

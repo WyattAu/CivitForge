@@ -120,22 +120,6 @@ pub async fn list_webhooks(
         Err(resp) => return resp,
     };
 
-    // Ensure table exists
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS webhooks (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-            url TEXT NOT NULL,
-            events JSONB NOT NULL DEFAULT '[\"push\"]',
-            secret TEXT,
-            active BOOLEAN NOT NULL DEFAULT true,
-            last_delivery TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
-
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
     let rows = sqlx::query_as::<_, (Uuid, Uuid, String, serde_json::Value, bool, DateTime<Utc>)>(
         "SELECT id, repo_id, url, events, active, created_at FROM webhooks WHERE repo_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
@@ -190,22 +174,6 @@ pub async fn create_webhook(
         )
             .into_response();
     }
-
-    // Ensure table
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS webhooks (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-            url TEXT NOT NULL,
-            events JSONB NOT NULL DEFAULT '[\"push\"]',
-            secret TEXT,
-            active BOOLEAN NOT NULL DEFAULT true,
-            last_delivery TIMESTAMPTZ,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
 
     let active = req.active.unwrap_or(true);
     let events_json = serde_json::json!(req.events);

@@ -597,4 +597,215 @@ mod tests {
         assert!(json.contains("push"));
         assert!(json.contains("main"));
     }
+
+    #[test]
+    fn test_pipeline_status_transitions() {
+        let statuses = ["pending", "queued", "running", "success", "failed", "canceled"];
+        for s in statuses {
+            let resp = PipelineRunResponse {
+                id: "id".into(),
+                repo_id: "repo".into(),
+                trigger: "push".into(),
+                ref_name: None,
+                commit_sha: "sha".into(),
+                status: s.to_string(),
+                created_at: "2025-01-01T00:00:00Z".into(),
+                started_at: None,
+                finished_at: None,
+            };
+            let json = serde_json::to_string(&resp).unwrap();
+            assert!(json.contains(&format!("\"status\":\"{s}\"")));
+        }
+    }
+
+    #[test]
+    fn test_run_response_with_started_and_finished() {
+        let resp = PipelineRunResponse {
+            id: "run-1".into(),
+            repo_id: "repo-1".into(),
+            trigger: "webhook".into(),
+            ref_name: Some("develop".into()),
+            commit_sha: "deadbeef".into(),
+            status: "success".into(),
+            created_at: "2025-06-01T00:00:00Z".into(),
+            started_at: Some("2025-06-01T00:00:05Z".into()),
+            finished_at: Some("2025-06-01T00:01:30Z".into()),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("2025-06-01T00:00:05Z"));
+        assert!(json.contains("2025-06-01T00:01:30Z"));
+    }
+
+    #[test]
+    fn test_run_response_null_ref_name() {
+        let resp = PipelineRunResponse {
+            id: "run-1".into(),
+            repo_id: "repo-1".into(),
+            trigger: "manual".into(),
+            ref_name: None,
+            commit_sha: "abc".into(),
+            status: "pending".into(),
+            created_at: "2025-01-01T00:00:00Z".into(),
+            started_at: None,
+            finished_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("null") || !json.contains("ref_name"));
+    }
+
+    #[test]
+    fn test_run_job_response_serialize() {
+        let job = RunJobResponse {
+            id: "job-1".into(),
+            name: "build".into(),
+            status: "running".into(),
+            runner_id: Some("runner-1".into()),
+            started_at: Some("2025-06-01T00:00:10Z".into()),
+            finished_at: None,
+            steps: vec![RunStepResponse {
+                id: "step-1".into(),
+                name: "compile".into(),
+                step_index: 0,
+                status: "success".into(),
+                image: Some("rust:latest".into()),
+                exit_code: Some(0),
+                output: Some("done".into()),
+                started_at: Some("2025-06-01T00:00:11Z".into()),
+                finished_at: Some("2025-06-01T00:00:20Z".into()),
+            }],
+        };
+        let json = serde_json::to_string(&job).unwrap();
+        assert!(json.contains("build"));
+        assert!(json.contains("compile"));
+    }
+
+    #[test]
+    fn test_graph_response_serialize() {
+        let graph = GraphResponse {
+            nodes: vec![
+                GraphNode {
+                    id: "n1".into(),
+                    name: "build".into(),
+                    status: "success".into(),
+                    job_index: 0,
+                    runner_id: None,
+                    started_at: None,
+                    finished_at: None,
+                },
+                GraphNode {
+                    id: "n2".into(),
+                    name: "test".into(),
+                    status: "pending".into(),
+                    job_index: 1,
+                    runner_id: None,
+                    started_at: None,
+                    finished_at: None,
+                },
+            ],
+            edges: vec![GraphEdge {
+                source: "n1".into(),
+                target: "n2".into(),
+            }],
+            layout: GraphLayout {
+                rank_direction: "LR".into(),
+                node_spacing: 50,
+                rank_spacing: 80,
+            },
+        };
+        let json = serde_json::to_string(&graph).unwrap();
+        assert!(json.contains("build"));
+        assert!(json.contains("LR"));
+    }
+
+    #[test]
+    fn test_trigger_request_missing_fields_fails() {
+        let json = r#"{"ref_name": "main"}"#;
+        let result = serde_json::from_str::<TriggerPipelineRequest>(json);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_trigger_request_with_all_fields() {
+        let json = r#"{"ref_name": "main", "commit_sha": "abc123", "yaml_path": ".civit/custom.yaml", "event_type": "pull_request", "changed_files": ["a.rs", "b.rs"]}"#;
+        let req: TriggerPipelineRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.yaml_path, ".civit/custom.yaml");
+        assert_eq!(req.event_type, Some("pull_request".into()));
+        assert_eq!(req.changed_files, vec!["a.rs", "b.rs"]);
+    }
+
+    #[test]
+    fn test_pipeline_list_params_with_status() {
+        let json = r#"{"limit": 10, "offset": 5, "status": "failed"}"#;
+        let params: PipelineListParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.limit, 10);
+        assert_eq!(params.offset, 5);
+        assert_eq!(params.status.as_deref(), Some("failed"));
+    }
+
+    #[test]
+    fn test_cancel_request_defaults() {
+        let json = r#"{}"#;
+        let req: CancelPipelineRequest = serde_json::from_str(json).unwrap();
+        assert!(req.reason.is_none());
+    }
+
+    #[test]
+    fn test_cancel_request_with_reason() {
+        let json = r#"{"reason": "rebuild needed"}"#;
+        let req: CancelPipelineRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.reason.as_deref(), Some("rebuild needed"));
+    }
+
+    #[test]
+    fn test_run_step_response_no_optional() {
+        let step = RunStepResponse {
+            id: "s1".into(),
+            name: "lint".into(),
+            step_index: 0,
+            status: "success".into(),
+            image: None,
+            exit_code: None,
+            output: None,
+            started_at: None,
+            finished_at: None,
+        };
+        let json = serde_json::to_string(&step).unwrap();
+        assert!(json.contains("lint"));
+    }
+
+    #[test]
+    fn test_run_job_empty_steps() {
+        let job = RunJobResponse {
+            id: "j1".into(),
+            name: "deploy".into(),
+            status: "pending".into(),
+            runner_id: None,
+            started_at: None,
+            finished_at: None,
+            steps: vec![],
+        };
+        let json = serde_json::to_string(&job).unwrap();
+        assert!(json.contains("[]") || json.contains("\"steps\":[]"));
+    }
+
+    #[test]
+    fn test_detail_response_flatten() {
+        let detail = PipelineRunDetailResponse {
+            run: PipelineRunResponse {
+                id: "r1".into(),
+                repo_id: "repo1".into(),
+                trigger: "push".into(),
+                ref_name: Some("main".into()),
+                commit_sha: "sha".into(),
+                status: "running".into(),
+                created_at: "2025-01-01T00:00:00Z".into(),
+                started_at: None,
+                finished_at: None,
+            },
+            jobs: vec![],
+        };
+        let json = serde_json::to_string(&detail).unwrap();
+        assert!(json.contains("r1"));
+        assert!(json.contains("jobs"));
+    }
 }

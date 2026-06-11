@@ -56,21 +56,6 @@ pub async fn list_notifications(
         }
     };
 
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS notifications (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            kind TEXT NOT NULL,
-            title TEXT NOT NULL,
-            body TEXT,
-            repo_name TEXT,
-            read BOOLEAN NOT NULL DEFAULT false,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
-
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
 
     let (query_str, bind_count) = match params.read {

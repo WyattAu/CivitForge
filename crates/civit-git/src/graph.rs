@@ -159,4 +159,89 @@ mod tests {
         assert!(json.contains("\"edges\""));
         assert!(json.contains("\"branches\""));
     }
+
+    fn create_repo_with_commits(path: &Path, count: usize) {
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        std::process::Command::new("git").args(["init", "-b", "main", work.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+
+        for i in 0..count {
+            std::fs::write(work.join(format!("file{i}.txt")), format!("content {i}")).unwrap();
+            std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+            std::process::Command::new("git").args(["commit", "-m", &format!("commit {i}")]).current_dir(work).output().unwrap();
+        }
+        std::fs::create_dir_all(path).unwrap();
+        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+    }
+
+    #[test]
+    fn test_generate_commit_graph_basic() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_commits(tmp.path(), 3);
+        let graph = generate_commit_graph(tmp.path(), 10).unwrap();
+        assert_eq!(graph.nodes.len(), 3);
+        assert_eq!(graph.edges.len(), 2); // each commit has one parent edge
+        assert!(!graph.branches.is_empty());
+    }
+
+    #[test]
+    fn test_generate_commit_graph_with_branches() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_commits(tmp.path(), 1);
+        // Create a branch
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        // Clone from the bare repo
+        std::process::Command::new("git")
+            .args(["clone", tmp.path().to_str().unwrap(), "."])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        // The bare repo's HEAD points to the initial branch (master)
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        // Detect default branch name from the bare repo's HEAD
+        let head_content = std::fs::read_to_string(tmp.path().join("HEAD")).unwrap();
+        let _default_branch = head_content.trim().strip_prefix("ref: refs/heads/").unwrap_or("master").to_string();
+        std::process::Command::new("git").args(["checkout", "-b", "feature"]).current_dir(work).output().unwrap();
+        std::fs::write(work.join("feat.txt"), "feat").unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "feature"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["push", "origin", "feature"]).current_dir(work).output().unwrap();
+
+        let graph = generate_commit_graph(tmp.path(), 10).unwrap();
+        assert!(graph.nodes.len() >= 2);
+        let branch_names: Vec<&str> = graph.branches.iter().map(|b| b.name.as_str()).collect();
+        assert!(branch_names.contains(&"main") || branch_names.contains(&"master"), "expected main or master in {branch_names:?}");
+        assert!(branch_names.contains(&"feature"));
+    }
+
+    #[test]
+    fn test_generate_commit_graph_empty_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::process::Command::new("git")
+            .args(["init", "--bare", tmp.path().to_str().unwrap()])
+            .output()
+            .unwrap();
+        let graph = generate_commit_graph(tmp.path(), 10).unwrap();
+        assert!(graph.nodes.is_empty());
+        assert!(graph.edges.is_empty());
+    }
+
+    #[test]
+    fn test_generate_commit_graph_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = generate_commit_graph(tmp.path(), 10);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generate_commit_graph_respects_limit() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_commits(tmp.path(), 5);
+        let graph = generate_commit_graph(tmp.path(), 2).unwrap();
+        assert_eq!(graph.nodes.len(), 2);
+    }
 }

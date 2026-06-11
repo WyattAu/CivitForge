@@ -550,4 +550,136 @@ mod tests {
         let v: MergeStrategy = serde_json::from_str("\"fast-forward\"").unwrap();
         assert_eq!(v, MergeStrategy::FastForward);
     }
+
+    fn create_repo_with_commits(svc: &GitService, owner: &str, name: &str, count: usize) {
+        let path = svc.repo_path(owner, name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        run_git(work, &["init", "-b", "main", work.to_str().unwrap()]).unwrap();
+        run_git(work, &["config", "user.name", "Test"]).unwrap();
+        run_git(work, &["config", "user.email", "test@test.com"]).unwrap();
+        for i in 0..count {
+            std::fs::write(work.join(format!("file{i}.txt")), format!("content {i}")).unwrap();
+            run_git(work, &["add", "."]).unwrap();
+            run_git(work, &["commit", "-m", &format!("commit {i}")]).unwrap();
+        }
+        run_git(work, &["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).unwrap();
+    }
+
+    #[test]
+    fn test_list_commits_returns_commits() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        create_repo_with_commits(&svc, "org", "listrepo", 3);
+        let commits = svc.list_commits("org", "listrepo", 10).unwrap();
+        assert_eq!(commits.len(), 3);
+        assert_eq!(commits[0].message, "commit 2");
+        assert_eq!(commits[1].message, "commit 1");
+        assert_eq!(commits[2].message, "commit 0");
+        assert!(!commits[0].id.is_empty());
+        assert!(!commits[0].author.is_empty());
+    }
+
+    #[test]
+    fn test_list_commits_respects_limit() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        create_repo_with_commits(&svc, "org", "limitrepo", 5);
+        let commits = svc.list_commits("org", "limitrepo", 2).unwrap();
+        assert_eq!(commits.len(), 2);
+    }
+
+    #[test]
+    fn test_list_commits_empty_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        svc.init_bare("org", "emptyrepo").unwrap();
+        let result = svc.list_commits("org", "emptyrepo", 10);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_list_commits_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        assert!(svc.list_commits("org", "nope", 10).is_err());
+    }
+
+    #[test]
+    fn test_merge_branch_fast_forward() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        create_repo_with_commits(&svc, "org", "ffrepo", 1);
+
+        let bare = svc.repo_path("org", "ffrepo");
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        run_git(work, &["clone", bare.to_str().unwrap(), "."]).unwrap();
+        run_git(work, &["config", "user.name", "Test"]).unwrap();
+        run_git(work, &["config", "user.email", "test@test.com"]).unwrap();
+        run_git(work, &["checkout", "-b", "feature"]).unwrap();
+        std::fs::write(work.join("feature.txt"), "feature").unwrap();
+        run_git(work, &["add", "."]).unwrap();
+        run_git(work, &["commit", "-m", "feature commit"]).unwrap();
+        run_git(work, &["push", "origin", "feature"]).unwrap();
+
+        let result = svc.merge_branch("org", "ffrepo", "feature", "main", MergeStrategy::FastForward, "Merger", "merge@test.com").unwrap();
+        assert!(result.was_ff);
+        assert!(!result.commit_sha.is_empty());
+    }
+
+    #[test]
+    fn test_merge_branch_merge_strategy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        create_repo_with_commits(&svc, "org", "mrgrepo", 1);
+
+        let bare = svc.repo_path("org", "mrgrepo");
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        run_git(work, &["clone", bare.to_str().unwrap(), "."]).unwrap();
+        run_git(work, &["config", "user.name", "Test"]).unwrap();
+        run_git(work, &["config", "user.email", "test@test.com"]).unwrap();
+        run_git(work, &["checkout", "-b", "feature"]).unwrap();
+        std::fs::write(work.join("feature.txt"), "feature").unwrap();
+        run_git(work, &["add", "."]).unwrap();
+        run_git(work, &["commit", "-m", "feature commit"]).unwrap();
+        run_git(work, &["push", "origin", "feature"]).unwrap();
+
+        let result = svc.merge_branch("org", "mrgrepo", "feature", "main", MergeStrategy::Merge, "Merger", "merge@test.com").unwrap();
+        assert!(!result.commit_sha.is_empty());
+    }
+
+    #[test]
+    fn test_merge_branch_squash() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        create_repo_with_commits(&svc, "org", "sqrepo", 1);
+
+        let bare = svc.repo_path("org", "sqrepo");
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        run_git(work, &["clone", bare.to_str().unwrap(), "."]).unwrap();
+        run_git(work, &["config", "user.name", "Test"]).unwrap();
+        run_git(work, &["config", "user.email", "test@test.com"]).unwrap();
+        run_git(work, &["checkout", "-b", "feature"]).unwrap();
+        std::fs::write(work.join("feature.txt"), "feature").unwrap();
+        run_git(work, &["add", "."]).unwrap();
+        run_git(work, &["commit", "-m", "feature commit"]).unwrap();
+        run_git(work, &["push", "origin", "feature"]).unwrap();
+
+        let result = svc.merge_branch("org", "sqrepo", "feature", "main", MergeStrategy::Squash, "Merger", "merge@test.com").unwrap();
+        assert_eq!(result.strategy_used, "squash");
+    }
+
+    #[test]
+    fn test_merge_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svc = GitService::new(tmp.path().to_path_buf());
+        let result = svc.merge_branch("org", "nope", "a", "b", MergeStrategy::Merge, "T", "t@t.com");
+        assert!(result.is_err());
+    }
 }

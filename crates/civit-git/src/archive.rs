@@ -191,4 +191,69 @@ mod tests {
         let result = generate_archive(tmp.path(), "HEAD", ArchiveFormat::Zip);
         assert!(result.is_ok() || result.is_err()); // may fail without commits
     }
+
+    fn create_repo_with_file(path: &Path, filename: &str, content: &[u8]) {
+        let work_tmp = tempfile::tempdir().unwrap();
+        let work = work_tmp.path();
+        std::process::Command::new("git").args(["init", work.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        std::fs::write(work.join(filename), content).unwrap();
+        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
+        std::process::Command::new("git").args(["commit", "-m", "init"]).current_dir(work).output().unwrap();
+        std::fs::create_dir_all(path).unwrap();
+        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+    }
+
+    #[test]
+    fn test_generate_zip_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_file(tmp.path(), "hello.txt", b"hello world");
+        let result = generate_archive(tmp.path(), "HEAD", ArchiveFormat::Zip).unwrap();
+        assert!(!result.data.is_empty());
+        assert_eq!(result.format, ArchiveFormat::Zip);
+        assert!(result.filename.ends_with(".zip"));
+    }
+
+    #[test]
+    fn test_generate_tar_gz_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        create_repo_with_file(tmp.path(), "hello.txt", b"hello world");
+        let result = generate_archive(tmp.path(), "HEAD", ArchiveFormat::TarGz).unwrap();
+        assert!(!result.data.is_empty());
+        assert_eq!(result.format, ArchiveFormat::TarGz);
+        assert!(result.filename.ends_with(".tar.gz"));
+    }
+
+    #[test]
+    fn test_generate_archive_nonexistent_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let result = generate_archive(tmp.path(), "HEAD", ArchiveFormat::Zip);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_create_zip_from_bytes_roundtrip() {
+        let mut buf = std::io::Cursor::new(Vec::new());
+        create_zip_from_bytes(&mut buf, &[
+            ("a.txt", b"content a"),
+            ("b.txt", b"content b"),
+        ]).unwrap();
+        let data = buf.into_inner();
+        assert!(data.len() > 10);
+        // Verify it's a valid zip by reading it back
+        let cursor = std::io::Cursor::new(&data);
+        let archive = zip::ZipArchive::new(cursor).unwrap();
+        assert_eq!(archive.len(), 2);
+    }
+
+    #[test]
+    fn test_create_tar_gz_from_bytes_roundtrip() {
+        let mut buf = Vec::new();
+        create_tar_gz_from_bytes(&mut buf, &[
+            ("a.txt", b"content a"),
+            ("b.txt", b"content b"),
+        ]).unwrap();
+        assert!(buf.len() > 10);
+    }
 }

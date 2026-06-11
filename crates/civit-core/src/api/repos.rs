@@ -1274,19 +1274,6 @@ pub async fn list_collaborators(
         }
     };
 
-    // Ensure table exists
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS repo_collaborators (
-            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            permission TEXT NOT NULL DEFAULT 'read',
-            PRIMARY KEY (repo_id, user_id),
-            added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
-
     // Owner is always first
     let mut collabs = vec![CollaboratorResponse {
         user_id: owner_uuid.to_string(),
@@ -1360,19 +1347,6 @@ pub async fn add_collaborator(
     };
 
     let permission = req.permission.as_deref().unwrap_or("read");
-
-    // Ensure table exists
-    let _ = sqlx::query(
-        "CREATE TABLE IF NOT EXISTS repo_collaborators (
-            repo_id UUID NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
-            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            permission TEXT NOT NULL DEFAULT 'read',
-            PRIMARY KEY (repo_id, user_id),
-            added_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )",
-    )
-    .execute(pool)
-    .await;
 
     // Check if already a collaborator
     let existing: Option<(i64,)> = sqlx::query_as(
