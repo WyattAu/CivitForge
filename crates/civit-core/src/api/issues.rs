@@ -449,12 +449,14 @@ pub async fn create_issue(
         Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
     };
 
+    let description = req.description.unwrap_or_default();
+
     let row = match sqlx::query_as::<_, IssueRow>(
         "INSERT INTO issues (repo_id, number, title, body, status, author_id, assignee_id, created_at, updated_at) VALUES ($1, (SELECT COALESCE(MAX(number),0)+1 FROM issues WHERE repo_id=$1), $2, $3, 'open', $4, $5, NOW(), NOW()) RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at",
     )
     .bind(repo_id)
     .bind(&req.title)
-    .bind(&req.description)
+    .bind(&description)
     .bind(author_id)
     .bind(req.assignee)
     .fetch_one(pool)

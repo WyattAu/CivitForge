@@ -111,6 +111,7 @@ services:
       civitforge:
         condition: service_healthy
     environment:
+      DATABASE_URL: postgres://civit:civit-deploy-2026@postgres:5432/civitforge
       CIVIT_RUNNER_API_URL: http://civitforge:8080
       CIVIT_RUNNER_NAME: local-docker-runner
       CIVIT_RUNNER_TAGS: docker,linux
