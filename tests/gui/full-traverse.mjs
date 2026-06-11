@@ -30,6 +30,7 @@ const created = {
   repo: null,
   org: null,
   issue: null,
+  pr: null,
   wikiSlug: null,
   token: null,
   userId: null,
@@ -359,7 +360,6 @@ async function testNewRepo(browser) {
       await takeScreenshot(p, 'new-repo-filled');
     }},
     { name: 'submit-create-repo', fn: async (p) => {
-      // Leptos Button has no type="submit" — use Enter on last input or click by text
       const submitBtn = await p.$('button:has-text("Create Repository")');
       if (submitBtn) {
         await submitBtn.click();
@@ -372,6 +372,16 @@ async function testNewRepo(browser) {
       const pathname = await p.evaluate(() => window.location.pathname);
       if (pathname.includes('/repos/')) {
         console.log(`    Redirected to: ${pathname}`);
+      } else if (pathname.includes('/repos')) {
+        console.log(`    Redirected to repos list: ${pathname}`);
+      } else {
+        console.log(`    Current path after create: ${pathname}`);
+      }
+    }},
+    { name: 'verify-repo-page-content', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes(created.repo)) {
+        console.log('    Repo name visible on destination page');
       }
     }},
     { name: 'screenshot-result', fn: async (p) => {
@@ -389,6 +399,8 @@ async function testIssues(browser) {
   }
 
   const repoPath = `${created.userId}/${created.repo}`;
+  const issueTitle = `Test issue from GUI traverse ${Date.now()}`;
+  created.issue = issueTitle;
 
   await traversePage(browser, `/repos/${repoPath}/issues`, 'repo-issues', [
     { name: 'verify-issues-page', fn: async (p) => {
@@ -406,22 +418,36 @@ async function testIssues(browser) {
       }
     }},
     { name: 'fill-issue-form', fn: async (p) => {
-      await fillIfExists(p, 'input#new-issue-title', `Test issue from GUI traverse ${Date.now()}`);
+      await fillIfExists(p, 'input#new-issue-title', issueTitle);
       await fillIfExists(p, 'textarea#new-issue-description', 'This issue was created by the automated GUI traverse test.');
     }},
+    { name: 'verify-form-filled', fn: async (p) => {
+      const titleVal = await p.$eval('input#new-issue-title', el => el.value).catch(() => null);
+      if (titleVal === issueTitle) {
+        console.log('    Issue title field filled correctly');
+      } else {
+        console.log(`    Title field value: ${titleVal || 'not found'}`);
+      }
+    }},
     { name: 'submit-issue', fn: async (p) => {
-      const btn = await p.$('button:has-text("Submit Issue")');
+      const btn = await p.$('button:has-text("Submit Issue"), button:has-text("Create Issue")');
       if (btn) {
         await btn.click();
-        await p.waitForTimeout(2000);
+        await p.waitForTimeout(3000);
       }
     }},
     { name: 'verify-issue-created', fn: async (p) => {
       const body = await p.textContent('body');
-      if (!body.includes('Test issue from GUI')) {
-        console.log('    Issue may not have been created (or list is empty)');
+      if (body.includes(issueTitle)) {
+        console.log('    Issue appears in list after creation');
       } else {
-        console.log('    Issue appears in list');
+        console.log('    Issue may not have been created (or list is empty)');
+      }
+    }},
+    { name: 'verify-redirect', fn: async (p) => {
+      const pathname = await p.evaluate(() => window.location.pathname);
+      if (pathname.includes('/issues') || pathname.includes('/repos/')) {
+        console.log(`    Post-issue URL: ${pathname}`);
       }
     }},
     { name: 'check-filter-tabs', fn: async (p) => {
@@ -435,8 +461,179 @@ async function testIssues(browser) {
       }
       console.log(`    Filter tabs: ${tabTexts.join(', ') || 'none found'}`);
     }},
+    { name: 'filter-open-issues', fn: async (p) => {
+      const openBtn = await p.$('button:has-text("Open")');
+      if (openBtn) {
+        await openBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Open filter');
+      }
+    }},
+    { name: 'filter-closed-issues', fn: async (p) => {
+      const closedBtn = await p.$('button:has-text("Closed")');
+      if (closedBtn) {
+        await closedBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Closed filter');
+      }
+    }},
+    { name: 'filter-all-issues', fn: async (p) => {
+      const allBtn = await p.$('button:has-text("All")');
+      if (allBtn) {
+        await allBtn.click();
+        await p.waitForTimeout(500);
+      }
+    }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'repo-issues');
+    }},
+  ]);
+}
+
+// === 4b. PULL REQUESTS ===
+
+async function testPullRequests(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping PRs test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+  const prTitle = `Test PR from GUI traverse ${Date.now()}`;
+  created.pr = prTitle;
+
+  await traversePage(browser, `/repos/${repoPath}/pulls`, 'repo-pulls', [
+    { name: 'verify-prs-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body.includes('Pull Request') && !body.includes('Pull') && !body.includes('Merge')) {
+        console.log('    PRs page loaded (title may vary)');
+      }
+    }},
+    { name: 'click-new-pr', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Pull Request"), button:has-text("Create Pull Request"), a:has-text("New Pull Request")');
+      if (btn) {
+        await btn.click();
+        await p.waitForTimeout(500);
+      } else {
+        console.log('    New PR button not found');
+      }
+    }},
+    { name: 'fill-pr-form', fn: async (p) => {
+      await fillIfExists(p, 'input#pr-title, input[placeholder*="title"]', prTitle);
+      await fillIfExists(p, 'textarea#pr-description, textarea[placeholder*="description"], textarea#pr-body', 'Test pull request created by GUI traverse.');
+    }},
+    { name: 'verify-pr-form-filled', fn: async (p) => {
+      const titleEl = await p.$('input#pr-title, input[placeholder*="title"]');
+      if (titleEl) {
+        const val = await titleEl.inputValue();
+        if (val === prTitle) {
+          console.log('    PR title field filled correctly');
+        }
+      }
+    }},
+    { name: 'submit-pr', fn: async (p) => {
+      const btn = await p.$('button:has-text("Create Pull Request"), button:has-text("Submit")');
+      if (btn) {
+        await btn.click();
+        await p.waitForTimeout(3000);
+      }
+    }},
+    { name: 'verify-pr-created', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes(prTitle)) {
+        console.log('    PR appears in list after creation');
+      } else {
+        console.log('    PR may not have been created');
+      }
+    }},
+    { name: 'verify-pr-redirect', fn: async (p) => {
+      const pathname = await p.evaluate(() => window.location.pathname);
+      console.log(`    Post-PR URL: ${pathname}`);
+    }},
+    { name: 'filter-open-prs', fn: async (p) => {
+      const openBtn = await p.$('button:has-text("Open")');
+      if (openBtn) {
+        await openBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Open filter');
+      }
+    }},
+    { name: 'filter-closed-prs', fn: async (p) => {
+      const closedBtn = await p.$('button:has-text("Closed")');
+      if (closedBtn) {
+        await closedBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Closed filter');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'repo-pulls');
+    }},
+  ]);
+}
+
+// === 4c. ISSUE/PR COMMENTS ===
+
+async function testComments(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping comments test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+
+  // Navigate to an existing issue to add a comment
+  await traversePage(browser, `/repos/${repoPath}/issues`, 'repo-comments', [
+    { name: 'navigate-to-issues', fn: async (p) => {
+      await waitForContent(p);
+    }},
+    { name: 'click-first-issue', fn: async (p) => {
+      // Try to find a clickable issue link in the list
+      const issueLink = await p.$('a[href*="/issues/"], .issue-title a, tr a[href*="issues"]');
+      if (issueLink) {
+        await issueLink.click();
+        await p.waitForTimeout(2000);
+        console.log('    Navigated to issue detail');
+      } else {
+        console.log('    No issue links found to navigate to');
+      }
+    }},
+    { name: 'find-comment-textarea', fn: async (p) => {
+      const textarea = await p.$('textarea#comment, textarea[placeholder*="comment"], textarea[placeholder*="Comment"], textarea');
+      if (textarea) {
+        console.log('    Comment textarea found');
+      } else {
+        console.log('    Comment textarea not found (may not be on issue detail)');
+      }
+    }},
+    { name: 'fill-comment', fn: async (p) => {
+      const commentText = `GUI test comment ${Date.now()}`;
+      const filled = await fillIfExists(p, 'textarea#comment, textarea[placeholder*="comment"], textarea[placeholder*="Comment"], textarea', commentText);
+      if (filled) {
+        console.log('    Comment textarea filled');
+      }
+    }},
+    { name: 'submit-comment', fn: async (p) => {
+      const btn = await p.$('button:has-text("Comment"), button:has-text("Submit"), button:has-text("Post")');
+      if (btn) {
+        await btn.click();
+        await p.waitForTimeout(2000);
+        console.log('    Comment submitted');
+      } else {
+        console.log('    Comment submit button not found');
+      }
+    }},
+    { name: 'verify-comment-appeared', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('GUI test comment')) {
+        console.log('    Comment appears in issue');
+      } else {
+        console.log('    Comment may not have been added');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'repo-comments');
     }},
   ]);
 }
@@ -581,11 +778,78 @@ async function testRepoDetail(browser) {
       const tabTexts = [];
       for (const tab of tabs) {
         const t = await tab.textContent();
-        if (['Code', 'Issues', 'Wiki', 'Pipelines', 'Settings'].includes(t)) {
+        if (['Code', 'Issues', 'Wiki', 'Pipelines', 'Settings', 'Pull Requests', 'Boards'].includes(t)) {
           tabTexts.push(t);
         }
       }
       console.log(`    Repo tabs: ${tabTexts.join(', ') || 'none found'}`);
+    }},
+    { name: 'click-code-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Code")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Code tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-issues-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Issues")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Issues tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-prs-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Pull Requests"), a:has-text("PRs")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    PRs tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-pipelines-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Pipelines")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Pipelines tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-settings-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Settings")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Settings tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-boards-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Boards")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Boards tab -> ${pathname}`);
+      }
+    }},
+    { name: 'return-to-code', fn: async (p) => {
+      const tab = await p.$('a:has-text("Code")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1000);
+      }
     }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'repo-detail');
@@ -633,14 +897,19 @@ async function testSearch(browser) {
     { name: 'fill-search', fn: async (p) => {
       await fillIfExists(p, 'input#search-input', 'test');
     }},
+    { name: 'verify-input-filled', fn: async (p) => {
+      const val = await p.$eval('input#search-input', el => el.value).catch(() => null);
+      if (val === 'test') {
+        console.log('    Search input filled correctly');
+      }
+    }},
     { name: 'submit-search', fn: async (p) => {
-      // Try form submit
+      await fillIfExists(p, 'input#search-input', 'test');
       const form = await p.$('form');
       if (form) {
         await form.evaluate((f) => f.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
         await p.waitForTimeout(1000);
       }
-      // Also try search button click
       await clickIfExists(p, 'button:has-text("Search")');
       await p.waitForTimeout(2000);
     }},
@@ -648,8 +917,24 @@ async function testSearch(browser) {
       const body = await p.textContent('body');
       if (body.includes('No results found')) {
         console.log('    Search returned no results (expected for "test" query)');
-      } else if (body.includes('Code Search Results')) {
+      } else if (body.includes('Search Results') || body.includes('results')) {
         console.log('    Search returned results');
+      }
+    }},
+    { name: 'check-result-links', fn: async (p) => {
+      const resultLinks = await p.$$('a[href*="/repos/"]');
+      if (resultLinks.length > 0) {
+        console.log(`    Found ${resultLinks.length} repo link(s) in results`);
+      } else {
+        console.log('    No repo links in search results');
+      }
+    }},
+    { name: 'search-with-query-param', fn: async (p) => {
+      await navigatePath(p, '/search?q=repo');
+      await p.waitForTimeout(1500);
+      const body = await p.textContent('body');
+      if (body.includes('Search') || body.includes('results')) {
+        console.log('    Search with query param loaded');
       }
     }},
     { name: 'screenshot', fn: async (p) => {
@@ -824,6 +1109,7 @@ async function testBoards(browser) {
   }
 
   const repoPath = `${created.userId}/${created.repo}`;
+  const boardName = `GUI Test Board ${Date.now() % 100000}`;
 
   await traversePage(browser, `/repos/${repoPath}/boards`, 'repo-boards', [
     { name: 'verify-boards-page', fn: async (p) => {
@@ -835,19 +1121,46 @@ async function testBoards(browser) {
     }},
     { name: 'check-board-columns', fn: async (p) => {
       const body = await p.textContent('body');
-      const hasColumns = body.includes('Todo') || body.includes('In Progress') || body.includes('Done');
+      const hasColumns = body.includes('Todo') || body.includes('In Progress') || body.includes('Done') || body.includes('No boards');
       if (hasColumns) {
-        console.log('    Kanban columns detected');
+        console.log('    Board page content detected');
       } else {
-        console.log('    Board may be empty or not yet created');
+        console.log('    Board page loaded (content uncertain)');
       }
     }},
-    { name: 'check-create-board-btn', fn: async (p) => {
+    { name: 'click-create-board', fn: async (p) => {
       const btn = await p.$('button:has-text("New Board"), button:has-text("Create Board")');
       if (btn) {
-        console.log('    Create Board button found');
+        await btn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Create Board button clicked');
       } else {
         console.log('    Create Board button not found');
+      }
+    }},
+    { name: 'fill-board-name', fn: async (p) => {
+      await fillIfExists(p, 'input#board-name, input[placeholder*="board name"], input[placeholder*="Board name"]', boardName);
+    }},
+    { name: 'submit-board', fn: async (p) => {
+      const btn = await p.$('button:has-text("Create"), button:has-text("Save")');
+      if (btn) {
+        await btn.click();
+        await p.waitForTimeout(2000);
+      }
+    }},
+    { name: 'verify-board-appeared', fn: async (p) => {
+      await p.waitForTimeout(1000);
+      const body = await p.textContent('body');
+      if (body.includes(boardName)) {
+        console.log(`    Board "${boardName}" appears in list`);
+      } else {
+        console.log('    Board may not have been created');
+      }
+    }},
+    { name: 'check-board-columns-after', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Todo') && body.includes('In Progress') && body.includes('Done')) {
+        console.log('    Kanban columns visible (Todo, In Progress, Done)');
       }
     }},
     { name: 'screenshot', fn: async (p) => {
@@ -912,18 +1225,72 @@ async function testAdmin(browser) {
     }},
     { name: 'check-admin-nav', fn: async (p) => {
       const body = await p.textContent('body');
-      const hasSections = body.includes('Users') || body.includes('Repos') || body.includes('System');
+      const hasSections = body.includes('Users') || body.includes('Repos') || body.includes('System') || body.includes('Audit');
       if (hasSections) {
         console.log('    Admin sections detected');
       } else {
         console.log('    Admin page loaded (sections may require permissions)');
       }
     }},
-    { name: 'check-user-management', fn: async (p) => {
-      const usersLink = await p.$('a:has-text("Users"), button:has-text("Users")');
-      if (usersLink) {
-        console.log('    User management link found');
+    { name: 'click-users-tab', fn: async (p) => {
+      const usersTab = await p.$('button:has-text("Users"), a:has-text("Users")');
+      if (usersTab) {
+        await usersTab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const body = await p.textContent('body');
+        if (body.includes('username') || body.includes('email') || body.includes('user')) {
+          console.log('    Users tab loaded with content');
+        } else {
+          console.log('    Users tab clicked (content may be empty)');
+        }
+      } else {
+        console.log('    Users tab not found');
       }
+    }},
+    { name: 'verify-user-list', fn: async (p) => {
+      const userRows = await p.$$('tr, .user-row, .list-item');
+      console.log(`    User list items: ${userRows.length}`);
+    }},
+    { name: 'click-repos-tab', fn: async (p) => {
+      const reposTab = await p.$('button:has-text("Repos"), a:has-text("Repos"), button:has-text("Repositories"), a:has-text("Repositories")');
+      if (reposTab) {
+        await reposTab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const body = await p.textContent('body');
+        if (body.includes('repo') || body.includes('Repositor')) {
+          console.log('    Repos tab loaded with content');
+        } else {
+          console.log('    Repos tab clicked (content may be empty)');
+        }
+      } else {
+        console.log('    Repos tab not found');
+      }
+    }},
+    { name: 'verify-repo-list', fn: async (p) => {
+      const repoRows = await p.$$('tr, .repo-row, .list-item');
+      console.log(`    Repo list items: ${repoRows.length}`);
+    }},
+    { name: 'click-audit-log-tab', fn: async (p) => {
+      const auditTab = await p.$('button:has-text("Audit"), a:has-text("Audit"), button:has-text("Audit Log"), a:has-text("Audit Log")');
+      if (auditTab) {
+        await auditTab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const body = await p.textContent('body');
+        if (body.includes('audit') || body.includes('Audit') || body.includes('event') || body.includes('log')) {
+          console.log('    Audit Log tab loaded with content');
+        } else {
+          console.log('    Audit Log tab clicked (content may be empty)');
+        }
+      } else {
+        console.log('    Audit Log tab not found');
+      }
+    }},
+    { name: 'verify-audit-events', fn: async (p) => {
+      const eventRows = await p.$$('tr, .audit-row, .event-row, .list-item');
+      console.log(`    Audit event items: ${eventRows.length}`);
     }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'admin');
@@ -1052,6 +1419,165 @@ async function testTeamManagement(browser) {
     }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'org-teams');
+    }},
+  ]);
+}
+
+// === 21b. SIDEBAR NAVIGATION CLICKS ===
+
+async function testSidebarNavigation(browser) {
+  await traversePage(browser, '/', 'sidebar-nav-clicks', [
+    { name: 'verify-sidebar', fn: async (p) => {
+      await waitForContent(p);
+      const sidebar = await p.$('aside');
+      if (!sidebar) throw new Error('Sidebar not found');
+    }},
+    { name: 'click-repos-link', fn: async (p) => {
+      const link = await p.$('aside a[href="/repos"]');
+      if (link) {
+        await link.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        if (pathname.includes('/repos')) {
+          console.log(`    Sidebar Repos link -> ${pathname}`);
+        } else {
+          console.log(`    Repos link navigated to: ${pathname}`);
+        }
+      }
+    }},
+    { name: 'click-explore-link', fn: async (p) => {
+      // Navigate back home first
+      await navigatePath(p, '/');
+      await waitForContent(p);
+      const link = await p.$('aside a[href="/explore"]');
+      if (link) {
+        await link.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Sidebar Explore link -> ${pathname}`);
+      }
+    }},
+    { name: 'click-activity-link', fn: async (p) => {
+      await navigatePath(p, '/');
+      await waitForContent(p);
+      const link = await p.$('aside a[href="/activity"]');
+      if (link) {
+        await link.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Sidebar Activity link -> ${pathname}`);
+      }
+    }},
+    { name: 'click-settings-link', fn: async (p) => {
+      await navigatePath(p, '/');
+      await waitForContent(p);
+      const link = await p.$('aside a[href="/settings"]');
+      if (link) {
+        await link.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Sidebar Settings link -> ${pathname}`);
+      }
+    }},
+    { name: 'click-admin-link', fn: async (p) => {
+      await navigatePath(p, '/');
+      await waitForContent(p);
+      const link = await p.$('aside a[href="/admin"]');
+      if (link) {
+        await link.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Sidebar Admin link -> ${pathname}`);
+      }
+    }},
+    { name: 'click-home-link', fn: async (p) => {
+      const link = await p.$('aside a[href="/"]');
+      if (link) {
+        await link.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        if (pathname === '/') {
+          console.log('    Sidebar Home link -> /');
+        } else {
+          console.log(`    Home link navigated to: ${pathname}`);
+        }
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'sidebar-nav-clicks');
+    }},
+  ]);
+}
+
+// === 21c. BREADCRUMB NAVIGATION ===
+
+async function testBreadcrumbNavigation(browser) {
+  if (!created.repo || !created.userId) {
+    console.log('    Skipping breadcrumb test (no repo/user created)');
+    return;
+  }
+
+  const repoPath = `${created.userId}/${created.repo}`;
+
+  await traversePage(browser, `/repos/${repoPath}/issues`, 'breadcrumb-nav', [
+    { name: 'verify-breadcrumb', fn: async (p) => {
+      await waitForContent(p);
+      // Look for breadcrumb navigation
+      const breadcrumbs = await p.$$('nav[aria-label*="breadcrumb"], .breadcrumb, ol.breadcrumb, .breadcrumbs a');
+      if (breadcrumbs.length > 0) {
+        console.log(`    Found ${breadcrumbs.length} breadcrumb element(s)`);
+      } else {
+        console.log('    Breadcrumb elements not found (may use different markup)');
+      }
+    }},
+    { name: 'click-repo-breadcrumb', fn: async (p) => {
+      // Try clicking a breadcrumb link that points to the repo root
+      const repoBreadcrumb = await p.$(`a[href="/repos/${repoPath}"]`);
+      if (repoBreadcrumb) {
+        await repoBreadcrumb.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Repo breadcrumb -> ${pathname}`);
+      } else {
+        console.log('    Repo breadcrumb link not found');
+      }
+    }},
+    { name: 'verify-navigated-to-repo', fn: async (p) => {
+      const pathname = await p.evaluate(() => window.location.pathname);
+      const body = await p.textContent('body');
+      if (pathname.includes(repoPath) && body.includes(created.repo)) {
+        console.log('    Successfully navigated to repo via breadcrumb');
+      }
+    }},
+    { name: 'navigate-to-issues-via-breadcrumb', fn: async (p) => {
+      const issuesBreadcrumb = await p.$('a:has-text("Issues"), a[href*="/issues"]');
+      if (issuesBreadcrumb) {
+        await issuesBreadcrumb.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Issues breadcrumb -> ${pathname}`);
+      }
+    }},
+    { name: 'navigate-home-via-breadcrumb', fn: async (p) => {
+      const homeBreadcrumb = await p.$('a[href="/"]');
+      if (homeBreadcrumb) {
+        await homeBreadcrumb.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Home breadcrumb -> ${pathname}`);
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'breadcrumb-nav');
     }},
   ]);
 }
@@ -1220,6 +1746,8 @@ async function main() {
     await testNewRepo(browser);
     await testRepoDetail(browser);
     await testIssues(browser);
+    await testPullRequests(browser);
+    await testComments(browser);
     await testWiki(browser);
     await testCodeBrowser(browser);
     await testPipelines(browser);
@@ -1235,6 +1763,8 @@ async function main() {
     await testSidebarLocaleSwitcher(browser);
     await testBranchProtection(browser);
     await testTeamManagement(browser);
+    await testSidebarNavigation(browser);
+    await testBreadcrumbNavigation(browser);
     await testNavigation(browser);
     await testNotFound(browser);
   } catch (e) {

@@ -73,4 +73,5 @@ schemars = { version = "0.8", features = ["chrono"] }
 regex = "1"
 lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "builder", "smtp-transport", "pool", "hostname"] }
  axum-server = { version = "0.7", features = ["tls-rustls"] }
-open = "5"
+ open = "5"
+criterion = { version = "0.5", features = ["html_reports"] }
