@@ -16,6 +16,8 @@ pub async fn info_refs(
     headers: HeaderMap,
     _auth: OptionalAuthUser,
 ) -> impl IntoResponse {
+    // Strip .git suffix from name (git client appends it to URLs)
+    let name = name.strip_suffix(".git").unwrap_or(&name).to_string();
     if !state.git_service.repo_exists(&owner, &name) {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }
@@ -70,6 +72,7 @@ pub async fn upload_pack(
     _auth: OptionalAuthUser,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
+    let name = name.strip_suffix(".git").unwrap_or(&name).to_string();
     if !state.git_service.repo_exists(&owner, &name) {
         return (StatusCode::NOT_FOUND, "repository not found").into_response();
     }
@@ -96,6 +99,8 @@ pub async fn receive_pack(
     auth: OptionalAuthUser,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
+    // Strip .git suffix from name (git client appends it to URLs)
+    let name = name.strip_suffix(".git").unwrap_or(&name).to_string();
     // Require push permission on the repository (skip for unauthenticated / read-only repos)
     if let Some(auth_user) = &auth.0 {
         // Resolve repo_id from owner/name for permission checking
