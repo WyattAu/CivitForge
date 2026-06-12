@@ -121,7 +121,7 @@ pub async fn list_webhooks(
     };
 
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
-    let rows = sqlx::query_as::<_, (Uuid, Uuid, String, serde_json::Value, bool, DateTime<Utc>)>(
+    let rows = sqlx::query_as::<_, (Uuid, Uuid, String, Vec<String>, bool, DateTime<Utc>)>(
         "SELECT id, repo_id, url, events, active, created_at FROM webhooks WHERE repo_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
     )
     .bind(repo_id)
@@ -139,7 +139,7 @@ pub async fn list_webhooks(
                         id: id.to_string(),
                         repo_id: repo_id.to_string(),
                         url,
-                        events: serde_json::from_value(events).unwrap_or_default(),
+                        events,
                         active,
                         created_at: created_at.to_rfc3339(),
                     },
@@ -176,14 +176,13 @@ pub async fn create_webhook(
     }
 
     let active = req.active.unwrap_or(true);
-    let events_json = serde_json::json!(req.events);
 
-    let result = sqlx::query_as::<_, (Uuid, String, serde_json::Value, bool, DateTime<Utc>)>(
+    let result = sqlx::query_as::<_, (Uuid, String, Vec<String>, bool, DateTime<Utc>)>(
         "INSERT INTO webhooks (repo_id, url, events, active) VALUES ($1, $2, $3, $4) RETURNING id, url, events, active, created_at",
     )
     .bind(repo_id)
     .bind(&req.url)
-    .bind(&events_json)
+    .bind(&req.events)
     .bind(active)
     .fetch_one(pool)
     .await;
@@ -195,7 +194,7 @@ pub async fn create_webhook(
                 id: id.to_string(),
                 repo_id: repo_id.to_string(),
                 url,
-                events: serde_json::from_value(events).unwrap_or_default(),
+                events,
                 active,
                 created_at: created_at.to_rfc3339(),
             }),
