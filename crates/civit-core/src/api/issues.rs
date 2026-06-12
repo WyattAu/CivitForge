@@ -413,7 +413,7 @@ struct IssueRow {
     pub status: String,
     pub author_id: uuid::Uuid,
     pub assignee_id: Option<uuid::Uuid>,
-    pub labels: Option<serde_json::Value>,
+    pub labels: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
