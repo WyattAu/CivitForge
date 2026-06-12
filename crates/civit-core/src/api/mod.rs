@@ -10,7 +10,9 @@ pub mod boards;
 pub mod branch_protection;
 pub mod code_browser;
 pub mod deploy_keys;
+pub mod deployments;
 pub mod diagnostics;
+pub mod environments;
 pub mod edit;
 pub mod error_reports;
 pub mod federation_routes;
@@ -152,6 +154,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             get(deploy_keys::list_deploy_keys).post(deploy_keys::create_deploy_key),
         )
         .merge(deploy_keys::deploy_key_routes())
+        .merge(deployments::deployment_routes())
+        .merge(environments::environment_routes())
         .merge(notifications::notification_routes())
         .route("/api/v1/user/tokens", post(tokens::create_token))
         .route(

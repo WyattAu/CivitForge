@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::api::auth::AuthUser;
+use crate::api::auth::{AuthUser, OptionalAuthUser};
 use crate::error::CoreError;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -34,6 +34,7 @@ pub struct CreateIssueRequest {
     pub assignee: Option<uuid::Uuid>,
     pub milestone: Option<uuid::Uuid>,
     pub labels: Option<Vec<uuid::Uuid>>,
+    pub due_date: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -44,6 +45,7 @@ pub struct UpdateIssueRequest {
     pub assignee: Option<uuid::Uuid>,
     pub milestone: Option<uuid::Uuid>,
     pub labels: Option<Vec<uuid::Uuid>>,
+    pub due_date: Option<Option<DateTime<Utc>>>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -59,6 +61,18 @@ pub struct UpdateCommentRequest {
 #[derive(Debug, Deserialize, Default)]
 pub struct AddReactionRequest {
     pub emoji: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct CreateTimeEntryRequest {
+    pub hours: f64,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct AddDependencyRequest {
+    pub blocked_by_issue_number: i32,
+    pub dependency_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -124,9 +138,13 @@ pub struct IssueResponse {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
+    pub is_pinned: bool,
+    pub is_locked: bool,
+    pub due_date: Option<DateTime<Utc>>,
     pub labels: Vec<LabelResponse>,
     pub assignees: Vec<IssueAssignee>,
     pub comments: Vec<CommentResponse>,
+    pub task_lists: Option<TaskListSummary>,
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
@@ -193,6 +211,61 @@ pub struct CrossReferenceResponse {
 #[derive(Debug, Deserialize, Default)]
 pub struct AddIssueAssigneeRequest {
     pub assignee_id: uuid::Uuid,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct LogTimeRequest {
+    pub hours: f64,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct CreateBranchRequest {
+    pub branch_name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TimeEntriesResponse {
+    pub entries: Vec<TimeEntryResponse>,
+    pub total_hours: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DependenciesResponse {
+    pub blocking: Vec<DependencyResponse>,
+    pub blocked_by: Vec<DependencyResponse>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskListSummary {
+    pub total: i32,
+    pub completed: i32,
+    pub items: Vec<TaskItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaskItem {
+    pub description: String,
+    pub completed: bool,
+}
+
+#[derive(Debug, sqlx::FromRow, Serialize)]
+pub struct TimeEntryResponse {
+    pub id: uuid::Uuid,
+    pub issue_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub hours: f64,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, sqlx::FromRow, Serialize)]
+pub struct DependencyResponse {
+    pub id: uuid::Uuid,
+    pub blocking_issue_id: uuid::Uuid,
+    pub blocked_by_issue_id: uuid::Uuid,
+    pub dependency_type: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, sqlx::FromRow, Serialize)]
@@ -289,6 +362,38 @@ fn internal_err(msg: &str) -> axum::response::Response {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: parse task lists from markdown body
+// ---------------------------------------------------------------------------
+
+fn parse_task_lists(body: &str) -> Option<TaskListSummary> {
+    let mut items = Vec::new();
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if let Some(rest) = trimmed.strip_prefix("- [x] ") {
+            items.push(TaskItem {
+                description: rest.to_string(),
+                completed: true,
+            });
+        } else if let Some(rest) = trimmed.strip_prefix("- [ ] ") {
+            items.push(TaskItem {
+                description: rest.to_string(),
+                completed: false,
+            });
+        }
+    }
+    if items.is_empty() {
+        return None;
+    }
+    let total = items.len() as i32;
+    let completed = items.iter().filter(|i| i.completed).count() as i32;
+    Some(TaskListSummary {
+        total,
+        completed,
+        items,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // 1. GET /issues — list
 // ---------------------------------------------------------------------------
 
@@ -316,7 +421,7 @@ pub async fn list_issues(
     };
 
     let mut base = String::from(
-        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1",
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at, is_pinned, is_locked, due_date FROM issues WHERE repo_id = $1",
     );
     let mut count_base = String::from("SELECT COUNT(*) FROM issues WHERE repo_id = $1");
     let mut bind_idx = 2i32;
@@ -349,7 +454,7 @@ pub async fn list_issues(
     }
 
     let query_str = format!(
-        "{base} ORDER BY {sort_col} DESC LIMIT ${bind_idx} OFFSET ${bind_idx_plus}",
+        "{base} ORDER BY is_pinned DESC, {sort_col} DESC LIMIT ${bind_idx} OFFSET ${bind_idx_plus}",
         base = base,
         sort_col = sort_col,
         bind_idx = bind_idx,
@@ -417,6 +522,9 @@ struct IssueRow {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
+    pub is_pinned: bool,
+    pub is_locked: bool,
+    pub due_date: Option<DateTime<Utc>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -452,13 +560,14 @@ pub async fn create_issue(
     let description = req.description.unwrap_or_default();
 
     let row = match sqlx::query_as::<_, IssueRow>(
-        "INSERT INTO issues (repo_id, number, title, body, status, author_id, assignee_id, created_at, updated_at) VALUES ($1, (SELECT COALESCE(MAX(number),0)+1 FROM issues WHERE repo_id=$1), $2, $3, 'open', $4, $5, NOW(), NOW()) RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at",
+        "INSERT INTO issues (repo_id, number, title, body, status, author_id, assignee_id, due_date, created_at, updated_at) VALUES ($1, (SELECT COALESCE(MAX(number),0)+1 FROM issues WHERE repo_id=$1), $2, $3, 'open', $4, $5, $6, NOW(), NOW()) RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at, is_pinned, is_locked, due_date",
     )
     .bind(repo_id)
     .bind(&req.title)
     .bind(&description)
     .bind(author_id)
     .bind(req.assignee)
+    .bind(req.due_date)
     .fetch_one(pool)
     .await
     {
@@ -535,7 +644,7 @@ pub async fn get_issue(
     };
 
     let row = match sqlx::query_as::<_, IssueRow>(
-        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1 AND number = $2",
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at, is_pinned, is_locked, due_date FROM issues WHERE repo_id = $1 AND number = $2",
     )
     .bind(repo_id)
     .bind(number)
@@ -585,6 +694,8 @@ pub async fn get_issue(
         Err(e) => return internal_err(&e.to_string()),
     };
 
+    let task_lists = row.body.as_deref().and_then(parse_task_lists);
+
     let resp = IssueResponse {
         id: row.id,
         repo_id: row.repo_id,
@@ -597,9 +708,13 @@ pub async fn get_issue(
         created_at: row.created_at,
         updated_at: row.updated_at,
         closed_at: row.closed_at,
+        is_pinned: row.is_pinned,
+        is_locked: row.is_locked,
+        due_date: row.due_date,
         labels,
         assignees,
         comments,
+        task_lists,
     };
 
     (StatusCode::OK, Json(resp)).into_response()
@@ -627,7 +742,7 @@ pub async fn update_issue(
     };
 
     let existing = match sqlx::query_as::<_, IssueRow>(
-        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at FROM issues WHERE repo_id = $1 AND number = $2",
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at, is_pinned, is_locked, due_date FROM issues WHERE repo_id = $1 AND number = $2",
     )
     .bind(repo_id)
     .bind(number)
@@ -664,15 +779,20 @@ pub async fn update_issue(
         .unwrap_or(existing.body.as_deref().unwrap_or(""));
     let status = req.state.as_deref().unwrap_or(&existing.status);
     let assignee_id = req.assignee.or(existing.assignee_id);
+    let due_date = match &req.due_date {
+        Some(d) => *d,
+        None => existing.due_date,
+    };
 
     let is_closed = status == "closed";
     let row = match sqlx::query_as::<_, IssueRow>(
-        "UPDATE issues SET title = $1, body = $2, status = $3, assignee_id = $4, closed_at = CASE WHEN $5 THEN NOW() ELSE NULL END, updated_at = NOW() WHERE id = $6 RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at",
+        "UPDATE issues SET title = $1, body = $2, status = $3, assignee_id = $4, due_date = $5, closed_at = CASE WHEN $6 THEN NOW() ELSE NULL END, updated_at = NOW() WHERE id = $7 RETURNING id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at, is_pinned, is_locked, due_date",
     )
     .bind(title)
     .bind(body)
     .bind(status)
     .bind(assignee_id)
+    .bind(due_date)
     .bind(is_closed)
     .bind(existing.id)
     .fetch_one(pool)
@@ -811,6 +931,33 @@ pub async fn add_comment(
         }
         Err(e) => return internal_err(&e.to_string()),
     };
+
+    // Check if issue is locked — reject comments from non-write users
+    let is_locked: bool = sqlx::query_scalar("SELECT is_locked FROM issues WHERE id = $1")
+        .bind(issue_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(false);
+    if is_locked {
+        let user_id = uuid::Uuid::parse_str(&auth.user_id).ok();
+        let has_write = match user_id {
+            Some(uid) => sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM repo_collaborators WHERE repo_id = $1 AND user_id = $2 AND permission IN ('write', 'admin', 'owner'))",
+            )
+            .bind(repo_id)
+            .bind(uid)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(false),
+            None => false,
+        };
+        if !has_write {
+            return err_response(
+                StatusCode::FORBIDDEN,
+                "issue is locked; only users with write access can comment",
+            );
+        }
+    }
 
     if req.body.trim().is_empty() {
         return err_response(StatusCode::BAD_REQUEST, "comment body is required");
@@ -1611,6 +1758,547 @@ pub async fn remove_issue_assignee(
 }
 
 // ---------------------------------------------------------------------------
+// 21. POST /issues/:number/time — log time entry
+// ---------------------------------------------------------------------------
+
+pub async fn log_time(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<LogTimeRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    if req.hours <= 0.0 {
+        return err_response(StatusCode::BAD_REQUEST, "hours must be positive");
+    }
+
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let user_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    let description = req.description.unwrap_or_default();
+
+    match sqlx::query_as::<_, TimeEntryResponse>(
+        "INSERT INTO issue_time_entries (issue_id, user_id, hours, description, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, issue_id, user_id, hours, description, created_at",
+    )
+    .bind(issue_id)
+    .bind(user_id)
+    .bind(req.hours)
+    .bind(&description)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(entry) => (StatusCode::CREATED, Json(entry)).into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 22. GET /issues/:number/time — list time entries
+// ---------------------------------------------------------------------------
+
+pub async fn get_time_entries(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let entries = match sqlx::query_as::<_, TimeEntryResponse>(
+        "SELECT id, issue_id, user_id, hours, description, created_at FROM issue_time_entries WHERE issue_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(e) => e,
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let total_hours: f64 = entries.iter().map(|e| e.hours).sum();
+
+    let resp = TimeEntriesResponse {
+        entries,
+        total_hours,
+    };
+
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+// ---------------------------------------------------------------------------
+// 23. POST /issues/:number/dependencies — add dependency
+// ---------------------------------------------------------------------------
+
+pub async fn add_dependency(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<AddDependencyRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let blocking_issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let blocked_by_issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(req.blocked_by_issue_number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("blocking issue #{} not found", req.blocked_by_issue_number),
+            );
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    if blocking_issue_id == blocked_by_issue_id {
+        return err_response(StatusCode::BAD_REQUEST, "issue cannot block itself");
+    }
+
+    let dependency_type = req.dependency_type.unwrap_or_else(|| "blocks".to_string());
+
+    let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    match sqlx::query_as::<_, DependencyResponse>(
+        "INSERT INTO issue_dependencies (blocking_issue_id, blocked_by_issue_id, dependency_type, created_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (blocking_issue_id, blocked_by_issue_id) DO UPDATE SET dependency_type = $3 RETURNING id, blocking_issue_id, blocked_by_issue_id, dependency_type, created_at",
+    )
+    .bind(blocking_issue_id)
+    .bind(blocked_by_issue_id)
+    .bind(&dependency_type)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(dep) => {
+            insert_timeline(
+                pool,
+                blocking_issue_id,
+                actor_id,
+                "dependency_added",
+                Some(&format!(
+                    "blocked by #{} ({})",
+                    req.blocked_by_issue_number, dependency_type
+                )),
+            )
+            .await;
+            (StatusCode::CREATED, Json(dep)).into_response()
+        }
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 24. GET /issues/:number/dependencies — list dependencies
+// ---------------------------------------------------------------------------
+
+pub async fn list_dependencies(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: OptionalAuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let blocking = match sqlx::query_as::<_, DependencyResponse>(
+        "SELECT id, blocking_issue_id, blocked_by_issue_id, dependency_type, created_at FROM issue_dependencies WHERE blocking_issue_id = $1",
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(d) => d,
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let blocked_by = match sqlx::query_as::<_, DependencyResponse>(
+        "SELECT id, blocking_issue_id, blocked_by_issue_id, dependency_type, created_at FROM issue_dependencies WHERE blocked_by_issue_id = $1",
+    )
+    .bind(issue_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(d) => d,
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let resp = DependenciesResponse {
+        blocking,
+        blocked_by,
+    };
+
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+// ---------------------------------------------------------------------------
+// 25. DELETE /issues/:number/dependencies/:dep_id — remove dependency
+// ---------------------------------------------------------------------------
+
+pub async fn remove_dependency(
+    State(state): State<AppState>,
+    Path((owner, name, number, dep_id)): Path<(String, String, i32, uuid::Uuid)>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let issue_id = match sqlx::query_scalar::<_, uuid::Uuid>(
+        "SELECT id FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    let result = sqlx::query(
+        "DELETE FROM issue_dependencies WHERE id = $1 AND (blocking_issue_id = $2 OR blocked_by_issue_id = $2)",
+    )
+    .bind(dep_id)
+    .bind(issue_id)
+    .execute(pool)
+    .await;
+
+    match result {
+        Ok(rows) if rows.rows_affected() == 0 => err_response(
+            StatusCode::NOT_FOUND,
+            &format!("dependency #{dep_id} not found"),
+        ),
+        Ok(_) => {
+            insert_timeline(
+                pool,
+                issue_id,
+                actor_id,
+                "dependency_removed",
+                Some(&dep_id.to_string()),
+            )
+            .await;
+            (StatusCode::NO_CONTENT, ()).into_response()
+        }
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 26. POST /issues/:number/pin — toggle pin
+// ---------------------------------------------------------------------------
+
+pub async fn toggle_pin(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    match sqlx::query_scalar::<_, bool>(
+        "UPDATE issues SET is_pinned = NOT is_pinned, updated_at = NOW() WHERE repo_id = $1 AND number = $2 RETURNING is_pinned",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(is_pinned)) => {
+            insert_timeline(
+                pool,
+                uuid::Uuid::nil(),
+                actor_id,
+                if is_pinned { "pinned" } else { "unpinned" },
+                None,
+            )
+            .await;
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"is_pinned": is_pinned})),
+            )
+                .into_response()
+        }
+        Ok(None) => err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found")),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 27. POST /issues/:number/lock — toggle lock
+// ---------------------------------------------------------------------------
+
+pub async fn toggle_lock(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token"),
+    };
+
+    match sqlx::query_scalar::<_, bool>(
+        "UPDATE issues SET is_locked = NOT is_locked, updated_at = NOW() WHERE repo_id = $1 AND number = $2 RETURNING is_locked",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(is_locked)) => {
+            insert_timeline(
+                pool,
+                uuid::Uuid::nil(),
+                actor_id,
+                if is_locked { "locked" } else { "unlocked" },
+                None,
+            )
+            .await;
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"is_locked": is_locked})),
+            )
+                .into_response()
+        }
+        Ok(None) => err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found")),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 28. POST /issues/:number/create-branch — create branch from issue
+// ---------------------------------------------------------------------------
+
+pub async fn create_branch_from_issue(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<CreateBranchRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let issue = match sqlx::query_as::<_, IssueRow>(
+        "SELECT id, repo_id, number, title, body, status, author_id, assignee_id, labels, created_at, updated_at, closed_at, is_pinned, is_locked, due_date FROM issues WHERE repo_id = $1 AND number = $2",
+    )
+    .bind(repo_id)
+    .bind(number)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return err_response(StatusCode::NOT_FOUND, &format!("issue #{number} not found"));
+        }
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let branch_name = req.branch_name.trim().to_string();
+    if branch_name.is_empty() {
+        return err_response(StatusCode::BAD_REQUEST, "branch_name is required");
+    }
+
+    let repo_path = state.git_service.repo_path(&owner, &name);
+    if !repo_path.exists() {
+        return err_response(StatusCode::NOT_FOUND, "repository git data not found");
+    }
+
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(&repo_path)
+        .arg("branch")
+        .arg(&branch_name)
+        .output();
+
+    match output {
+        Ok(o) => {
+            if !o.status.success() {
+                let stderr = String::from_utf8_lossy(&o.stderr);
+                return err_response(
+                    StatusCode::CONFLICT,
+                    &format!("failed to create branch: {stderr}"),
+                );
+            }
+
+            let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
+                Ok(id) => id,
+                Err(_) => {
+                    return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token")
+                }
+            };
+
+            insert_timeline(
+                pool,
+                issue.id,
+                actor_id,
+                "branch_created",
+                Some(&branch_name),
+            )
+            .await;
+
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({
+                    "branch_name": branch_name,
+                    "issue_number": number,
+                })),
+            )
+                .into_response()
+        }
+        Err(e) => internal_err(&format!("failed to run git: {e}")),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route builder
 // ---------------------------------------------------------------------------
 
@@ -1649,6 +2337,30 @@ pub fn issue_routes() -> axum::Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/issues/{number}/assignees/{user_id}",
             delete(remove_issue_assignee),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/time",
+            get(get_time_entries).post(log_time),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/dependencies",
+            get(list_dependencies).post(add_dependency),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/dependencies/{dep_id}",
+            delete(remove_dependency),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/pin",
+            post(toggle_pin),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/lock",
+            post(toggle_lock),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/{number}/create-branch",
+            post(create_branch_from_issue),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/labels",
@@ -1860,5 +2572,126 @@ mod tests {
         assert!(req.description.is_none());
         assert_eq!(req.state.as_deref(), Some("closed"));
         assert!(req.due_on.is_none());
+    }
+
+    #[test]
+    fn test_log_time_request_parse() {
+        let req: LogTimeRequest =
+            serde_json::from_str(r#"{"hours":2.5,"description":"Fixed login bug"}"#).unwrap();
+        assert_eq!(req.hours, 2.5);
+        assert_eq!(req.description.as_deref(), Some("Fixed login bug"));
+    }
+
+    #[test]
+    fn test_log_time_request_defaults() {
+        let req: LogTimeRequest = serde_json::from_str(r#"{"hours":1.0}"#).unwrap();
+        assert_eq!(req.hours, 1.0);
+        assert!(req.description.is_none());
+    }
+
+    #[test]
+    fn test_add_dependency_request_parse() {
+        let req: AddDependencyRequest =
+            serde_json::from_str(r#"{"blocked_by_issue_number":5,"dependency_type":"blocks"}"#)
+                .unwrap();
+        assert_eq!(req.blocked_by_issue_number, 5);
+        assert_eq!(req.dependency_type.as_deref(), Some("blocks"));
+    }
+
+    #[test]
+    fn test_add_dependency_request_defaults() {
+        let req: AddDependencyRequest =
+            serde_json::from_str(r#"{"blocked_by_issue_number":3}"#).unwrap();
+        assert_eq!(req.blocked_by_issue_number, 3);
+        assert!(req.dependency_type.is_none());
+    }
+
+    #[test]
+    fn test_create_branch_request_parse() {
+        let req: CreateBranchRequest =
+            serde_json::from_str(r#"{"branch_name":"fix/issue-42-login"}"#).unwrap();
+        assert_eq!(req.branch_name, "fix/issue-42-login");
+    }
+
+    #[test]
+    fn test_parse_task_lists_none() {
+        assert!(parse_task_lists("no task lists here").is_none());
+    }
+
+    #[test]
+    fn test_parse_task_lists_empty() {
+        assert!(parse_task_lists("").is_none());
+    }
+
+    #[test]
+    fn test_parse_task_lists_all_uncompleted() {
+        let result = parse_task_lists("- [ ] Task 1\n- [ ] Task 2").unwrap();
+        assert_eq!(result.total, 2);
+        assert_eq!(result.completed, 0);
+        assert_eq!(result.items[0].description, "Task 1");
+        assert!(!result.items[0].completed);
+        assert_eq!(result.items[1].description, "Task 2");
+        assert!(!result.items[1].completed);
+    }
+
+    #[test]
+    fn test_parse_task_lists_mixed() {
+        let result = parse_task_lists("- [x] Done\n- [ ] Todo\n- [x] Also done").unwrap();
+        assert_eq!(result.total, 3);
+        assert_eq!(result.completed, 2);
+        assert!(result.items[0].completed);
+        assert!(!result.items[1].completed);
+        assert!(result.items[2].completed);
+    }
+
+    #[test]
+    fn test_parse_task_lists_with_whitespace() {
+        let result = parse_task_lists("  - [x] Trimmed\n  - [ ] Also trimmed").unwrap();
+        assert_eq!(result.total, 2);
+        assert!(result.items[0].completed);
+        assert!(!result.items[1].completed);
+    }
+
+    #[test]
+    fn test_parse_task_lists_no_prefix_dash() {
+        assert!(parse_task_lists("[ ] Not a task list").is_none());
+    }
+
+    #[test]
+    fn test_time_entries_response_serialize() {
+        let resp = TimeEntriesResponse {
+            entries: vec![],
+            total_hours: 5.5,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("5.5"));
+        assert!(json.contains("entries"));
+    }
+
+    #[test]
+    fn test_dependencies_response_serialize() {
+        let resp = DependenciesResponse {
+            blocking: vec![],
+            blocked_by: vec![],
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("blocking"));
+        assert!(json.contains("blocked_by"));
+    }
+
+    #[test]
+    fn test_task_list_summary_serialize() {
+        let summary = TaskListSummary {
+            total: 3,
+            completed: 1,
+            items: vec![
+                TaskItem { description: "a".into(), completed: true },
+                TaskItem { description: "b".into(), completed: false },
+                TaskItem { description: "c".into(), completed: false },
+            ],
+        };
+        let json = serde_json::to_string(&summary).unwrap();
+        assert!(json.contains("\"total\":3"));
+        assert!(json.contains("\"completed\":1"));
     }
 }

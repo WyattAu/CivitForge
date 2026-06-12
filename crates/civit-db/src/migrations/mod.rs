@@ -44,6 +44,8 @@ pub const M_043_PIPELINE_SCHEDULES_UP: &str = include_str!("043_add_pipeline_sch
 pub const M_044_REPO_COLLABORATORS_UP: &str = include_str!("044_add_repo_collaborators.sql");
 pub const M_045_DEPLOY_KEYS_UP: &str = include_str!("045_add_deploy_keys.sql");
 pub const M_046_NOTIFICATIONS_UP: &str = include_str!("046_add_notifications.sql");
+pub const M_051_ENVIRONMENTS_DEPLOYMENTS_UP: &str =
+    include_str!("051_add_environments_deployments.sql");
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -253,6 +255,12 @@ impl MigrationManager {
             up_sql: M_046_NOTIFICATIONS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS notifications;".into(),
         });
+        self.add_migration(Migration {
+            version: 51,
+            name: "add_environments_deployments".into(),
+            up_sql: M_051_ENVIRONMENTS_DEPLOYMENTS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS deployments; DROP TABLE IF EXISTS environments;".into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -294,7 +302,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 29);
+        assert_eq!(mgr.all().len(), 30);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -353,19 +361,21 @@ mod tests {
         assert_eq!(mgr.all()[27].name, "add_deploy_keys");
         assert_eq!(mgr.all()[28].version, 46);
         assert_eq!(mgr.all()[28].name, "add_notifications");
+        assert_eq!(mgr.all()[29].version, 51);
+        assert_eq!(mgr.all()[29].name, "add_environments_deployments");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 47,
+            version: 52,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 30);
-        assert_eq!(mgr.all()[29].version, 47);
+        assert_eq!(mgr.all().len(), 31);
+        assert_eq!(mgr.all()[30].version, 52);
     }
 
     #[test]
@@ -384,13 +394,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 29);
+        assert_eq!(pending.len(), 30);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(46);
+        let pending = mgr.get_pending(51);
         assert_eq!(pending.len(), 0);
     }
 
@@ -398,7 +408,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 28);
+        assert_eq!(pending.len(), 29);
     }
 
     #[test]
