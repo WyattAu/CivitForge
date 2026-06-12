@@ -1,6 +1,6 @@
 # CivitForge Feature Comparison Matrix & Catch-Up Plan
 
-> Last updated: 2026-06-07
+> Last updated: 2026-06-12
 > Scope: CivitForge vs GitHub ES v3.20, GitLab CE v19.0, Gitea v1.26, Forgejo v15.0, Codeberg (Forgejo-based), Radicle v1.9, Soft Serve v0.11
 
 **Legend:** [YES] Full | [PARTIAL] Partial | [NO] Missing | [BE] Backend only | [PAID] Paid tier | [NEW] Unique to CivitForge
@@ -12,19 +12,19 @@
 | Metric | CivitForge | GitHub ES | GitLab CE | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
 | **Total features assessed** | 287 | 287 | 287 | 287 | 287 | 180 |
-| **Features we HAVE** | 142 (49%) | 258 (90%) | 243 (85%) | 226 (79%) | 221 (77%) | 95 (53%) |
-| **CRITICAL gaps (5/5 have it)** | 52 | — | — | — | — | N/A |
-| **HIGH gaps (4/5 have it)** | 28 | — | — | — | — | N/A |
-| **Unique advantages (nobody else has)** | **22** | 3 | 4 | 1 | 1 | 5 |
-| **Backend modules** | 10 crates | N/A | N/A | 1 binary | 1 binary | 1 binary |
-| **API endpoints** | 100+ | 300+ | 400+ | 250+ | 250+ | ~20 |
-| **DB tables** | 40+ | 200+ | 300+ | 80+ | 80+ | Git-only |
-| **Open-source license** | MIT | Proprietary | MIT (core) | MIT | GPL v3+ | MIT/Apache |
+| **Features we HAVE** | 219 (76%) | 258 (90%) | 243 (85%) | 226 (79%) | 221 (77%) | 95 (53%) |
+| **CRITICAL gaps (5/5 have it)** | 18 | — | — | — | — | N/A |
+| **HIGH gaps (4/5 have it)** | 12 | — | — | — | — | N/A |
+| **Unique advantages (nobody else has)** | **28** | 3 | 4 | 1 | 1 | 5 |
+| **Backend modules** | 12 crates | N/A | N/A | 1 binary | 1 binary | 1 binary |
+| **API endpoints** | 98 | 300+ | 400+ | 250+ | 250+ | ~20 |
+| **DB tables** | 49 | 200+ | 300+ | 80+ | 80+ | Git-only |
+| **Open-source license** | AGPL-3.0 | Proprietary | MIT (core) | MIT | GPL v3+ | MIT/Apache |
 | **Memory footprint** | ~300MB | 8GB+ | 4GB+ | ~200MB | ~200MB | ~50MB |
 
 ### Parity Trajectory
 
-CivitForge at **~49% feature parity** (up from 30-35% estimated in previous analysis after deeper code audit), but with **22 unique advantages** no competitor offers. The strategy: close the 52 critical gaps first (Phase 1-2), then amplify unique advantages as the primary differentiator.
+CivitForge at **~76% feature parity** (up from 49% pre-implementation), with **28 unique advantages** no competitor offers. The strategy: close the 18 critical gaps next, then amplify unique advantages as the primary differentiator.
 
 ---
 
@@ -37,32 +37,32 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 | Code browsing (tree) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] (TUI) |
 | File viewer (blob) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
 | Raw file download | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
-| Git blame view | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
-| Commit history per file | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Git blame view | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Commit history per file | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Last commit column | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | Branch switching in UI | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Syntax highlighting | [NO] | [YES] (100+) | [YES] (Rouge) | [YES] (Chroma) | [YES] (Chroma) | [NO] | [YES] |
-| Language detection/stats | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
-| README rendering at root | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
-| Archive download (zip/tar) | [PARTIAL] stub | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
-| Web code editor | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
-| Commit graph visualization | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Inline diff (PR files) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
-| Side-by-side diff | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Syntax highlighting | [YES] (highlight.js) | [YES] (100+) | [YES] (Rouge) | [YES] (Chroma) | [YES] (Chroma) | [NO] | [YES] |
+| Language detection/stats | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| README rendering at root | [YES] (marked.js) | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Archive download (zip/tar) | [YES] (zip/tar) | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Web code editor | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Commit graph visualization | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Inline diff (PR files) | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Side-by-side diff | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | Visual image diff | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | Color-coded blame | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | Repository size display | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | File finder (fuzzy) | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] | [NO] |
-| LFS 2.0 | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [YES] |
+| LFS 2.0 | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [YES] |
 | Submodules in UI | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [YES] |
-| Mermaid in markdown | [NO] | [YES] | [YES] (v11) | [YES] | [YES] | [NO] | [NO] |
-| KaTeX/LaTeX in markdown | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
+| Mermaid in markdown | [YES] | [YES] | [YES] (v11) | [YES] | [YES] | [NO] | [NO] |
+| KaTeX/LaTeX in markdown | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | CSV rendering | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] | [NO] |
 | Jupyter notebook rendering | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] | [NO] |
 | 3D model viewer (.stl) | [NO] | [YES] | [NO] | [NO] | [NO] | [NO] | [NO] |
 | PDF rendering | [NO] | [YES] | [NO] | [NO] | [NO] | [NO] | [NO] |
 | Search within repo | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| **CivitForge score: 7/26 (27%)** | | | | | | | |
+| **CivitForge score: 18/26 (69%)** | | | | | | | |
 
 ---
 
@@ -75,10 +75,10 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 | Milestones | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Emoji reactions | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Issue comments | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
-| Issue templates | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Assignees (single/multiple) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Issue templates | [YES] (.github) | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Assignees (single/multiple) | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | File attachments | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Cross-references (#123) | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Cross-references (#123) | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Time tracking | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Issue dependencies/blocking | [NO] | [NO] | [YES] | [YES] | [YES] | [NO] |
 | Issue pinning | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
@@ -91,9 +91,9 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 | Issue import/export | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Task lists in markdown | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Issue analytics/boards | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
-| Kanban boards | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
+| Kanban boards | [YES] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
 | Create branch from issue | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] |
-| **CivitForge score: 6/22 (27%)** | | | | | | |
+| **CivitForge score: 10/22 (45%)** | | | | | | |
 
 ---
 
@@ -107,23 +107,23 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 | Review requests | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Status checks | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Merge commit | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
-| Squash merge | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Rebase merge | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Fast-forward merge | [NO] | [PARTIAL] | [YES] | [YES] | [YES] | [NO] |
-| Draft PRs | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Squash merge | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Rebase merge | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Fast-forward merge | [YES] | [PARTIAL] | [YES] | [YES] | [YES] | [NO] |
+| Draft PRs | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | CODEOWNERS enforcement | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Required reviews | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Required reviews | [YES] (branch protection) | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Auto-merge | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Merge queue | [BE] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Linked issues auto-close | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Linked issues auto-close | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Download patch | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Push to existing PR | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] |
 | Merge message templates | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Restrict push/merge to users | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Restrict push/merge to users | [YES] (branch protection) | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Conflict detection | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
 | Suggested edits (one-click) | [NO] | [YES] | [YES] | [NO] | [NO] | [NO] |
 | Cherry-pick | [YES] | [NO] | [YES] | [YES] | [YES] | [NO] |
-| **CivitForge score: 7/21 (33%)** | | | | | | |
+| **CivitForge score: 12/21 (57%)** | | | | | | |
 
 ---
 
@@ -138,14 +138,14 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 | Manual triggers | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
 | Container registry | [YES] (OCI) | [YES] (GHCR) | [YES] | [YES] | [YES] | [NO] |
 | Runner management | [BE] | [YES] | [YES] | [YES] | [YES] | [YES] |
-| Matrix builds | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Matrix builds | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Parallelism | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
-| Secrets management | [BE] | [YES] | [YES] | [YES] | [YES] | [YES] |
-| Caches | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
+| Secrets management | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Caches | [YES] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Environments | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
 | Deployments | [NO] | [YES] | [YES] | [PARTIAL] | [PARTIAL] | [NO] |
-| Scheduled runs (cron) | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] |
-| Status badges | [NO] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Scheduled runs (cron) | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
+| Status badges | [YES] | [YES] | [YES] | [YES] | [YES] | [YES] |
 | Auto-cancel redundant | [NO] | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Concurrency groups | [YES] (CEL) | [YES] | [YES] | [YES] | [YES] | [NO] |
 | Pipeline variables | [YES] (encrypted) | [YES] | [YES] | [YES] | [YES] | [YES] |
@@ -153,7 +153,7 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 | Real-time log streaming | [YES] (SSE) | [YES] | [YES] | [YES] | [YES] | [YES] |
 | CEL expression support | [YES] | [NO] | [NO] | [NO] | [NO] | [NO] |
 | GitHub Actions compat | [PARTIAL] (partial) | [YES] | [NO] | [YES] (~85%) | [YES] (~85%) | [NO] |
-| **CivitForge score: 12/24 (50%)** | | | | | | |
+| **CivitForge score: 16/24 (67%)** | | | | | | |
 
 ---
 
@@ -212,7 +212,7 @@ CivitForge at **~49% feature parity** (up from 30-35% estimated in previous anal
 
 | Feature | CivitForge | GitHub | GitLab | Gitea | Forgejo | Radicle |
 |---|---|---|---|---|---|---|
-| AI code suggestions | [BE] (LLM) | [YES] (Copilot) | [YES] (Duo) | [NO] | [NO] | [NO] |
+| AI code suggestions | [YES] (LLM) | [YES] (Copilot) | [YES] (Duo) | [NO] | [NO] | [NO] |
 | AI PR review | [YES] [NEW] | [YES] (Copilot) | [YES] (Duo) | [NO] | [NO] | [NO] |
 | AI code search (RAG) | [YES] [NEW] | [YES] (Copilot) | [YES] (Duo Chat) | [NO] | [NO] | [NO] |
 | AI chat assistant | [YES] [NEW] | [YES] (Copilot Chat) | [YES] (Duo Chat) | [NO] | [NO] | [NO] |
