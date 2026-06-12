@@ -96,6 +96,40 @@ fn file_icon(entry_type: &str) -> &'static str {
     }
 }
 
+fn language_color(name: &str) -> &'static str {
+    match name {
+        "Rust" => "#dea584",
+        "Python" => "#3572A5",
+        "JavaScript" => "#f1e05a",
+        "TypeScript" => "#3178c6",
+        "Go" => "#00ADD8",
+        "Java" => "#b07219",
+        "Kotlin" => "#A97BFF",
+        "C" => "#555555",
+        "C++" => "#f34b7d",
+        "C#" => "#178600",
+        "Ruby" => "#701516",
+        "PHP" => "#4F5D95",
+        "Swift" => "#F05138",
+        "Scala" => "#c22d40",
+        "Shell" => "#89e051",
+        "HTML" => "#e34c26",
+        "CSS" => "#563d7c",
+        "SCSS" => "#c6538c",
+        "Markdown" => "#083fa1",
+        "JSON" => "#292929",
+        "YAML" | "YML" => "#cb171e",
+        "TOML" => "#9c4221",
+        "Dart" => "#00B4AB",
+        "Zig" => "#ec915c",
+        "Lua" => "#000080",
+        "SQL" => "#e38c00",
+        "Dockerfile" => "#384d54",
+        "Makefile" => "#427819",
+        _ => "#8b8b8b",
+    }
+}
+
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;
@@ -199,7 +233,70 @@ fn CodeRepoOverview(
     }
 }
 
-/// Sub-component: file viewer with syntax highlighting.
+/// Sub-component: blame line data for inline blame view.
+#[derive(Clone, serde::Deserialize)]
+struct BlameLineData {
+    line_number: usize,
+    content: String,
+    #[serde(default)]
+    commit_id: String,
+    #[serde(default)]
+    commit_message: String,
+    #[serde(default)]
+    author: String,
+    #[serde(default)]
+    time: String,
+}
+
+const BLAME_AUTHOR_COLORS: &[&str] = &[
+    "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
+    "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7",
+];
+
+/// Sub-component: single blame row with author color coding.
+#[component]
+fn BlameRow(
+    line: BlameLineData,
+) -> impl IntoView {
+    let short_id = if line.commit_id.len() >= 8 {
+        line.commit_id[..8].to_string()
+    } else {
+        line.commit_id.clone()
+    };
+    let msg_title = line.commit_message.clone();
+    let msg = line.commit_message.clone();
+    let author = line.author.clone();
+    let time = line.time.clone();
+    let content = line.content.clone();
+    let line_number = line.line_number;
+
+    // Compute consistent color from author name using simple hash
+    let author_color = {
+        let hash: usize = author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+        BLAME_AUTHOR_COLORS[hash % BLAME_AUTHOR_COLORS.len()].to_string()
+    };
+
+    view! {
+        <tr class="hover:bg-gray-100 dark:hover:bg-gray-800/50">
+            <td class="py-0.5 pl-4 pr-2 text-gray-400 dark:text-gray-500 text-right select-none">
+                {line_number}
+            </td>
+            <td class="py-0.5 pr-2 text-xs">
+                <span class="font-mono" style=format!("color: {author_color}")>{short_id}</span>
+                <span class="ml-1 text-gray-500 dark:text-gray-400 truncate block max-w-[200px]" title=msg_title>{msg}</span>
+            </td>
+            <td class="py-0.5 pr-2 text-xs whitespace-nowrap">
+                <span style=format!("color: {author_color}")>{author}</span>
+                <span class="ml-1 text-gray-400 dark:text-gray-500">{time}</span>
+            </td>
+            <td class="py-0.5 pr-4 whitespace-pre">
+                <code>{content}</code>
+            </td>
+        </tr>
+    }
+}
+
+/// Sub-component: file viewer with syntax highlighting and blame tab.
 /// Extracted from CodePage to reduce closure count in main view! macro.
 #[component]
 fn CodeFileViewer(
@@ -211,7 +308,62 @@ fn CodeFileViewer(
     file_content: Signal<String>,
     file_is_binary: Signal<bool>,
     current_ref: Signal<String>,
+    auth_token: Signal<String>,
 ) -> impl IntoView {
+    let (active_view, set_active_view) = signal(String::from("code"));
+    let (blame_lines, set_blame_lines) = signal(Vec::<BlameLineData>::new());
+    let (blame_loading, set_blame_loading) = signal(false);
+    let (blame_error, set_blame_error) = signal(None::<String>);
+
+    let fetch_blame = move || {
+        let owner_val = owner.get();
+        let name_val = name.get();
+        let path_val = file_path.get();
+        let ref_val = current_ref.get();
+        let token_val = auth_token.get();
+
+        set_blame_loading.set(true);
+        set_blame_error.set(None);
+
+        leptos::task::spawn_local(async move {
+            let client = crate::api::client::ApiClient::new(Some(token_val));
+            let mut url = format!("/repos/{owner_val}/{name_val}/blame?path={path_val}");
+            if !ref_val.is_empty() {
+                url.push_str(&format!("&ref={ref_val}"));
+            }
+            match client.get(&url).await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<serde_json::Value>().await {
+                        if let Some(lines) = data.get("lines").and_then(|l| l.as_array()) {
+                            let parsed: Vec<BlameLineData> = lines
+                                .iter()
+                                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                                .collect();
+                            set_blame_lines.set(parsed);
+                        }
+                    } else {
+                        set_blame_error.set(Some("Failed to parse blame data.".into()));
+                    }
+                }
+                Ok(resp) => {
+                    let status = resp.status();
+                    set_blame_error.set(Some(format!("Blame request failed (HTTP {status}).")));
+                }
+                Err(e) => {
+                    set_blame_error.set(Some(format!("Network error: {e}")));
+                }
+            }
+            set_blame_loading.set(false);
+        });
+    };
+
+    let on_blame_click = move |_| {
+        set_active_view.set("blame".into());
+        if blame_lines.get().is_empty() {
+            fetch_blame();
+        }
+    };
+
     view! {
         <Card>
             <div class="mb-3 flex items-center justify-between">
@@ -219,19 +371,6 @@ fn CodeFileViewer(
                     {move || file_path.get()}
                 </div>
                 <div class="flex items-center gap-2">
-                    <a
-                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-                        href=move || format!(
-                            "/repos/{}/{}/blame?path={}&ref={}",
-                            owner.get(),
-                            name.get(),
-                            file_path.get(),
-                            current_ref.get(),
-                        )
-                    >
-                        "Blame"
-                    </a>
-                    <span class="text-gray-300 dark:text-gray-600">"|"</span>
                     <a
                         class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                         href=move || format!(
@@ -246,24 +385,103 @@ fn CodeFileViewer(
                     </a>
                 </div>
             </div>
-            <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm text-gray-500 dark:text-gray-400 truncate">{move || file_path.get()}</span>
-                        <Show when=move || !file_lang.get().is_empty()>
-                            <span class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 uppercase">
-                                {move || file_lang.get()}
-                            </span>
-                        </Show>
-                    </div>
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{move || format!(
-                        "{}{}",
-                        format_size(file_size.get()),
-                        if file_is_binary.get() { " (binary)" } else { "" }
-                    )}</span>
-                </div>
-                <pre class="p-4 text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap leading-relaxed tab-size-4"><code class=move || format!("language-{}", file_lang.get()) data-lang=move || file_lang.get()>{move || file_content.get()}</code></pre>
+
+            // Tab navigation
+            <div class="border-b border-gray-200 dark:border-gray-700 mb-0">
+                <nav class="-mb-px flex space-x-6" aria-label="File view tabs">
+                    <button
+                        class=move || format!(
+                            "px-3 py-2 text-sm font-medium border-b-2 transition-colors {}",
+                            if active_view.get() == "code" {
+                                "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                            } else {
+                                "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                            }
+                        )
+                        on:click=move |_| set_active_view.set("code".into())
+                    >
+                        "Code"
+                    </button>
+                    <button
+                        class=move || format!(
+                            "px-3 py-2 text-sm font-medium border-b-2 transition-colors {}",
+                            if active_view.get() == "blame" {
+                                "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                            } else {
+                                "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200"
+                            }
+                        )
+                        on:click=on_blame_click
+                    >
+                        "Blame"
+                    </button>
+                </nav>
             </div>
+
+            // Code view
+            <Show when=move || active_view.get() == "code" fallback=|| view! { <div class="hidden"></div> }>
+                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto mt-3">
+                    <div class="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-500 dark:text-gray-400 truncate">{move || file_path.get()}</span>
+                            <Show when=move || !file_lang.get().is_empty()>
+                                <span class="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 uppercase">
+                                    {move || file_lang.get()}
+                                </span>
+                            </Show>
+                        </div>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">{move || format!(
+                            "{}{}",
+                            format_size(file_size.get()),
+                            if file_is_binary.get() { " (binary)" } else { "" }
+                        )}</span>
+                    </div>
+                    <pre class="p-4 text-sm text-gray-800 dark:text-gray-200 font-mono whitespace-pre-wrap leading-relaxed tab-size-4"><code class=move || format!("language-{}", file_lang.get()) data-lang=move || file_lang.get()>{move || file_content.get()}</code></pre>
+                </div>
+            </Show>
+
+            // Blame view
+            <Show when=move || active_view.get() == "blame" fallback=|| view! { <div class="hidden"></div> }>
+                <div class="mt-3">
+                    <Show when=move || blame_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center gap-2 py-8 justify-center">
+                            <svg class="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-sm text-gray-500">"Loading blame..."</span>
+                        </div>
+                    </Show>
+                    <Show when=move || blame_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="rounded border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 p-3 text-sm text-red-800 dark:text-red-200">
+                            {move || blame_error.get().unwrap_or_default()}
+                        </div>
+                    </Show>
+                    <Show when=move || !blame_loading.get() && blame_error.get().is_none() && !blame_lines.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
+                            <table class="w-full text-sm font-mono">
+                                <thead>
+                                    <tr class="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs">
+                                        <th class="pb-2 pl-4 pr-2 text-left w-8 font-medium">"#"</th>
+                                        <th class="pb-2 pr-2 text-left font-medium">"Commit"</th>
+                                        <th class="pb-2 pr-2 text-left font-medium">"Author"</th>
+                                        <th class="pb-2 pr-4 text-left font-medium">"Code"</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                    <For
+                                        each=move || blame_lines.get()
+                                        key=|l| l.line_number
+                                        let:line
+                                    >
+                                        <BlameRow line=line />
+                                    </For>
+                                </tbody>
+                            </table>
+                        </div>
+                    </Show>
+                </div>
+            </Show>
         </Card>
     }
 }
@@ -489,6 +707,7 @@ pub fn CodePage() -> impl IntoView {
     #[allow(clippy::redundant_closure)]
     let path_sig = Signal::derive(move || path_param());
     let is_root_sig = Signal::derive(move || path_param().is_empty());
+    let auth_token_sig = Signal::derive(move || auth.0.with(|a| a.token.clone()).unwrap_or_default());
 
     let ref_query = move || query.with(|q| q.get("ref").unwrap_or_default());
 
@@ -601,9 +820,14 @@ pub fn CodePage() -> impl IntoView {
                                     .take(8)
                                     .map(|lang| {
                                         let width = if total > 0 { lang.percentage } else { 0.0 };
+                                        let color = if lang.color.is_empty() {
+                                            language_color(&lang.name).to_string()
+                                        } else {
+                                            lang.color.clone()
+                                        };
                                         format!(
                                             "<div style=\"width: {:.1}%; background-color: {}\" title=\"{}: {:.1}%\" class=\"h-full\"></div>",
-                                            width, lang.color, lang.name, lang.percentage
+                                            width, color, lang.name, lang.percentage
                                         )
                                     })
                                     .collect::<Vec<_>>()
@@ -613,9 +837,14 @@ pub fn CodePage() -> impl IntoView {
                                     .iter()
                                     .take(8)
                                     .map(|lang| {
+                                        let color = if lang.color.is_empty() {
+                                            language_color(&lang.name).to_string()
+                                        } else {
+                                            lang.color.clone()
+                                        };
                                         format!(
                                             "<span class=\"flex items-center gap-1\"><span class=\"w-2.5 h-2.5 rounded-sm inline-block\" style=\"background-color: {}\"></span><span class=\"font-medium\">{}</span><span class=\"text-gray-400 dark:text-gray-500\">{:.1}%</span></span>",
-                                            lang.color, lang.name, lang.percentage
+                                            color, lang.name, lang.percentage
                                         )
                                     })
                                     .collect::<Vec<_>>()
@@ -761,6 +990,7 @@ pub fn CodePage() -> impl IntoView {
                         file_content=file_content_sig.into()
                         file_is_binary=file_is_binary.into()
                         current_ref=current_ref.into()
+                        auth_token=auth_token_sig
                     />
                 </Show>
 

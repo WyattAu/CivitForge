@@ -47,6 +47,7 @@ struct GraphCommit {
     parents: Vec<String>,
     branch: Option<String>,
     lane: usize,
+    parent_lanes: Vec<usize>,
 }
 
 fn layout_commits(nodes: &[GraphNode]) -> (Vec<GraphCommit>, Vec<String>) {
@@ -72,6 +73,12 @@ fn layout_commits(nodes: &[GraphNode]) -> (Vec<GraphCommit>, Vec<String>) {
         };
         sha_to_lane.insert(node.sha.clone(), lane);
 
+        let parent_lanes: Vec<usize> = node
+            .parents
+            .iter()
+            .filter_map(|p| sha_to_lane.get(p).copied())
+            .collect();
+
         let short_sha = truncate_sha(&node.sha);
         let first_line = truncate_msg(&node.message, 80);
 
@@ -85,6 +92,7 @@ fn layout_commits(nodes: &[GraphNode]) -> (Vec<GraphCommit>, Vec<String>) {
             parents: node.parents.clone(),
             branch: node.branch.clone(),
             lane,
+            parent_lanes,
         });
     }
 
@@ -106,6 +114,8 @@ fn GraphCommitRow(
     let branch_label = StoredValue::new(commit.branch.clone());
     let color2 = StoredValue::new(color.clone());
     let color_stored = StoredValue::new(color);
+    let parent_lanes_stored = StoredValue::new(commit.parent_lanes.clone());
+    let current_lane = commit.lane;
 
     view! {
         <div class="flex items-center border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -117,10 +127,11 @@ fn GraphCommitRow(
                 >
                     {
                         let lane = lane_idx;
-                        let is_current = lane == commit.lane;
+                        let is_current = lane == current_lane;
 
                         view! {
                             <div class="relative flex items-center" style="width: 24px; height: 40px;">
+                                // Vertical line through this lane
                                 <div
                                     class="absolute w-0.5"
                                     style=move || {
@@ -132,9 +143,35 @@ fn GraphCommitRow(
                                         }
                                     }
                                 ></div>
+                                // Horizontal connection to parent in a different lane
+                                <Show when=move || {
+                                    let parents = parent_lanes_stored.get_value();
+                                    is_current && parents.iter().any(|&p| p != current_lane)
+                                }>
+                                    <div
+                                        class="absolute h-0.5"
+                                        style=move || {
+                                            let parents = parent_lanes_stored.get_value();
+                                            let current_left = 11;
+                                            if let Some(&target_lane) = parents.iter().find(|&&p| p != current_lane) {
+                                                let x1 = current_left;
+                                                let x2 = (target_lane as i32 - current_lane as i32) * 24 + current_left;
+                                                let (left, width) = if x2 > x1 {
+                                                    (x1, x2 - x1)
+                                                } else {
+                                                    (x2, x1 - x2)
+                                                };
+                                                format!("left: {left}px; top: 50%; width: {width}px; background-color: #d1d5db; transform: translateY(-50%);")
+                                            } else {
+                                                "display: none;".to_string()
+                                            }
+                                        }
+                                    ></div>
+                                </Show>
+                                // Commit dot
                                 <Show when=move || is_current>
                                     <div
-                                        class="absolute w-3 h-3 rounded-full border-2 border-white dark:border-gray-900 z-10"
+                                        class="absolute w-3 h-3 rounded-full border-2 border-white dark:border-gray-900 z-10 shadow-sm"
                                         style=move || format!("left: 7px; top: 50%; transform: translateY(-50%); background-color: {}", color_stored.get_value())
                                         title=move || commit_sha.get_value()
                                     ></div>
@@ -152,7 +189,7 @@ fn GraphCommitRow(
                     </span>
                     <Show when=move || branch_label.get_value().is_some()>
                         <span
-                            class="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full text-white"
+                            class="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full text-white shadow-sm"
                             style=move || format!("background-color: {}", color2.get_value())
                         >
                             {move || branch_label.get_value().unwrap_or_default()}

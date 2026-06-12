@@ -719,13 +719,13 @@ fn DiffLineRow(
     kind: String,
     file_path: String,
 ) -> impl IntoView {
-    let (bg_class, prefix) = match kind.as_str() {
-        "addition" => ("bg-green-50 dark:bg-green-900/20", "+"),
-        "deletion" => ("bg-red-50 dark:bg-red-900/20", "-"),
-        "context" => ("", " "),
+    let (bg_style, prefix) = match kind.as_str() {
+        "addition" => ("background-color: #e6ffec;", "+"),
+        "deletion" => ("background-color: #ffebe9;", "-"),
+        "context" => ("background-color: #f6f8fa;", " "),
         _ => ("", " "),
     };
-    let row_class = format!("flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800 group/line {bg_class}");
+    let row_class = "flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800 group/line".to_string();
 
     let (show_comment_box, set_show_comment_box) = signal(false);
     let (comment_text, set_comment_text) = signal(String::new());
@@ -752,7 +752,7 @@ fn DiffLineRow(
 
     view! {
         <div>
-            <div class=row_class>
+            <div class=row_class style=bg_style>
                 <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
                     {old_line_no.map(|n| n.to_string()).unwrap_or_default()}
                 </span>
@@ -811,16 +811,16 @@ fn DiffLineRowSide(
     kind: String,
     side: String,
 ) -> impl IntoView {
-    let (bg_class, prefix) = match (kind.as_str(), side.as_str()) {
-        ("addition", "new") => ("bg-green-50 dark:bg-green-900/20", "+"),
-        ("deletion", "old") => ("bg-red-50 dark:bg-red-900/20", "-"),
-        ("context", _) => ("", " "),
-        _ => ("bg-gray-50 dark:bg-gray-800/30", " "),
+    let (bg_style, prefix) = match (kind.as_str(), side.as_str()) {
+        ("addition", "new") => ("background-color: #e6ffec;", "+"),
+        ("deletion", "old") => ("background-color: #ffebe9;", "-"),
+        ("context", _) => ("background-color: #f6f8fa;", " "),
+        _ => ("background-color: #f6f8fa;", " "),
     };
-    let row_class = format!("flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800 {bg_class}");
+    let row_class = "flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800".to_string();
 
     view! {
-        <div class=row_class>
+        <div class=row_class style=bg_style>
             <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
                 {line_no.map(|n| n.to_string()).unwrap_or_default()}
             </span>

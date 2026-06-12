@@ -283,4 +283,27 @@ impl ApiClient {
             Err(format!("HTTP {}", resp.status()))
         }
     }
+
+    // ── Profile helpers ──
+
+    pub async fn update_profile(
+        &self,
+        body: &impl serde::Serialize,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        self.patch("/user/profile", body).await
+    }
+
+    pub async fn get_user_profile(
+        &self,
+        user_id: &str,
+    ) -> Result<civit_shared::user::UserResponse, String> {
+        let resp = self.get(&format!("/users/{user_id}"))
+            .await
+            .map_err(|e| e.to_string())?;
+        if resp.status().is_success() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err(format!("HTTP {}", resp.status()))
+        }
+    }
 }

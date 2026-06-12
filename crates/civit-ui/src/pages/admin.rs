@@ -91,12 +91,68 @@ struct SlsaScorecard {
     scanned_at: String,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct AdminEnvironment {
+    id: String,
+    name: String,
+    repo_id: String,
+    #[serde(default)]
+    repo_full_name: Option<String>,
+    #[serde(default)]
+    variable_count: i32,
+    created_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct AdminDeployment {
+    id: String,
+    repo_id: String,
+    #[serde(default)]
+    repo_full_name: Option<String>,
+    sha: String,
+    environment: String,
+    status: String,
+    created_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct AdminTeam {
+    id: String,
+    name: String,
+    #[serde(default)]
+    org_id: String,
+    #[serde(default)]
+    org_name: Option<String>,
+    permission_level: String,
+    #[serde(default)]
+    member_count: i32,
+    created_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct MergeQueueEntry {
+    id: String,
+    pr_number: i64,
+    #[serde(default)]
+    pr_title: String,
+    #[serde(default)]
+    repo_full_name: Option<String>,
+    branch: String,
+    status: String,
+    position: i32,
+    enqueued_at: String,
+}
+
 #[derive(Clone, PartialEq)]
 enum AdminTab {
     AuditLog,
     Users,
     Repos,
     Security,
+    Environments,
+    Deployments,
+    Teams,
+    MergeQueue,
 }
 
 // ── Page ──
@@ -134,6 +190,26 @@ pub fn AdminPage() -> impl IntoView {
     let (scorecard, set_scorecard) = signal(None::<SlsaScorecard>);
     let (scorecard_loading, set_scorecard_loading) = signal(false);
     let (scorecard_error, set_scorecard_error) = signal(None::<String>);
+
+    // Environments state
+    let (env_list, set_env_list) = signal(Vec::<AdminEnvironment>::new());
+    let (env_loading, set_env_loading) = signal(false);
+    let (env_error, set_env_error) = signal(None::<String>);
+
+    // Deployments state
+    let (deploy_list, set_deploy_list) = signal(Vec::<AdminDeployment>::new());
+    let (deploy_loading, set_deploy_loading) = signal(false);
+    let (deploy_error, set_deploy_error) = signal(None::<String>);
+
+    // Teams state
+    let (team_list, set_team_list) = signal(Vec::<AdminTeam>::new());
+    let (team_loading, set_team_loading) = signal(false);
+    let (team_error, set_team_error) = signal(None::<String>);
+
+    // Merge queue state
+    let (merge_queue, set_merge_queue) = signal(Vec::<MergeQueueEntry>::new());
+    let (mq_loading, set_mq_loading) = signal(false);
+    let (mq_error, set_mq_error) = signal(None::<String>);
 
     // Fetch audit log
     let fetch_audit = move || {
@@ -282,6 +358,102 @@ pub fn AdminPage() -> impl IntoView {
         });
     };
 
+    // Fetch environments
+    let fetch_environments = move || {
+        set_env_loading.set(true);
+        set_env_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/environments?limit=50").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<Vec<AdminEnvironment>>().await {
+                        set_env_list.set(data);
+                    }
+                }
+                Ok(_) => {
+                    set_env_error.set(Some("Failed to load environments.".to_string()));
+                }
+                Err(_) => {
+                    set_env_error.set(Some("Network error.".to_string()));
+                }
+            }
+            set_env_loading.set(false);
+        });
+    };
+
+    // Fetch deployments
+    let fetch_deployments = move || {
+        set_deploy_loading.set(true);
+        set_deploy_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/deployments?limit=50").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<Vec<AdminDeployment>>().await {
+                        set_deploy_list.set(data);
+                    }
+                }
+                Ok(_) => {
+                    set_deploy_error.set(Some("Failed to load deployments.".to_string()));
+                }
+                Err(_) => {
+                    set_deploy_error.set(Some("Network error.".to_string()));
+                }
+            }
+            set_deploy_loading.set(false);
+        });
+    };
+
+    // Fetch teams
+    let fetch_teams = move || {
+        set_team_loading.set(true);
+        set_team_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/teams?limit=50").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<Vec<AdminTeam>>().await {
+                        set_team_list.set(data);
+                    }
+                }
+                Ok(_) => {
+                    set_team_error.set(Some("Failed to load teams.".to_string()));
+                }
+                Err(_) => {
+                    set_team_error.set(Some("Network error.".to_string()));
+                }
+            }
+            set_team_loading.set(false);
+        });
+    };
+
+    // Fetch merge queue
+    let fetch_merge_queue = move || {
+        set_mq_loading.set(true);
+        set_mq_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/merge-queue?limit=50").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<Vec<MergeQueueEntry>>().await {
+                        set_merge_queue.set(data);
+                    }
+                }
+                Ok(_) => {
+                    set_mq_error.set(Some("Failed to load merge queue.".to_string()));
+                }
+                Err(_) => {
+                    set_mq_error.set(Some("Network error.".to_string()));
+                }
+            }
+            set_mq_loading.set(false);
+        });
+    };
+
     // Initial load
     fetch_audit();
 
@@ -292,6 +464,10 @@ pub fn AdminPage() -> impl IntoView {
             AdminTab::Users => fetch_users(),
             AdminTab::Repos => fetch_repos(),
             AdminTab::Security => fetch_security(),
+            AdminTab::Environments => fetch_environments(),
+            AdminTab::Deployments => fetch_deployments(),
+            AdminTab::Teams => fetch_teams(),
+            AdminTab::MergeQueue => fetch_merge_queue(),
         }
     };
 
@@ -347,6 +523,18 @@ pub fn AdminPage() -> impl IntoView {
                     </button>
                     <button class=tab_class(AdminTab::Security, active_tab.get()) on:click=move |_| switch_tab(AdminTab::Security)>
                         "Security"
+                    </button>
+                    <button class=tab_class(AdminTab::Environments, active_tab.get()) on:click=move |_| switch_tab(AdminTab::Environments)>
+                        "Environments"
+                    </button>
+                    <button class=tab_class(AdminTab::Deployments, active_tab.get()) on:click=move |_| switch_tab(AdminTab::Deployments)>
+                        "Deployments"
+                    </button>
+                    <button class=tab_class(AdminTab::Teams, active_tab.get()) on:click=move |_| switch_tab(AdminTab::Teams)>
+                        "Teams"
+                    </button>
+                    <button class=tab_class(AdminTab::MergeQueue, active_tab.get()) on:click=move |_| switch_tab(AdminTab::MergeQueue)>
+                        "Merge Queue"
                     </button>
                 </nav>
             </div>
@@ -808,6 +996,244 @@ pub fn AdminPage() -> impl IntoView {
                             </Card>
                         </Show>
                     </div>
+                </div>
+            </Show>
+
+            // -- Environments Tab --
+            <Show when=move || active_tab.get() == AdminTab::Environments fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-4">
+                    <Show when=move || env_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || env_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_env_error.set(None)) />
+                    </Show>
+                    <Show when=move || env_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-12"><Spinner /></div>
+                    </Show>
+                    <Show when=move || !env_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <Card>
+                            {move || if env_list.get().is_empty() {
+                                view! { <div class="py-8 text-center text-gray-400 dark:text-gray-500">"No environments found."</div> }.into_any()
+                            } else {
+                                view! {
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                            <thead class="bg-gray-50 dark:bg-gray-750">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Name"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Repository"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Variables"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Created"</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <For each=move || env_list.get() key=|e| e.id.clone() let:env>
+                                                    {
+                                                        let name = env.name.clone();
+                                                        let repo = env.repo_full_name.clone().unwrap_or_default();
+                                                        let var_count = env.variable_count;
+                                                        let created_at = env.created_at.clone();
+                                                        view! {
+                                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{name}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono">{repo}</td>
+                                                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{var_count.to_string()}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{created_at}</td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </For>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }.into_any()
+                            }}
+                        </Card>
+                    </Show>
+                </div>
+            </Show>
+
+            // -- Deployments Tab --
+            <Show when=move || active_tab.get() == AdminTab::Deployments fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-4">
+                    <Show when=move || deploy_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || deploy_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_deploy_error.set(None)) />
+                    </Show>
+                    <Show when=move || deploy_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-12"><Spinner /></div>
+                    </Show>
+                    <Show when=move || !deploy_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <Card>
+                            {move || if deploy_list.get().is_empty() {
+                                view! { <div class="py-8 text-center text-gray-400 dark:text-gray-500">"No deployments found."</div> }.into_any()
+                            } else {
+                                view! {
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                            <thead class="bg-gray-50 dark:bg-gray-750">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Status"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Environment"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"SHA"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Repository"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Created"</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <For each=move || deploy_list.get() key=|d| d.id.clone() let:deploy>
+                                                    {
+                                                        let status = deploy.status.clone();
+                                                        let environment = deploy.environment.clone();
+                                                        let sha_short = deploy.sha[..7.min(deploy.sha.len())].to_string();
+                                                        let repo = deploy.repo_full_name.clone().unwrap_or_default();
+                                                        let created_at = deploy.created_at.clone();
+                                                        let status_color_val = match status.as_str() {
+                                                            "success" => BadgeColor::Success,
+                                                            "in_progress" | "pending" => BadgeColor::Warning,
+                                                            "failure" | "error" | "cancelled" => BadgeColor::Danger,
+                                                            _ => BadgeColor::Neutral,
+                                                        };
+                                                        view! {
+                                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                                <td class="px-4 py-3"><Badge color=status_color_val text=status /></td>
+                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{environment}</td>
+                                                                <td class="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{sha_short}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono">{repo}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{created_at}</td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </For>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }.into_any()
+                            }}
+                        </Card>
+                    </Show>
+                </div>
+            </Show>
+
+            // -- Teams Tab --
+            <Show when=move || active_tab.get() == AdminTab::Teams fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-4">
+                    <Show when=move || team_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || team_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_team_error.set(None)) />
+                    </Show>
+                    <Show when=move || team_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-12"><Spinner /></div>
+                    </Show>
+                    <Show when=move || !team_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <Card>
+                            {move || if team_list.get().is_empty() {
+                                view! { <div class="py-8 text-center text-gray-400 dark:text-gray-500">"No teams found."</div> }.into_any()
+                            } else {
+                                view! {
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                            <thead class="bg-gray-50 dark:bg-gray-750">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Team"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Organization"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Permission"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Members"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Created"</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <For each=move || team_list.get() key=|t| t.id.clone() let:team>
+                                                    {
+                                                        let name = team.name.clone();
+                                                        let org = team.org_name.clone().unwrap_or_default();
+                                                        let permission = team.permission_level.clone();
+                                                        let member_count = team.member_count;
+                                                        let created_at = team.created_at.clone();
+                                                        let perm_color = match permission.as_str() {
+                                                            "admin" => BadgeColor::Danger,
+                                                            "write" => BadgeColor::Warning,
+                                                            "read" => BadgeColor::Info,
+                                                            _ => BadgeColor::Neutral,
+                                                        };
+                                                        view! {
+                                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{name}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono">{org}</td>
+                                                                <td class="px-4 py-3"><Badge color=perm_color text=permission /></td>
+                                                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{member_count.to_string()}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{created_at}</td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </For>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }.into_any()
+                            }}
+                        </Card>
+                    </Show>
+                </div>
+            </Show>
+
+            // -- Merge Queue Tab --
+            <Show when=move || active_tab.get() == AdminTab::MergeQueue fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-4">
+                    <Show when=move || mq_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || mq_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_mq_error.set(None)) />
+                    </Show>
+                    <Show when=move || mq_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-12"><Spinner /></div>
+                    </Show>
+                    <Show when=move || !mq_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <Card>
+                            {move || if merge_queue.get().is_empty() {
+                                view! { <div class="py-8 text-center text-gray-400 dark:text-gray-500">"No entries in the merge queue."</div> }.into_any()
+                            } else {
+                                view! {
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                            <thead class="bg-gray-50 dark:bg-gray-750">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"PR"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Repository"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Branch"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Status"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Position"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Enqueued"</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <For each=move || merge_queue.get() key=|e| e.id.clone() let:entry>
+                                                    {
+                                                        let pr_title = entry.pr_title.clone();
+                                                        let repo = entry.repo_full_name.clone().unwrap_or_default();
+                                                        let branch = entry.branch.clone();
+                                                        let status = entry.status.clone();
+                                                        let position = entry.position;
+                                                        let enqueued_at = entry.enqueued_at.clone();
+                                                        let status_color_val = match status.as_str() {
+                                                            "merged" => BadgeColor::Success,
+                                                            "running" | "queued" => BadgeColor::Warning,
+                                                            "failed" | "cancelled" => BadgeColor::Danger,
+                                                            _ => BadgeColor::Neutral,
+                                                        };
+                                                        view! {
+                                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{pr_title}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono">{repo}</td>
+                                                                <td class="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{branch}</td>
+                                                                <td class="px-4 py-3"><Badge color=status_color_val text=status /></td>
+                                                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{position.to_string()}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{enqueued_at}</td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </For>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }.into_any()
+                            }}
+                        </Card>
+                    </Show>
                 </div>
             </Show>
         </div>

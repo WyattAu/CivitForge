@@ -164,6 +164,10 @@ pub fn Sidebar() -> impl IntoView {
                                 {username}
                             </span>
                         </div>
+                        <A href="/profile" attr:class=link_class>
+                            <span class="mr-2">"\u{1f464}"</span>
+                            "Profile"
+                        </A>
                         <A href="/settings" attr:class=link_class>
                             <span class="mr-2">"\u{2699}\u{fe0f}"</span>
                             {move || t("settings.title")}

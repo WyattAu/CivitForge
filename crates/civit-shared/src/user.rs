@@ -85,6 +85,12 @@ pub struct UserResponse {
     pub display_name: Option<String>,
     pub bio: Option<String>,
     pub role: UserRole,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub location: Option<String>,
+    #[serde(default)]
+    pub website: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -104,6 +110,19 @@ pub struct UpdateUserRequest {
     pub display_name: Option<String>,
     pub bio: Option<String>,
     pub email: Option<String>,
+}
+
+/// Request to update user profile (avatar, location, website, etc.).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateProfileRequest {
+    pub display_name: Option<String>,
+    pub bio: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub website: Option<String>,
 }
 
 #[cfg(test)]
