@@ -198,10 +198,10 @@ pub fn PullRequestsPage() -> impl IntoView {
                                 {move || format!("{}/{}", owner(), name())}
                             </span>
                         </A>
-                        <span>"/"</span>
-                        <span class="text-gray-700 dark:text-gray-300">"Pull Requests"</span>
+                        <span class="hidden sm:inline">"/"</span>
+                        <span class="hidden sm:inline text-gray-700 dark:text-gray-300">"Pull Requests"</span>
                     </div>
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Pull Requests"</h1>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"Pull Requests"</h1>
                 </div>
                 <Button variant=ButtonVariant::Primary on:click=move |_| set_show_new_form.set(!show_new_form.get())>
                     {move || if show_new_form.get() { "Cancel" } else { "New Pull Request" }}
@@ -222,7 +222,7 @@ pub fn PullRequestsPage() -> impl IntoView {
                             <label for="new-pr-body" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">"Description"</label>
                             <textarea id="new-pr-body" class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Describe changes..." rows="4"></textarea>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label for="new-pr-source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">"Source Branch"</label>
                                 <input id="new-pr-source" type="text" class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="feature-branch" required />
@@ -274,28 +274,32 @@ pub fn PullRequestsPage() -> impl IntoView {
                                 let name_v = name();
                                 view! {
                                     <A href=format!("/repos/{owner_v}/{name_v}/pulls/{}", pr.number)>
-                                        <div class="flex items-center justify-between py-3 px-1 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
-                                            <div class="flex items-center gap-3 min-w-0">
-                                                <span class="text-sm font-mono text-gray-400 shrink-0">
+                                        <div class="flex items-start sm:items-center justify-between py-3 px-2 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
+                                            <div class="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0">
+                                                <span class="text-sm font-mono text-gray-400 shrink-0 mt-0.5 sm:mt-0">
                                                     {format!("#{}", pr.number)}
                                                 </span>
-                                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                                    {truncate_title(&pr.title, 80)}
-                                                </span>
-                                                <Badge color=pr_badge_color(&pr.status) text=pr_status_label(&pr.status) />
-                                                {pr.draft.then(|| view! { <Badge color=crate::components::badge::BadgeColor::Neutral text="Draft".into() /> })}
-                                            </div>
-                                            <div class="flex items-center gap-3 shrink-0">
-                                                <span class="text-xs text-gray-400 font-mono hidden sm:inline-flex">
-                                                    {truncate_uuid(&pr.source_branch, 20)}
-                                                </span>
-                                                <span class="text-gray-400">"\u{2192}"</span>
-                                                <span class="text-xs text-gray-400 font-mono hidden sm:inline-flex">
-                                                    {truncate_uuid(&pr.target_branch, 20)}
-                                                </span>
-                                                <span class="text-xs text-gray-400 hidden sm:inline-flex">
-                                                    {relative_time(&pr.created_at)}
-                                                </span>
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="flex items-center gap-2 flex-wrap">
+                                                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                            {truncate_title(&pr.title, 80)}
+                                                        </span>
+                                                        <Badge color=pr_badge_color(&pr.status) text=pr_status_label(&pr.status) />
+                                                        {pr.draft.then(|| view! { <Badge color=crate::components::badge::BadgeColor::Neutral text="Draft".into() /> })}
+                                                    </div>
+                                                    <div class="flex items-center gap-2 mt-1 flex-wrap">
+                                                        <span class="text-xs text-gray-400 font-mono hidden sm:inline-flex">
+                                                            {truncate_uuid(&pr.source_branch, 20)}
+                                                        </span>
+                                                        <span class="text-gray-400 hidden sm:inline">"\u{2192}"</span>
+                                                        <span class="text-xs text-gray-400 font-mono hidden sm:inline-flex">
+                                                            {truncate_uuid(&pr.target_branch, 20)}
+                                                        </span>
+                                                        <span class="text-xs text-gray-400">
+                                                            {relative_time(&pr.created_at)}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </A>

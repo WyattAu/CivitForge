@@ -101,6 +101,38 @@ impl DbRepository {
         Ok(row)
     }
 
+    pub async fn update_user_profile(
+        &self,
+        id: Uuid,
+        avatar_url: Option<&str>,
+        location: Option<&str>,
+        website: Option<&str>,
+        display_name: Option<&str>,
+        bio: Option<&str>,
+    ) -> Result<User> {
+        let row = sqlx::query_as::<_, User>(
+            r#"UPDATE users
+               SET avatar_url    = COALESCE($2, avatar_url),
+                   location      = COALESCE($3, location),
+                   website       = COALESCE($4, website),
+                   display_name  = COALESCE($5, display_name),
+                   bio           = COALESCE($6, bio),
+                   updated_at    = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(avatar_url)
+        .bind(location)
+        .bind(website)
+        .bind(display_name)
+        .bind(bio)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_user_profile: {e}")))?;
+        Ok(row)
+    }
+
     pub async fn delete_user(&self, id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM users WHERE id = $1")
             .bind(id)

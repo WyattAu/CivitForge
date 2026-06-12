@@ -16,6 +16,12 @@ pub struct User {
     pub email_verified: bool,
     #[serde(default)]
     pub banned: bool,
+    #[serde(default)]
+    pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub location: Option<String>,
+    #[serde(default)]
+    pub website: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -263,6 +269,9 @@ mod tests {
             role: "admin".into(),
             email_verified: true,
             banned: false,
+            avatar_url: None,
+            location: None,
+            website: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };

@@ -20,6 +20,9 @@ pub struct UserResponse {
     pub display_name: String,
     pub bio: Option<String>,
     pub role: String,
+    pub avatar_url: Option<String>,
+    pub location: Option<String>,
+    pub website: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -33,6 +36,9 @@ impl From<crate::db::User> for UserResponse {
             display_name: u.display_name,
             bio: if u.bio.is_empty() { None } else { Some(u.bio) },
             role: u.role,
+            avatar_url: u.avatar_url,
+            location: u.location,
+            website: u.website,
             created_at: u.created_at.to_rfc3339(),
             updated_at: u.updated_at.to_rfc3339(),
         }
@@ -52,6 +58,15 @@ pub struct UpdateUserRequest {
     pub display_name: Option<String>,
     pub bio: Option<String>,
     pub role: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateProfileRequest {
+    pub avatar_url: Option<String>,
+    pub location: Option<String>,
+    pub website: Option<String>,
+    pub display_name: Option<String>,
+    pub bio: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -234,6 +249,43 @@ pub async fn delete_user(
     }
 }
 
+pub async fn update_profile(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<UpdateProfileRequest>,
+) -> impl IntoResponse {
+    let user_uuid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::Config("invalid user id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match state
+        .db
+        .update_user_profile(
+            user_uuid,
+            req.avatar_url.as_deref(),
+            req.location.as_deref(),
+            req.website.as_deref(),
+            req.display_name.as_deref(),
+            req.bio.as_deref(),
+        )
+        .await
+    {
+        Ok(user) => (StatusCode::OK, Json(UserResponse::from(user))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,6 +301,9 @@ mod tests {
             role: "admin".into(),
             email_verified: false,
             banned: false,
+            avatar_url: None,
+            location: None,
+            website: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

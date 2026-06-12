@@ -112,7 +112,7 @@ pub fn ReposPage() -> impl IntoView {
 
             <Show when=move || !loading.get() && !repos_sig.with(|r| r.is_empty()) fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
-                    <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:gap-4 sm:divide-transparent divide-gray-100 dark:divide-gray-700">
                         <For each=move || repos_sig.get() key=|r| r.id let:repo>
                             {
                                 let full_name_v = repo.full_name.clone();

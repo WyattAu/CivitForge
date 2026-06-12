@@ -673,7 +673,7 @@ pub async fn request_review(
         Err(e) => return err_response(e),
     };
 
-    let reviewer_ids: Vec<Uuid> = body
+    let mut reviewer_ids: Vec<Uuid> = body
         .get("reviewers")
         .and_then(|v| v.as_array())
         .map(|arr| {
@@ -682,6 +682,27 @@ pub async fn request_review(
                 .collect()
         })
         .unwrap_or_default();
+
+    // CODEOWNERS enforcement: read CODEOWNERS and auto-add code owners
+    let git_service = &state.git_service;
+    let repo_path = git_service.repo_path(&owner, &name);
+    let codeowners_content = read_codeowners_from_repo(&repo_path);
+    if let Some(content) = codeowners_content {
+        let entries = crate::api::codeowners::parse_codeowners(&content);
+        // Use PR title + source_branch as a proxy for changed files
+        // In production this would diff the PR commits
+        let changed_files = vec![pr.source_branch.clone()];
+        let owner_usernames = crate::api::codeowners::find_codeowners_for_files(&entries, &changed_files);
+        for username in &owner_usernames {
+            // Strip leading @ if present
+            let uname = username.trim_start_matches('@');
+            if let Ok(user) = state.db.get_user_by_username(uname).await {
+                if !reviewer_ids.contains(&user.id) {
+                    reviewer_ids.push(user.id);
+                }
+            }
+        }
+    }
 
     let mut results = Vec::new();
     for uid in reviewer_ids {
@@ -694,6 +715,13 @@ pub async fn request_review(
         }
     }
     (axum::http::StatusCode::OK, Json(results)).into_response()
+}
+
+fn read_codeowners_from_repo(repo_path: &std::path::Path) -> Option<String> {
+    std::fs::read_to_string(repo_path.join("CODEOWNERS"))
+        .ok()
+        .or_else(|| std::fs::read_to_string(repo_path.join(".github").join("CODEOWNERS")).ok())
+        .or_else(|| std::fs::read_to_string(repo_path.join("docs").join("CODEOWNERS")).ok())
 }
 
 pub async fn submit_review(

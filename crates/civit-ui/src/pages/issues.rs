@@ -239,10 +239,10 @@ pub fn IssuesPage() -> impl IntoView {
                                 {move || format!("{}/{}", owner(), name())}
                             </span>
                         </A>
-                        <span>"/"</span>
-                        <span class="text-gray-700 dark:text-gray-300">"Issues"</span>
+                        <span class="hidden sm:inline">"/"</span>
+                        <span class="hidden sm:inline text-gray-700 dark:text-gray-300">"Issues"</span>
                     </div>
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Issues"</h1>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"Issues"</h1>
                 </div>
                 <Button
                     variant=ButtonVariant::Primary
@@ -335,26 +335,30 @@ pub fn IssuesPage() -> impl IntoView {
                                     <A
                                         href=format!("/repos/{owner_v}/{name_v}/issues/{}", issue.number.map(|n| n.to_string()).unwrap_or_else(|| issue.id.clone()))
                                     >
-                                        <div class="flex items-center justify-between py-3 px-1 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
-                                            <div class="flex items-center gap-3 min-w-0">
-                                                <span class="text-sm font-mono text-gray-400 dark:text-gray-500 shrink-0">
+                                        <div class="flex items-start sm:items-center justify-between py-3 px-2 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
+                                            <div class="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0">
+                                                <span class="text-sm font-mono text-gray-400 dark:text-gray-500 shrink-0 mt-0.5 sm:mt-0">
                                                      {format!("#{}", issue.number.map(|n| n.to_string()).unwrap_or_else(|| issue.id.clone()))}
                                                 </span>
-                                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                                    {truncate_title(&issue.title, 80)}
-                                                </span>
-                                                <Badge
-                                                    color=status_badge_color(&issue.state)
-                                                    text=status_label(&issue.state)
-                                                />
-                                            </div>
-                                            <div class="flex items-center gap-3 shrink-0">
-                                                <span class="text-xs text-gray-400 dark:text-gray-500 font-mono hidden sm:inline-flex">
-                                                    {truncate_uuid(&issue.author, 8)}
-                                                </span>
-                                                <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:inline-flex">
-                                                    {relative_time(&issue.created_at)}
-                                                </span>
+                                                <div class="min-w-0 flex-1">
+                                                    <div class="flex items-center gap-2 flex-wrap">
+                                                        <span class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                            {truncate_title(&issue.title, 80)}
+                                                        </span>
+                                                        <Badge
+                                                            color=status_badge_color(&issue.state)
+                                                            text=status_label(&issue.state)
+                                                        />
+                                                    </div>
+                                                    <div class="flex items-center gap-3 mt-1">
+                                                        <span class="text-xs text-gray-400 dark:text-gray-500 font-mono hidden sm:inline-flex">
+                                                            {truncate_uuid(&issue.author, 8)}
+                                                        </span>
+                                                        <span class="text-xs text-gray-400 dark:text-gray-500">
+                                                            {relative_time(&issue.created_at)}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </A>

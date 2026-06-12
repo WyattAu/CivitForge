@@ -9,6 +9,7 @@ pub mod badges;
 pub mod boards;
 pub mod branch_protection;
 pub mod code_browser;
+pub mod codeowners;
 pub mod deploy_keys;
 pub mod deployments;
 pub mod diagnostics;
@@ -25,6 +26,7 @@ pub mod mentions;
 pub mod mirrors;
 pub mod notifications;
 pub mod oci;
+pub mod oidc;
 pub mod openapi_handler;
 pub mod orgs;
 pub mod password;
@@ -61,7 +63,7 @@ use axum::extract::ws::WebSocketUpgrade;
 use axum::http::{HeaderName, HeaderValue};
 use axum::middleware;
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, patch, post};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
@@ -153,6 +155,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             "/api/v1/repos/{owner}/{name}/deploy-keys",
             get(deploy_keys::list_deploy_keys).post(deploy_keys::create_deploy_key),
         )
+        .route(
+            "/api/v1/repos/{owner}/{name}/codeowners",
+            get(codeowners::get_codeowners).put(codeowners::update_codeowners),
+        )
         .merge(deploy_keys::deploy_key_routes())
         .merge(deployments::deployment_routes())
         .merge(environments::environment_routes())
@@ -168,6 +174,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
                 .patch(users::update_user)
                 .delete(users::delete_user),
         )
+        .route("/api/v1/user/profile", patch(users::update_profile))
+        .route("/api/v1/auth/oidc/exchange", post(oidc::exchange_oidc_token))
         .route("/api/v1/orgs", get(orgs::list_orgs).post(orgs::create_org))
         .route(
             "/api/v1/orgs/{id}",

@@ -288,15 +288,15 @@ pub fn CodeTreeTable(
         <Card>
             // Breadcrumb
             <div class="mb-3 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 font-mono overflow-x-auto">
-                <span>{move || owner.get()}</span>
-                <span>"/"</span>
-                <span>{move || name.get()}</span>
+                <span class="shrink-0">{move || owner.get()}</span>
+                <span class="shrink-0">"/"</span>
+                <span class="shrink-0">{move || name.get()}</span>
                 <Show when=move || !path.get().is_empty()>
                     <For each=move || breadcrumb_parts(&path.get()) key=|s| s.clone() let:seg>
                         {
                             view! {
-                                <span>"/"</span>
-                                <span class="text-gray-700 dark:text-gray-300">{seg}</span>
+                                <span class="shrink-0">"/"</span>
+                                <span class="text-gray-700 dark:text-gray-300 shrink-0">{seg}</span>
                             }
                         }
                     </For>
@@ -308,8 +308,8 @@ pub fn CodeTreeTable(
                     <thead>
                         <tr class="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
                             <th class="pb-2 pr-4 font-medium">"Name"</th>
-                            <th class="pb-2 pr-4 font-medium">"Last Commit"</th>
-                            <th class="pb-2 pr-4 font-medium text-right">"Size"</th>
+                            <th class="pb-2 pr-4 font-medium hidden md:table-cell">"Last Commit"</th>
+                            <th class="pb-2 pr-4 font-medium text-right hidden sm:table-cell">"Size"</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -375,14 +375,14 @@ pub fn CodeTreeTable(
                                                                 <span class="text-gray-700 dark:text-gray-300 truncate">{entry_path}</span>
                                                             </div>
                                             </td>
-                                                        <td class="py-2 pr-4">
+                                                        <td class="py-2 pr-4 hidden md:table-cell">
                                                             <div class="text-xs">
                                                                 <span class="text-gray-700 dark:text-gray-300 truncate block max-w-xs">{commit_msg}</span>
                                                                 <span class="text-gray-400 dark:text-gray-500">{commit_author}</span>
                                                                 <span class="text-gray-400 dark:text-gray-500 ml-2">{commit_time}</span>
                                                             </div>
                                                         </td>
-                                                        <td class="py-2 pr-4 text-right text-gray-400 dark:text-gray-500 font-mono text-xs">
+                                                        <td class="py-2 pr-4 text-right text-gray-400 dark:text-gray-500 font-mono text-xs hidden sm:table-cell">
                                                             {if is_dir { "-".to_string() } else { format_size(entry_size) }}
                                                         </td>
                                         </tr>
@@ -671,18 +671,18 @@ pub fn CodePage() -> impl IntoView {
         <div class="space-y-6">
             // Header
             <div>
-                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-                    <A href="/repos"><span class="hover:text-blue-600 dark:hover:text-blue-400">"Repositories"</span></A>
-                    <span>"/"</span>
-                    <A href=format!("/repos/{}/{}", owner(), name())><span class="hover:text-blue-600 dark:hover:text-blue-400">{format!("{}/{}", owner(), name())}</span></A>
+                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1 overflow-x-auto">
+                    <A href="/repos"><span class="hover:text-blue-600 dark:hover:text-blue-400 shrink-0">"Repositories"</span></A>
+                    <span class="shrink-0">"/"</span>
+                    <A href=format!("/repos/{}/{}", owner(), name())><span class="hover:text-blue-600 dark:hover:text-blue-400 shrink-0">{format!("{}/{}", owner(), name())}</span></A>
                     <Show when=has_path>
-                        <span>"/"</span>
-                        <span class="text-gray-700 dark:text-gray-300">{path_param()}</span>
+                        <span class="shrink-0">"/"</span>
+                        <span class="text-gray-700 dark:text-gray-300 truncate">{path_param()}</span>
                     </Show>
-                    <span>"/"</span>
-                    <span class="text-gray-700 dark:text-gray-300">"Code"</span>
+                    <span class="shrink-0">"/"</span>
+                    <span class="text-gray-700 dark:text-gray-300 shrink-0">"Code"</span>
                 </div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Code"</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"Code"</h1>
             </div>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>

@@ -320,12 +320,12 @@ pub fn PipelinesPage() -> impl IntoView {
     view! {
         <div class="space-y-6">
             <div>
-                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1">
-                    <A href="/repos"><span class="hover:text-blue-600 dark:hover:text-blue-400">"Repositories"</span></A>
-                    <span>"/"</span>
-                    <A href=format!("/repos/{owner_v}/{name_v}")><span class="hover:text-blue-600 dark:hover:text-blue-400">{format!("{owner_v}/{name_v}")}</span></A>
+                <div class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-1 overflow-x-auto">
+                    <A href="/repos"><span class="hover:text-blue-600 dark:hover:text-blue-400 shrink-0">"Repositories"</span></A>
+                    <span class="shrink-0">"/"</span>
+                    <A href=format!("/repos/{owner_v}/{name_v}")><span class="hover:text-blue-600 dark:hover:text-blue-400 shrink-0">{format!("{owner_v}/{name_v}")}</span></A>
                 </div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Pipelines"</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"Pipelines"</h1>
                 <p class="mt-1 text-gray-600 dark:text-gray-400">"CI/CD pipeline configuration and runs."</p>
             </div>
 
@@ -333,8 +333,8 @@ pub fn PipelinesPage() -> impl IntoView {
                 <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=dismiss_error />
             </Show>
 
-            <div class="border-b border-gray-200 dark:border-gray-700">
-                <div class="flex gap-1 -mb-px">
+            <div class="border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+                <div class="flex gap-1 -mb-px min-w-max">
                     <button class=move || tab_class(active_tab.get() == PipelineTab::Runs) on:click=move |_| switch_tab(PipelineTab::Runs)>"Runs"</button>
                     <button class=move || tab_class(active_tab.get() == PipelineTab::Schedules) on:click=move |_| switch_tab(PipelineTab::Schedules)>"Schedules"</button>
                     <button class=move || tab_class(active_tab.get() == PipelineTab::Secrets) on:click=move |_| switch_tab(PipelineTab::Secrets)>"Secrets"</button>
@@ -371,12 +371,12 @@ pub fn PipelinesPage() -> impl IntoView {
                                     let name_link = name();
                                     view! {
                                         <A href=format!("/repos/{owner_link}/{name_link}/pipelines/{}", pipeline.id)>
-                                            <div class="flex items-center gap-4 py-3 px-1 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
+                                            <div class="flex items-center gap-2 sm:gap-4 py-3 px-2 hover:bg-gray-50 dark:hover:bg-gray-750 -mx-1 rounded transition-colors cursor-pointer">
                                                 <Badge color=status_color text=status_text />
-                                                <span class="font-mono text-sm text-blue-600 dark:text-blue-400 shrink-0">{commit_short}</span>
+                                                <span class="font-mono text-sm text-blue-600 dark:text-blue-400 shrink-0 hidden sm:inline">{commit_short}</span>
                                                 <span class="text-sm text-gray-700 dark:text-gray-300 truncate flex-1">{pipeline.trigger.clone()}</span>
-                                                <span class="text-xs text-gray-500 dark:text-gray-400 font-mono shrink-0">{ref_name}</span>
-                                                <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0 w-16 text-right">{duration}</span>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400 font-mono shrink-0 hidden md:inline">{ref_name}</span>
+                                                <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0 w-16 text-right hidden sm:inline">{duration}</span>
                                                 <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0 w-20 text-right">{time_str}</span>
                                             </div>
                                         </A>

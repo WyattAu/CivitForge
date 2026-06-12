@@ -204,7 +204,7 @@ pub fn RepoSettingsPage() -> impl IntoView {
     view! {
         <div class="space-y-6">
             <div>
-                <h1 class="text-3xl font-bold font-mono text-gray-900 dark:text-gray-100">"SETTINGS"</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold font-mono text-gray-900 dark:text-gray-100">"SETTINGS"</h1>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 font-mono">
                     {move || format!("{}/{}", owner_disp(), name_disp())}
                 </p>
@@ -222,10 +222,10 @@ pub fn RepoSettingsPage() -> impl IntoView {
             </Show>
 
             <Show when=move || !loading.get() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="flex gap-6">
+                <div class="flex flex-col lg:flex-row gap-6">
                     // -- Sidebar --
-                    <nav class="w-56 shrink-0">
-                        <div class="bg-white dark:bg-gray-800 rounded-none border-2 border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                    <nav class="w-full lg:w-56 shrink-0">
+                        <div class="bg-white dark:bg-gray-800 rounded-none border-2 border-gray-200 dark:border-gray-700 p-2 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible">
                             <button
                                 class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::General { sidebar_item_active } else { sidebar_item_inactive })
                                 on:click=move |_| set_active_section.set(SettingsSection::General)
@@ -251,7 +251,8 @@ pub fn RepoSettingsPage() -> impl IntoView {
                                 "Labels"
                             </button>
 
-                            <div class="my-2 border-t border-gray-200 dark:border-gray-700"></div>
+                            <div class="hidden lg:block my-2 border-t border-gray-200 dark:border-gray-700"></div>
+                            <div class="lg:hidden w-px bg-gray-200 dark:bg-gray-700"></div>
 
                             <button
                                 class=format!("{sidebar_item_class} text-red-600 dark:text-red-400 {}", if active_section.get() == SettingsSection::Danger { sidebar_item_active } else { sidebar_item_inactive })
@@ -696,7 +697,7 @@ pub fn SettingsPage() -> impl IntoView {
 
     view! {
         <div class="space-y-6">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"User Settings"</h1>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"User Settings"</h1>
 
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                 <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
