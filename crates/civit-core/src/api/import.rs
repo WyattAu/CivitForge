@@ -379,7 +379,7 @@ pub async fn import_github(
                         let target = pr["base"]["ref"].as_str().unwrap_or("main");
                         let draft = pr["draft"].as_bool().unwrap_or(false);
                         let _ = db_clone
-                            .create_pr(repo_id, title, body, owner_uuid, source, target, draft)
+                            .create_pr(repo_id, title, body, owner_uuid, source, target, draft, false)
                             .await;
                     }
                     page += 1;
@@ -581,7 +581,7 @@ pub async fn import_gitlab(
                         let target = mr["target_branch"].as_str().unwrap_or("main");
                         let draft = mr["draft"].as_bool().unwrap_or(false);
                         let _ = db_clone
-                            .create_pr(repo_id, title, body, owner_uuid, source, target, draft)
+                            .create_pr(repo_id, title, body, owner_uuid, source, target, draft, false)
                             .await;
                     }
                     page += 1;

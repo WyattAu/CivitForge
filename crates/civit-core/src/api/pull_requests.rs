@@ -33,6 +33,7 @@ pub struct CreatePullRequest {
     pub assignees: Option<Vec<Uuid>>,
     pub reviewers: Option<Vec<Uuid>>,
     pub labels: Option<Vec<Uuid>>,
+    pub auto_merge: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,6 +103,7 @@ pub struct PrResponse {
     pub labels: Vec<super::issues::LabelResponse>,
     pub assignees: Vec<String>,
     pub reviewers: Vec<ReviewerResponse>,
+    pub auto_merge: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -385,6 +387,8 @@ pub async fn create_pull_request(
         || req.title.to_uppercase().starts_with("DRAFT ");
     let author_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
 
+    let auto_merge = req.auto_merge.unwrap_or(false);
+
     let pr = match state
         .db
         .create_pr(
@@ -395,6 +399,7 @@ pub async fn create_pull_request(
             &req.source_branch,
             &req.target_branch,
             is_draft,
+            auto_merge,
         )
         .await
     {
@@ -982,6 +987,7 @@ fn pr_to_response(
         labels: labels.unwrap_or_default(),
         assignees: assignees.unwrap_or_default(),
         reviewers: Vec::new(),
+        auto_merge: pr.auto_merge,
     }
 }
 
@@ -1233,6 +1239,192 @@ pub async fn get_pr_diff(
         files,
     };
     (axum::http::StatusCode::OK, Json(resp)).into_response()
+}
+
+/// Check if a PR has auto_merge enabled and all status checks pass, then merge automatically.
+/// Called from the pipeline completion handler when a pipeline succeeds.
+pub async fn check_auto_merge(state: &AppState, repo_id: Uuid, commit_sha: &str) {
+    let pool = state.db.pool();
+
+    // Find open PRs whose head_commit_sha matches the just-succeeded pipeline commit
+    let prs: Vec<crate::db::models::PullRequest> = match sqlx::query_as(
+        r#"SELECT * FROM pull_requests
+           WHERE repo_id = $1 AND status = 'open' AND auto_merge = true
+             AND head_commit_sha = $2 AND draft = false"#,
+    )
+    .bind(repo_id)
+    .bind(commit_sha)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(error = %e, "check_auto_merge: failed to query PRs");
+            return;
+        }
+    };
+
+    for pr in prs {
+        // Verify all status checks for this PR are passing
+        let checks = match state.db.list_pr_status_checks(pr.id).await {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let all_passing = !checks.is_empty()
+            && checks.iter().all(|c| c.state == "success" || c.state == "passed");
+
+        if !all_passing {
+            tracing::info!(
+                pr_number = pr.number,
+                "auto_merge: not all status checks passing, skipping"
+            );
+            continue;
+        }
+
+        // Resolve owner username from repo
+        let owner_username: Option<String> = sqlx::query_scalar(
+            "SELECT u.username FROM users u JOIN repositories r ON r.owner_id = u.id WHERE r.id = $1",
+        )
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+
+        let owner = match owner_username {
+            Some(u) => u,
+            None => continue,
+        };
+
+        let repo_name: Option<String> = sqlx::query_scalar(
+            "SELECT name FROM repositories WHERE id = $1",
+        )
+        .bind(repo_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+
+        let name = match repo_name {
+            Some(n) => n,
+            None => continue,
+        };
+
+        // Perform the merge using the default strategy
+        let strategy: crate::git::MergeStrategy = pr
+            .merge_strategy
+            .parse()
+            .unwrap_or(crate::git::MergeStrategy::Merge);
+
+        let merge_result = match state.git_service.merge_branch(
+            &owner,
+            &name,
+            &pr.source_branch,
+            &pr.target_branch,
+            strategy,
+            "auto-merge (CivitForge)",
+            "auto-merge@civitforge.local",
+        ) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(
+                    pr_number = pr.number,
+                    error = %e,
+                    "auto_merge: merge failed"
+                );
+                continue;
+            }
+        };
+
+        let merged = state
+            .db
+            .merge_pr(
+                pr.id,
+                &merge_result.commit_sha,
+                &merge_result.strategy_used,
+                pr.head_commit_sha.as_deref(),
+                pr.base_commit_sha.as_deref(),
+            )
+            .await
+            .is_ok();
+
+        if merged {
+            let _ = state
+                .db
+                .insert_pr_timeline(
+                    pr.id,
+                    pr.author_id,
+                    "merged",
+                    serde_json::json!({
+                        "merge_commit_sha": merge_result.commit_sha,
+                        "strategy": merge_result.strategy_used,
+                        "was_fast_forward": merge_result.was_ff,
+                        "auto_merge": true,
+                    }),
+                )
+                .await;
+
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool_clone = state.db.pool().clone();
+            let evt = crate::webhooks::WebhookEvent::PullRequest;
+            let pl = serde_json::json!({
+                "action": "merged",
+                "pr_number": pr.number,
+                "repo_id": repo_id.to_string(),
+                "merge_commit_sha": merge_result.commit_sha,
+                "strategy": merge_result.strategy_used,
+                "auto_merge": true,
+                "author_id": pr.author_id.to_string(),
+            });
+            tokio::spawn(async move { dispatcher.dispatch(&pool_clone, repo_id, &evt, pl).await });
+
+            tracing::info!(
+                pr_number = pr.number,
+                commit_sha = %merge_result.commit_sha,
+                "auto_merge: PR merged successfully"
+            );
+        }
+    }
+}
+
+/// GET /repos/{owner}/{name}/pulls/{number}/patch
+/// Download PR patch as a unified diff.
+pub async fn download_patch(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    let repo_path = state.git_service.repo_path(&owner, &name);
+    let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string());
+
+    let source_ref = format!("refs/heads/{}", pr.source_branch);
+    let target_ref = format!("refs/heads/{}", pr.target_branch);
+
+    match run_git_diff(
+        &git_bin,
+        &repo_path,
+        &["diff", "-U3", &target_ref, &source_ref],
+    ) {
+        Ok(patch) => (
+            axum::http::StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            patch,
+        )
+            .into_response(),
+        Err(e) => err_response(CoreError::Git(e)),
+    }
 }
 
 /// GET /repos/{owner}/{name}/pulls/{number}/mergecheck
@@ -1894,6 +2086,10 @@ pub fn pr_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/pulls/{number}/diff/side-by-side",
             get(get_pr_diff_side_by_side),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/patch",
+            get(download_patch),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/pulls/{number}/inline-comments",

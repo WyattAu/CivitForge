@@ -590,7 +590,19 @@ pub async fn complete_job(
     {
         Ok(_) => {
             // Check if all jobs in the run are done
-            check_run_completion(pool, job_id, now).await;
+            let completion = check_run_completion(pool, job_id, now).await;
+
+            // If the run just completed successfully, check auto-merge for matching PRs
+            if let Some((_run_id, ref status, ref commit_sha, repo_id)) = completion {
+                if status == "success" {
+                    let state_clone = state.clone();
+                    let sha = commit_sha.clone();
+                    tokio::spawn(async move {
+                        crate::api::pull_requests::check_auto_merge(&state_clone, repo_id, &sha).await;
+                    });
+                }
+            }
+
             (
                 axum::http::StatusCode::OK,
                 Json(serde_json::json!({"completed": true})),
@@ -789,11 +801,12 @@ async fn find_available_job(
 }
 
 /// Check if all jobs in a run are complete, and update run status accordingly.
+/// Returns (run_id, final_status, commit_sha, repo_id) if the run just completed.
 async fn check_run_completion(
     pool: &sqlx::PgPool,
     job_id: Uuid,
     now: chrono::DateTime<chrono::Utc>,
-) {
+) -> Option<(Uuid, String, String, Uuid)> {
     let run_id: Option<(Uuid,)> =
         sqlx::query_as("SELECT run_id FROM pipeline_run_jobs WHERE id = $1")
             .bind(job_id)
@@ -836,9 +849,24 @@ async fn check_run_completion(
                 .bind(run_id)
                 .execute(pool)
                 .await;
+
+                // Fetch commit_sha and repo_id for auto-merge check
+                let run_info: Option<(String, Uuid)> = sqlx::query_as(
+                    "SELECT commit_sha, repo_id FROM pipeline_runs WHERE id = $1",
+                )
+                .bind(run_id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten();
+
+                if let Some((commit_sha, repo_id)) = run_info {
+                    return Some((run_id, final_status.to_string(), commit_sha, repo_id));
+                }
             }
         }
     }
+    None
 }
 
 // ---------------------------------------------------------------------------

@@ -428,10 +428,11 @@ impl DbRepository {
         source_branch: &str,
         target_branch: &str,
         draft: bool,
+        auto_merge: bool,
     ) -> Result<PullRequest> {
         let row = sqlx::query_as::<_, PullRequest>(
-            r#"INSERT INTO pull_requests (repo_id, title, body, author_id, source_branch, target_branch, draft)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+            r#"INSERT INTO pull_requests (repo_id, title, body, author_id, source_branch, target_branch, draft, auto_merge)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING *"#,
         )
         .bind(repo_id)
@@ -441,6 +442,7 @@ impl DbRepository {
         .bind(source_branch)
         .bind(target_branch)
         .bind(draft)
+        .bind(auto_merge)
         .fetch_one(&self.pool)
         .await
         .map_err(|e| CoreError::Database(format!("create_pr: {e}")))?;

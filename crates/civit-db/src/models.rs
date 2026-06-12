@@ -91,6 +91,8 @@ pub struct PullRequest {
     pub head_commit_sha: Option<String>,
     pub base_commit_sha: Option<String>,
     pub merge_strategy: String,
+    #[serde(default)]
+    pub auto_merge: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub merged_at: Option<DateTime<Utc>>,

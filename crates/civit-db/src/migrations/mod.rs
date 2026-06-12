@@ -46,6 +46,7 @@ pub const M_045_DEPLOY_KEYS_UP: &str = include_str!("045_add_deploy_keys.sql");
 pub const M_046_NOTIFICATIONS_UP: &str = include_str!("046_add_notifications.sql");
 pub const M_051_ENVIRONMENTS_DEPLOYMENTS_UP: &str =
     include_str!("051_add_environments_deployments.sql");
+pub const M_054_MERGE_QUEUE_UP: &str = include_str!("054_add_merge_queue.sql");
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -261,6 +262,12 @@ impl MigrationManager {
             up_sql: M_051_ENVIRONMENTS_DEPLOYMENTS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS deployments; DROP TABLE IF EXISTS environments;".into(),
         });
+        self.add_migration(Migration {
+            version: 54,
+            name: "add_merge_queue".into(),
+            up_sql: M_054_MERGE_QUEUE_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS merge_queue;".into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -302,7 +309,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 30);
+        assert_eq!(mgr.all().len(), 31);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -363,6 +370,8 @@ mod tests {
         assert_eq!(mgr.all()[28].name, "add_notifications");
         assert_eq!(mgr.all()[29].version, 51);
         assert_eq!(mgr.all()[29].name, "add_environments_deployments");
+        assert_eq!(mgr.all()[30].version, 54);
+        assert_eq!(mgr.all()[30].name, "add_merge_queue");
     }
 
     #[test]
@@ -374,8 +383,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 31);
-        assert_eq!(mgr.all()[30].version, 52);
+        assert_eq!(mgr.all().len(), 32);
+        assert_eq!(mgr.all()[31].version, 52);
     }
 
     #[test]
@@ -400,7 +409,7 @@ mod tests {
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(51);
+        let pending = mgr.get_pending(54);
         assert_eq!(pending.len(), 0);
     }
 

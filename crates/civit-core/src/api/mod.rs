@@ -23,6 +23,7 @@ pub mod issues;
 pub mod lfs;
 pub mod marketplace;
 pub mod mentions;
+pub mod merge_queue;
 pub mod mirrors;
 pub mod notifications;
 pub mod oci;
@@ -130,6 +131,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(boards::board_routes())
         .merge(edit::edit_routes())
         .merge(pull_requests::pr_routes())
+        .merge(merge_queue::merge_queue_routes())
         .merge(releases::release_routes())
         .merge(branch_protection::branch_protection_routes())
         .merge(wiki::wiki_routes())
