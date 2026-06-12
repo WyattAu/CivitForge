@@ -2299,6 +2299,138 @@ pub async fn create_branch_from_issue(
 }
 
 // ---------------------------------------------------------------------------
+// Issue analytics
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+pub struct IssueAnalyticsResponse {
+    pub total: i64,
+    pub open_count: i64,
+    pub closed_count: i64,
+    pub in_progress_count: i64,
+    pub by_label: Vec<LabelCount>,
+    pub by_author: Vec<AuthorCount>,
+    pub created_per_week: Vec<WeekCount>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LabelCount {
+    pub label: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AuthorCount {
+    pub author_id: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WeekCount {
+    pub week_start: String,
+    pub count: i64,
+}
+
+pub async fn issue_analytics(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match crate::api::merge_queue::get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(StatusCode::NOT_FOUND, &e.to_string()),
+    };
+
+    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1")
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+
+    let open_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'open'")
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+
+    let closed_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'closed'")
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+
+    let in_progress_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'in_progress'")
+        .bind(repo_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or((0,));
+
+    let by_label_rows: Vec<(String, i64)> = sqlx::query_as(
+        r#"SELECT il.name AS label, COUNT(*) AS count
+           FROM issue_labels il
+           JOIN issues i ON il.issue_id = i.id
+           WHERE i.repo_id = $1
+           GROUP BY il.name
+           ORDER BY count DESC
+           LIMIT 20"#,
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let by_author_rows: Vec<(String, i64)> = sqlx::query_as(
+        r#"SELECT author_id::text, COUNT(*) AS count
+           FROM issues WHERE repo_id = $1
+           GROUP BY author_id
+           ORDER BY count DESC
+           LIMIT 20"#,
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let created_per_week_rows: Vec<(chrono::NaiveDate, i64)> = sqlx::query_as(
+        r#"SELECT DATE_TRUNC('week', created_at)::date AS week_start, COUNT(*) AS count
+           FROM issues WHERE repo_id = $1 AND created_at >= NOW() - INTERVAL '12 weeks'
+           GROUP BY week_start
+           ORDER BY week_start"#,
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    (
+        StatusCode::OK,
+        Json(IssueAnalyticsResponse {
+            total: total.0,
+            open_count: open_count.0,
+            closed_count: closed_count.0,
+            in_progress_count: in_progress_count.0,
+            by_label: by_label_rows
+                .into_iter()
+                .map(|(label, count)| LabelCount { label, count })
+                .collect(),
+            by_author: by_author_rows
+                .into_iter()
+                .map(|(author_id, count)| AuthorCount { author_id, count })
+                .collect(),
+            created_per_week: created_per_week_rows
+                .into_iter()
+                .map(|(week_start, count)| WeekCount {
+                    week_start: week_start.to_string(),
+                    count,
+                })
+                .collect(),
+        }),
+    )
+        .into_response()
+}
+
+// ---------------------------------------------------------------------------
 // Route builder
 // ---------------------------------------------------------------------------
 
@@ -2309,6 +2441,10 @@ pub fn issue_routes() -> axum::Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/issues",
             get(list_issues).post(create_issue),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/issues/analytics",
+            get(issue_analytics),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/issues/{number}",

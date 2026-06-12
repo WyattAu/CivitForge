@@ -26,6 +26,7 @@ pub mod repo_detail;
 pub mod repos;
 pub mod search;
 pub mod settings;
+pub mod site_settings;
 pub mod teams;
 pub mod wiki;
 
@@ -55,5 +56,6 @@ pub use repo_detail::*;
 pub use repos::*;
 pub use search::*;
 pub use settings::*;
+pub use site_settings::*;
 pub use teams::*;
 pub use wiki::*;

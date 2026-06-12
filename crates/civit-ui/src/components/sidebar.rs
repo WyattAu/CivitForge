@@ -3,6 +3,7 @@
 use leptos::prelude::*;
 use leptos_router::components::A;
 
+use crate::api::client::ApiClient;
 use crate::components::Avatar;
 use crate::i18n::{self, t, LOCALES};
 use crate::state::auth::use_auth;
@@ -14,11 +15,31 @@ struct NavItem {
     icon: &'static str,
 }
 
+#[derive(Clone, serde::Deserialize)]
+struct SiteSettingsCache {
+    site_name: String,
+    logo_url: String,
+    footer_text: String,
+}
+
 #[component]
 pub fn Sidebar() -> impl IntoView {
     let (mobile_open, set_mobile_open) = signal(false);
     let auth = use_auth();
     let (current_locale, set_current_locale) = signal(i18n::get_locale());
+    let (site_settings, set_site_settings) = signal(None::<SiteSettingsCache>);
+
+    // Fetch site settings for sidebar display
+    leptos::task::spawn_local(async move {
+        let client = ApiClient::new(None);
+        if let Ok(resp) = client.get("/admin/settings").await {
+            if resp.status().is_success() {
+                if let Ok(data) = resp.json::<SiteSettingsCache>().await {
+                    set_site_settings.set(Some(data));
+                }
+            }
+        }
+    });
 
     let main_nav_items = vec![
         NavItem {
@@ -72,7 +93,21 @@ pub fn Sidebar() -> impl IntoView {
         >
             <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700 shrink-0">
                 <A href="/">
-                    <span class="text-xl font-bold text-blue-600 dark:text-blue-400">"CivitForge"</span>
+                    {move || {
+                        let s = site_settings.get();
+                        let name = s.as_ref().map(|s| s.site_name.clone()).unwrap_or_else(|| "CivitForge".into());
+                        let logo = s.and_then(|s| {
+                            if s.logo_url.is_empty() { None } else { Some(s.logo_url) }
+                        });
+                        view! {
+                            {if let Some(url) = logo {
+                                view! { <img src=url class="h-7 w-7 mr-2 rounded" alt="Logo" /> }.into_any()
+                            } else {
+                                view! { <span></span> }.into_any()
+                            }}
+                            <span class="text-xl font-bold text-blue-600 dark:text-blue-400">{name}</span>
+                        }
+                    }}
                 </A>
             </div>
 
@@ -102,7 +137,7 @@ pub fn Sidebar() -> impl IntoView {
                     }
                 </For>
 
-                <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! { <div class="hidden"></div> }>
+                <Show when=move || auth.0.with(|a| a.is_authenticated && a.username.as_deref() != Some("")) fallback=|| view! { <div class="hidden"></div> }>
                     <div class="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             {move || t("nav.create")}
@@ -110,6 +145,22 @@ pub fn Sidebar() -> impl IntoView {
                         <A href="/new-repo" attr:class=link_class>
                             <span class="mr-2">"\u{2795}"</span>
                             {move || t("nav.new_repo")}
+                        </A>
+                    </div>
+                </Show>
+
+                <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! { <div class="hidden"></div> }>
+                    <div class="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
+                        <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            "Admin"
+                        </div>
+                        <A href="/admin" attr:class=link_class>
+                            <span class="mr-2">"\u{2699}\u{fe0f}"</span>
+                            "Admin Panel"
+                        </A>
+                        <A href="/admin/site-settings" attr:class=link_class>
+                            <span class="mr-2">"\u{1f527}"</span>
+                            "Site Settings"
                         </A>
                     </div>
                 </Show>
@@ -187,6 +238,22 @@ pub fn Sidebar() -> impl IntoView {
                     </div>
                 </Show>
             </div>
+
+            // Footer text from site settings
+            {move || {
+                let footer = site_settings.get().and_then(|s| {
+                    if s.footer_text.is_empty() { None } else { Some(s.footer_text) }
+                });
+                if let Some(text) = footer {
+                    view! {
+                        <div class="border-t border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-400 dark:text-gray-500 shrink-0">
+                            {text}
+                        </div>
+                    }.into_any()
+                } else {
+                    view! { <div></div> }.into_any()
+                }
+            }}
         </aside>
 
         <div

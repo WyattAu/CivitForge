@@ -43,6 +43,7 @@ pub mod runners;
 pub mod search;
 pub mod secret_scanning;
 pub mod slsa_dashboard;
+pub mod site_settings;
 pub mod ssh_keys;
 pub mod teams;
 pub mod tokens;
@@ -185,6 +186,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         )
         .merge(teams::team_routes())
         .merge(audit_admin::audit_admin_routes())
+        .route(
+            "/api/v1/admin/settings",
+            get(site_settings::get_site_settings).put(site_settings::update_site_settings),
+        )
+        .merge(oidc::oidc_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

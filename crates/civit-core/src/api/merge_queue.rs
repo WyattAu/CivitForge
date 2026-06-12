@@ -4,13 +4,13 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     response::IntoResponse,
-    routing::{delete, get},
+    routing::{delete, get, patch},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::api::AppState;
-use crate::api::auth::AuthUser;
+use crate::api::auth::{AuthUser, require_admin};
 use crate::error::{CoreError, Result};
 
 fn err_response(e: CoreError) -> axum::response::Response {
@@ -22,6 +22,11 @@ fn err_response(e: CoreError) -> axum::response::Response {
 #[derive(Debug, Deserialize)]
 pub struct AddToMergeQueue {
     pub pr_number: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReorderMergeQueueRequest {
+    pub new_position: i32,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,7 +48,25 @@ pub struct MergeQueueResponse {
     pub total: i64,
 }
 
-async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Result<Uuid> {
+#[derive(Debug, Serialize)]
+pub struct AdminMergeQueueEntry {
+    pub id: String,
+    pub pr_number: i64,
+    pub pr_title: String,
+    pub repo_full_name: String,
+    pub branch: String,
+    pub status: String,
+    pub position: i32,
+    pub enqueued_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdminMergeQueueResponse {
+    pub items: Vec<AdminMergeQueueEntry>,
+    pub total: i64,
+}
+
+pub async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Result<Uuid> {
     sqlx::query_scalar::<_, Uuid>(
         "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
@@ -236,6 +259,168 @@ pub async fn remove_from_merge_queue(
     }
 }
 
+/// GET /admin/merge-queue - list all merge queue entries across all repos
+pub async fn admin_list_all_merge_queue(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let pool = state.db.pool();
+
+    let rows_result: Result<Vec<MergeQueueRow>> = sqlx::query_as(
+        "SELECT * FROM merge_queue WHERE status = 'queued' ORDER BY position ASC LIMIT 100",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| CoreError::Database(format!("admin_list_all_merge_queue: {e}")));
+
+    match rows_result {
+        Ok(rows) => {
+            let mut items = Vec::new();
+            for row in rows {
+                let pr_info: Option<(String, i64, String, String)> = sqlx::query_as(
+                    r#"SELECT pr.title, pr.number::bigint, r.full_name, pr.source_branch
+                       FROM pull_requests pr
+                       JOIN repositories r ON pr.repo_id = r.id
+                       WHERE pr.id = $1"#,
+                )
+                .bind(row.pr_id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten();
+
+                let (pr_title, pr_number, repo_full_name, branch) = pr_info
+                    .map(|(t, n, rn, b)| (t, n, rn, b))
+                    .unwrap_or_default();
+
+                items.push(AdminMergeQueueEntry {
+                    id: row.id.to_string(),
+                    pr_number: pr_number as i64,
+                    pr_title,
+                    repo_full_name,
+                    branch,
+                    status: row.status,
+                    position: row.position,
+                    enqueued_at: row.created_at.to_rfc3339(),
+                });
+            }
+            let total = items.len() as i64;
+            (axum::http::StatusCode::OK, Json(AdminMergeQueueResponse { items, total })).into_response()
+        }
+        Err(e) => err_response(e),
+    }
+}
+
+/// DELETE /admin/merge-queue/{id}
+pub async fn admin_remove_merge_queue_entry(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let pool = state.db.pool();
+    let entry_id = match Uuid::parse_str(&id) {
+        Ok(u) => u,
+        Err(_) => return err_response(CoreError::BadRequest("invalid queue entry id".into())),
+    };
+
+    let result = sqlx::query("DELETE FROM merge_queue WHERE id = $1")
+        .bind(entry_id)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("admin_remove_merge_queue_entry: {e}")));
+
+    match result {
+        Ok(r) => {
+            if r.rows_affected() == 0 {
+                err_response(CoreError::NotFound("queue entry not found".into()))
+            } else {
+                (axum::http::StatusCode::NO_CONTENT, ()).into_response()
+            }
+        }
+        Err(e) => err_response(e),
+    }
+}
+
+/// PATCH /admin/merge-queue/{id}/reorder
+pub async fn admin_reorder_merge_queue_entry(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    auth: AuthUser,
+    Json(req): Json<ReorderMergeQueueRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let pool = state.db.pool();
+    let entry_id = match Uuid::parse_str(&id) {
+        Ok(u) => u,
+        Err(_) => return err_response(CoreError::BadRequest("invalid queue entry id".into())),
+    };
+
+    // Get current entry to find repo_id
+    let current: Option<MergeQueueRow> = sqlx::query_as(
+        "SELECT * FROM merge_queue WHERE id = $1",
+    )
+    .bind(entry_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    let current = match current {
+        Some(c) => c,
+        None => return err_response(CoreError::NotFound("queue entry not found".into())),
+    };
+
+    let new_pos = req.new_position.max(1);
+    let old_pos = current.position;
+
+    if old_pos == new_pos {
+        return (axum::http::StatusCode::OK, ()).into_response();
+    }
+
+    if new_pos > old_pos {
+        // Moving down: shift entries between old+1 and new up by 1
+        let _ = sqlx::query(
+            "UPDATE merge_queue SET position = position - 1, updated_at = NOW() WHERE repo_id = $1 AND status = 'queued' AND position > $2 AND position <= $3",
+        )
+        .bind(current.repo_id)
+        .bind(old_pos)
+        .bind(new_pos)
+        .execute(pool)
+        .await;
+    } else {
+        // Moving up: shift entries between new and old-1 down by 1
+        let _ = sqlx::query(
+            "UPDATE merge_queue SET position = position + 1, updated_at = NOW() WHERE repo_id = $1 AND status = 'queued' AND position >= $2 AND position < $3",
+        )
+        .bind(current.repo_id)
+        .bind(new_pos)
+        .bind(old_pos)
+        .execute(pool)
+        .await;
+    }
+
+    let _ = sqlx::query(
+        "UPDATE merge_queue SET position = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(new_pos)
+    .bind(entry_id)
+    .execute(pool)
+    .await;
+
+    (axum::http::StatusCode::OK, ()).into_response()
+}
+
 pub fn merge_queue_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -245,6 +430,18 @@ pub fn merge_queue_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/merge-queue/{id}",
             delete(remove_from_merge_queue),
+        )
+        .route(
+            "/api/v1/admin/merge-queue",
+            get(admin_list_all_merge_queue),
+        )
+        .route(
+            "/api/v1/admin/merge-queue/{id}",
+            delete(admin_remove_merge_queue_entry),
+        )
+        .route(
+            "/api/v1/admin/merge-queue/{id}/reorder",
+            patch(admin_reorder_merge_queue_entry),
         )
 }
 

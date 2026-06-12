@@ -932,6 +932,7 @@ dependencies = [
  "gix",
  "hex",
  "hmac 0.12.1",
+ "http-body-util",
  "jsonwebtoken",
  "ldap3",
  "lettre",

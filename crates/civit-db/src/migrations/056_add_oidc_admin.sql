@@ -1,0 +1,5 @@
+-- Migration 056: Add OIDC provider admin fields
+ALTER TABLE oidc_providers ADD COLUMN IF NOT EXISTS jwks_uri TEXT NOT NULL DEFAULT '';
+ALTER TABLE oidc_providers ADD COLUMN IF NOT EXISTS client_secret TEXT NOT NULL DEFAULT '';
+ALTER TABLE oidc_providers ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE oidc_providers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();

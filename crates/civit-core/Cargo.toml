@@ -58,6 +58,10 @@ civit-db = { path = "../civit-db" }
 civit-git = { path = "../civit-git" }
 civit-auth = { path = "../civit-auth" }
 
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
 [features]
 default = []
 ssh-server = ["dep:russh"]

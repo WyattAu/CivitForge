@@ -7,10 +7,41 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client::ApiClient;
 use crate::api::types::{CreateIssueBody, IssueResponse, ListResponse};
 use crate::components::{
-    Badge, Button, ButtonVariant, Card, ErrorBanner, Pagination, Spinner, TabItem, Tabs,
+    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Pagination, Spinner, TabItem, Tabs,
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
+
+// ── Issue Analytics Types ──
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+struct LabelCount {
+    label: String,
+    count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+struct AuthorCount {
+    author_id: String,
+    count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+struct WeekCount {
+    week_start: String,
+    count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+struct IssueAnalyticsResponse {
+    total: i64,
+    open_count: i64,
+    closed_count: i64,
+    in_progress_count: i64,
+    by_label: Vec<LabelCount>,
+    by_author: Vec<AuthorCount>,
+    created_per_week: Vec<WeekCount>,
+}
 
 #[cfg(test)]
 mod tests {
@@ -94,6 +125,119 @@ fn truncate_title(s: &str, max_len: usize) -> String {
 }
 
 #[component]
+fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl IntoView {
+    let total_sig = Memo::new(move |_| analytics.get().map(|a| a.total).unwrap_or(0));
+    let open_sig = Memo::new(move |_| analytics.get().map(|a| a.open_count).unwrap_or(0));
+    let closed_sig = Memo::new(move |_| analytics.get().map(|a| a.closed_count).unwrap_or(0));
+    let in_progress_sig = Memo::new(move |_| analytics.get().map(|a| a.in_progress_count).unwrap_or(0));
+    let by_label_sig = Memo::new(move |_| analytics.get().map(|a| a.by_label).unwrap_or_default());
+    let by_author_sig = Memo::new(move |_| analytics.get().map(|a| a.by_author).unwrap_or_default());
+    let created_per_week_sig = Memo::new(move |_| analytics.get().map(|a| a.created_per_week).unwrap_or_default());
+
+    view! {
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <Card>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{move || total_sig.get().to_string()}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">"Total Issues"</div>
+                    </div>
+                </Card>
+                <Card>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{move || open_sig.get().to_string()}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">"Open"</div>
+                    </div>
+                </Card>
+                <Card>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{move || in_progress_sig.get().to_string()}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">"In Progress"</div>
+                    </div>
+                </Card>
+                <Card>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-gray-500 dark:text-gray-400">{move || closed_sig.get().to_string()}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">"Closed"</div>
+                    </div>
+                </Card>
+            </div>
+
+            <Show when=move || !by_label_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
+                <Card title="Issues by Label".to_string()>
+                    <div class="space-y-2">
+                        <For each=move || by_label_sig.get() key=|lc| lc.label.clone() let:lc>
+                            {
+                                let label = lc.label.clone();
+                                let count = lc.count;
+                                let max_count = by_label_sig.get().iter().map(|l| l.count).max().unwrap_or(1);
+                                let pct = if max_count > 0 { (count as f64 / max_count as f64 * 100.0) as u32 } else { 0 };
+                                view! {
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 w-32 truncate">{label}</span>
+                                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                            <div class="bg-blue-500 dark:bg-blue-400 h-2 rounded-full" style:width={format!("{pct}%")}></div>
+                                        </div>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{count.to_string()}</span>
+                                    </div>
+                                }
+                            }
+                        </For>
+                    </div>
+                </Card>
+            </Show>
+
+            <Show when=move || !by_author_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
+                <Card title="Issues by Author".to_string()>
+                    <div class="space-y-2">
+                        <For each=move || by_author_sig.get() key=|ac| ac.author_id.clone() let:ac>
+                            {
+                                let author = ac.author_id.clone();
+                                let author_short = author[..8.min(author.len())].to_string();
+                                let count = ac.count;
+                                let max_count = by_author_sig.get().iter().map(|a| a.count).max().unwrap_or(1);
+                                let pct = if max_count > 0 { (count as f64 / max_count as f64 * 100.0) as u32 } else { 0 };
+                                view! {
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 w-24 font-mono truncate">{author_short}</span>
+                                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                            <div class="bg-green-500 dark:bg-green-400 h-2 rounded-full" style:width={format!("{pct}%")}></div>
+                                        </div>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{count.to_string()}</span>
+                                    </div>
+                                }
+                            }
+                        </For>
+                    </div>
+                </Card>
+            </Show>
+
+            <Show when=move || !created_per_week_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
+                <Card title="Issues Created per Week (Last 12 Weeks)".to_string()>
+                    <div class="flex items-end gap-1 h-32">
+                        <For each=move || created_per_week_sig.get() key=|wc| wc.week_start.clone() let:wc>
+                            {
+                                let count = wc.count;
+                                let max_count = created_per_week_sig.get().iter().map(|w| w.count).max().unwrap_or(1);
+                                let height_pct = if max_count > 0 { (count as f64 / max_count as f64 * 100.0) as u32 } else { 0 };
+                                let week_label = wc.week_start[..10.min(wc.week_start.len())].to_string();
+                                view! {
+                                    <div class="flex flex-col items-center flex-1 min-w-0">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400 mb-1">{count.to_string()}</span>
+                                        <div class="w-full bg-blue-500 dark:bg-blue-400 rounded-t" style:height={format!("{height_pct}%")}></div>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate w-full text-center">{week_label}</span>
+                                    </div>
+                                }
+                            }
+                        </For>
+                    </div>
+                </Card>
+            </Show>
+        </div>
+    }
+}
+
+#[component]
 pub fn IssuesPage() -> impl IntoView {
     let params = use_params_map();
     let owner = move || params.with(|p| p.get("owner").unwrap_or_default());
@@ -108,6 +252,31 @@ pub fn IssuesPage() -> impl IntoView {
     let (show_new_form, set_show_new_form) = signal(false);
     let (submitting, set_submitting) = signal(false);
     let (submit_error, set_submit_error) = signal(None::<String>);
+
+    // Analytics state
+    let (analytics, set_analytics) = signal(None::<IssueAnalyticsResponse>);
+    let (analytics_loading, set_analytics_loading) = signal(false);
+    let (show_analytics, set_show_analytics) = signal(false);
+
+    // Fetch analytics
+    let fetch_analytics = move || {
+        set_analytics_loading.set(true);
+        let token = auth.0.with(|a| a.token.clone());
+        let owner_val = owner();
+        let name_val = name();
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/repos/{owner_val}/{name_val}/issues/analytics");
+            if let Ok(resp) = client.get(&path).await {
+                if resp.status().is_success() {
+                    if let Ok(data) = resp.json::<IssueAnalyticsResponse>().await {
+                        set_analytics.set(Some(data));
+                    }
+                }
+            }
+            set_analytics_loading.set(false);
+        });
+    };
 
     let fetch_issues = move || {
         let token = auth.0.with(|a| a.token.clone());
@@ -251,6 +420,16 @@ pub fn IssuesPage() -> impl IntoView {
                 >
                     {move || if show_new_form.get() { "Cancel" } else { "New Issue" }}
                 </Button>
+                <Button
+                    variant=ButtonVariant::Secondary
+                    on:click=move |_| {
+                        let new_val = !show_analytics.get();
+                        set_show_analytics.set(new_val);
+                        if new_val { fetch_analytics(); }
+                    }
+                >
+                    {move || if show_analytics.get() { "Hide Analytics" } else { "Analytics" }}
+                </Button>
             </div>
 
             <Show when=move || show_new_form.get() fallback=|| view! { <div class="hidden"></div> }>
@@ -289,6 +468,21 @@ pub fn IssuesPage() -> impl IntoView {
                         </div>
                     </form>
                 </Card>
+            </Show>
+
+            // -- Analytics Section --
+            <Show when=move || show_analytics.get() fallback=|| view! { <div class="hidden"></div> }>
+                <Show when=move || analytics_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                    <Card>
+                        <div class="flex items-center justify-center py-8">
+                            <Spinner />
+                            <span class="ml-3 text-gray-500 dark:text-gray-400">"Loading analytics..."</span>
+                        </div>
+                    </Card>
+                </Show>
+                <Show when=move || !analytics_loading.get() && analytics.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                    <AnalyticsSection analytics=analytics.into() />
+                </Show>
             </Show>
 
             <Tabs

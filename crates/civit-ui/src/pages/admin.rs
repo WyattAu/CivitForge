@@ -7,6 +7,7 @@ use crate::components::{
     Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner,
 };
 use crate::state::auth::use_auth;
+use crate::utils::*;
 
 // ── Types ──
 
@@ -137,10 +138,46 @@ struct MergeQueueEntry {
     pr_title: String,
     #[serde(default)]
     repo_full_name: Option<String>,
+    #[serde(default)]
     branch: String,
     status: String,
     position: i32,
     enqueued_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct MergeQueueListResponse {
+    items: Vec<MergeQueueEntry>,
+    total: i64,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct OidcProviderItem {
+    id: String,
+    name: String,
+    issuer: String,
+    client_id: String,
+    jwks_uri: String,
+    enabled: bool,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct CreateOidcProviderBody {
+    name: String,
+    issuer: String,
+    client_id: String,
+    jwks_uri: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct UpdateOidcProviderBody {
+    name: Option<String>,
+    issuer: Option<String>,
+    client_id: Option<String>,
+    jwks_uri: Option<String>,
+    enabled: Option<bool>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -153,6 +190,7 @@ enum AdminTab {
     Deployments,
     Teams,
     MergeQueue,
+    OidcProviders,
 }
 
 // ── Page ──
@@ -210,6 +248,14 @@ pub fn AdminPage() -> impl IntoView {
     let (merge_queue, set_merge_queue) = signal(Vec::<MergeQueueEntry>::new());
     let (mq_loading, set_mq_loading) = signal(false);
     let (mq_error, set_mq_error) = signal(None::<String>);
+
+    // OIDC state
+    let (oidc_providers, set_oidc_providers) = signal(Vec::<OidcProviderItem>::new());
+    let (oidc_loading, set_oidc_loading) = signal(false);
+    let (oidc_error, set_oidc_error) = signal(None::<String>);
+    let (oidc_form_error, set_oidc_form_error) = signal(None::<String>);
+    let (show_oidc_form, set_show_oidc_form) = signal(false);
+    let (editing_oidc_id, set_editing_oidc_id) = signal(None::<String>);
 
     // Fetch audit log
     let fetch_audit = move || {
@@ -439,8 +485,8 @@ pub fn AdminPage() -> impl IntoView {
             let client = ApiClient::new(token);
             match client.get("/admin/merge-queue?limit=50").await {
                 Ok(resp) if resp.status().is_success() => {
-                    if let Ok(data) = resp.json::<Vec<MergeQueueEntry>>().await {
-                        set_merge_queue.set(data);
+                    if let Ok(data) = resp.json::<MergeQueueListResponse>().await {
+                        set_merge_queue.set(data.items);
                     }
                 }
                 Ok(_) => {
@@ -451,6 +497,64 @@ pub fn AdminPage() -> impl IntoView {
                 }
             }
             set_mq_loading.set(false);
+        });
+    };
+
+    // Fetch OIDC providers
+    let fetch_oidc = move || {
+        set_oidc_loading.set(true);
+        set_oidc_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/oidc-providers").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<Vec<OidcProviderItem>>().await {
+                        set_oidc_providers.set(data);
+                    }
+                }
+                Ok(_) => {
+                    set_oidc_error.set(Some("Failed to load OIDC providers.".to_string()));
+                }
+                Err(_) => {
+                    set_oidc_error.set(Some("Network error.".to_string()));
+                }
+            }
+            set_oidc_loading.set(false);
+        });
+    };
+
+    // Remove from merge queue
+    let remove_from_queue = move |entry_id: String| {
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/admin/merge-queue/{entry_id}");
+            let _ = client.delete(&path).await;
+            fetch_merge_queue();
+        });
+    };
+
+    // Reorder merge queue entry
+    let reorder_entry = move |entry_id: String, new_position: i32| {
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/admin/merge-queue/{entry_id}/reorder");
+            let body = serde_json::json!({ "new_position": new_position });
+            let _ = client.patch(&path, &body).await;
+            fetch_merge_queue();
+        });
+    };
+
+    // Delete OIDC provider
+    let delete_oidc_provider = move |provider_id: String| {
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/admin/oidc-providers/{provider_id}");
+            let _ = client.delete(&path).await;
+            fetch_oidc();
         });
     };
 
@@ -468,6 +572,7 @@ pub fn AdminPage() -> impl IntoView {
             AdminTab::Deployments => fetch_deployments(),
             AdminTab::Teams => fetch_teams(),
             AdminTab::MergeQueue => fetch_merge_queue(),
+            AdminTab::OidcProviders => fetch_oidc(),
         }
     };
 
@@ -535,6 +640,9 @@ pub fn AdminPage() -> impl IntoView {
                     </button>
                     <button class=tab_class(AdminTab::MergeQueue, active_tab.get()) on:click=move |_| switch_tab(AdminTab::MergeQueue)>
                         "Merge Queue"
+                    </button>
+                    <button class=tab_class(AdminTab::OidcProviders, active_tab.get()) on:click=move |_| switch_tab(AdminTab::OidcProviders)>
+                        "OIDC Providers"
                     </button>
                 </nav>
             </div>
@@ -1192,23 +1300,28 @@ pub fn AdminPage() -> impl IntoView {
                                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                             <thead class="bg-gray-50 dark:bg-gray-750">
                                                 <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Position"</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"PR"</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Repository"</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Branch"</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Status"</th>
-                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Position"</th>
                                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Enqueued"</th>
+                                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Actions"</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                                 <For each=move || merge_queue.get() key=|e| e.id.clone() let:entry>
                                                     {
                                                         let pr_title = entry.pr_title.clone();
+                                                        let pr_number = entry.pr_number;
                                                         let repo = entry.repo_full_name.clone().unwrap_or_default();
                                                         let branch = entry.branch.clone();
                                                         let status = entry.status.clone();
                                                         let position = entry.position;
                                                         let enqueued_at = entry.enqueued_at.clone();
+                                                        let entry_id = entry.id.clone();
+                                                        let entry_id2 = entry.id.clone();
+                                                        let entry_id3 = entry.id.clone();
                                                         let status_color_val = match status.as_str() {
                                                             "merged" => BadgeColor::Success,
                                                             "running" | "queued" => BadgeColor::Warning,
@@ -1217,12 +1330,206 @@ pub fn AdminPage() -> impl IntoView {
                                                         };
                                                         view! {
                                                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
-                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{pr_title}</td>
+                                                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                                                    <div class="flex items-center gap-1">
+                                                                        <button
+                                                                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30"
+                                                                            disabled=move || position <= 1
+                                                                            on:click=move |_| reorder_entry(entry_id3.clone(), position - 1)
+                                                                        >
+                                                                            "\u{25B2}"
+                                                                        </button>
+                                                                        <span class="w-6 text-center">{position.to_string()}</span>
+                                                                        <button
+                                                                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                                                                            on:click=move |_| reorder_entry(entry_id2.clone(), position + 1)
+                                                                        >
+                                                                            "\u{25BC}"
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                                    {format!("PR #{pr_number} {pr_title}")}
+                                                                </td>
                                                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono">{repo}</td>
                                                                 <td class="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{branch}</td>
                                                                 <td class="px-4 py-3"><Badge color=status_color_val text=status /></td>
-                                                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{position.to_string()}</td>
                                                                 <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{enqueued_at}</td>
+                                                                <td class="px-4 py-3 text-right">
+                                                                    <button
+                                                                        class="text-sm text-red-600 dark:text-red-400 hover:underline"
+                                                                        on:click=move |_| remove_from_queue(entry_id.clone())
+                                                                    >
+                                                                        "Remove"
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </For>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }.into_any()
+                            }}
+                        </Card>
+                    </Show>
+                </div>
+            </Show>
+
+            // -- OIDC Providers Tab --
+            <Show when=move || active_tab.get() == AdminTab::OidcProviders fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"OIDC Providers"</h3>
+                        <Button variant=ButtonVariant::Primary on:click=move |_| {
+                            set_show_oidc_form.set(!show_oidc_form.get());
+                            set_editing_oidc_id.set(None);
+                        }>
+                            {move || if show_oidc_form.get() { "Cancel" } else { "Add Provider" }}
+                        </Button>
+                    </div>
+
+                    // OIDC Add/Edit Form
+                    <Show when=move || show_oidc_form.get() fallback=|| view! { <div class="hidden"></div> }>
+                        {move || {
+                            let title = if editing_oidc_id.get().is_some() { "Edit Provider".to_string() } else { "Add OIDC Provider".to_string() };
+                            Some(view! {
+                                <Card title=title>
+                                    <form on:submit=move |ev: leptos::ev::SubmitEvent| {
+                                        ev.prevent_default();
+                                        set_oidc_form_error.set(None);
+                                        let name = get_input_value("oidc-name");
+                                        let issuer = get_input_value("oidc-issuer");
+                                        let client_id = get_input_value("oidc-client-id");
+                                        let jwks_uri = get_input_value("oidc-jwks-uri");
+
+                                        if name.trim().is_empty() || issuer.trim().is_empty() {
+                                            set_oidc_form_error.set(Some("Name and issuer are required.".to_string()));
+                                            return;
+                                        }
+
+                                        let token = auth.0.with(|a| a.token.clone());
+                                        let is_edit = editing_oidc_id.get();
+                                        leptos::task::spawn_local(async move {
+                                            let client = ApiClient::new(token);
+                                            if let Some(edit_id) = is_edit {
+                                                let body = UpdateOidcProviderBody {
+                                                    name: Some(name.trim().to_string()),
+                                                    issuer: Some(issuer.trim().to_string()),
+                                                    client_id: Some(client_id.trim().to_string()),
+                                                    jwks_uri: Some(jwks_uri.trim().to_string()),
+                                                    enabled: None,
+                                                };
+                                                let path = format!("/admin/oidc-providers/{edit_id}");
+                                                let _ = client.patch(&path, &body).await;
+                                            } else {
+                                                let body = CreateOidcProviderBody {
+                                                    name: name.trim().to_string(),
+                                                    issuer: issuer.trim().to_string(),
+                                                    client_id: client_id.trim().to_string(),
+                                                    jwks_uri: jwks_uri.trim().to_string(),
+                                                };
+                                                let _ = client.post("/admin/oidc-providers", &body).await;
+                                            }
+                                            set_show_oidc_form.set(false);
+                                            set_editing_oidc_id.set(None);
+                                            fetch_oidc();
+                                        });
+                                    } class="space-y-4">
+                                        <Show when=move || oidc_form_error.get().is_some()>
+                                            <ErrorBanner message=move || oidc_form_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_oidc_form_error.set(None)) />
+                                        </Show>
+                                        <crate::components::Input
+                                            label="Provider Name"
+                                            name="oidc-name"
+                                            id="oidc-name"
+                                            input_type=crate::components::InputType::Text
+                                            placeholder="e.g. google, github"
+                                            required=true
+                                        />
+                                        <crate::components::Input
+                                            label="Issuer URL"
+                                            name="oidc-issuer"
+                                            id="oidc-issuer"
+                                            input_type=crate::components::InputType::Text
+                                            placeholder="https://accounts.google.com"
+                                            required=true
+                                        />
+                                        <crate::components::Input
+                                            label="Client ID"
+                                            name="oidc-client-id"
+                                            id="oidc-client-id"
+                                            input_type=crate::components::InputType::Text
+                                            placeholder="OAuth2 client ID"
+                                            required=true
+                                        />
+                                        <crate::components::Input
+                                            label="JWKS URI"
+                                            name="oidc-jwks-uri"
+                                            id="oidc-jwks-uri"
+                                            input_type=crate::components::InputType::Text
+                                            placeholder="https://example.com/.well-known/jwks.json"
+                                        />
+                                        <div>
+                                            <Button variant=ButtonVariant::Primary>
+                                                {move || if editing_oidc_id.get().is_some() { "Update Provider" } else { "Add Provider" }}
+                                            </Button>
+                                        </div>
+                                    </form>
+                                </Card>
+                            })
+                        }}
+                    </Show>
+
+                    <Show when=move || oidc_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || oidc_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_oidc_error.set(None)) />
+                    </Show>
+                    <Show when=move || oidc_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-12"><Spinner /></div>
+                    </Show>
+                    <Show when=move || !oidc_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <Card>
+                            {move || if oidc_providers.get().is_empty() {
+                                view! { <div class="py-8 text-center text-gray-400 dark:text-gray-500">"No OIDC providers configured."</div> }.into_any()
+                            } else {
+                                view! {
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                            <thead class="bg-gray-50 dark:bg-gray-750">
+                                                <tr>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Name"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Issuer"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Client ID"</th>
+                                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Status"</th>
+                                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Actions"</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                                <For each=move || oidc_providers.get() key=|p| p.id.clone() let:provider>
+                                                    {
+                                                        let p_name = provider.name.clone();
+                                                        let p_issuer = provider.issuer.clone();
+                                                        let p_client_id = provider.client_id.clone();
+                                                        let p_enabled = provider.enabled;
+                                                        let p_id = provider.id.clone();
+                                                        let p_id2 = provider.id.clone();
+                                                        view! {
+                                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                                <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{p_name}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono max-w-xs truncate">{p_issuer}</td>
+                                                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 font-mono">{p_client_id}</td>
+                                                                <td class="px-4 py-3">
+                                                                    <Badge color=if p_enabled { BadgeColor::Success } else { BadgeColor::Neutral } text=if p_enabled { "Enabled".to_string() } else { "Disabled".to_string() } />
+                                                                </td>
+                                                                <td class="px-4 py-3 text-right">
+                                                                    <button
+                                                                        class="text-sm text-red-600 dark:text-red-400 hover:underline"
+                                                                        on:click=move |_| delete_oidc_provider(p_id.clone())
+                                                                    >
+                                                                        "Delete"
+                                                                    </button>
+                                                                </td>
                                                             </tr>
                                                         }
                                                     }
