@@ -597,11 +597,23 @@ impl FederationDelivery {
                 }
                 Ok(resp) => {
                     let status = resp.status().as_u16();
+                    if (400..500).contains(&status) {
+                        tracing::warn!(
+                            target = %target_url,
+                            status,
+                            attempt,
+                            "activity delivery rejected (permanent)"
+                        );
+                        return Err(DeliveryError::HttpError {
+                            status,
+                            inbox: target_url.to_string(),
+                        });
+                    }
                     tracing::warn!(
                         target = %target_url,
                         status,
                         attempt,
-                        "activity delivery returned non-success"
+                        "activity delivery returned transient failure"
                     );
                     last_err = Some(DeliveryError::HttpError {
                         status,

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuthState {
     pub is_authenticated: bool,
+    pub is_admin: bool,
     pub user_id: Option<String>,
     pub username: Option<String>,
     pub token: Option<String>,
@@ -71,6 +72,7 @@ pub fn provide_auth_context() {
                     if let Ok(user) = resp.json::<crate::api::types::AuthUser>().await {
                         auth.1.update(|state| {
                             state.is_authenticated = true;
+                            state.is_admin = user.is_admin;
                             state.user_id = Some(user.id);
                             state.username = Some(user.username);
                             state.token = Some(token);
@@ -91,10 +93,12 @@ pub fn login(
     user_id: String,
     username: String,
     token: String,
+    is_admin: bool,
 ) {
     local_storage_set(STORAGE_KEY, &token);
     auth.1.update(|state| {
         state.is_authenticated = true;
+        state.is_admin = is_admin;
         state.user_id = Some(user_id);
         state.username = Some(username);
         state.token = Some(token);

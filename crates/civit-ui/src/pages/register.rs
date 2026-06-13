@@ -82,7 +82,7 @@ pub fn RegisterPage() -> impl IntoView {
                     if status.is_success() {
                         match serde_json::from_str::<AuthResponse>(&text) {
                             Ok(data) => {
-                                login(&auth_clone, data.user.id, data.user.username, data.token);
+                                login(&auth_clone, data.user.id, data.user.username, data.token, data.user.is_admin);
                                 nav_clone("/repos", Default::default());
                             }
                             Err(e) => {

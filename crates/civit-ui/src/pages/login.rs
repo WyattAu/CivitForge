@@ -95,7 +95,7 @@ pub fn LoginPage() -> impl IntoView {
                     if status.is_success() {
                         match serde_json::from_str::<AuthResponse>(&text) {
                             Ok(data) => {
-                                login(&auth_clone, data.user.id, data.user.username, data.token);
+                                login(&auth_clone, data.user.id, data.user.username, data.token, data.user.is_admin);
                                 nav_clone("/repos", Default::default());
                             }
                             Err(e) => {
@@ -159,7 +159,7 @@ pub fn LoginPage() -> impl IntoView {
                                 Ok(resp) if resp.status().is_success() => {
                                     let text = resp.text().await.unwrap_or_default();
                                     if let Ok(data) = serde_json::from_str::<AuthResponse>(&text) {
-                                        login(&auth, data.user.id, data.user.username, data.token);
+                                        login(&auth, data.user.id, data.user.username, data.token, data.user.is_admin);
                                         nav_sig.get()("/repos", Default::default());
                                     }
                                 }
@@ -189,6 +189,7 @@ pub fn LoginPage() -> impl IntoView {
                                                     data.user.id,
                                                     data.user.username,
                                                     data.token,
+                                                    data.user.is_admin,
                                                 );
                                                 nav_sig.get()("/repos", Default::default());
                                             }

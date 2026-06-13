@@ -91,16 +91,7 @@ pub struct InboxResponse {
     pub message: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct OutboxResponse {
-    #[serde(rename = "@context")]
-    pub context: String,
-    pub id: String,
-    #[serde(rename = "type")]
-    pub type_: String,
-    pub total_items: u64,
-    pub ordered_items: Vec<serde_json::Value>,
-}
+
 
 pub fn federation_routes() -> Router<AppState> {
     Router::new()
@@ -641,7 +632,32 @@ pub async fn outbox(
 
     let outbox_url = format!("https://{domain}/api/v1/federation/outbox");
 
-    let resp = serde_json::json!({
+    let total_pages = if total == 0 {
+        1
+    } else {
+        total.div_ceil(per_page)
+    };
+    let first_url = format!("{outbox_url}?page=1&per_page={per_page}");
+    let last_url = format!("{outbox_url}?page={total_pages}&per_page={per_page}");
+    let current_page = params.page;
+    let next_url = if current_page < total_pages {
+        Some(format!(
+            "{outbox_url}?page={}&per_page={per_page}",
+            current_page + 1
+        ))
+    } else {
+        None
+    };
+    let prev_url = if current_page > 1 {
+        Some(format!(
+            "{outbox_url}?page={}&per_page={per_page}",
+            current_page - 1
+        ))
+    } else {
+        None
+    };
+
+    let mut resp = serde_json::json!({
         "@context": [
             "https://www.w3.org/ns/activitystreams",
             {
@@ -649,6 +665,8 @@ pub async fn outbox(
                 "current": "https://www.w3.org/ns/activitystreams#current",
                 "next": "https://www.w3.org/ns/activitystreams#next",
                 "prev": "https://www.w3.org/ns/activitystreams#prev",
+                "first": "https://www.w3.org/ns/activitystreams#first",
+                "last": "https://www.w3.org/ns/activitystreams#last",
                 "PartOf": "https://www.w3.org/ns/activitystreams#PartOf",
                 "items": "https://www.w3.org/ns/activitystreams#items",
                 "orderedItems": "https://www.w3.org/ns/activitystreams#orderedItems",
@@ -658,9 +676,22 @@ pub async fn outbox(
         "type": "OrderedCollection",
         "totalItems": total,
         "current": format!("{outbox_url}?page={}&per_page={}", params.page, per_page),
+        "first": &first_url,
+        "last": &last_url,
         "partOf": &outbox_url,
         "orderedItems": ordered_items,
     });
+
+    if let Some(next) = &next_url {
+        resp.as_object_mut()
+            .unwrap()
+            .insert("next".into(), serde_json::Value::String(next.clone()));
+    }
+    if let Some(prev) = &prev_url {
+        resp.as_object_mut()
+            .unwrap()
+            .insert("prev".into(), serde_json::Value::String(prev.clone()));
+    }
 
     let mut headers = axum::http::HeaderMap::new();
     headers.insert(
@@ -751,48 +782,8 @@ pub async fn outbox_post(
         cc: body.cc,
     };
 
-    // Spawn background delivery — resolve followers and deliver via HTTP signatures
-    let private_key = get_federation_key().private_key_bytes.clone();
-    let pool = state.db.pool().clone();
-    let activity_id_for_log = activity_id.clone();
-
-    tokio::spawn(async move {
-        let follower_urls = match get_follower_inbox_urls(&pool).await {
-            Ok(urls) => urls,
-            Err(e) => {
-                tracing::warn!(error = %e, "failed to resolve follower inbox URLs for delivery");
-                return;
-            }
-        };
-
-        if follower_urls.is_empty() {
-            tracing::debug!("no followers to deliver activity to");
-            return;
-        }
-
-        for inbox_url in &follower_urls {
-            if let Err(e) = crate::federation::delivery::FederationDelivery::deliver_activity(
-                &activity,
-                inbox_url,
-                &private_key,
-            )
-            .await
-            {
-                tracing::warn!(
-                    inbox = %inbox_url,
-                    error = %e,
-                    activity_id = %activity_id_for_log,
-                    "failed to deliver activity to follower inbox"
-                );
-            }
-        }
-
-        tracing::info!(
-            activity_id = %activity_id_for_log,
-            followers = follower_urls.len(),
-            "activity delivered to followers"
-        );
-    });
+    // Spawn background delivery via shared deliver_to_followers helper
+    deliver_to_followers(activity, state.db.pool().clone()).await;
 
     let resp = OutboxPostResponse {
         status: "accepted".into(),
@@ -927,20 +918,6 @@ mod tests {
         };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"status\":\"accepted\""));
-    }
-
-    #[test]
-    fn test_outbox_response_serialization() {
-        let resp = OutboxResponse {
-            context: "https://www.w3.org/ns/activitystreams".into(),
-            id: "https://example.com/outbox".into(),
-            type_: "OrderedCollection".into(),
-            total_items: 0,
-            ordered_items: Vec::new(),
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        assert!(json.contains("\"total_items\":0"));
-        assert!(json.contains("\"type\":\"OrderedCollection\""));
     }
 
     #[test]

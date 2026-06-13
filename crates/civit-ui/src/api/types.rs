@@ -31,6 +31,8 @@ pub struct AuthUser {
     pub username: String,
     pub email: String,
     pub display_name: Option<String>,
+    #[serde(default)]
+    pub is_admin: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

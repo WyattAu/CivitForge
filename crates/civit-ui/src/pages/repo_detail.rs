@@ -270,6 +270,20 @@ fn RepoTabs(
             "pipelines"
         } else if rest.starts_with("/settings") {
             "settings"
+        } else if rest.starts_with("/blame") {
+            "code"
+        } else if rest.starts_with("/commits") {
+            "code"
+        } else if rest.starts_with("/graph") {
+            "code"
+        } else if rest.starts_with("/releases") {
+            "code"
+        } else if rest.starts_with("/environments") {
+            "code"
+        } else if rest.starts_with("/deployments") {
+            "code"
+        } else if rest.starts_with("/branch-protection") {
+            "settings"
         } else {
             "code"
         }

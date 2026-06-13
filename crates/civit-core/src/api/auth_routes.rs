@@ -518,10 +518,9 @@ pub async fn ldap_admin_status(
     let ldap_config: crate::ldap::LdapConfig = sec.into();
 
     let connected = if sec.ldap_enabled {
-        match crate::ldap::LdapAuth::test_connection(&ldap_config).await {
-            Ok(c) => c,
-            Err(_) => false,
-        }
+        crate::ldap::LdapAuth::test_connection(&ldap_config)
+            .await
+            .unwrap_or_default()
     } else {
         false
     };

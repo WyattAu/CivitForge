@@ -149,7 +149,7 @@ pub fn Sidebar() -> impl IntoView {
                     </div>
                 </Show>
 
-                <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! { <div class="hidden"></div> }>
+                <Show when=move || auth.0.with(|a| a.is_authenticated && a.is_admin) fallback=|| view! { <div class="hidden"></div> }>
                     <div class="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             "Admin"
