@@ -91,7 +91,7 @@ pub fn Sidebar() -> impl IntoView {
                    -translate-x-full lg:translate-x-0 flex flex-col"
             class:translate-x-0=move || mobile_open.get()
         >
-            <div class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700 shrink-0">
+            <header class="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-700 shrink-0" role="banner">
                 <A href="/">
                     {move || {
                         let s = site_settings.get();
@@ -109,7 +109,7 @@ pub fn Sidebar() -> impl IntoView {
                         }
                     }}
                 </A>
-            </div>
+            </header>
 
             <nav class="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
                 <For each=move || main_nav_sig.get() key=|item| item.href.clone() let:item>
@@ -170,6 +170,7 @@ pub fn Sidebar() -> impl IntoView {
                 // Locale switcher
                 <div class="mb-2">
                     <select
+                        aria-label="Select language"
                         class="w-full px-2 py-1 rounded text-xs \
                                bg-gray-100 dark:bg-gray-700 \
                                text-gray-700 dark:text-gray-300 \

@@ -9,7 +9,7 @@ pub fn Footer() -> impl IntoView {
     let (current_locale, set_current_locale) = signal(i18n::get_locale());
 
     view! {
-        <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
+        <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto" role="contentinfo">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div class="flex flex-col md:flex-row items-center justify-between gap-4">
                     // Left: Copyright + version
@@ -51,6 +51,7 @@ pub fn Footer() -> impl IntoView {
                     // Right: Language selector + theme toggle
                     <div class="flex items-center gap-3">
                         <select
+                            aria-label="Select language"
                             class="px-2 py-1 rounded text-xs \
                                    bg-gray-100 dark:bg-gray-700 \
                                    text-gray-700 dark:text-gray-300 \

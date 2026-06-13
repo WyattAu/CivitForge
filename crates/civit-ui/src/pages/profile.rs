@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use leptos::prelude::*;
+use leptos_router::components::A;
 use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
@@ -67,7 +68,7 @@ pub fn ProfilePage() -> impl IntoView {
                             }
                         }
                     }
-                    _ => set_error.set(Some("Failed to load user profile.".to_string())),
+                    _ => set_error.set(Some("auth_required".to_string())),
                 }
             } else {
                 match client.get("/users").await {
@@ -157,7 +158,20 @@ pub fn ProfilePage() -> impl IntoView {
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"User Profile"</h1>
             </div>
 
-            <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+            <Show when=move || error.get().is_some() && error.get().as_deref() == Some("auth_required") fallback=|| view! { <div class="hidden"></div> }>
+                <Card title="Sign in required".to_string() description="You must be signed in to view your profile".to_string()>
+                    <div class="py-8 text-center">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">"Please sign in to view your profile."</p>
+                        <A href="/login">
+                            <span class="inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors">
+                                "Sign In"
+                            </span>
+                        </A>
+                    </div>
+                </Card>
+            </Show>
+
+            <Show when=move || error.get().is_some() && error.get().as_deref() != Some("auth_required") fallback=|| view! { <div class="hidden"></div> }>
                 <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
 

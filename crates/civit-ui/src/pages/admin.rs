@@ -299,6 +299,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch audit log
     let fetch_audit = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_audit_error.set(Some("Admin access required. Please sign in as an administrator.".to_string()));
+            set_audit_loading.set(false);
+            return;
+        }
         set_audit_loading.set(true);
         set_audit_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -345,6 +351,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch users
     let fetch_users = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_users_error.set(Some("Admin access required.".to_string()));
+            set_users_loading.set(false);
+            return;
+        }
         set_users_loading.set(true);
         set_users_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -370,6 +382,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch repos
     let fetch_repos = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_repos_error.set(Some("Admin access required.".to_string()));
+            set_repos_loading.set(false);
+            return;
+        }
         set_repos_loading.set(true);
         set_repos_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -400,6 +418,13 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch security data
     let fetch_security = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_scan_error.set(Some("Admin access required.".to_string()));
+            set_scan_loading.set(false);
+            set_scorecard_loading.set(false);
+            return;
+        }
         set_scan_loading.set(true);
         set_scan_error.set(None);
         set_scorecard_loading.set(true);
@@ -446,6 +471,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch environments
     let fetch_environments = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_env_error.set(Some("Admin access required.".to_string()));
+            set_env_loading.set(false);
+            return;
+        }
         set_env_loading.set(true);
         set_env_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -470,6 +501,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch deployments
     let fetch_deployments = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_deploy_error.set(Some("Admin access required.".to_string()));
+            set_deploy_loading.set(false);
+            return;
+        }
         set_deploy_loading.set(true);
         set_deploy_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -494,6 +531,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch teams
     let fetch_teams = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_team_error.set(Some("Admin access required.".to_string()));
+            set_team_loading.set(false);
+            return;
+        }
         set_team_loading.set(true);
         set_team_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -518,6 +561,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch merge queue
     let fetch_merge_queue = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_mq_error.set(Some("Admin access required.".to_string()));
+            set_mq_loading.set(false);
+            return;
+        }
         set_mq_loading.set(true);
         set_mq_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -542,6 +591,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch OIDC providers
     let fetch_oidc = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_oidc_error.set(Some("Admin access required.".to_string()));
+            set_oidc_loading.set(false);
+            return;
+        }
         set_oidc_loading.set(true);
         set_oidc_error.set(None);
         let token = auth.0.with(|a| a.token.clone());
@@ -566,6 +621,12 @@ pub fn AdminPage() -> impl IntoView {
 
     // Fetch LDAP status
     let fetch_ldap = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_ldap_error.set(Some("Admin access required.".to_string()));
+            set_ldap_loading.set(false);
+            return;
+        }
         set_ldap_loading.set(true);
         set_ldap_error.set(None);
         let token = auth.0.with(|a| a.token.clone());

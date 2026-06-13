@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use leptos::prelude::*;
+use leptos_router::components::A;
 use leptos_router::hooks::{use_navigate, use_params_map};
 
 use crate::api::client::ApiClient;
@@ -491,8 +492,15 @@ pub fn SettingsPage() -> impl IntoView {
         }
     };
 
-    fetch_user();
-    fetch_ssh_keys();
+    let has_token = Signal::derive(move || auth.0.with(|a| a.token.is_some()));
+
+    if has_token.get() {
+        fetch_user();
+        fetch_ssh_keys();
+    } else {
+        set_loading.set(false);
+        set_ssh_loading.set(false);
+    }
 
     let handle_profile_submit = move |ev: leptos::ev::SubmitEvent| {
         ev.prevent_default();
@@ -699,6 +707,20 @@ pub fn SettingsPage() -> impl IntoView {
         <div class="space-y-6">
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">"User Settings"</h1>
 
+            <Show when=move || !has_token.get() fallback=|| view! { <div class="hidden"></div> }>
+                <Card title="Sign in required".to_string() description="You must be signed in to access settings".to_string()>
+                    <div class="py-8 text-center">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">"Please sign in to access settings."</p>
+                        <A href="/login">
+                            <span class="inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors">
+                                "Sign In"
+                            </span>
+                        </A>
+                    </div>
+                </Card>
+            </Show>
+
+            <Show when=move || has_token.get() fallback=|| view! { <div class="hidden"></div> }>
             <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                 <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_error.set(None)) />
             </Show>
@@ -942,6 +964,7 @@ pub fn SettingsPage() -> impl IntoView {
                     </div>
                 </div>
             </Modal>
+            </Show>
         </div>
     }
 }

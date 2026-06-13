@@ -145,9 +145,9 @@ pub fn ExplorePage() -> impl IntoView {
                                 <A href=format!("/repos/{}", repo.full_name)>
                                     <Card class=card_class>
                                         <div class="flex items-start justify-between gap-2">
-                                            <h3 class="font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate">
+                                            <h2 class="font-semibold text-blue-600 dark:text-blue-400 hover:underline truncate">
                                                 {repo.name.clone()}
-                                            </h3>
+                                            </h2>
                                             <Badge
                                                 color=match repo.visibility {
                                                     Visibility::Public => BadgeColor::Success,

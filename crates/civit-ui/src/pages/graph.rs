@@ -108,6 +108,7 @@ fn GraphCommitRow(
     let lane_dots: Vec<usize> = (0..total_lanes).collect();
     let commit_sha = StoredValue::new(commit.sha.clone());
     let short_sha = commit.short_sha.clone();
+    let short_sha_label = short_sha.clone();
     let commit_msg = commit.first_line.clone();
     let commit_author = commit.author.clone();
     let commit_date = commit.date.clone();
@@ -207,6 +208,7 @@ fn GraphCommitRow(
                 <a
                     class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     href=move || format!("/repos/commit/{}", commit_sha.get_value())
+                    aria-label=move || format!("View commit {}", short_sha_label)
                 >
                     "View"
                 </a>
@@ -381,9 +383,9 @@ pub fn GraphPage() -> impl IntoView {
             </Show>
 
             <Card>
-                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                     "Legend"
-                </h3>
+                </h2>
                 <div class="flex flex-wrap gap-4 text-xs text-gray-600 dark:text-gray-400">
                     <div class="flex items-center gap-2">
                         <div class="w-3 h-3 rounded-full bg-blue-500"></div>

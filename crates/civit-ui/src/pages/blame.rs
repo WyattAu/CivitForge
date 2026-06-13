@@ -119,7 +119,7 @@ pub fn BlamePage() -> impl IntoView {
         let ref_val = ref_param();
 
         if path_val.is_empty() {
-            set_error.set(Some("No file path specified.".to_string()));
+            set_error.set(Some("__no_path__".to_string()));
             set_loading.set(false);
             return;
         }
@@ -153,6 +153,8 @@ pub fn BlamePage() -> impl IntoView {
     });
 
     let dismiss_error = Callback::new(move |_: ()| set_error.set(None));
+    let is_no_path = Signal::derive(move || error.get().as_deref() == Some("__no_path__"));
+    let is_other_error = Signal::derive(move || error.get().is_some() && error.get().as_deref() != Some("__no_path__"));
 
     view! {
         <div class="space-y-4">
@@ -172,7 +174,20 @@ pub fn BlamePage() -> impl IntoView {
                 </h1>
             </div>
 
-            <Show when=move || error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+            <Show when=move || is_no_path.get() fallback=|| view! { <div class="hidden"></div> }>
+                <Card>
+                    <div class="py-8 text-center">
+                        <p class="text-gray-600 dark:text-gray-400 mb-4">"Select a file from the Code tab to view blame information."</p>
+                        <A href=format!("/repos/{}/{}/code", owner(), name())>
+                            <span class="inline-flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors">
+                                "Go to Code"
+                            </span>
+                        </A>
+                    </div>
+                </Card>
+            </Show>
+
+            <Show when=move || is_other_error.get() fallback=|| view! { <div class="hidden"></div> }>
                 <ErrorBanner message=move || error.get().unwrap_or_default() on_dismiss=dismiss_error />
             </Show>
 
@@ -200,12 +215,13 @@ pub fn BlamePage() -> impl IntoView {
                                     {
                                         let msg = line.commit_message.clone();
                                         let msg_title = line.commit_message.clone();
-                                        let short_id = if line.commit_id.len() >= 8 {
-                                            line.commit_id[..8].to_string()
-                                        } else {
-                                            line.commit_id.clone()
-                                        };
-                                        let commit_id = line.commit_id.clone();
+                                         let short_id = if line.commit_id.len() >= 8 {
+                                             line.commit_id[..8].to_string()
+                                         } else {
+                                             line.commit_id.clone()
+                                         };
+                                         let short_id_label = short_id.clone();
+                                         let commit_id = line.commit_id.clone();
                                         let author = line.author.clone();
                                         let time = line.time.clone();
                                         let lang = blame_lang.get();
@@ -219,12 +235,13 @@ pub fn BlamePage() -> impl IntoView {
                                                     {line.line_number}
                                                 </td>
                                                 <td class="py-0.5 pr-4 text-xs" style=format!("background-color: {bg}")>
-                                                    <a
-                                                        class="font-mono hover:underline"
-                                                        style=format!("color: {text_c}")
-                                                        href=format!("/repos/{}/{}/commit/{}", owner_v, name_v, commit_id)
-                                                        title=msg_title
-                                                    >
+                                                     <a
+                                                         class="font-mono hover:underline"
+                                                         style=format!("color: {text_c}")
+                                                         href=format!("/repos/{}/{}/commit/{}", owner_v, name_v, commit_id)
+                                                         title=msg_title
+                                                         aria-label=format!("Commit {short_id_label}: {msg}")
+                                                     >
                                                         {short_id}
                                                     </a>
                                                     <span class="ml-1 text-gray-500 dark:text-gray-400 truncate block max-w-[200px]">{msg}</span>

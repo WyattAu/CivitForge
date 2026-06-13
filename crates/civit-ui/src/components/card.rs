@@ -22,7 +22,7 @@ pub fn Card(
             {(!title.is_empty() || !description.is_empty()).then(|| view! {
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     {(!title.is_empty()).then(|| view! {
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
                     })}
                     {(!description.is_empty()).then(|| view! {
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{description}</p>
