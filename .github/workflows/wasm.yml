@@ -1,0 +1,50 @@
+name: WASM Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      upload_artifact:
+        description: "Upload dist/ as artifact"
+        required: false
+        default: "true"
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build WASM UI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.88"
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: crates/civit-ui
+
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Install trunk
+        run: cargo install trunk --locked
+
+      - name: Build WASM
+        run: cd crates/civit-ui && trunk build --release
+
+      - name: Upload artifact
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.upload_artifact == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: civit-ui-dist
+          path: crates/civit-ui/dist/
+          retention-days: 30

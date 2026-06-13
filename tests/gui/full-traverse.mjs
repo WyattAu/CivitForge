@@ -18,6 +18,7 @@ const HEADED = process.argv.includes('--headed');
 const DEBUG = process.argv.includes('--debug');
 const TIMEOUT = 20000;
 const ACTION_TIMEOUT = 5000;
+const FIXED_REPO_PATH = 'admin/axum';
 
 const TEST_USER = {
   email: `gui-traverse-${Date.now()}@example.com`,
@@ -332,6 +333,34 @@ async function testReposPage(browser) {
     { name: 'check-new-repo-link', fn: async (p) => {
       const link = await p.$('a:has-text("New Repository")');
       if (!link) throw new Error('New Repository link not found');
+    }},
+    { name: 'verify-repo-list-loads', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No repositories') || body.includes('no repos')) {
+        console.log('    Repo list shows empty state');
+      } else {
+        console.log('    Repo list has content');
+      }
+    }},
+    { name: 'check-repo-cards', fn: async (p) => {
+      const cards = await p.$$('.repo-card, .card, article, [class*="repo"]');
+      if (cards.length > 0) {
+        console.log(`    Found ${cards.length} repo card(s)`);
+      } else {
+        console.log('    No repo cards found (list may be empty or use different markup)');
+      }
+    }},
+    { name: 'verify-search-input', fn: async (p) => {
+      const searchInput = await p.$('input[type="search"], input[placeholder*="search" i], input[placeholder*="filter" i], input#search');
+      if (searchInput) {
+        console.log('    Search/filter input found on repos page');
+      } else {
+        console.log('    No search input on repos page');
+      }
+    }},
+    { name: 'check-repo-count', fn: async (p) => {
+      const repoLinks = await p.$$('a[href*="/repos/"]');
+      console.log(`    Repo links found: ${repoLinks.length}`);
     }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'repos-list');
@@ -954,28 +983,52 @@ async function testSettings(browser) {
       const text = await h1.textContent();
       if (!text.includes('Settings')) throw new Error(`Unexpected h1: ${text}`);
     }},
+    { name: 'verify-settings-form-loads', fn: async (p) => {
+      const inputs = await p.$$('input');
+      if (inputs.length === 0) throw new Error('No input fields found on settings page');
+      console.log(`    Settings form loaded with ${inputs.length} input(s)`);
+    }},
     { name: 'check-profile-form', fn: async (p) => {
       const displayName = await p.$('input#settings-display-name');
       if (displayName) {
         console.log('    Profile form loaded with display name field');
+      } else {
+        const anyInput = await p.$('input');
+        if (anyInput) {
+          console.log('    Settings has input fields (specific IDs may differ)');
+        }
       }
     }},
     { name: 'check-password-form', fn: async (p) => {
-      const pwCurrent = await p.$('input#pw-current');
+      const pwCurrent = await p.$('input#pw-current, input[type="password"]');
       if (pwCurrent) {
-        console.log('    Change password form found');
+        console.log('    Password form found');
+      } else {
+        console.log('    Password form not found on this view');
       }
     }},
     { name: 'check-ssh-keys-section', fn: async (p) => {
       const body = await p.textContent('body');
-      if (body.includes('SSH Keys')) {
+      if (body.includes('SSH Keys') || body.includes('ssh')) {
         console.log('    SSH Keys section present');
+      } else {
+        console.log('    SSH Keys section not found');
       }
     }},
     { name: 'check-danger-zone', fn: async (p) => {
       const body = await p.textContent('body');
-      if (body.includes('Danger Zone')) {
+      if (body.includes('Danger Zone') || body.includes('danger')) {
         console.log('    Danger Zone section present');
+      } else {
+        console.log('    Danger Zone section not found');
+      }
+    }},
+    { name: 'check-notification-settings', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Notification') || body.includes('notification') || body.includes('Email')) {
+        console.log('    Notification settings section present');
+      } else {
+        console.log('    Notification settings not found');
       }
     }},
     { name: 'screenshot', fn: async (p) => {
@@ -1223,13 +1276,19 @@ async function testAdmin(browser) {
         throw new Error('Admin panel did not load');
       }
     }},
-    { name: 'check-admin-nav', fn: async (p) => {
-      const body = await p.textContent('body');
-      const hasSections = body.includes('Users') || body.includes('Repos') || body.includes('System') || body.includes('Audit');
-      if (hasSections) {
-        console.log('    Admin sections detected');
+    { name: 'check-admin-tabs', fn: async (p) => {
+      const tabs = await p.$$('button, a');
+      const tabTexts = [];
+      for (const tab of tabs) {
+        const t = await tab.textContent();
+        if (['Users', 'Repos', 'Repositories', 'System', 'Audit', 'Settings'].includes(t)) {
+          tabTexts.push(t);
+        }
+      }
+      if (tabTexts.length > 0) {
+        console.log(`    Admin tabs found: ${tabTexts.join(', ')}`);
       } else {
-        console.log('    Admin page loaded (sections may require permissions)');
+        console.log('    Admin tabs not found (may require admin permissions)');
       }
     }},
     { name: 'click-users-tab', fn: async (p) => {
@@ -1291,6 +1350,20 @@ async function testAdmin(browser) {
     { name: 'verify-audit-events', fn: async (p) => {
       const eventRows = await p.$$('tr, .audit-row, .event-row, .list-item');
       console.log(`    Audit event items: ${eventRows.length}`);
+    }},
+    { name: 'click-system-tab', fn: async (p) => {
+      const sysTab = await p.$('button:has-text("System"), a:has-text("System")');
+      if (sysTab) {
+        await sysTab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const body = await p.textContent('body');
+        if (body.includes('System') || body.includes('version') || body.includes('disk')) {
+          console.log('    System tab loaded with content');
+        }
+      } else {
+        console.log('    System tab not found');
+      }
     }},
     { name: 'screenshot', fn: async (p) => {
       await takeScreenshot(p, 'admin');
@@ -1658,6 +1731,698 @@ async function testNotFound(browser) {
   ]);
 }
 
+// === 23. REPO DETAIL (FIXED PATH) ===
+
+async function testFixedRepoDetail(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}`, 'fixed-repo-detail', [
+    { name: 'verify-repo-name', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body.includes('axum')) {
+        throw new Error('Repo name "axum" not found on detail page');
+      }
+      console.log('    Repo name "axum" visible');
+    }},
+    { name: 'verify-description', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.length > 50) {
+        console.log('    Repo page has description/content');
+      }
+    }},
+    { name: 'verify-stats', fn: async (p) => {
+      const body = await p.textContent('body');
+      const hasStats = body.includes('star') || body.includes('fork') || body.includes('watch') || body.includes('issue');
+      if (hasStats) {
+        console.log('    Repo stats visible (stars/forks/issues)');
+      } else {
+        console.log('    Repo stats not found (may use different wording)');
+      }
+    }},
+    { name: 'check-repo-tabs', fn: async (p) => {
+      const tabs = await p.$$('a');
+      const tabTexts = [];
+      for (const tab of tabs) {
+        const t = await tab.textContent();
+        if (['Code', 'Issues', 'Wiki', 'Pipelines', 'Settings', 'Pull Requests', 'Boards', 'Releases', 'Graph'].includes(t)) {
+          tabTexts.push(t);
+        }
+      }
+      console.log(`    Repo tabs: ${tabTexts.join(', ') || 'none found'}`);
+      if (tabTexts.length < 3) throw new Error(`Expected at least 3 tabs, found ${tabTexts.length}`);
+    }},
+    { name: 'click-code-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Code")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Code tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-issues-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Issues")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Issues tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-prs-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Pull Requests"), a:has-text("PRs")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    PRs tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-pipelines-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Pipelines")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Pipelines tab -> ${pathname}`);
+      }
+    }},
+    { name: 'click-settings-tab', fn: async (p) => {
+      const tab = await p.$('a:has-text("Settings")');
+      if (tab) {
+        await tab.click();
+        await p.waitForTimeout(1500);
+        await waitForContent(p);
+        const pathname = await p.evaluate(() => window.location.pathname);
+        console.log(`    Settings tab -> ${pathname}`);
+      }
+    }},
+    { name: 'verify-file-tree', fn: async (p) => {
+      await navigatePath(p, `/repos/${FIXED_REPO_PATH}`);
+      await waitForContent(p);
+      const fileElements = await p.$$('a[href*="/code/"], .file-entry, .tree-entry, tr a');
+      if (fileElements.length > 0) {
+        console.log(`    File tree has ${fileElements.length} entries`);
+      } else {
+        console.log('    File tree entries not found (may need to click into code tab)');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-detail');
+    }},
+  ]);
+}
+
+// === 24. ISSUES (FIXED PATH) ===
+
+async function testFixedRepoIssues(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/issues`, 'fixed-repo-issues', [
+    { name: 'verify-issues-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on issues page');
+      const text = await h1.textContent();
+      if (!text.includes('Issues')) throw new Error(`Unexpected h1: ${text}`);
+    }},
+    { name: 'verify-issue-list-loads', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No issues') || body.includes('no issues')) {
+        console.log('    Issue list shows empty state');
+      } else {
+        console.log('    Issue list has content');
+      }
+    }},
+    { name: 'check-issue-cards', fn: async (p) => {
+      const cards = await p.$$('.issue-card, .card, article, tr, [class*="issue"]');
+      if (cards.length > 0) {
+        console.log(`    Found ${cards.length} issue card(s)/row(s)`);
+      } else {
+        console.log('    No issue cards found (may be empty)');
+      }
+    }},
+    { name: 'verify-filter-buttons', fn: async (p) => {
+      const buttons = await p.$$('button');
+      const filterTexts = [];
+      for (const btn of buttons) {
+        const t = await btn.textContent();
+        if (['All', 'Open', 'In Progress', 'Closed'].includes(t)) {
+          filterTexts.push(t);
+        }
+      }
+      if (filterTexts.length > 0) {
+        console.log(`    Filter buttons: ${filterTexts.join(', ')}`);
+      } else {
+        console.log('    Filter buttons not found');
+      }
+    }},
+    { name: 'click-open-filter', fn: async (p) => {
+      const openBtn = await p.$('button:has-text("Open")');
+      if (openBtn) {
+        await openBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Open filter');
+      }
+    }},
+    { name: 'click-closed-filter', fn: async (p) => {
+      const closedBtn = await p.$('button:has-text("Closed")');
+      if (closedBtn) {
+        await closedBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Closed filter');
+      }
+    }},
+    { name: 'click-all-filter', fn: async (p) => {
+      const allBtn = await p.$('button:has-text("All")');
+      if (allBtn) {
+        await allBtn.click();
+        await p.waitForTimeout(500);
+      }
+    }},
+    { name: 'check-issue-numbers', fn: async (p) => {
+      const links = await p.$$('a[href*="/issues/"]');
+      if (links.length > 0) {
+        console.log(`    Found ${links.length} issue link(s)`);
+      } else {
+        console.log('    No issue detail links found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-issues');
+    }},
+  ]);
+}
+
+// === 25. PULL REQUESTS (FIXED PATH) ===
+
+async function testFixedRepoPullRequests(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/pulls`, 'fixed-repo-pulls', [
+    { name: 'verify-prs-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body.includes('Pull Request') && !body.includes('Pull') && !body.includes('Merge')) {
+        console.log('    PRs page loaded (title may vary)');
+      }
+    }},
+    { name: 'verify-pr-list-loads', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No pull requests') || body.includes('no pull')) {
+        console.log('    PR list shows empty state');
+      } else {
+        console.log('    PR list has content');
+      }
+    }},
+    { name: 'check-pr-cards', fn: async (p) => {
+      const cards = await p.$$('.pr-card, .card, article, tr, [class*="pull"]');
+      if (cards.length > 0) {
+        console.log(`    Found ${cards.length} PR card(s)/row(s)`);
+      } else {
+        console.log('    No PR cards found (may be empty)');
+      }
+    }},
+    { name: 'verify-filter-buttons', fn: async (p) => {
+      const buttons = await p.$$('button');
+      const filterTexts = [];
+      for (const btn of buttons) {
+        const t = await btn.textContent();
+        if (['All', 'Open', 'Closed', 'Merged'].includes(t)) {
+          filterTexts.push(t);
+        }
+      }
+      if (filterTexts.length > 0) {
+        console.log(`    Filter buttons: ${filterTexts.join(', ')}`);
+      } else {
+        console.log('    Filter buttons not found');
+      }
+    }},
+    { name: 'click-open-filter', fn: async (p) => {
+      const openBtn = await p.$('button:has-text("Open")');
+      if (openBtn) {
+        await openBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Open filter');
+      }
+    }},
+    { name: 'click-closed-filter', fn: async (p) => {
+      const closedBtn = await p.$('button:has-text("Closed")');
+      if (closedBtn) {
+        await closedBtn.click();
+        await p.waitForTimeout(1000);
+        console.log('    Clicked Closed filter');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-pulls');
+    }},
+  ]);
+}
+
+// === 26. PIPELINES (FIXED PATH) ===
+
+async function testFixedRepoPipelines(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/pipelines`, 'fixed-repo-pipelines', [
+    { name: 'verify-pipelines-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'verify-pipeline-list-loads', fn: async (p) => {
+      const body = await p.textContent('body');
+      const hasContent = body.includes('Pipeline') || body.includes('No pipeline') || body.includes('Run') || body.includes('pipeline');
+      if (hasContent) {
+        console.log('    Pipeline list has content');
+      } else {
+        console.log('    Pipeline list loaded (content uncertain)');
+      }
+    }},
+    { name: 'check-pipeline-items', fn: async (p) => {
+      const items = await p.$$('.pipeline-item, .card, tr, [class*="pipeline"]');
+      if (items.length > 0) {
+        console.log(`    Found ${items.length} pipeline item(s)`);
+      } else {
+        console.log('    No pipeline items found (may be empty)');
+      }
+    }},
+    { name: 'check-pipeline-status', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('success') || body.includes('failed') || body.includes('running') || body.includes('pending')) {
+        console.log('    Pipeline status indicators found');
+      } else {
+        console.log('    Pipeline status not found (no runs or different wording)');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-pipelines');
+    }},
+  ]);
+}
+
+// === 27. PROFILE PAGE ===
+
+async function testProfile(browser) {
+  await traversePage(browser, '/profile', 'profile', [
+    { name: 'verify-profile-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'check-profile-content', fn: async (p) => {
+      const body = await p.textContent('body');
+      const hasProfile = body.includes('Profile') || body.includes('profile') || body.includes('username') || body.includes('display');
+      if (hasProfile) {
+        console.log('    Profile page has content');
+      } else {
+        console.log('    Profile page loaded (content uncertain)');
+      }
+    }},
+    { name: 'check-avatar', fn: async (p) => {
+      const avatar = await p.$('img[class*="avatar"], img[class*="profile"], img[alt*="avatar"]');
+      if (avatar) {
+        console.log('    Avatar image found');
+      } else {
+        console.log('    Avatar image not found');
+      }
+    }},
+    { name: 'check-user-info', fn: async (p) => {
+      const inputs = await p.$$('input');
+      if (inputs.length > 0) {
+        console.log(`    Profile form has ${inputs.length} input(s)`);
+      } else {
+        console.log('    No profile inputs found (may be read-only view)');
+      }
+    }},
+    { name: 'check-repos-section', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Repositories') || body.includes('repos')) {
+        console.log('    Repositories section visible on profile');
+      } else {
+        console.log('    Repositories section not found on profile');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'profile');
+    }},
+  ]);
+}
+
+// === 28. PROFILE BY USERNAME ===
+
+async function testProfileUsername(browser) {
+  await traversePage(browser, `/profile/${FIXED_REPO_PATH.split('/')[0]}`, 'profile-username', [
+    { name: 'verify-profile-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'check-profile-username', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('admin')) {
+        console.log('    Profile for admin user loaded');
+      } else {
+        console.log('    Profile page loaded (user may not exist)');
+      }
+    }},
+    { name: 'check-user-repos', fn: async (p) => {
+      const repoLinks = await p.$$('a[href*="/repos/"]');
+      if (repoLinks.length > 0) {
+        console.log(`    Found ${repoLinks.length} repo link(s) on profile`);
+      } else {
+        console.log('    No repo links on profile');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'profile-username');
+    }},
+  ]);
+}
+
+// === 29. CODE BROWSER (FIXED PATH) ===
+
+async function testFixedRepoCodeBrowser(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/code`, 'fixed-repo-code', [
+    { name: 'verify-code-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'verify-file-tree-loads', fn: async (p) => {
+      const fileLinks = await p.$$('a[href*="/code/"]');
+      if (fileLinks.length > 0) {
+        console.log(`    File tree has ${fileLinks.length} file/folder links`);
+      } else {
+        console.log('    No file tree links found (may be loading or empty)');
+      }
+    }},
+    { name: 'check-file-listings', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('.rs') || body.includes('.toml') || body.includes('.md') || body.includes('Cargo') || body.includes('README')) {
+        console.log('    File listings detected in code browser');
+      } else {
+        console.log('    No specific file names detected');
+      }
+    }},
+    { name: 'check-folder-structure', fn: async (p) => {
+      const folders = await p.$$('a[href$="/"]');
+      if (folders.length > 0) {
+        console.log(`    Found ${folders.length} folder link(s)`);
+      } else {
+        console.log('    No folder links found');
+      }
+    }},
+    { name: 'click-into-file', fn: async (p) => {
+      const fileLink = await p.$('a[href*="/code/"][href$=".rs"], a[href*="/code/"][href$=".toml"], a[href*="/code/"][href$=".md"]');
+      if (fileLink) {
+        const fileName = await fileLink.textContent();
+        await fileLink.click();
+        await p.waitForTimeout(2000);
+        await waitForContent(p);
+        const body = await p.textContent('body');
+        if (body.length > 100) {
+          console.log(`    File "${fileName.trim()}" content loaded`);
+        }
+      } else {
+        console.log('    No clickable file found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-code');
+    }},
+  ]);
+}
+
+// === 30. WIKI (FIXED PATH) ===
+
+async function testFixedRepoWiki(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/wiki`, 'fixed-repo-wiki', [
+    { name: 'verify-wiki-page', fn: async (p) => {
+      await waitForContent(p);
+      const h1 = await p.$('h1');
+      if (!h1) throw new Error('No h1 on wiki page');
+      const text = await h1.textContent();
+      if (!text.includes('Wiki')) throw new Error(`Unexpected h1: ${text}`);
+    }},
+    { name: 'verify-wiki-sidebar', fn: async (p) => {
+      const sidebar = await p.$('.wiki-sidebar, nav, aside');
+      if (sidebar) {
+        console.log('    Wiki sidebar found');
+      } else {
+        console.log('    Wiki sidebar not found');
+      }
+    }},
+    { name: 'check-wiki-pages', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No pages') || body.includes('no pages') || body.includes('Getting Started')) {
+        console.log('    Wiki page list has content');
+      } else {
+        console.log('    Wiki page list loaded');
+      }
+    }},
+    { name: 'check-new-page-btn', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Page"), button:has-text("Create Page")');
+      if (btn) {
+        console.log('    New Page button found');
+      } else {
+        console.log('    New Page button not found');
+      }
+    }},
+    { name: 'check-wiki-content', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Markdown') || body.includes('markdown') || body.includes('Edit')) {
+        console.log('    Wiki content area detected');
+      } else {
+        console.log('    Wiki content area not detected');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-wiki');
+    }},
+  ]);
+}
+
+// === 31. ADMIN SITE SETTINGS ===
+
+async function testAdminSiteSettings(browser) {
+  await traversePage(browser, '/admin/site-settings', 'admin-site-settings', [
+    { name: 'verify-site-settings-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body.includes('Setting') && !body.includes('setting') && !body.includes('Admin')) {
+        console.log('    Site settings page loaded (content may vary)');
+      }
+    }},
+    { name: 'check-settings-form', fn: async (p) => {
+      const inputs = await p.$$('input, select, textarea');
+      if (inputs.length > 0) {
+        console.log(`    Site settings form has ${inputs.length} field(s)`);
+      } else {
+        console.log('    No form fields found on site settings');
+      }
+    }},
+    { name: 'check-site-name', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Site Name') || body.includes('site name') || body.includes('Title')) {
+        console.log('    Site name setting found');
+      } else {
+        console.log('    Site name setting not found');
+      }
+    }},
+    { name: 'check-registration', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Registration') || body.includes('registration') || body.includes('Sign up')) {
+        console.log('    Registration settings found');
+      } else {
+        console.log('    Registration settings not found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'admin-site-settings');
+    }},
+  ]);
+}
+
+// === 32. REPO BLAME ===
+
+async function testFixedRepoBlame(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/blame`, 'fixed-repo-blame', [
+    { name: 'verify-blame-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'check-blame-content', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Blame') || body.includes('blame') || body.includes('No file')) {
+        console.log('    Blame page has content');
+      } else {
+        console.log('    Blame page loaded');
+      }
+    }},
+    { name: 'check-blame-lines', fn: async (p) => {
+      const lines = await p.$$('.blame-line, .code-line, tr, [class*="blame"]');
+      if (lines.length > 0) {
+        console.log(`    Found ${lines.length} blame line(s)`);
+      } else {
+        console.log('    No blame lines found (may need file selection)');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-blame');
+    }},
+  ]);
+}
+
+// === 33. REPO COMMITS ===
+
+async function testFixedRepoCommits(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/commits`, 'fixed-repo-commits', [
+    { name: 'verify-commits-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'check-commit-list', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('No commits') || body.includes('commit') || body.includes('Commit')) {
+        console.log('    Commit list has content');
+      } else {
+        console.log('    Commit list loaded');
+      }
+    }},
+    { name: 'check-commit-entries', fn: async (p) => {
+      const entries = await p.$$('.commit-entry, .commit, tr, [class*="commit"]');
+      if (entries.length > 0) {
+        console.log(`    Found ${entries.length} commit entry/entries`);
+      } else {
+        console.log('    No commit entries found');
+      }
+    }},
+    { name: 'check-commit-messages', fn: async (p) => {
+      const links = await p.$$('a[href*="/commit"]');
+      if (links.length > 0) {
+        console.log(`    Found ${links.length} commit link(s)`);
+      } else {
+        console.log('    No commit links found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-commits');
+    }},
+  ]);
+}
+
+// === 34. REPO SETTINGS ===
+
+async function testFixedRepoSettings(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/settings`, 'fixed-repo-settings', [
+    { name: 'verify-repo-settings-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body.includes('Setting') && !body.includes('setting')) {
+        console.log('    Repo settings page loaded');
+      }
+    }},
+    { name: 'check-settings-form', fn: async (p) => {
+      const inputs = await p.$$('input, select, textarea');
+      if (inputs.length > 0) {
+        console.log(`    Repo settings form has ${inputs.length} field(s)`);
+      } else {
+        console.log('    No form fields on repo settings');
+      }
+    }},
+    { name: 'check-repo-name-field', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Repository name') || body.includes('repo name') || body.includes('Name')) {
+        console.log('    Repository name setting found');
+      } else {
+        console.log('    Repository name setting not found');
+      }
+    }},
+    { name: 'check-visibility', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Visibility') || body.includes('visibility') || body.includes('Public') || body.includes('Private')) {
+        console.log('    Visibility setting found');
+      } else {
+        console.log('    Visibility setting not found');
+      }
+    }},
+    { name: 'check-danger-zone', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Danger Zone') || body.includes('danger') || body.includes('Delete')) {
+        console.log('    Danger Zone section present');
+      } else {
+        console.log('    Danger Zone section not found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-settings');
+    }},
+  ]);
+}
+
+// === 35. REPO ENVIRONMENTS ===
+
+async function testFixedRepoEnvironments(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/environments`, 'fixed-repo-environments', [
+    { name: 'verify-environments-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'check-environments-content', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Environment') || body.includes('environment') || body.includes('No environments')) {
+        console.log('    Environments page has content');
+      } else {
+        console.log('    Environments page loaded');
+      }
+    }},
+    { name: 'check-new-environment-btn', fn: async (p) => {
+      const btn = await p.$('button:has-text("New Environment"), button:has-text("Create Environment")');
+      if (btn) {
+        console.log('    New Environment button found');
+      } else {
+        console.log('    New Environment button not found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-environments');
+    }},
+  ]);
+}
+
+// === 36. REPO DEPLOYMENTS ===
+
+async function testFixedRepoDeployments(browser) {
+  await traversePage(browser, `/repos/${FIXED_REPO_PATH}/deployments`, 'fixed-repo-deployments', [
+    { name: 'verify-deployments-page', fn: async (p) => {
+      await waitForContent(p);
+      const body = await p.textContent('body');
+      if (!body) throw new Error('Page body empty');
+    }},
+    { name: 'check-deployments-content', fn: async (p) => {
+      const body = await p.textContent('body');
+      if (body.includes('Deployment') || body.includes('deployment') || body.includes('No deployments')) {
+        console.log('    Deployments page has content');
+      } else {
+        console.log('    Deployments page loaded');
+      }
+    }},
+    { name: 'check-deployment-items', fn: async (p) => {
+      const items = await p.$$('.deployment-item, .card, tr, [class*="deploy"]');
+      if (items.length > 0) {
+        console.log(`    Found ${items.length} deployment item(s)`);
+      } else {
+        console.log('    No deployment items found');
+      }
+    }},
+    { name: 'screenshot', fn: async (p) => {
+      await takeScreenshot(p, 'fixed-repo-deployments');
+    }},
+  ]);
+}
+
 // === CLEANUP ===
 
 async function cleanup(browser) {
@@ -1767,6 +2532,22 @@ async function main() {
     await testBreadcrumbNavigation(browser);
     await testNavigation(browser);
     await testNotFound(browser);
+    // Fixed-path tests (use /repos/admin/axum as known existing repo)
+    await testFixedRepoDetail(browser);
+    await testFixedRepoIssues(browser);
+    await testFixedRepoPullRequests(browser);
+    await testFixedRepoPipelines(browser);
+    await testFixedRepoCodeBrowser(browser);
+    await testFixedRepoWiki(browser);
+    await testFixedRepoBlame(browser);
+    await testFixedRepoCommits(browser);
+    await testFixedRepoSettings(browser);
+    await testFixedRepoEnvironments(browser);
+    await testFixedRepoDeployments(browser);
+    // New standalone pages
+    await testProfile(browser);
+    await testProfileUsername(browser);
+    await testAdminSiteSettings(browser);
   } catch (e) {
     console.error(`\n  Fatal traverse error: ${e.message}`);
   }

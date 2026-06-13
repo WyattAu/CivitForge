@@ -25,7 +25,7 @@ pub fn App() -> impl IntoView {
                         <Routes fallback=|| view! { <NotFoundPage /> }>
                             <Route path=path!("") view=HomePage />
                             <Route path=path!("/login") view=LoginPage />
-                            <Route path=path!("/register") view=LoginPage />
+                            <Route path=path!("/register") view=RegisterPage />
                             <Route path=path!("/repos") view=ReposPage />
                             <Route path=path!("/new-repo") view=NewRepoPage />
                             <Route path=path!("/activity") view=ActivityPage />
