@@ -180,6 +180,33 @@ struct UpdateOidcProviderBody {
     enabled: Option<bool>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct LdapStatusResponse {
+    enabled: bool,
+    connected: bool,
+    server_url: String,
+    bind_dn: String,
+    search_base: String,
+    group_search_base: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct LdapSyncResult {
+    groups_synced: i32,
+    users_mapped: i32,
+    message: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct LdapTestRequest {
+    server_url: String,
+    bind_dn: String,
+    bind_password: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct LdapSyncGroupRequest {}
+
 #[derive(Clone, PartialEq)]
 enum AdminTab {
     AuditLog,
@@ -191,6 +218,7 @@ enum AdminTab {
     Teams,
     MergeQueue,
     OidcProviders,
+    Ldap,
 }
 
 // ── Page ──
@@ -256,6 +284,18 @@ pub fn AdminPage() -> impl IntoView {
     let (oidc_form_error, set_oidc_form_error) = signal(None::<String>);
     let (show_oidc_form, set_show_oidc_form) = signal(false);
     let (editing_oidc_id, set_editing_oidc_id) = signal(None::<String>);
+    let (oidc_test_loading, set_oidc_test_loading) = signal(false);
+    let (oidc_test_result, set_oidc_test_result) = signal(None::<String>);
+    let (oidc_connected_users, set_oidc_connected_users) = signal(0i64);
+
+    // LDAP state
+    let (ldap_status, set_ldap_status) = signal(None::<LdapStatusResponse>);
+    let (ldap_loading, set_ldap_loading) = signal(false);
+    let (ldap_error, set_ldap_error) = signal(None::<String>);
+    let (ldap_test_loading, set_ldap_test_loading) = signal(false);
+    let (ldap_test_result, set_ldap_test_result) = signal(None::<String>);
+    let (ldap_sync_loading, set_ldap_sync_loading) = signal(false);
+    let (ldap_sync_result, set_ldap_sync_result) = signal(None::<LdapSyncResult>);
 
     // Fetch audit log
     let fetch_audit = move || {
@@ -524,6 +564,128 @@ pub fn AdminPage() -> impl IntoView {
         });
     };
 
+    // Fetch LDAP status
+    let fetch_ldap = move || {
+        set_ldap_loading.set(true);
+        set_ldap_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/ldap/status").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<LdapStatusResponse>().await {
+                        set_ldap_status.set(Some(data));
+                    }
+                }
+                Ok(_) => {
+                    set_ldap_error.set(Some("Failed to load LDAP status.".to_string()));
+                }
+                Err(_) => {
+                    set_ldap_error.set(Some("Network error.".to_string()));
+                }
+            }
+            set_ldap_loading.set(false);
+        });
+    };
+
+    // Test OIDC connection
+    let test_oidc_connection = move |provider_id: String| {
+        set_oidc_test_loading.set(true);
+        set_oidc_test_result.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            let path = format!("/admin/oidc-providers/{provider_id}/test");
+            match client.post(&path, &serde_json::json!({})).await {
+                Ok(resp) if resp.status().is_success() => {
+                    set_oidc_test_result.set(Some("Connection successful".to_string()));
+                }
+                Ok(_) => {
+                    set_oidc_test_result.set(Some("Connection failed".to_string()));
+                }
+                Err(_) => {
+                    set_oidc_test_result.set(Some("Network error".to_string()));
+                }
+            }
+            set_oidc_test_loading.set(false);
+        });
+    };
+
+    // Fetch OIDC connected users count
+    let fetch_oidc_users_count = move || {
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.get("/admin/oidc-providers/users-count").await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<serde_json::Value>().await {
+                        if let Some(count) = data.get("count").and_then(|v| v.as_i64()) {
+                            set_oidc_connected_users.set(count);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        });
+    };
+
+    // Test LDAP connection
+    let test_ldap_connection = move || {
+        set_ldap_test_loading.set(true);
+        set_ldap_test_result.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client.post("/admin/ldap/test", &serde_json::json!({})).await {
+                Ok(resp) if resp.status().is_success() => {
+                    set_ldap_test_result.set(Some("LDAP connection successful".to_string()));
+                }
+                Ok(_) => {
+                    set_ldap_test_result.set(Some("LDAP connection failed".to_string()));
+                }
+                Err(_) => {
+                    set_ldap_test_result.set(Some("Network error".to_string()));
+                }
+            }
+            set_ldap_test_loading.set(false);
+        });
+    };
+
+    // Sync LDAP groups
+    let sync_ldap_groups = move || {
+        set_ldap_sync_loading.set(true);
+        set_ldap_sync_result.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            match client
+                .post("/admin/ldap/sync", &LdapSyncGroupRequest {})
+                .await
+            {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<LdapSyncResult>().await {
+                        set_ldap_sync_result.set(Some(data));
+                    }
+                }
+                Ok(_) => {
+                    set_ldap_sync_result.set(Some(LdapSyncResult {
+                        groups_synced: 0,
+                        users_mapped: 0,
+                        message: "Sync failed".to_string(),
+                    }));
+                }
+                Err(_) => {
+                    set_ldap_sync_result.set(Some(LdapSyncResult {
+                        groups_synced: 0,
+                        users_mapped: 0,
+                        message: "Network error".to_string(),
+                    }));
+                }
+            }
+            set_ldap_sync_loading.set(false);
+        });
+    };
+
     // Remove from merge queue
     let remove_from_queue = move |entry_id: String| {
         let token = auth.0.with(|a| a.token.clone());
@@ -572,7 +734,11 @@ pub fn AdminPage() -> impl IntoView {
             AdminTab::Deployments => fetch_deployments(),
             AdminTab::Teams => fetch_teams(),
             AdminTab::MergeQueue => fetch_merge_queue(),
-            AdminTab::OidcProviders => fetch_oidc(),
+            AdminTab::OidcProviders => {
+                fetch_oidc();
+                fetch_oidc_users_count();
+            }
+            AdminTab::Ldap => fetch_ldap(),
         }
     };
 
@@ -643,6 +809,9 @@ pub fn AdminPage() -> impl IntoView {
                     </button>
                     <button class=tab_class(AdminTab::OidcProviders, active_tab.get()) on:click=move |_| switch_tab(AdminTab::OidcProviders)>
                         "OIDC Providers"
+                    </button>
+                    <button class=tab_class(AdminTab::Ldap, active_tab.get()) on:click=move |_| switch_tab(AdminTab::Ldap)>
+                        "LDAP"
                     </button>
                 </nav>
             </div>
@@ -1381,7 +1550,12 @@ pub fn AdminPage() -> impl IntoView {
             <Show when=move || active_tab.get() == AdminTab::OidcProviders fallback=|| view! { <div class="hidden"></div> }>
                 <div class="space-y-4">
                     <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"OIDC Providers"</h3>
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"OIDC Providers"</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                {move || format!("{} connected users", oidc_connected_users.get())}
+                            </p>
+                        </div>
                         <Button variant=ButtonVariant::Primary on:click=move |_| {
                             set_show_oidc_form.set(!show_oidc_form.get());
                             set_editing_oidc_id.set(None);
@@ -1389,6 +1563,19 @@ pub fn AdminPage() -> impl IntoView {
                             {move || if show_oidc_form.get() { "Cancel" } else { "Add Provider" }}
                         </Button>
                     </div>
+
+                    // OIDC Test Connection Result
+                    <Show when=move || oidc_test_result.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        {move || {
+                            let msg = oidc_test_result.get().unwrap_or_default();
+                            let is_success = msg.contains("successful");
+                            view! {
+                                <div class=format!("p-3 border-l-4 text-sm {}", if is_success { "bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-400 text-green-700 dark:text-green-400" } else { "bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-400 text-red-700 dark:text-red-400" })>
+                                    {msg}
+                                </div>
+                            }
+                        }}
+                    </Show>
 
                     // OIDC Add/Edit Form
                     <Show when=move || show_oidc_form.get() fallback=|| view! { <div class="hidden"></div> }>
@@ -1524,8 +1711,15 @@ pub fn AdminPage() -> impl IntoView {
                                                                 </td>
                                                                 <td class="px-4 py-3 text-right">
                                                                     <button
+                                                                        class="text-sm text-blue-600 dark:text-blue-400 hover:underline mr-3"
+                                                                        disabled=oidc_test_loading.get()
+                                                                        on:click=move |_| test_oidc_connection(p_id.clone())
+                                                                    >
+                                                                        "Test"
+                                                                    </button>
+                                                                    <button
                                                                         class="text-sm text-red-600 dark:text-red-400 hover:underline"
-                                                                        on:click=move |_| delete_oidc_provider(p_id.clone())
+                                                                        on:click=move |_| delete_oidc_provider(p_id2.clone())
                                                                     >
                                                                         "Delete"
                                                                     </button>
@@ -1539,6 +1733,114 @@ pub fn AdminPage() -> impl IntoView {
                                     </div>
                                 }.into_any()
                             }}
+                        </Card>
+                    </Show>
+                </div>
+            </Show>
+
+            // -- LDAP Tab --
+            <Show when=move || active_tab.get() == AdminTab::Ldap fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-6">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"LDAP Group Sync"</h3>
+
+                    <Show when=move || ldap_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || ldap_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_ldap_error.set(None)) />
+                    </Show>
+
+                    <Show when=move || ldap_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-8">
+                            <Spinner />
+                        </div>
+                    </Show>
+
+                    <Show when=move || !ldap_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        // Connection Status Card
+                        <Card>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">"Connection Status"</h4>
+                                    {move || {
+                                        let connected = ldap_status.get().map(|s| s.connected).unwrap_or(false);
+                                        let enabled = ldap_status.get().map(|s| s.enabled).unwrap_or(false);
+                                        if !enabled {
+                                            view! { <Badge color=BadgeColor::Neutral text="LDAP Disabled".to_string() /> }.into_any()
+                                        } else if connected {
+                                            view! { <Badge color=BadgeColor::Success text="Connected".to_string() /> }.into_any()
+                                        } else {
+                                            view! { <Badge color=BadgeColor::Danger text="Disconnected".to_string() /> }.into_any()
+                                        }
+                                    }}
+                                </div>
+
+                                {move || ldap_status.get().map(|s| {
+                                    view! {
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                                            <div>
+                                                <span class="text-gray-500 dark:text-gray-400">"Server URL"</span>
+                                                <p class="font-mono text-gray-900 dark:text-gray-100">{s.server_url}</p>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-500 dark:text-gray-400">"Bind DN"</span>
+                                                <p class="font-mono text-gray-900 dark:text-gray-100">{s.bind_dn}</p>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-500 dark:text-gray-400">"Search Base"</span>
+                                                <p class="font-mono text-gray-900 dark:text-gray-100">{s.search_base}</p>
+                                            </div>
+                                        </div>
+                                    }
+                                })}
+
+                                <div class="flex gap-3">
+                                    <Button variant=ButtonVariant::Primary on:click=move |_| test_ldap_connection() disabled=ldap_test_loading.get()>
+                                        {move || if ldap_test_loading.get() { "Testing..." } else { "Test Connection" }}
+                                    </Button>
+                                </div>
+
+                                // Test Connection Result
+                                <Show when=move || ldap_test_result.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                    {move || {
+                                        let msg = ldap_test_result.get().unwrap_or_default();
+                                        let is_success = msg.contains("successful");
+                                        view! {
+                                            <div class=format!("p-3 border-l-4 text-sm {}", if is_success { "bg-green-50 dark:bg-green-900/20 border-green-500 dark:border-green-400 text-green-700 dark:text-green-400" } else { "bg-red-50 dark:bg-red-900/20 border-red-500 dark:border-red-400 text-red-700 dark:text-red-400" })>
+                                                {msg}
+                                            </div>
+                                        }
+                                    }}
+                                </Show>
+                            </div>
+                        </Card>
+
+                        // Sync Card
+                        <Card>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <h4 class="text-sm font-semibold text-gray-900 dark:text-gray-100">"Group Synchronization"</h4>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">"Sync LDAP groups to CivitForge teams"</p>
+                                    </div>
+                                    <Button variant=ButtonVariant::Primary on:click=move |_| sync_ldap_groups() disabled=ldap_sync_loading.get()>
+                                        {move || if ldap_sync_loading.get() { "Syncing..." } else { "Sync Groups" }}
+                                    </Button>
+                                </div>
+
+                                // Sync Result
+                                <Show when=move || ldap_sync_result.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                    {move || {
+                                        let result = ldap_sync_result.get().unwrap();
+                                        view! {
+                                            <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 text-sm text-blue-700 dark:text-blue-400">
+                                                <p class="font-medium">{result.message}</p>
+                                                <div class="mt-2 flex gap-4 text-xs">
+                                                    <span>"Groups synced: " <strong>{result.groups_synced.to_string()}</strong></span>
+                                                    <span>"Users mapped: " <strong>{result.users_mapped.to_string()}</strong></span>
+                                                </div>
+                                            </div>
+                                        }
+                                    }}
+                                </Show>
+                            </div>
                         </Card>
                     </Show>
                 </div>

@@ -1,12 +1,12 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::api::auth::AuthUser;
+use crate::api::auth::{AuthUser, require_admin};
 use crate::api::users::UserResponse;
 use crate::error::CoreError;
 use crate::ldap::LdapAuth;
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
 };
@@ -365,6 +365,52 @@ pub async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> impl 
     (StatusCode::OK, Json(RefreshResponse { token })).into_response()
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChangePasswordResponse {
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LdapAdminStatusResponse {
+    pub enabled: bool,
+    pub connected: bool,
+    pub server_url: String,
+    pub bind_dn: String,
+    pub search_base: String,
+    pub group_search_base: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LdapAdminTestRequest {}
+
+#[derive(Debug, Serialize)]
+pub struct LdapAdminSyncResponse {
+    pub groups_synced: i32,
+    pub users_mapped: i32,
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OidcTestRequest {}
+
+#[derive(Debug, Serialize)]
+pub struct OidcTestResponse {
+    pub status: String,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OidcUsersCountResponse {
+    pub count: i64,
+}
+
 pub async fn ldap_sync(
     State(state): State<AppState>,
     Json(req): Json<LdapSyncRequest>,
@@ -396,6 +442,259 @@ async fn do_ldap_sync(
         groups: groups.clone(),
         message: format!("Synced {} LDAP groups", groups.len()),
     })
+}
+
+pub async fn change_password_auth(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<ChangePasswordRequest>,
+) -> impl IntoResponse {
+    match do_change_password_auth(&state, &auth, req).await {
+        Ok(resp) => (StatusCode::OK, Json(resp)).into_response(),
+        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+    }
+}
+
+async fn do_change_password_auth(
+    state: &AppState,
+    auth: &AuthUser,
+    req: ChangePasswordRequest,
+) -> crate::error::Result<ChangePasswordResponse> {
+    if req.current_password.is_empty() || req.new_password.is_empty() {
+        return Err(CoreError::Auth(
+            "Current and new password are required".into(),
+        ));
+    }
+
+    let user_uuid = uuid::Uuid::parse_str(&auth.user_id)
+        .map_err(|_| CoreError::Config("invalid user ID".into()))?;
+
+    let violations =
+        crate::api::password::validate_password_policy(&req.new_password, &state.config.security);
+    if !violations.is_empty() {
+        return Err(CoreError::Auth(violations.join("; ")));
+    }
+
+    if req.current_password == req.new_password {
+        return Err(CoreError::Auth(
+            "New password must differ from current password".into(),
+        ));
+    }
+
+    let stored_hash = state
+        .db
+        .get_password_hash(user_uuid)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?
+        .ok_or_else(|| CoreError::Auth("user has no password set".into()))?;
+
+    if !civit_auth::password::verify_password(&req.current_password, &stored_hash) {
+        return Err(CoreError::Auth("Current password is incorrect".into()));
+    }
+
+    let new_hash = civit_auth::password::hash_password(&req.new_password)?;
+
+    state
+        .db
+        .change_password(user_uuid, &new_hash)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+    Ok(ChangePasswordResponse {
+        status: "ok".into(),
+        message: "Password changed successfully".into(),
+    })
+}
+
+pub async fn ldap_admin_status(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let sec = &state.config.security;
+    let ldap_config: crate::ldap::LdapConfig = sec.into();
+
+    let connected = if sec.ldap_enabled {
+        match crate::ldap::LdapAuth::test_connection(&ldap_config).await {
+            Ok(c) => c,
+            Err(_) => false,
+        }
+    } else {
+        false
+    };
+
+    let resp = LdapAdminStatusResponse {
+        enabled: sec.ldap_enabled,
+        connected,
+        server_url: sec.ldap_url.clone(),
+        bind_dn: sec.ldap_bind_dn.clone(),
+        search_base: sec.ldap_user_search_base.clone(),
+        group_search_base: sec.ldap_group_search_base.clone(),
+    };
+
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+pub async fn ldap_admin_test(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let sec = &state.config.security;
+    let ldap_config: crate::ldap::LdapConfig = sec.into();
+
+    match crate::ldap::LdapAuth::test_connection(&ldap_config).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "ok", "message": "LDAP connection successful"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"status": "error", "message": "LDAP connection failed"})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"status": "error", "message": format!("LDAP test error: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn ldap_admin_sync(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let sec = &state.config.security;
+    if !sec.ldap_enabled {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"status": "error", "message": "LDAP is not enabled"})),
+        )
+            .into_response();
+    }
+
+    let ldap_config: crate::ldap::LdapConfig = sec.into();
+
+    match crate::ldap::LdapAuth::sync_all_groups(&ldap_config).await {
+        Ok((groups_synced, users_mapped)) => (
+            StatusCode::OK,
+            Json(LdapAdminSyncResponse {
+                groups_synced: groups_synced as i32,
+                users_mapped: users_mapped as i32,
+                message: format!(
+                    "Synced {groups_synced} LDAP groups, mapped {users_mapped} users"
+                ),
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"status": "error", "message": format!("Sync failed: {e}")})),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn oidc_admin_test(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let provider_id = match uuid::Uuid::parse_str(&id) {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::Config("invalid provider id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let pool = state.db.pool();
+    let result = sqlx::query_as::<_, crate::api::oidc::OidcProviderRow>(
+        "SELECT id, name, issuer, client_id, jwks_uri, client_secret, enabled, created_at, updated_at FROM oidc_providers WHERE id = $1",
+    )
+    .bind(provider_id)
+    .fetch_optional(pool)
+    .await;
+
+    match result {
+        Ok(Some(provider)) => {
+            let issuer_url = &provider.issuer;
+            match reqwest::get(format!("{issuer_url}/.well-known/openid-configuration")).await {
+                Ok(resp) if resp.status().is_success() => (
+                    StatusCode::OK,
+                    Json(OidcTestResponse {
+                        status: "ok".into(),
+                        message: format!("Connection to {} successful", provider.name),
+                    }),
+                )
+                    .into_response(),
+                _ => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(OidcTestResponse {
+                        status: "error".into(),
+                        message: format!("Failed to connect to {}", provider.name),
+                    }),
+                )
+                    .into_response(),
+            }
+        }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("provider not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn oidc_admin_users_count(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let pool = state.db.pool();
+    let result = sqlx::query_scalar::<_, i64>("SELECT COUNT(DISTINCT user_id) FROM oidc_identities")
+        .fetch_one(pool)
+        .await;
+
+    match result {
+        Ok(count) => (
+            StatusCode::OK,
+            Json(OidcUsersCountResponse { count }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }
 
 /// Generate a random 6-digit verification code.

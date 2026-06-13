@@ -323,6 +323,60 @@ impl LdapAuth {
             })
             .unwrap_or_default()
     }
+
+    pub async fn test_connection(config: &LdapConfig) -> Result<bool> {
+        if !config.enabled {
+            return Ok(false);
+        }
+
+        let pool = LdapPool::new(config);
+        match pool.get_connection() {
+            Ok(conn) => {
+                pool.return_connection(conn);
+                Ok(true)
+            }
+            Err(_) => Ok(false),
+        }
+    }
+
+    pub async fn sync_all_groups(config: &LdapConfig) -> Result<(usize, usize)> {
+        if !config.enabled {
+            return Err(AuthError::Auth(
+                "LDAP authentication is not enabled".into(),
+            ));
+        }
+
+        let pool = LdapPool::new(config);
+        let mut conn = pool.get_connection()?;
+
+        let search_result = conn
+            .search(
+                &config.group_search_base,
+                Scope::Subtree,
+                "(objectClass=groupOfNames)",
+                vec!["cn", "member"],
+            )
+            .map_err(|e| AuthError::Internal(format!("LDAP group search failed: {e}")))?;
+
+        let entries: Vec<SearchEntry> = search_result
+            .0
+            .into_iter()
+            .map(SearchEntry::construct)
+            .collect();
+
+        let groups_synced = entries.len();
+        let mut users_mapped = 0;
+
+        for entry in &entries {
+            if let Some(members) = entry.attrs.get("member") {
+                users_mapped += members.len();
+            }
+        }
+
+        pool.return_connection(conn);
+
+        Ok((groups_synced, users_mapped))
+    }
 }
 
 #[cfg(test)]

@@ -107,6 +107,30 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/api/v1/auth/refresh", post(auth_routes::refresh))
         .route("/api/v1/auth/ldap/sync", post(auth_routes::ldap_sync))
         .route(
+            "/api/v1/auth/change-password",
+            post(auth_routes::change_password_auth),
+        )
+        .route(
+            "/api/v1/admin/ldap/status",
+            get(auth_routes::ldap_admin_status),
+        )
+        .route(
+            "/api/v1/admin/ldap/test",
+            post(auth_routes::ldap_admin_test),
+        )
+        .route(
+            "/api/v1/admin/ldap/sync",
+            post(auth_routes::ldap_admin_sync),
+        )
+        .route(
+            "/api/v1/admin/oidc-providers/{id}/test",
+            post(auth_routes::oidc_admin_test),
+        )
+        .route(
+            "/api/v1/admin/oidc-providers/users-count",
+            get(auth_routes::oidc_admin_users_count),
+        )
+        .route(
             "/api/v1/repos",
             get(repos::list_repos).post(repos::create_repo),
         )

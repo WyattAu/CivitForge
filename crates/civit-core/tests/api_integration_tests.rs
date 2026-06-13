@@ -994,3 +994,336 @@ async fn test_health(pool: PgPool) {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 }
+
+// ===========================================================================
+// OIDC token exchange
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_oidc_exchange(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "oidcuser", "oidc@example.com").await;
+    let body = serde_json::json!({
+        "provider": "github",
+        "id_token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIn0.signature"
+    });
+    let (status, json) = post_json(&app, "/api/v1/auth/oidc/exchange", body, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["provider"], "github");
+    assert!(json["linked"].as_bool().unwrap());
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_oidc_exchange_missing_provider(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "oidcuser2", "oidc2@example.com").await;
+    let body = serde_json::json!({"id_token": "some.token.here"});
+    let (status, _) = post_json(&app, "/api/v1/auth/oidc/exchange", body, Some(&token)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_oidc_exchange_no_auth(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let body = serde_json::json!({"provider": "github", "id_token": "abc"});
+    let (status, _) = post_json(&app, "/api/v1/auth/oidc/exchange", body, None).await;
+    assert!(status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN);
+}
+
+// ===========================================================================
+// Site settings CRUD
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_get_site_settings_default(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (status, json) = get_json(&app, "/api/v1/admin/settings", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["site_name"], "CivitForge");
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_update_site_settings(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "admin", "admin@example.com").await;
+    let body = serde_json::json!({
+        "site_name": "My Custom Forge",
+        "site_description": "A private forge",
+        "footer_text": "(c) 2025"
+    });
+    let (status, json) = put_json(&app, "/api/v1/admin/settings", body, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["site_name"], "My Custom Forge");
+    assert_eq!(json["footer_text"], "(c) 2025");
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_get_site_settings_after_update(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "admin2", "admin2@example.com").await;
+    let body = serde_json::json!({"site_name": "Updated Name"});
+    put_json(&app, "/api/v1/admin/settings", body, Some(&token)).await;
+    let (status, json) = get_json(&app, "/api/v1/admin/settings", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["site_name"], "Updated Name");
+}
+
+// ===========================================================================
+// Issue analytics
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_issue_analytics(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "analytics", "analytics@example.com").await;
+    create_repo(&app, &token, "analyticsrepo", "analytics").await;
+    let body = serde_json::json!({"title": "Issue for analytics"});
+    post_json(&app, "/api/v1/repos/analytics/analyticsrepo/issues", body, Some(&token)).await;
+    let (status, json) = get_json(&app, "/api/v1/repos/analytics/analyticsrepo/issues/analytics", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(json["total"].as_i64().unwrap() >= 1);
+    assert!(json["open_count"].as_i64().unwrap() >= 1);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_issue_analytics_repo_not_found(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "anuser", "anuser@example.com").await;
+    let (status, _) = get_json(&app, "/api/v1/repos/anuser/nonexistent/issues/analytics", Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+// ===========================================================================
+// Merge queue remove
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_merge_queue_remove(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "mqremove", "mqremove@example.com").await;
+    create_repo(&app, &token, "mqremoverepo", "mqremove").await;
+    let body = serde_json::json!({
+        "title": "PR for removal",
+        "source_branch": "rm-branch",
+        "target_branch": "main"
+    });
+    let (_, created) = post_json(&app, "/api/v1/repos/mqremove/mqremoverepo/pulls", body, Some(&token)).await;
+    let pr_number = created["number"].as_i64().unwrap();
+    let body = serde_json::json!({"pr_number": pr_number});
+    let (_, queue_resp) = post_json(&app, "/api/v1/repos/mqremove/mqremoverepo/merge-queue", body, Some(&token)).await;
+    let entry_id = queue_resp["id"].as_str().unwrap();
+    let status = delete_request(&app, &format!("/api/v1/repos/mqremove/mqremoverepo/merge-queue/{entry_id}"), Some(&token)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+}
+
+// ===========================================================================
+// Environments update and delete
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_update_environment(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "envupdate", "envupdate@example.com").await;
+    create_repo(&app, &token, "envupdaterepo", "envupdate").await;
+    let body = serde_json::json!({"name": "staging"});
+    let (_, created) = post_json(&app, "/api/v1/repos/envupdate/envupdaterepo/environments", body, Some(&token)).await;
+    let env_id = created["id"].as_str().unwrap();
+    let body = serde_json::json!({"name": "staging-updated"});
+    let (status, json) = put_json(&app, &format!("/api/v1/repos/envupdate/envupdaterepo/environments/{env_id}"), body, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["name"], "staging-updated");
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_delete_environment(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "envdel", "envdel@example.com").await;
+    create_repo(&app, &token, "envdelrepo", "envdel").await;
+    let body = serde_json::json!({"name": "to-delete"});
+    let (_, created) = post_json(&app, "/api/v1/repos/envdel/envdelrepo/environments", body, Some(&token)).await;
+    let env_id = created["id"].as_str().unwrap();
+    let status = delete_request(&app, &format!("/api/v1/repos/envdel/envdelrepo/environments/{env_id}"), Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_delete_environment_not_found(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "envdel2", "envdel2@example.com").await;
+    create_repo(&app, &token, "envdel2repo", "envdel2").await;
+    let fake_id = uuid::Uuid::new_v4();
+    let status = delete_request(&app, &format!("/api/v1/repos/envdel2/envdel2repo/environments/{fake_id}"), Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+// ===========================================================================
+// Deployments update status
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_update_deployment_status(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "depupdate", "depupdate@example.com").await;
+    create_repo(&app, &token, "depupdaterepo", "depupdate").await;
+    let body = serde_json::json!({"sha": "sha_for_update"});
+    let (_, created) = post_json(&app, "/api/v1/repos/depupdate/depupdaterepo/deployments", body, Some(&token)).await;
+    let dep_id = created["id"].as_str().unwrap();
+    let body = serde_json::json!({"status": "success"});
+    let (status, json) = patch_json(&app, &format!("/api/v1/repos/depupdate/depupdaterepo/deployments/{dep_id}/status"), body, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["status"], "success");
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_update_deployment_status_invalid(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "depinv", "depinv@example.com").await;
+    create_repo(&app, &token, "depinvrepo", "depinv").await;
+    let body = serde_json::json!({"sha": "sha_invalid"});
+    let (_, created) = post_json(&app, "/api/v1/repos/depinv/depinvrepo/deployments", body, Some(&token)).await;
+    let dep_id = created["id"].as_str().unwrap();
+    let body = serde_json::json!({"status": "invalid_status"});
+    let (status, _) = patch_json(&app, &format!("/api/v1/repos/depinv/depinvrepo/deployments/{dep_id}/status"), body, Some(&token)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_update_deployment_status_not_found(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "depnf", "depnf@example.com").await;
+    create_repo(&app, &token, "depnfrepo", "depnf").await;
+    let fake_id = uuid::Uuid::new_v4();
+    let body = serde_json::json!({"status": "success"});
+    let (status, _) = patch_json(&app, &format!("/api/v1/repos/depnf/depnfrepo/deployments/{fake_id}/status"), body, Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+// ===========================================================================
+// Branch protection toggle (set then update)
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_branch_protection_update(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "bptoggle", "bptoggle@example.com").await;
+    create_repo(&app, &token, "bptogglerepo", "bptoggle").await;
+    let body = serde_json::json!({
+        "branch_pattern": "main",
+        "require_pull_request": true,
+        "required_approving_reviews": 1
+    });
+    put_json(&app, "/api/v1/repos/bptoggle/bptogglerepo/branch-protection", body, Some(&token)).await;
+    let body = serde_json::json!({
+        "branch_pattern": "main",
+        "require_pull_request": false,
+        "required_approving_reviews": 0
+    });
+    let (status, json) = put_json(&app, "/api/v1/repos/bptoggle/bptogglerepo/branch-protection", body, Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!json["require_pull_request"].as_bool().unwrap());
+}
+
+// ===========================================================================
+// Code search
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_global_code_search_empty(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "codesearch", "codesearch@example.com").await;
+    let (status, _) = get_json(&app, "/api/v1/search/code?q=test", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_global_code_search_missing_q(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "csnoq", "csnoq@example.com").await;
+    let (status, _) = get_json(&app, "/api/v1/search/code", Some(&token)).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_repo_search_languages(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "languser", "lang@example.com").await;
+    create_repo(&app, &token, "langrepo", "languser").await;
+    let (status, _) = get_json(&app, "/api/v1/repos/languser/langrepo/search/languages", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+// ===========================================================================
+// Notifications read/unread
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_notifications_unread_count(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "notifunread", "notifunread@example.com").await;
+    let (status, json) = get_json(&app, "/api/v1/notifications/unread-count", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(json["count"], 0);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_notifications_mark_read_not_found(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "notifmr", "notifmr@example.com").await;
+    let fake_id = uuid::Uuid::new_v4();
+    let (status, _) = patch_json(&app, &format!("/api/v1/notifications/{fake_id}/read"), serde_json::json!({}), Some(&token)).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_notifications_list_with_read_filter(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "notifread", "notifread@example.com").await;
+    let (status, _) = get_json(&app, "/api/v1/notifications?read=true", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+// ===========================================================================
+// Activity feed
+// ===========================================================================
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_activity_with_pagination(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (token, _) = register_and_login(&app, "actpag", "actpag@example.com").await;
+    let (status, json) = get_json(&app, "/api/v1/activity?per_page=5&page=1", Some(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    let pagination = &json["pagination"];
+    assert!(pagination.get("page").is_some());
+    assert!(pagination.get("per_page").is_some());
+}
+
+#[sqlx::test(migrations = "../civit-db/src/migrations")]
+async fn test_activity_unauthenticated(pool: PgPool) {
+    let config = test_config();
+    let app = create_router(config, pool).unwrap();
+    let (status, _) = get_json(&app, "/api/v1/activity", None).await;
+    assert_eq!(status, StatusCode::OK);
+}
