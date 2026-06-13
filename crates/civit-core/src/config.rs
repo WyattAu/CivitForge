@@ -37,6 +37,8 @@ pub struct SecurityConfig {
     pub ldap_tls_ca_path: Option<String>,
     #[serde(default = "default_ldap_connection_timeout_secs")]
     pub ldap_connection_timeout_secs: u64,
+    #[serde(default = "default_ldap_idle_timeout_secs")]
+    pub ldap_idle_timeout_secs: u64,
 }
 
 fn default_ldap_max_connections() -> usize {
@@ -45,6 +47,10 @@ fn default_ldap_max_connections() -> usize {
 
 fn default_ldap_connection_timeout_secs() -> u64 {
     10
+}
+
+fn default_ldap_idle_timeout_secs() -> u64 {
+    300
 }
 
 impl Default for SecurityConfig {
@@ -69,6 +75,7 @@ impl Default for SecurityConfig {
             ldap_max_connections: 10,
             ldap_tls_ca_path: None,
             ldap_connection_timeout_secs: 10,
+            ldap_idle_timeout_secs: 300,
         }
     }
 }
@@ -249,6 +256,10 @@ impl AppConfig {
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
                     .unwrap_or(10),
+                ldap_idle_timeout_secs: std::env::var("LDAP_IDLE_TIMEOUT_SECS")
+                    .ok()
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(300),
             },
             tls_cert_path: std::env::var("TLS_CERT_PATH")
                 .ok()

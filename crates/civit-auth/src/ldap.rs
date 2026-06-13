@@ -1,8 +1,9 @@
 use crate::error::{AuthError, Result};
 use ldap3::{LdapConn, LdapConnSettings, Scope, SearchEntry};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
-use std::time::Duration;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LdapUserInfo {
@@ -25,6 +26,7 @@ pub struct LdapConfig {
     pub max_connections: usize,
     pub tls_ca_path: Option<String>,
     pub connection_timeout_secs: u64,
+    pub idle_timeout_secs: u64,
 }
 
 impl Default for LdapConfig {
@@ -41,18 +43,47 @@ impl Default for LdapConfig {
             max_connections: 10,
             tls_ca_path: None,
             connection_timeout_secs: 10,
+            idle_timeout_secs: 300,
         }
     }
 }
 
+#[derive(Debug, Default)]
+pub struct LdapPoolMetrics {
+    pub connections_created: AtomicU64,
+    pub connections_reused: AtomicU64,
+    pub connections_failed: AtomicU64,
+}
+
+impl LdapPoolMetrics {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn snapshot(&self) -> (u64, u64, u64) {
+        (
+            self.connections_created.load(Ordering::Relaxed),
+            self.connections_reused.load(Ordering::Relaxed),
+            self.connections_failed.load(Ordering::Relaxed),
+        )
+    }
+}
+
+struct PooledConnection {
+    conn: LdapConn,
+    last_used: Instant,
+}
+
 pub struct LdapPool {
-    connections: Mutex<Vec<LdapConn>>,
+    connections: Mutex<Vec<PooledConnection>>,
     max_size: usize,
     url: String,
     bind_dn: String,
     bind_password: String,
     tls_ca_path: Option<String>,
     connection_timeout_secs: u64,
+    idle_timeout_secs: u64,
+    metrics: Arc<LdapPoolMetrics>,
 }
 
 impl LdapPool {
@@ -65,7 +96,13 @@ impl LdapPool {
             bind_password: config.bind_password.clone(),
             tls_ca_path: config.tls_ca_path.clone(),
             connection_timeout_secs: config.connection_timeout_secs,
+            idle_timeout_secs: config.idle_timeout_secs,
+            metrics: Arc::new(LdapPoolMetrics::new()),
         }
+    }
+
+    pub fn metrics(&self) -> &Arc<LdapPoolMetrics> {
+        &self.metrics
     }
 
     pub fn get_connection(&self) -> Result<LdapConn> {
@@ -73,9 +110,12 @@ impl LdapPool {
             let mut pool = self.connections.lock().map_err(|e| {
                 AuthError::Internal(format!("LDAP pool lock poisoned: {e}"))
             })?;
-            while let Some(mut conn) = pool.pop() {
-                if self.is_alive(&mut conn) {
-                    return Ok(conn);
+            let idle_timeout = Duration::from_secs(self.idle_timeout_secs);
+            let now = Instant::now();
+            pool.retain(|pc| now.duration_since(pc.last_used) < idle_timeout);
+            while let Some(pc) = pool.pop() {
+                if now.duration_since(pc.last_used) < idle_timeout {
+                    return Ok(pc.conn);
                 }
             }
         }
@@ -89,13 +129,11 @@ impl LdapPool {
             Err(_) => return,
         };
         if pool.len() < self.max_size {
-            pool.push(conn);
+            pool.push(PooledConnection {
+                conn,
+                last_used: Instant::now(),
+            });
         }
-    }
-
-    fn is_alive(&self, conn: &mut LdapConn) -> bool {
-        conn.search("", Scope::Base, "(objectClass=*)", vec!["dn"])
-            .is_ok()
     }
 
     pub(crate) fn create_connection(&self) -> Result<LdapConn> {
@@ -108,14 +146,25 @@ impl LdapPool {
             settings = settings.set_no_tls_verify(true);
         }
 
-        let mut conn = LdapConn::with_settings(settings, &self.url)
-            .map_err(|e| AuthError::Internal(format!("LDAP connection failed: {e}")))?;
+        let mut conn = LdapConn::with_settings(settings, &self.url).map_err(|e| {
+            self.metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+            AuthError::Internal(format!("LDAP connection failed: {e}"))
+        })?;
 
-        conn.simple_bind(&self.bind_dn, &self.bind_password)
-            .map_err(|e| AuthError::Auth(format!("LDAP bind failed: {e}")))?
-            .success()
-            .map_err(|e| AuthError::Auth(format!("LDAP bind rejected: {e}")))?;
+        match conn.simple_bind(&self.bind_dn, &self.bind_password) {
+            Ok(result) => {
+                if let Err(e) = result.success() {
+                    self.metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+                    return Err(AuthError::Auth(format!("LDAP bind rejected: {e}")));
+                }
+            }
+            Err(e) => {
+                self.metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+                return Err(AuthError::Auth(format!("LDAP bind failed: {e}")));
+            }
+        }
 
+        self.metrics.connections_created.fetch_add(1, Ordering::Relaxed);
         Ok(conn)
     }
 }
@@ -317,6 +366,7 @@ mod tests {
         assert_eq!(pool.max_size, 10);
         assert!(pool.tls_ca_path.is_none());
         assert_eq!(pool.connection_timeout_secs, 10);
+        assert_eq!(pool.idle_timeout_secs, 300);
     }
 
     #[test]
@@ -325,12 +375,14 @@ mod tests {
             max_connections: 5,
             tls_ca_path: Some("/etc/ldap/ca.pem".to_string()),
             connection_timeout_secs: 30,
+            idle_timeout_secs: 600,
             ..LdapConfig::default()
         };
         let pool = LdapPool::new(&config);
         assert_eq!(pool.max_size, 5);
         assert_eq!(pool.tls_ca_path, Some("/etc/ldap/ca.pem".to_string()));
         assert_eq!(pool.connection_timeout_secs, 30);
+        assert_eq!(pool.idle_timeout_secs, 600);
     }
 
     #[test]
@@ -346,5 +398,27 @@ mod tests {
         assert!(!config.enabled);
         assert_eq!(config.max_connections, 10);
         assert_eq!(config.connection_timeout_secs, 10);
+        assert_eq!(config.idle_timeout_secs, 300);
+    }
+
+    #[test]
+    fn test_ldap_pool_metrics_default() {
+        let metrics = LdapPoolMetrics::new();
+        let (created, reused, failed) = metrics.snapshot();
+        assert_eq!(created, 0);
+        assert_eq!(reused, 0);
+        assert_eq!(failed, 0);
+    }
+
+    #[test]
+    fn test_ldap_pool_metrics_incr() {
+        let metrics = LdapPoolMetrics::new();
+        metrics.connections_created.fetch_add(2, Ordering::Relaxed);
+        metrics.connections_reused.fetch_add(5, Ordering::Relaxed);
+        metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+        let (created, reused, failed) = metrics.snapshot();
+        assert_eq!(created, 2);
+        assert_eq!(reused, 5);
+        assert_eq!(failed, 1);
     }
 }

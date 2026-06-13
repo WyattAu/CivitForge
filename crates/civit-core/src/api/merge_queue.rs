@@ -294,12 +294,11 @@ pub async fn admin_list_all_merge_queue(
                 .flatten();
 
                 let (pr_title, pr_number, repo_full_name, branch) = pr_info
-                    .map(|(t, n, rn, b)| (t, n, rn, b))
                     .unwrap_or_default();
 
                 items.push(AdminMergeQueueEntry {
                     id: row.id.to_string(),
-                    pr_number: pr_number as i64,
+                    pr_number,
                     pr_title,
                     repo_full_name,
                     branch,

@@ -817,15 +817,70 @@ fn DiffLineRowSide(
         ("context", _) => ("background-color: #f6f8fa;", " "),
         _ => ("background-color: #f6f8fa;", " "),
     };
-    let row_class = "flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800".to_string();
+    let row_class = "flex items-center text-xs font-mono border-b border-gray-100 dark:border-gray-800 group/line".to_string();
+
+    let (show_comment_box, set_show_comment_box) = signal(false);
+    let (comment_text, set_comment_text) = signal(String::new());
+    let (comment_saving, set_comment_saving) = signal(false);
+
+    let submit_inline_comment = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        let body = comment_text.get();
+        if body.trim().is_empty() {
+            return;
+        }
+        set_comment_text.set(String::new());
+        set_show_comment_box.set(false);
+        set_comment_saving.set(false);
+    };
 
     view! {
-        <div class=row_class style=bg_style>
-            <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
-                {line_no.map(|n| n.to_string()).unwrap_or_default()}
-            </span>
-            <span class="w-4 text-center text-gray-400 select-none shrink-0">{prefix}</span>
-            <span class="flex-1 whitespace-pre px-2">{content}</span>
+        <div>
+            <div class=row_class style=bg_style>
+                <span class="w-12 text-right pr-2 text-gray-400 select-none shrink-0">
+                    {line_no.map(|n| n.to_string()).unwrap_or_default()}
+                </span>
+                <span class="w-4 text-center text-gray-400 select-none shrink-0">{prefix}</span>
+                <span class="flex-1 whitespace-pre px-2">{content}</span>
+                <button
+                    class="opacity-0 group-hover/line:opacity-100 shrink-0 px-1 py-0.5 text-[10px] text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all"
+                    title="Add comment"
+                    on:click=move |_| set_show_comment_box.update(|c| *c = !*c)
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                </button>
+            </div>
+            <Show when=move || show_comment_box.get()>
+                <div class="border-l-2 border-blue-400 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 ml-12">
+                    <form on:submit=submit_inline_comment class="space-y-2">
+                        <textarea
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Write a comment..."
+                            rows="3"
+                            on:input=move |ev| set_comment_text.set(event_target_value(&ev))
+                            prop:value=comment_text.get()
+                        ></textarea>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="submit"
+                                class="px-3 py-1.5 text-xs font-medium rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                                disabled=comment_saving.get() || comment_text.get().trim().is_empty()
+                            >
+                                {move || if comment_saving.get() { "Posting..." } else { "Comment" }}
+                            </button>
+                            <button
+                                type="button"
+                                class="px-3 py-1.5 text-xs font-medium rounded text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                on:click=move |_| set_show_comment_box.set(false)
+                            >
+                                "Cancel"
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </Show>
         </div>
     }
 }
@@ -987,18 +1042,20 @@ fn CollapsibleDiffFile(
 ) -> impl IntoView {
     let (collapsed, set_collapsed) = signal(false);
 
-    let status_bg = match status.as_str() {
-        "added" => "bg-green-100 dark:bg-green-900/30",
-        "removed" => "bg-red-100 dark:bg-red-900/30",
-        _ => "bg-gray-100 dark:bg-gray-700",
+    let (status_bg, status_icon, _status_label_text) = match status.as_str() {
+        "added" => ("bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300", "A", "Added"),
+        "removed" => ("bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300", "D", "Deleted"),
+        "renamed" | "copied" => ("bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300", "R", "Renamed"),
+        "modified" => ("bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300", "M", "Modified"),
+        _ => ("bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300", "M", "Modified"),
     };
-    let status_icon = match status.as_str() {
-        "added" => "A",
-        "removed" => "D",
-        _ => "M",
-    };
+
+    let total = additions + deletions;
+    let add_pct = if total > 0 { (additions as f64 / total as f64 * 100.0) as u32 } else { 50 };
+    let del_pct = if total > 0 { 100 - add_pct } else { 50 };
+
     let chevron_class = move || format!("w-4 h-4 text-gray-400 transition-transform {}", if collapsed.get() { "" } else { "rotate-90" });
-    let badge_class = StoredValue::new(format!("inline-flex items-center justify-center w-5 h-5 rounded text-[11px] font-mono font-bold text-gray-700 dark:text-gray-300 {status_bg}"));
+    let badge_class = StoredValue::new(format!("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold {status_bg}"));
     let hunks_sv = StoredValue::new(hunks);
     let path_sv = StoredValue::new(path);
 
@@ -1018,14 +1075,21 @@ fn CollapsibleDiffFile(
                     >
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
-                    <span class={move || badge_class.get_value()}>
+                    <span class={badge_class.get_value()}>
                         {status_icon}
                     </span>
                     <span class="font-mono text-sm text-gray-700 dark:text-gray-300 truncate">{path_sv.get_value()}</span>
                 </div>
                 <div class="flex items-center gap-3 shrink-0">
-                    <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{additions}</span>
-                    <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{deletions}</span>
+                    // File statistics bar
+                    <div class="flex items-center gap-2">
+                        <div class="flex items-center h-1.5 w-24 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div class="bg-green-500 dark:bg-green-400 h-full" style:width={format!("{add_pct}%")}></div>
+                            <div class="bg-red-500 dark:bg-red-400 h-full" style:width={format!("{del_pct}%")}></div>
+                        </div>
+                        <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{additions}</span>
+                        <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{deletions}</span>
+                    </div>
                 </div>
             </button>
 

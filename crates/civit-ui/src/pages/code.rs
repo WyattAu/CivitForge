@@ -234,7 +234,7 @@ fn CodeRepoOverview(
 }
 
 /// Sub-component: blame line data for inline blame view.
-#[derive(Clone, serde::Deserialize)]
+#[derive(Clone, PartialEq, serde::Deserialize)]
 struct BlameLineData {
     line_number: usize,
     content: String,
@@ -257,6 +257,8 @@ const BLAME_AUTHOR_COLORS: &[&str] = &[
 #[component]
 fn BlameRow(
     line: BlameLineData,
+    owner: String,
+    repo: String,
 ) -> impl IntoView {
     let short_id = if line.commit_id.len() >= 8 {
         line.commit_id[..8].to_string()
@@ -269,6 +271,7 @@ fn BlameRow(
     let time = line.time.clone();
     let content = line.content.clone();
     let line_number = line.line_number;
+    let commit_url = format!("/repos/{}/{}/commit/{}", owner, repo, line.commit_id);
 
     // Compute consistent color from author name using simple hash
     let author_color = {
@@ -276,23 +279,225 @@ fn BlameRow(
         BLAME_AUTHOR_COLORS[hash % BLAME_AUTHOR_COLORS.len()].to_string()
     };
 
+    let (copied, set_copied) = signal(false);
+    let content_for_copy = content.clone();
+
+    let copy_line = move |_: leptos::ev::MouseEvent| {
+        let text = content_for_copy.clone();
+        leptos::task::spawn_local(async move {
+            // Use js_sys eval for clipboard write
+            let escaped = text.replace('\\', "\\\\").replace('\'', "\\'").replace('\n', "\\n").replace('\r', "\\r");
+            let js_code = format!("navigator.clipboard.writeText('{escaped}')");
+            let _ = js_sys::eval(&js_code);
+            set_copied.set(true);
+            let _ = js_sys::Promise::resolve(&js_sys::eval("new Promise(r => setTimeout(r, 1500))").unwrap()).await;
+            set_copied.set(false);
+        });
+    };
+
     view! {
-        <tr class="hover:bg-gray-100 dark:hover:bg-gray-800/50">
+        <tr class="hover:bg-gray-100 dark:hover:bg-gray-800/50 group/line">
             <td class="py-0.5 pl-4 pr-2 text-gray-400 dark:text-gray-500 text-right select-none">
                 {line_number}
             </td>
             <td class="py-0.5 pr-2 text-xs">
-                <span class="font-mono" style=format!("color: {author_color}")>{short_id}</span>
-                <span class="ml-1 text-gray-500 dark:text-gray-400 truncate block max-w-[200px]" title=msg_title>{msg}</span>
+                <a
+                    class="font-mono hover:underline cursor-pointer"
+                    style=format!("color: {author_color}")
+                    href=commit_url
+                    title=msg_title
+                >
+                    {short_id}
+                </a>
+                <span class="ml-1 text-gray-500 dark:text-gray-400 truncate block max-w-[200px]">{msg}</span>
             </td>
             <td class="py-0.5 pr-2 text-xs whitespace-nowrap">
                 <span style=format!("color: {author_color}")>{author}</span>
                 <span class="ml-1 text-gray-400 dark:text-gray-500">{time}</span>
             </td>
-            <td class="py-0.5 pr-4 whitespace-pre">
+            <td class="py-0.5 pr-4 whitespace-pre relative">
                 <code>{content}</code>
+                <button
+                    class="opacity-0 group-hover/line:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-medium rounded transition-all bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    on:click=copy_line
+                >
+                    {move || if copied.get() { "Copied!" } else { "Copy" }}
+                </button>
             </td>
         </tr>
+    }
+}
+
+/// Sub-component: collapsible blame section grouped by commit.
+#[derive(Clone, PartialEq)]
+struct BlameSectionData {
+    commit_id: String,
+    commit_message: String,
+    author: String,
+    time: String,
+    lines: Vec<BlameLineData>,
+}
+
+#[component]
+fn BlameSectionView(
+    lines: Signal<Vec<BlameLineData>>,
+    owner: Signal<String>,
+    repo: Signal<String>,
+) -> impl IntoView {
+    let sections = Memo::new(move |_| {
+        let all_lines = lines.get();
+        let mut groups: Vec<BlameSectionData> = Vec::new();
+        let mut last_commit: Option<String> = None;
+
+        for line in all_lines {
+            if last_commit.as_ref() != Some(&line.commit_id) {
+                groups.push(BlameSectionData {
+                    commit_id: line.commit_id.clone(),
+                    commit_message: line.commit_message.clone(),
+                    author: line.author.clone(),
+                    time: line.time.clone(),
+                    lines: Vec::new(),
+                });
+                last_commit = Some(line.commit_id.clone());
+            }
+            if let Some(group) = groups.last_mut() {
+                group.lines.push(line);
+            }
+        }
+        groups
+    });
+
+    view! {
+        <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
+            <table class="w-full text-sm font-mono">
+                <thead>
+                    <tr class="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs">
+                        <th class="pb-2 pl-4 pr-2 text-left w-8 font-medium">"#"</th>
+                        <th class="pb-2 pr-2 text-left font-medium">"Commit"</th>
+                        <th class="pb-2 pr-2 text-left font-medium">"Author"</th>
+                        <th class="pb-2 pr-4 text-left font-medium">"Code"</th>
+                    </tr>
+                </thead>
+                <For
+                    each=move || {
+                        sections.get().into_iter().enumerate().collect::<Vec<_>>()
+                    }
+                    key=|s| format!("{}-{}", s.0, s.1.commit_id)
+                    let:item>
+                    <BlameSectionRow item=item owner=owner repo=repo />
+                </For>
+            </table>
+        </div>
+    }
+}
+
+/// Sub-component: single blame section row with header and collapsible lines.
+#[component]
+fn BlameSectionRow(
+    item: (usize, BlameSectionData),
+    owner: Signal<String>,
+    repo: Signal<String>,
+) -> impl IntoView {
+    let (_idx, section) = item;
+    let owner_val = owner.get();
+    let repo_val = repo.get();
+    let short_id = if section.commit_id.len() >= 8 {
+        section.commit_id[..8].to_string()
+    } else {
+        section.commit_id.clone()
+    };
+    let commit_url = format!(
+        "/repos/{}/{}/commit/{}",
+        owner_val, repo_val, section.commit_id
+    );
+    let (collapsed, set_collapsed) = signal(false);
+    let author_color = {
+        let hash: usize = section.author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+        BLAME_AUTHOR_COLORS[hash % BLAME_AUTHOR_COLORS.len()].to_string()
+    };
+    let line_count = section.lines.len();
+    let section_lines_sv = StoredValue::new(section.lines);
+
+    view! {
+        <BlameSectionRowHeader
+            collapsed=collapsed
+            set_collapsed=set_collapsed
+            commit_url=commit_url
+            short_id=short_id
+            commit_message=section.commit_message
+            author=section.author
+            time=section.time
+            author_color=author_color
+            line_count=line_count
+        />
+        <BlameSectionRowLines
+            collapsed=collapsed
+            section_lines_sv=section_lines_sv
+            owner_val=owner_val
+            repo_val=repo_val
+        />
+    }
+}
+
+#[component]
+fn BlameSectionRowHeader(
+    collapsed: ReadSignal<bool>,
+    set_collapsed: WriteSignal<bool>,
+    commit_url: String,
+    short_id: String,
+    commit_message: String,
+    author: String,
+    time: String,
+    author_color: String,
+    line_count: usize,
+) -> impl IntoView {
+    view! {
+        <tr
+            class="border-t border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800/50"
+            on:click=move |_| set_collapsed.update(|c| *c = !*c)
+        >
+            <td class="py-1 pl-4 pr-2" colspan="4">
+                <div class="flex items-center gap-3">
+                    <svg class={move || format!("w-3 h-3 text-gray-400 transition-transform {}", if collapsed.get() { "" } else { "rotate-90" })} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <a
+                        class="font-mono text-xs font-semibold hover:underline"
+                        style=format!("color: {author_color}")
+                        href=commit_url
+                    >
+                        {short_id}
+                    </a>
+                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate max-w-xs">{commit_message}</span>
+                    <span class="text-xs whitespace-nowrap" style=format!("color: {author_color}")>{author}</span>
+                    <span class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">{time}</span>
+                    <span class="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                        {format!("{} line{}", line_count, if line_count != 1 { "s" } else { "" })}
+                    </span>
+                </div>
+            </td>
+        </tr>
+    }
+}
+
+#[component]
+fn BlameSectionRowLines(
+    collapsed: ReadSignal<bool>,
+    section_lines_sv: StoredValue<Vec<BlameLineData>>,
+    owner_val: String,
+    repo_val: String,
+) -> impl IntoView {
+    let owner_sv = StoredValue::new(owner_val);
+    let repo_sv = StoredValue::new(repo_val);
+    view! {
+        <Show when=move || !collapsed.get() fallback=|| view! { <div class="hidden"></div> }>
+            <For
+                each=move || section_lines_sv.get_value()
+                key=|l| l.line_number
+                let:line>
+                <BlameRow line=line owner=owner_sv.get_value() repo=repo_sv.get_value() />
+            </For>
+        </Show>
     }
 }
 
@@ -458,27 +663,11 @@ fn CodeFileViewer(
                         </div>
                     </Show>
                     <Show when=move || !blame_loading.get() && blame_error.get().is_none() && !blame_lines.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
-                        <div class="bg-gray-50 dark:bg-gray-900/50 rounded-md border border-gray-200 dark:border-gray-700 overflow-x-auto">
-                            <table class="w-full text-sm font-mono">
-                                <thead>
-                                    <tr class="border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 text-xs">
-                                        <th class="pb-2 pl-4 pr-2 text-left w-8 font-medium">"#"</th>
-                                        <th class="pb-2 pr-2 text-left font-medium">"Commit"</th>
-                                        <th class="pb-2 pr-2 text-left font-medium">"Author"</th>
-                                        <th class="pb-2 pr-4 text-left font-medium">"Code"</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700/50">
-                                    <For
-                                        each=move || blame_lines.get()
-                                        key=|l| l.line_number
-                                        let:line
-                                    >
-                                        <BlameRow line=line />
-                                    </For>
-                                </tbody>
-                            </table>
-                        </div>
+                        <BlameSectionView
+                            lines=blame_lines.into()
+                            owner=owner
+                            repo=name
+                        />
                     </Show>
                 </div>
             </Show>

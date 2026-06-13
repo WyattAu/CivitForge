@@ -842,8 +842,357 @@ pub async fn reindex_repo_after_push(
     index_collected_files(pool, repo_id, &commit_sha, &files).await
 }
 
+/// Compute the set of file paths that differ between two tree IDs.
+/// Returns (added_or_modified, deleted) where each is a set of paths.
+fn diff_trees(
+    repo: &gix::Repository,
+    old_tree_id: Option<gix::hash::ObjectId>,
+    new_tree_id: gix::hash::ObjectId,
+) -> Result<(std::collections::HashSet<String>, std::collections::HashSet<String>), CoreError> {
+    use std::collections::{HashMap, HashSet};
+
+    let mut old_files: HashMap<String, gix::hash::ObjectId> = HashMap::new();
+    if let Some(old_id) = old_tree_id {
+        collect_tree_entries(repo, old_id, "", &mut old_files)?;
+    }
+
+    let mut new_files: HashMap<String, gix::hash::ObjectId> = HashMap::new();
+    collect_tree_entries(repo, new_tree_id, "", &mut new_files)?;
+
+    let mut added_modified = HashSet::new();
+    let mut deleted = HashSet::new();
+
+    for (path, oid) in &new_files {
+        match old_files.get(path) {
+            Some(old_oid) if old_oid == oid => {}
+            _ => {
+                added_modified.insert(path.clone());
+            }
+        }
+    }
+    for path in old_files.keys() {
+        if !new_files.contains_key(path) {
+            deleted.insert(path.clone());
+        }
+    }
+
+    Ok((added_modified, deleted))
+}
+
+fn collect_tree_entries(
+    repo: &gix::Repository,
+    tree_id: gix::hash::ObjectId,
+    prefix: &str,
+    entries: &mut std::collections::HashMap<String, gix::hash::ObjectId>,
+) -> Result<(), CoreError> {
+    let tree_obj = repo
+        .find_object(tree_id)
+        .map_err(|e| CoreError::Git(format!("find tree object: {e}")))?;
+    let tree = tree_obj
+        .try_into_tree()
+        .map_err(|e| CoreError::Git(format!("parse tree: {e}")))?;
+
+    for entry_result in tree.iter() {
+        let entry = match entry_result {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let name = entry.filename().to_string();
+        let path = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}/{name}")
+        };
+
+        let mode = entry.mode();
+        if mode.is_tree() {
+            let subtree_oid = entry.oid().to_owned();
+            collect_tree_entries(repo, subtree_oid, &path, entries)?;
+        } else if mode.is_blob() {
+            entries.insert(path, entry.oid().to_owned());
+        }
+    }
+    Ok(())
+}
+
+/// Collect files from the repo tree, optionally filtering to only changed paths.
+fn collect_changed_files(
+    repo_path: &std::path::Path,
+    changed_paths: &std::collections::HashSet<String>,
+) -> Result<(String, Vec<CollectedFile>), CoreError> {
+    let repo = gix::open(repo_path).map_err(|e| CoreError::Git(format!("open repository: {e}")))?;
+
+    let head_id = repo
+        .head_id()
+        .map_err(|e| CoreError::Git(format!("read HEAD: {e}")))?;
+
+    let commit_obj = head_id
+        .object()
+        .map_err(|e| CoreError::Git(format!("read commit object: {e}")))?;
+
+    let commit = commit_obj
+        .try_into_commit()
+        .map_err(|e| CoreError::Git(format!("parse commit: {e}")))?;
+
+    let commit_sha = head_id.to_hex().to_string();
+
+    let tree_id = commit
+        .tree_id()
+        .map_err(|e| CoreError::Git(format!("read tree id: {e}")))?;
+
+    let root_tree_id = tree_id.detach();
+
+    let mut files = Vec::new();
+    let mut stack: Vec<(gix::hash::ObjectId, String)> = vec![(root_tree_id, String::new())];
+
+    while let Some((current_tree_id, prefix)) = stack.pop() {
+        let tree_obj = match repo.find_object(current_tree_id) {
+            Ok(o) => o,
+            Err(_) => continue,
+        };
+        let tree = match tree_obj.try_into_tree() {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
+
+        for entry_result in tree.iter() {
+            let entry = match entry_result {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+
+            let name = entry.filename().to_string();
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}/{name}")
+            };
+
+            let mode = entry.mode();
+            if mode.is_tree() {
+                let subtree_oid = entry.oid().to_owned();
+                stack.push((subtree_oid, path));
+                continue;
+            }
+
+            if !mode.is_blob() {
+                continue;
+            }
+
+            if !changed_paths.contains(&path) {
+                continue;
+            }
+
+            let blob_obj = match entry.object() {
+                Ok(o) => o,
+                Err(_) => continue,
+            };
+            let blob = match blob_obj.try_into_blob() {
+                Ok(b) => b,
+                Err(_) => continue,
+            };
+
+            if is_binary(&blob.data) {
+                continue;
+            }
+
+            let content = String::from_utf8_lossy(&blob.data).to_string();
+            let language = language_from_extension(&path)
+                .map(|s| s.to_string())
+                .unwrap_or_default();
+            let line_count = content.lines().count() as i32;
+            let byte_size = blob.data.len() as i64;
+
+            files.push(CollectedFile {
+                path,
+                content,
+                language,
+                byte_size,
+                line_count,
+            });
+        }
+    }
+
+    Ok((commit_sha, files))
+}
+
+/// Data collected from a git diff for indexing.
+struct DiffIndexData {
+    commit_sha: String,
+    added_modified_files: Vec<CollectedFile>,
+    deleted_paths: Vec<String>,
+}
+
+/// Collect diff data synchronously (no gix types escape this function).
+fn collect_diff_data(
+    repo_path: &std::path::Path,
+) -> Result<DiffIndexData, CoreError> {
+    let repo = gix::open(repo_path).map_err(|e| CoreError::Git(format!("open repository: {e}")))?;
+
+    let head_id = repo
+        .head_id()
+        .map_err(|e| CoreError::Git(format!("read HEAD: {e}")))?;
+
+    let commit_obj = head_id
+        .object()
+        .map_err(|e| CoreError::Git(format!("read commit object: {e}")))?;
+
+    let commit = commit_obj
+        .try_into_commit()
+        .map_err(|e| CoreError::Git(format!("parse commit: {e}")))?;
+
+    let new_tree_id = commit
+        .tree_id()
+        .map_err(|e| CoreError::Git(format!("read tree id: {e}")))?;
+
+    let new_root = new_tree_id.detach();
+
+    let mut old_tree_id = None;
+    if let Some(parent_id) = commit.parent_ids().next() {
+        if let Ok(parent_obj) = parent_id.object() {
+            if let Ok(parent_commit) = parent_obj.try_into_commit() {
+                if let Ok(parent_tree_id) = parent_commit.tree_id() {
+                    old_tree_id = Some(parent_tree_id.detach());
+                }
+            }
+        }
+    }
+
+    let (added_modified, deleted) = diff_trees(&repo, old_tree_id, new_root)?;
+
+    let (commit_sha, files) = collect_changed_files(repo_path, &added_modified)?;
+
+    Ok(DiffIndexData {
+        commit_sha,
+        added_modified_files: files,
+        deleted_paths: deleted.into_iter().collect(),
+    })
+}
+
+/// Incrementally index only changed files after a push.
+/// Computes the diff between old and new HEAD trees and indexes only added/modified files,
+/// while removing deleted files from the index.
+pub async fn reindex_changed_files_after_push(
+    pool: &PgPool,
+    repo_id: &uuid::Uuid,
+    repo_path: &std::path::Path,
+) -> Result<usize, CoreError> {
+    let data = collect_diff_data(repo_path)?;
+
+    tracing::info!(
+        repo_id = %repo_id,
+        added_modified = data.added_modified_files.len(),
+        deleted = data.deleted_paths.len(),
+        "diff-based search indexing"
+    );
+
+    for path in &data.deleted_paths {
+        sqlx::query(
+            "DELETE FROM code_search_tokens WHERE index_id IN \
+             (SELECT id FROM code_search_index WHERE repo_id = $1 AND file_path = $2)",
+        )
+        .bind(repo_id)
+        .bind(path)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        sqlx::query(
+            "DELETE FROM code_search_index WHERE repo_id = $1 AND file_path = $2",
+        )
+        .bind(repo_id)
+        .bind(path)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+    }
+
+    if data.added_modified_files.is_empty() {
+        tracing::info!(repo_id = %repo_id, "no changed files to index");
+        return Ok(0);
+    }
+
+    let mut indexed = 0usize;
+    for file in &data.added_modified_files {
+        sqlx::query(
+            "DELETE FROM code_search_tokens WHERE index_id IN \
+             (SELECT id FROM code_search_index WHERE repo_id = $1 AND file_path = $2)",
+        )
+        .bind(repo_id)
+        .bind(&file.path)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        sqlx::query(
+            "DELETE FROM code_search_index WHERE repo_id = $1 AND file_path = $2",
+        )
+        .bind(repo_id)
+        .bind(&file.path)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        let index_id = sqlx::query_scalar::<_, uuid::Uuid>(
+            "INSERT INTO code_search_index \
+             (repo_id, file_path, language, content, line_count, byte_size, commit_sha) \
+             VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7) \
+             RETURNING id",
+        )
+        .bind(repo_id)
+        .bind(&file.path)
+        .bind(&file.language)
+        .bind(&file.content)
+        .bind(file.line_count)
+        .bind(file.byte_size)
+        .bind(&data.commit_sha)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        for (line_number, line) in file.content.lines().enumerate() {
+            let line_content = line.trim();
+            if line_content.is_empty() {
+                continue;
+            }
+            sqlx::query(
+                "INSERT INTO code_search_tokens (index_id, token, line_number, line_content) \
+                 VALUES ($1, $2, $3, $4)",
+            )
+            .bind(index_id)
+            .bind(line_content)
+            .bind((line_number + 1) as i32)
+            .bind(line_content)
+            .execute(pool)
+            .await
+            .map_err(|e| CoreError::Database(e.to_string()))?;
+        }
+
+        sqlx::query(
+            "UPDATE code_search_index \
+             SET search_vector = to_tsvector('english', coalesce(file_path, '') || ' ' || coalesce(content, '')) \
+             WHERE id = $1",
+        )
+        .bind(index_id)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(e.to_string()))?;
+
+        indexed += 1;
+    }
+
+    tracing::info!(
+        repo_id = %repo_id,
+        indexed,
+        "diff-based search indexing complete"
+    );
+
+    Ok(indexed)
+}
+
 /// Background search indexing for a repository.
-/// Resolves the repo path, walks the git tree, and indexes files into code_search_index.
+/// Uses diff-based indexing to only process changed files.
 pub async fn trigger_repo_index_background(
     state: &AppState,
     owner: &str,
@@ -854,11 +1203,17 @@ pub async fn trigger_repo_index_background(
         .await
         .ok_or_else(|| format!("repository {owner}/{name} not found"))?;
     let repo_path: PathBuf = state.git_service.repo_path(owner, name);
-    let (commit_sha, files) = collect_repo_files(&repo_path)
-        .map_err(|e| format!("failed to collect repo files: {e}"))?;
-    index_collected_files(pool, &repo_id, &commit_sha, &files)
+
+    let indexed = reindex_changed_files_after_push(pool, &repo_id, &repo_path)
         .await
         .map_err(|e| format!("failed to index files: {e}"))?;
+
+    tracing::info!(
+        owner,
+        name,
+        indexed,
+        "background search indexing complete"
+    );
     Ok(())
 }
 

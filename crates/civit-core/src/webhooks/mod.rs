@@ -208,8 +208,8 @@ impl WebhookDispatcher {
         let mut last_err = None;
         for attempt in 0..self.max_retries {
             if attempt > 0 {
-                let backoff_ms = 1000 * 2u64.pow(attempt - 1);
-                tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
+                let backoff_secs = self.backoff_secs(attempt - 1);
+                tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
             }
 
             let mut req = self
@@ -289,12 +289,24 @@ impl WebhookDispatcher {
         Err(last_err.unwrap_or(DeliveryError::MaxRetriesExceeded))
     }
 
+    fn backoff_secs(&self, retry_step: u32) -> u64 {
+        match retry_step {
+            0 => 60,
+            1 => 300,
+            _ => 900,
+        }
+    }
+
     fn compute_next_retry(&self, attempts: u32) -> Option<DateTime<Utc>> {
         if attempts >= self.max_retries {
             None
         } else {
-            let backoff_secs = 60 * 2u64.pow(attempts);
-            Some(Utc::now() + chrono::Duration::from_std(Duration::from_secs(backoff_secs)).unwrap_or_default())
+            let backoff_secs = self.backoff_secs(attempts);
+            Some(
+                Utc::now()
+                    + chrono::Duration::from_std(Duration::from_secs(backoff_secs))
+                        .unwrap_or_default(),
+            )
         }
     }
 
@@ -425,11 +437,12 @@ pub fn compute_hmac_signature(secret: &str, body: &[u8]) -> String {
 pub fn start_webhook_retry_loop(pool: sqlx::PgPool) {
     tokio::spawn(async move {
         let dispatcher = WebhookDispatcher::new();
+        tracing::info!("webhook retry loop started (interval=60s)");
         loop {
             tokio::time::sleep(Duration::from_secs(60)).await;
             let retried = dispatcher.retry_pending_deliveries(&pool).await;
             if retried > 0 {
-                tracing::info!("Retried {retried} pending webhook deliveries");
+                tracing::info!(retried, "webhook retry loop: retried pending deliveries");
             }
         }
     });
@@ -572,5 +585,14 @@ mod tests {
         assert!(next.is_some());
         let next = dispatcher.compute_next_retry(2);
         assert!(next.is_some());
+    }
+
+    #[test]
+    fn test_backoff_secs_exponential() {
+        let dispatcher = WebhookDispatcher::new();
+        assert_eq!(dispatcher.backoff_secs(0), 60);
+        assert_eq!(dispatcher.backoff_secs(1), 300);
+        assert_eq!(dispatcher.backoff_secs(2), 900);
+        assert_eq!(dispatcher.backoff_secs(3), 900);
     }
 }

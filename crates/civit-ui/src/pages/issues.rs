@@ -134,51 +134,95 @@ fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl I
     let by_author_sig = Memo::new(move |_| analytics.get().map(|a| a.by_author).unwrap_or_default());
     let created_per_week_sig = Memo::new(move |_| analytics.get().map(|a| a.created_per_week).unwrap_or_default());
 
+    // Color palette for label bars
+    let label_colors = [
+        "bg-blue-500 dark:bg-blue-400",
+        "bg-green-500 dark:bg-green-400",
+        "bg-purple-500 dark:bg-purple-400",
+        "bg-orange-500 dark:bg-orange-400",
+        "bg-pink-500 dark:bg-pink-400",
+        "bg-cyan-500 dark:bg-cyan-400",
+        "bg-yellow-500 dark:bg-yellow-400",
+        "bg-red-500 dark:bg-red-400",
+    ];
+
     view! {
         <div class="space-y-4">
+            // Summary cards with icons
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{move || total_sig.get().to_string()}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">"Total Issues"</div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700">
+                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{move || total_sig.get().to_string()}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">"Total"</div>
+                        </div>
                     </div>
                 </Card>
                 <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-green-600 dark:text-green-400">{move || open_sig.get().to_string()}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">"Open"</div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30">
+                            <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-green-600 dark:text-green-400">{move || open_sig.get().to_string()}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">"Open"</div>
+                        </div>
                     </div>
                 </Card>
                 <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{move || in_progress_sig.get().to_string()}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">"In Progress"</div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                            <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{move || in_progress_sig.get().to_string()}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">"In Progress"</div>
+                        </div>
                     </div>
                 </Card>
                 <Card>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-gray-500 dark:text-gray-400">{move || closed_sig.get().to_string()}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">"Closed"</div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-700">
+                            <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-gray-500 dark:text-gray-400">{move || closed_sig.get().to_string()}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">"Closed"</div>
+                        </div>
                     </div>
                 </Card>
             </div>
 
+            // Bar chart for issues by label
             <Show when=move || !by_label_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
                 <Card title="Issues by Label".to_string()>
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <For each=move || by_label_sig.get() key=|lc| lc.label.clone() let:lc>
                             {
                                 let label = lc.label.clone();
                                 let count = lc.count;
                                 let max_count = by_label_sig.get().iter().map(|l| l.count).max().unwrap_or(1);
                                 let pct = if max_count > 0 { (count as f64 / max_count as f64 * 100.0) as u32 } else { 0 };
+                                let color_idx = lc.label.bytes().fold(0usize, |acc, b| acc.wrapping_add(b as usize)) % label_colors.len();
+                                let color_class = label_colors[color_idx];
                                 view! {
                                     <div class="flex items-center gap-3">
-                                        <span class="text-sm text-gray-700 dark:text-gray-300 w-32 truncate">{label}</span>
-                                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                            <div class="bg-blue-500 dark:bg-blue-400 h-2 rounded-full" style:width={format!("{pct}%")}></div>
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 w-32 truncate" title=label.clone()>{label.clone()}</span>
+                                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                                            <div class={format!("{color_class} h-3 rounded-full transition-all duration-300")} style:width={format!("{pct}%")}></div>
                                         </div>
-                                        <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{count.to_string()}</span>
+                                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400 w-8 text-right">{count.to_string()}</span>
                                     </div>
                                 }
                             }
@@ -187,9 +231,10 @@ fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl I
                 </Card>
             </Show>
 
+            // Bar chart for issues by author
             <Show when=move || !by_author_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
                 <Card title="Issues by Author".to_string()>
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <For each=move || by_author_sig.get() key=|ac| ac.author_id.clone() let:ac>
                             {
                                 let author = ac.author_id.clone();
@@ -199,11 +244,11 @@ fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl I
                                 let pct = if max_count > 0 { (count as f64 / max_count as f64 * 100.0) as u32 } else { 0 };
                                 view! {
                                     <div class="flex items-center gap-3">
-                                        <span class="text-sm text-gray-700 dark:text-gray-300 w-24 font-mono truncate">{author_short}</span>
-                                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                            <div class="bg-green-500 dark:bg-green-400 h-2 rounded-full" style:width={format!("{pct}%")}></div>
+                                        <span class="text-sm text-gray-700 dark:text-gray-300 w-24 font-mono truncate" title=author.clone()>{author_short}</span>
+                                        <div class="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                                            <div class="bg-green-500 dark:bg-green-400 h-3 rounded-full transition-all duration-300" style:width={format!("{pct}%")}></div>
                                         </div>
-                                        <span class="text-xs text-gray-500 dark:text-gray-400 w-8 text-right">{count.to_string()}</span>
+                                        <span class="text-xs font-mono text-gray-500 dark:text-gray-400 w-8 text-right">{count.to_string()}</span>
                                     </div>
                                 }
                             }
@@ -212,9 +257,10 @@ fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl I
                 </Card>
             </Show>
 
+            // Line chart for issues created per week
             <Show when=move || !created_per_week_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
-                <Card title="Issues Created per Week (Last 12 Weeks)".to_string()>
-                    <div class="flex items-end gap-1 h-32">
+                <Card title="Issues Created per Week".to_string()>
+                    <div class="flex items-end gap-1 h-40 px-2">
                         <For each=move || created_per_week_sig.get() key=|wc| wc.week_start.clone() let:wc>
                             {
                                 let count = wc.count;
@@ -222,10 +268,10 @@ fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl I
                                 let height_pct = if max_count > 0 { (count as f64 / max_count as f64 * 100.0) as u32 } else { 0 };
                                 let week_label = wc.week_start[..10.min(wc.week_start.len())].to_string();
                                 view! {
-                                    <div class="flex flex-col items-center flex-1 min-w-0">
-                                        <span class="text-xs text-gray-500 dark:text-gray-400 mb-1">{count.to_string()}</span>
-                                        <div class="w-full bg-blue-500 dark:bg-blue-400 rounded-t" style:height={format!("{height_pct}%")}></div>
-                                        <span class="text-xs text-gray-400 dark:text-gray-500 mt-1 truncate w-full text-center">{week_label}</span>
+                                    <div class="flex flex-col items-center flex-1 min-w-0 h-full justify-end">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400 mb-1 font-mono">{count.to_string()}</span>
+                                        <div class="w-full bg-gradient-to-t from-blue-600 to-blue-400 dark:from-blue-500 dark:to-blue-300 rounded-t min-h-[2px] transition-all duration-300" style:height={format!("{height_pct}%")}></div>
+                                        <span class="text-[10px] text-gray-400 dark:text-gray-500 mt-1 truncate w-full text-center font-mono">{week_label}</span>
                                     </div>
                                 }
                             }

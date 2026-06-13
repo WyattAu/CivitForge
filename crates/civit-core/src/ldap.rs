@@ -19,6 +19,7 @@ impl From<&SecurityConfig> for LdapConfig {
             max_connections: config.ldap_max_connections,
             tls_ca_path: config.ldap_tls_ca_path.clone(),
             connection_timeout_secs: config.ldap_connection_timeout_secs,
+            idle_timeout_secs: config.ldap_idle_timeout_secs,
         }
     }
 }
