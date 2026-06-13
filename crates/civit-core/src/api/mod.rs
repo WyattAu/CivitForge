@@ -18,6 +18,7 @@ pub mod edit;
 pub mod error_reports;
 pub mod federation_routes;
 pub mod git_http;
+pub mod graphql;
 pub mod import;
 pub mod issues;
 pub mod lfs;
@@ -185,6 +186,15 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route(
             "/api/v1/repos/{owner}/{name}/codeowners",
             get(codeowners::get_codeowners).put(codeowners::update_codeowners),
+        )
+        .route("/graphql", post(graphql::graphql_endpoint))
+        .route(
+            "/graphql/playground",
+            get(graphql::graphql_playground),
+        )
+        .route(
+            "/graphql/subscribe",
+            get(graphql::graphql_subscribe),
         )
         .merge(deploy_keys::deploy_key_routes())
         .merge(deployments::deployment_routes())

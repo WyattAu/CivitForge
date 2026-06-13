@@ -4,7 +4,7 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     response::IntoResponse,
-    routing::{delete, get, patch},
+    routing::{delete, get, patch, post},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -204,6 +204,19 @@ pub async fn get_merge_queue(
 
             (axum::http::StatusCode::OK, Json(MergeQueueResponse { items, total })).into_response()
         }
+        Err(e) => err_response(e),
+    }
+}
+
+/// POST /repos/{owner}/{name}/merge-queue/process
+/// Process the merge queue: attempt to merge the next pending entry.
+pub async fn process_merge_queue_handler(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    match process_merge_queue(&state, &owner, &name).await {
+        Ok(()) => (axum::http::StatusCode::OK, Json(serde_json::json!({"status": "processed"}))).into_response(),
         Err(e) => err_response(e),
     }
 }
@@ -420,6 +433,135 @@ pub async fn admin_reorder_merge_queue_entry(
     (axum::http::StatusCode::OK, ()).into_response()
 }
 
+/// Process the merge queue for a repository.
+/// Takes the first pending entry, attempts to merge it, and either marks it as
+/// merged or failed. Only one merge is attempted at a time.
+pub async fn process_merge_queue(state: &AppState, owner: &str, name: &str) -> Result<()> {
+    let pool = state.db.pool();
+    let repo_id = get_repo_id(pool, owner, name).await?;
+
+    // Get the first pending entry
+    let entry: Option<MergeQueueRow> = sqlx::query_as(
+        r#"SELECT * FROM merge_queue
+           WHERE repo_id = $1 AND status = 'pending'
+           ORDER BY position ASC LIMIT 1"#,
+    )
+    .bind(repo_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| CoreError::Database(format!("process_merge_queue: {e}")))?;
+
+    let entry = match entry {
+        Some(e) => e,
+        None => return Ok(()),
+    };
+
+    // Mark as merging
+    let _ = sqlx::query(
+        "UPDATE merge_queue SET status = 'merging', updated_at = NOW() WHERE id = $1",
+    )
+    .bind(entry.id)
+    .execute(pool)
+    .await;
+
+    // Get the PR
+    let pr = match state.db.get_pr(entry.pr_id).await {
+        Ok(pr) => pr,
+        Err(e) => {
+            mark_queue_failed(pool, entry.id).await;
+            return Err(e);
+        }
+    };
+
+    if pr.status != "open" || pr.draft {
+        mark_queue_failed(pool, entry.id).await;
+        return Ok(());
+    }
+
+    // Perform the merge
+    let strategy: crate::git::MergeStrategy = pr
+        .merge_strategy
+        .parse()
+        .unwrap_or(crate::git::MergeStrategy::Merge);
+
+    let merge_result = match state.git_service.merge_branch(
+        owner,
+        name,
+        &pr.source_branch,
+        &pr.target_branch,
+        strategy,
+        "merge-queue (CivitForge)",
+        "merge-queue@civitforge.local",
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(
+                pr_number = pr.number,
+                error = %e,
+                "merge_queue: merge failed"
+            );
+            mark_queue_failed(pool, entry.id).await;
+            return Ok(());
+        }
+    };
+
+    // Record the merge in DB
+    let merged = state
+        .db
+        .merge_pr(
+            pr.id,
+            &merge_result.commit_sha,
+            &merge_result.strategy_used,
+            pr.head_commit_sha.as_deref(),
+            pr.base_commit_sha.as_deref(),
+        )
+        .await
+        .is_ok();
+
+    if merged {
+        let _ = sqlx::query(
+            "UPDATE merge_queue SET status = 'merged', merged_at = NOW(), updated_at = NOW() WHERE id = $1",
+        )
+        .bind(entry.id)
+        .execute(pool)
+        .await;
+
+        let _ = state
+            .db
+            .insert_pr_timeline(
+                pr.id,
+                pr.author_id,
+                "merged",
+                serde_json::json!({
+                    "merge_commit_sha": merge_result.commit_sha,
+                    "strategy": merge_result.strategy_used,
+                    "was_fast_forward": merge_result.was_ff,
+                    "merge_queue": true,
+                }),
+            )
+            .await;
+
+        tracing::info!(
+            pr_number = pr.number,
+            commit_sha = %merge_result.commit_sha,
+            "merge_queue: PR merged successfully"
+        );
+    } else {
+        mark_queue_failed(pool, entry.id).await;
+    }
+
+    Ok(())
+}
+
+async fn mark_queue_failed(pool: &sqlx::PgPool, entry_id: Uuid) {
+    let _ = sqlx::query(
+        "UPDATE merge_queue SET status = 'failed', updated_at = NOW() WHERE id = $1",
+    )
+    .bind(entry_id)
+    .execute(pool)
+    .await;
+}
+
 pub fn merge_queue_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -429,6 +571,10 @@ pub fn merge_queue_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/merge-queue/{id}",
             delete(remove_from_merge_queue),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/merge-queue/process",
+            post(process_merge_queue_handler),
         )
         .route(
             "/api/v1/admin/merge-queue",

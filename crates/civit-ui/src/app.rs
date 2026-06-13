@@ -20,8 +20,8 @@ pub fn App() -> impl IntoView {
                     "Skip to main content"
                 </a>
                 <crate::components::sidebar::Sidebar />
-                <main id="main-content" class="lg:pl-64 min-h-screen">
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <main id="main-content" class="lg:pl-64 min-h-screen flex flex-col">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
                         <Routes fallback=|| view! { <NotFoundPage /> }>
                             <Route path=path!("") view=HomePage />
                             <Route path=path!("/login") view=LoginPage />
@@ -36,6 +36,7 @@ pub fn App() -> impl IntoView {
                                 <Route path=path!("code") view=CodePage />
                                 <Route path=path!("code/*path") view=CodePage />
                                 <Route path=path!("blame") view=BlamePage />
+                                <Route path=path!("blame/*path") view=BlamePage />
                                 <Route path=path!("commits") view=FileCommitsPage />
                                 <Route path=path!("issues") view=IssuesPage />
                                 <Route path=path!("issues/:number") view=IssueDetailPage />
@@ -43,6 +44,7 @@ pub fn App() -> impl IntoView {
                                 <Route path=path!("pipelines") view=PipelinesPage />
                                 <Route path=path!("pulls") view=PullRequestsPage />
                                 <Route path=path!("pulls/:number") view=PullRequestDetailPage />
+                                <Route path=path!("pulls/:number/files") view=PullRequestDetailPage />
                                 <Route path=path!("graph") view=GraphPage />
                                 <Route path=path!("releases") view=ReleasesPage />
                                 <Route path=path!("boards") view=BoardsPage />
@@ -58,6 +60,7 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("*") view=NotFoundPage />
                         </Routes>
                     </div>
+                    <crate::components::footer::Footer />
                 </main>
             </div>
         </Router>

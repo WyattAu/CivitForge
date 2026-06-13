@@ -588,14 +588,14 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                 // Files Changed tab
                 <Show when=move || active_tab.get() == "files" fallback=|| view! { <div class="hidden"></div> }>
                     <div class="space-y-4">
-                        // Diff view toggle
+                        // Diff view toggle + file tree sidebar toggle
                         <div class="flex items-center justify-between">
                             <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                                 <span class="text-xs text-gray-500 font-mono">
                                     {move || {
                                         let d = diff_data.get().unwrap();
                                         format!(
-                                            "+{} -{} · {} file{}",
+                                            "+{} -{} \u{00b7} {} file{}",
                                             d.total_additions,
                                             d.total_deletions,
                                             d.files.len(),
@@ -634,76 +634,221 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                             </div>
                         </div>
 
-                        // Inline diff files
-                        <Show when=move || inline_diff.get().is_some() fallback=move || view! {
-                            <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
-                                <Card>
-                                    <div class="space-y-1">
+                        // Content with optional file tree sidebar
+                        {move || {
+                            let d = diff_data.get();
+                            let idiff = inline_diff.get();
+                            let files = if let Some(ref id) = idiff {
+                                id.files.iter().map(|f| (f.path.clone(), f.status.clone(), f.additions, f.deletions)).collect::<Vec<_>>()
+                            } else if let Some(ref d) = d {
+                                d.files.iter().map(|f| (f.path.clone(), f.status.clone(), f.additions, f.deletions)).collect::<Vec<_>>()
+                            } else {
+                                Vec::new()
+                            };
+                            if files.len() <= 1 {
+                                // Single file: no sidebar needed
+                                view! {
+                                    <Show when=move || inline_diff.get().is_some() fallback=move || view! {
+                                        <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                            <Card>
+                                                <div class="space-y-1">
+                                                    <For
+                                                        each=move || diff_data.get().map(|d| d.files.clone()).unwrap_or_default()
+                                                        key=|f| f.path.clone()
+                                                        let:file
+                                                    >
+                                                        {
+                                                            let status_bg = match file.status.as_str() {
+                                                                "added" => "#dcfce7",
+                                                                "removed" => "#fecaca",
+                                                                _ => "#e5e7eb",
+                                                            };
+                                                            let status_icon = match file.status.as_str() {
+                                                                "added" => "A",
+                                                                "removed" => "D",
+                                                                _ => "M",
+                                                            };
+                                                            view! {
+                                                                <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                                                                    <div class="flex items-center gap-2 min-w-0">
+                                                                        <span
+                                                                            class="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-bold dark:text-gray-400"
+                                                                            style=format!("background-color: {status_bg}")
+                                                                        >
+                                                                            {status_icon}
+                                                                        </span>
+                                                                        <span class="truncate font-mono text-xs">{file.path.clone()}</span>
+                                                                    </div>
+                                                                    <div class="flex items-center gap-3 shrink-0">
+                                                                        <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{file.additions}</span>
+                                                                        <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{file.deletions}</span>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        }
+                                                    </For>
+                                                </div>
+                                            </Card>
+                                        </Show>
+                                    }>
                                         <For
-                                            each=move || diff_data.get().map(|d| d.files.clone()).unwrap_or_default()
+                                            each=move || inline_diff.get().map(|d| d.files.clone()).unwrap_or_default()
                                             key=|f| f.path.clone()
                                             let:file
                                         >
                                             {
-                                                let status_bg = match file.status.as_str() {
-                                                    "added" => "#dcfce7",
-                                                    "removed" => "#fecaca",
-                                                    _ => "#e5e7eb",
-                                                };
-                                                let status_icon = match file.status.as_str() {
-                                                    "added" => "A",
-                                                    "removed" => "D",
-                                                    _ => "M",
-                                                };
+                                                let file_path = file.path.clone();
+                                                let file_status = file.status.clone();
+                                                let file_additions = file.additions;
+                                                let file_deletions = file.deletions;
+                                                let file_hunks = file.hunks.clone();
+                                                let is_unified = Signal::derive(move || diff_view_mode.get() == "unified");
+
                                                 view! {
-                                                    <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
-                                                        <div class="flex items-center gap-2 min-w-0">
-                                                            <span
-                                                                class="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-bold dark:text-gray-400"
-                                                                style=format!("background-color: {status_bg}")
-                                                            >
-                                                                {status_icon}
-                                                            </span>
-                                                            <span class="truncate font-mono text-xs">{file.path.clone()}</span>
-                                                        </div>
-                                                        <div class="flex items-center gap-3 shrink-0">
-                                                            <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{file.additions}</span>
-                                                            <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{file.deletions}</span>
-                                                        </div>
-                                                    </div>
+                                                    <CollapsibleDiffFile
+                                                        path=file_path
+                                                        status=file_status
+                                                        additions=file_additions
+                                                        deletions=file_deletions
+                                                        hunks=file_hunks
+                                                        is_unified=is_unified
+                                                    />
                                                 }
                                             }
                                         </For>
-                                    </div>
-                                </Card>
-                            </Show>
-                        }>
-                            <For
-                                each=move || inline_diff.get().map(|d| d.files.clone()).unwrap_or_default()
-                                key=|f| f.path.clone()
-                                let:file
-                            >
-                                {
-                                    let file_path = file.path.clone();
-                                    let file_status = file.status.clone();
-                                    let file_additions = file.additions;
-                                    let file_deletions = file.deletions;
-                                    let file_hunks = file.hunks.clone();
-                                    let is_unified = Signal::derive(move || diff_view_mode.get() == "unified");
+                                    </Show>
+                                }.into_any()
+                            } else {
+                                // Multiple files: show sidebar + diffs
+                                let files_for_sidebar = StoredValue::new(files);
+                                view! {
+                                    <div class="flex gap-4">
+                                        // File tree sidebar
+                                        <div class="hidden lg:block w-64 shrink-0">
+                                            <div class="sticky top-4 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden max-h-[70vh] overflow-y-auto">
+                                                <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                    "Files Changed"
+                                                </div>
+                                                <div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+                                                    <For
+                                                        each=move || files_for_sidebar.get_value()
+                                                        key=|f| f.0.clone()
+                                                        let:file_info
+                                                    >
+                                                        {
+                                                            let fp = file_info.0.clone();
+                                                            let status_char = match file_info.1.as_str() {
+                                                                "added" => "A",
+                                                                "removed" => "D",
+                                                                "renamed" | "copied" => "R",
+                                                                _ => "M",
+                                                            };
+                                                            let status_color = match file_info.1.as_str() {
+                                                                "added" => "text-green-600 dark:text-green-400",
+                                                                "removed" => "text-red-600 dark:text-red-400",
+                                                                _ => "text-gray-500 dark:text-gray-400",
+                                                            };
+                                                            let anchor_id = format!("diff-{}", fp.replace('/', "-"));
+                                                            let sc = format!("font-mono font-bold {status_color}");
+                                                            view! {
+                                                                <a
+                                                                    href=format!("#{anchor_id}")
+                                                                    class="flex items-center justify-between px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+                                                                >
+                                                                    <div class="flex items-center gap-1.5 min-w-0">
+                                                                        <span class=sc>{status_char}</span>
+                                                                        <span class="truncate font-mono text-gray-700 dark:text-gray-300">{fp}</span>
+                                                                    </div>
+                                                                    <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                                                                        <span class="text-green-600 dark:text-green-400">+{file_info.2}</span>
+                                                                        <span class="text-red-600 dark:text-red-400">-{file_info.3}</span>
+                                                                    </div>
+                                                                </a>
+                                                            }
+                                                        }
+                                                    </For>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        // Diff content
+                                        <div class="flex-1 min-w-0 space-y-4">
+                                            <Show when=move || inline_diff.get().is_some() fallback=move || view! {
+                                                <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                                                    <Card>
+                                                        <div class="space-y-1">
+                                                            <For
+                                                                each=move || diff_data.get().map(|d| d.files.clone()).unwrap_or_default()
+                                                                key=|f| f.path.clone()
+                                                                let:file
+                                                            >
+                                                                {
+                                                                    let status_bg = match file.status.as_str() {
+                                                                        "added" => "#dcfce7",
+                                                                        "removed" => "#fecaca",
+                                                                        _ => "#e5e7eb",
+                                                                    };
+                                                                    let status_icon = match file.status.as_str() {
+                                                                        "added" => "A",
+                                                                        "removed" => "D",
+                                                                        _ => "M",
+                                                                    };
+                                                                    view! {
+                                                                        <div class="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+                                                                            <div class="flex items-center gap-2 min-w-0">
+                                                                                <span
+                                                                                    class="inline-flex items-center justify-center w-4 h-4 rounded text-[10px] font-mono font-bold dark:text-gray-400"
+                                                                                    style=format!("background-color: {status_bg}")
+                                                                                >
+                                                                                    {status_icon}
+                                                                                </span>
+                                                                                <span class="truncate font-mono text-xs">{file.path.clone()}</span>
+                                                                            </div>
+                                                                            <div class="flex items-center gap-3 shrink-0">
+                                                                                <span class="text-green-600 dark:text-green-400 text-xs font-mono">+{file.additions}</span>
+                                                                                <span class="text-red-600 dark:text-red-400 text-xs font-mono">-{file.deletions}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    }
+                                                                }
+                                                            </For>
+                                                        </div>
+                                                    </Card>
+                                                </Show>
+                                            }>
+                                                <For
+                                                    each=move || inline_diff.get().map(|d| d.files.clone()).unwrap_or_default()
+                                                    key=|f| f.path.clone()
+                                                    let:file
+                                                >
+                                                    {
+                                                        let file_path = file.path.clone();
+                                                        let anchor_id = format!("diff-{}", file_path.replace('/', "-"));
+                                                        let file_status = file.status.clone();
+                                                        let file_additions = file.additions;
+                                                        let file_deletions = file.deletions;
+                                                        let file_hunks = file.hunks.clone();
+                                                        let is_unified = Signal::derive(move || diff_view_mode.get() == "unified");
 
-                                    view! {
-                                        <CollapsibleDiffFile
-                                            path=file_path
-                                            status=file_status
-                                            additions=file_additions
-                                            deletions=file_deletions
-                                            hunks=file_hunks
-                                            is_unified=is_unified
-                                        />
-                                    }
-                                }
-                            </For>
-                        </Show>
+                                                        view! {
+                                                            <div id=anchor_id>
+                                                                <CollapsibleDiffFile
+                                                                    path=file_path
+                                                                    status=file_status
+                                                                    additions=file_additions
+                                                                    deletions=file_deletions
+                                                                    hunks=file_hunks
+                                                                    is_unified=is_unified
+                                                                />
+                                                            </div>
+                                                        }
+                                                    }
+                                                </For>
+                                            </Show>
+                                        </div>
+                                    </div>
+                                }.into_any()
+                            }
+                        }}
                     </div>
                 </Show>
             </Show>

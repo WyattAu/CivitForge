@@ -9,6 +9,7 @@ use axum::{
     response::{IntoResponse, Json},
 };
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
 pub struct CodeownersResponse {
@@ -28,6 +29,109 @@ pub struct UpdateCodeownersRequest {
 pub struct CodeownersOwner {
     pub pattern: String,
     pub owners: Vec<String>,
+}
+
+/// Parse CODEOWNERS file from a repository's filesystem paths.
+pub async fn parse_codeowners_from_repo(owner: &str, name: &str, storage_path: &str) -> Option<Vec<CodeownersOwner>> {
+    let repo_path = std::path::Path::new(storage_path)
+        .join(owner)
+        .join(format!("{name}.git"));
+
+    let content = std::fs::read_to_string(repo_path.join("CODEOWNERS"))
+        .or_else(|_| std::fs::read_to_string(repo_path.join(".github").join("CODEOWNERS")))
+        .or_else(|_| std::fs::read_to_string(repo_path.join("docs").join("CODEOWNERS")))
+        .ok()?;
+
+    Some(parse_codeowners(&content))
+}
+
+/// Get required CODEOWNERS reviewers for a set of file paths.
+/// Returns unique owner usernames (with leading @ stripped).
+pub async fn get_required_reviewers(
+    owner: &str,
+    name: &str,
+    storage_path: &str,
+    paths: &[String],
+) -> Vec<String> {
+    let entries = match parse_codeowners_from_repo(owner, name, storage_path).await {
+        Some(e) => e,
+        None => return Vec::new(),
+    };
+    let owners = find_codeowners_for_files(&entries, paths);
+    owners
+        .into_iter()
+        .map(|o| o.trim_start_matches('@').to_string())
+        .collect()
+}
+
+/// Check if all CODEOWNERS-required reviewers have approved a PR.
+/// Returns true if all required reviewers have approved.
+pub async fn check_codeowners_approval(
+    pool: &sqlx::PgPool,
+    pr_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let rows: Vec<(bool,)> = sqlx::query_as(
+        "SELECT approved FROM codeowners_reviews WHERE pr_id = $1",
+    )
+    .bind(pr_id)
+    .fetch_all(pool)
+    .await?;
+
+    if rows.is_empty() {
+        return Ok(true);
+    }
+    Ok(rows.iter().all(|(approved,)| *approved))
+}
+
+/// Record a CODEOWNERS review entry for a PR.
+pub async fn record_codeowners_review(
+    pool: &sqlx::PgPool,
+    pr_id: Uuid,
+    reviewer: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"INSERT INTO codeowners_reviews (pr_id, reviewer, approved, approved_at)
+           VALUES ($1, $2, false, NULL)
+           ON CONFLICT (pr_id, reviewer) DO NOTHING"#,
+    )
+    .bind(pr_id)
+    .bind(reviewer)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Update a CODEOWNERS review approval status.
+pub async fn update_codeowners_review_approval(
+    pool: &sqlx::PgPool,
+    pr_id: Uuid,
+    reviewer: &str,
+    approved: bool,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"UPDATE codeowners_reviews
+           SET approved = $3, approved_at = CASE WHEN $3 THEN NOW() ELSE NULL END
+           WHERE pr_id = $1 AND reviewer = $2"#,
+    )
+    .bind(pr_id)
+    .bind(reviewer)
+    .bind(approved)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Insert CODEOWNERS review records for all required owners of a PR.
+/// Call this when a PR is created or when file changes are updated.
+pub async fn insert_codeowners_reviews_for_pr(
+    pool: &sqlx::PgPool,
+    pr_id: Uuid,
+    required_reviewers: &[String],
+) -> Result<(), sqlx::Error> {
+    for reviewer in required_reviewers {
+        record_codeowners_review(pool, pr_id, reviewer).await?;
+    }
+    Ok(())
 }
 
 pub async fn get_codeowners(

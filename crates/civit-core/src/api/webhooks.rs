@@ -7,10 +7,11 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::get,
+    routing::{get, post},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
@@ -337,15 +338,238 @@ pub async fn list_webhook_deliveries(
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateWebhookRequest {
+    pub url: Option<String>,
+    pub events: Option<Vec<String>>,
+    pub active: Option<bool>,
+}
+
+pub async fn update_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, webhook_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateWebhookRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo(&state, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    if let Some(ref events) = req.events {
+        if let Err(e) = validate_events(events) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest(e).error_response()),
+            )
+                .into_response();
+        }
+    }
+
+    let result = sqlx::query_as::<_, (Uuid, Uuid, String, Vec<String>, bool, DateTime<Utc>)>(
+        "UPDATE webhooks SET \
+         url = COALESCE($3, url), \
+         events = COALESCE($4, events), \
+         active = COALESCE($5, active) \
+         WHERE id = $1 AND repo_id = $2 \
+         RETURNING id, repo_id, url, events, active, created_at",
+    )
+    .bind(wid)
+    .bind(_repo_id)
+    .bind(&req.url)
+    .bind(&req.events)
+    .bind(req.active)
+    .fetch_optional(pool)
+    .await;
+
+    match result {
+        Ok(Some((id, rid, url, events, active, created_at))) => (
+            StatusCode::OK,
+            Json(WebhookResponse {
+                id: id.to_string(),
+                repo_id: rid.to_string(),
+                url,
+                events,
+                active,
+                created_at: created_at.to_rfc3339(),
+            }),
+        )
+            .into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("webhook not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn test_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, webhook_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo(&state, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let webhook_row = sqlx::query_as::<_, (Uuid, Uuid, String, Vec<String>, bool, DateTime<Utc>)>(
+        "SELECT id, repo_id, url, events, active, created_at FROM webhooks WHERE id = $1 AND repo_id = $2",
+    )
+    .bind(wid)
+    .bind(_repo_id)
+    .fetch_optional(pool)
+    .await;
+
+    match webhook_row {
+        Ok(Some((id, rid, url, events, active, created_at))) => {
+            let ping_payload = json!({
+                "zen": "Design for failure.",
+                "hook_id": id.to_string(),
+                "hook": {
+                    "type": "web",
+                    "id": id.to_string(),
+                    "events": events,
+                    "active": active,
+                    "config": { "url": url },
+                },
+            });
+
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool_clone = pool.clone();
+            let evt = crate::webhooks::WebhookEvent::Push;
+            tokio::spawn(async move {
+                dispatcher
+                    .dispatch(&pool_clone, rid, &evt, ping_payload)
+                    .await;
+            });
+
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "status": "ping sent",
+                    "webhook": WebhookResponse {
+                        id: id.to_string(),
+                        repo_id: rid.to_string(),
+                        url,
+                        events,
+                        active,
+                        created_at: created_at.to_rfc3339(),
+                    },
+                })),
+            )
+                .into_response()
+        }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("webhook not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 pub fn webhook_routes() -> axum::Router<AppState> {
-    use axum::routing::delete;
     axum::Router::new()
         .route(
             "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}",
-            delete(delete_webhook),
+            get(get_webhook).patch(update_webhook).delete(delete_webhook),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/deliveries",
             get(list_webhook_deliveries),
         )
+        .route(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/test",
+            post(test_webhook),
+        )
+}
+
+pub async fn get_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, webhook_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match resolve_repo(&state, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let row = sqlx::query_as::<_, (Uuid, Uuid, String, Vec<String>, bool, DateTime<Utc>)>(
+        "SELECT id, repo_id, url, events, active, created_at FROM webhooks WHERE id = $1 AND repo_id = $2",
+    )
+    .bind(wid)
+    .bind(repo_id)
+    .fetch_optional(pool)
+    .await;
+
+    match row {
+        Ok(Some((id, rid, url, events, active, created_at))) => (
+            StatusCode::OK,
+            Json(WebhookResponse {
+                id: id.to_string(),
+                repo_id: rid.to_string(),
+                url,
+                events,
+                active,
+                created_at: created_at.to_rfc3339(),
+            }),
+        )
+            .into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("webhook not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }

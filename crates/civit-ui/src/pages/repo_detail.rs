@@ -9,6 +9,68 @@ use crate::components::{Badge, BadgeColor, ErrorBanner, Modal, Spinner};
 use crate::state::auth::use_auth;
 use civit_shared::repo::RepoResponse;
 
+#[derive(Clone, serde::Deserialize)]
+struct LanguageInfo {
+    name: String,
+    bytes: u64,
+    percentage: f64,
+    #[serde(default)]
+    color: String,
+}
+
+#[derive(Clone, serde::Deserialize)]
+struct LanguageStatsData {
+    languages: Vec<LanguageInfo>,
+    #[serde(default)]
+    total_bytes: u64,
+}
+
+fn language_color(name: &str) -> &'static str {
+    match name {
+        "Rust" => "#dea584",
+        "Python" => "#3572A5",
+        "JavaScript" => "#f1e05a",
+        "TypeScript" => "#3178c6",
+        "Go" => "#00ADD8",
+        "Java" => "#b07219",
+        "Kotlin" => "#A97BFF",
+        "C" => "#555555",
+        "C++" => "#f34b7d",
+        "C#" => "#178600",
+        "Ruby" => "#701516",
+        "PHP" => "#4F5D95",
+        "Swift" => "#F05138",
+        "Scala" => "#c22d40",
+        "Shell" => "#89e051",
+        "HTML" => "#e34c26",
+        "CSS" => "#563d7c",
+        "SCSS" => "#c6538c",
+        "Markdown" => "#083fa1",
+        "JSON" => "#292929",
+        "YAML" | "YML" => "#cb171e",
+        "TOML" => "#9c4221",
+        "Dart" => "#00B4AB",
+        "Zig" => "#ec915c",
+        "Lua" => "#000080",
+        "SQL" => "#e38c00",
+        "Dockerfile" => "#384d54",
+        "Makefile" => "#427819",
+        _ => "#8b8b8b",
+    }
+}
+
+fn format_bytes(bytes: u64) -> String {
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    if bytes < KB {
+        format!("{bytes} B")
+    } else if bytes < MB {
+        format!("{:.1} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{:.1} MB", bytes as f64 / MB as f64)
+    }
+}
+
 #[component]
 pub fn RepoDetailPage() -> impl IntoView {
     let params = use_params_map();
@@ -22,6 +84,7 @@ pub fn RepoDetailPage() -> impl IntoView {
     let (starred, set_starred) = signal(false);
     let (watching, set_watching) = signal(false);
     let (show_clone, set_show_clone) = signal(false);
+    let (lang_stats, set_lang_stats) = signal(None::<LanguageStatsData>);
 
     leptos::task::spawn_local(async move {
         let token = auth.0.with(|a| a.token.clone());
@@ -38,6 +101,22 @@ pub fn RepoDetailPage() -> impl IntoView {
             Err(_) => set_error.set(Some("Network error. Check your connection.".to_string())),
         }
         set_loading.set(false);
+    });
+
+    // Fetch language stats
+    leptos::task::spawn_local(async move {
+        let token = auth.0.with(|a| a.token.clone());
+        let client = ApiClient::new(token);
+        let owner_val = owner();
+        let name_val = name();
+        let url = format!("/repos/{owner_val}/{name_val}/languages");
+        if let Ok(resp) = client.get(&url).await {
+            if resp.status().is_success() {
+                if let Ok(data) = resp.json::<LanguageStatsData>().await {
+                    set_lang_stats.set(Some(data));
+                }
+            }
+        }
     });
 
     let toggle_star = Callback::new(move |_: ()| {
@@ -111,6 +190,7 @@ pub fn RepoDetailPage() -> impl IntoView {
                     fork_repo=fork_repo
                     open_clone=open_clone
                 />
+                <LanguageStatsBar lang_stats=lang_stats />
                 <RepoTabs owner=owner name=name />
                 <div class="mt-6">
                     <Outlet />
@@ -370,5 +450,52 @@ fn CloneContent(repo_sig: ReadSignal<Option<RepoResponse>>) -> impl IntoView {
                 </div>
             </div>
         </div>
+    }
+}
+
+#[component]
+fn LanguageStatsBar(lang_stats: ReadSignal<Option<LanguageStatsData>>) -> impl IntoView {
+    view! {
+        <Show when=move || lang_stats.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+            {move || {
+                lang_stats.get().map(|data| {
+                    let total = data.total_bytes;
+                    let langs = data.languages.clone();
+                    let bar_segs: Vec<String> = langs.iter().take(8).map(|lang| {
+                        let width = if total > 0 { lang.percentage } else { 0.0 };
+                        let color = if lang.color.is_empty() {
+                            language_color(&lang.name).to_string()
+                        } else {
+                            lang.color.clone()
+                        };
+                        format!(
+                            "<div style=\"width: {:.1}%; background-color: {}\" title=\"{}: {:.1}%\" class=\"h-full\"></div>",
+                            width, color, lang.name, lang.percentage
+                        )
+                    }).collect();
+                    let bar_html = bar_segs.join("");
+                    let legend_items: Vec<String> = langs.iter().take(8).map(|lang| {
+                        let color = if lang.color.is_empty() {
+                            language_color(&lang.name).to_string()
+                        } else {
+                            lang.color.clone()
+                        };
+                        let bytes_str = format_bytes(lang.bytes);
+                        format!(
+                            "<span class=\"flex items-center gap-1\"><span class=\"w-2.5 h-2.5 rounded-sm inline-block\" style=\"background-color: {}\"></span><span class=\"font-medium\">{}</span><span class=\"text-gray-400 dark:text-gray-500\">{:.1}%</span><span class=\"text-gray-300 dark:text-gray-600 text-[10px]\">{}</span></span>",
+                            color, lang.name, lang.percentage, bytes_str
+                        )
+                    }).collect();
+                    let legend_html = legend_items.join("");
+                    view! {
+                        <div class="bg-white dark:bg-gray-800 rounded-none shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-3 space-y-2">
+                            <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Languages"</div>
+                            <div class="flex rounded overflow-hidden h-2" inner_html=bar_html></div>
+                            <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400" inner_html=legend_html></div>
+                        </div>
+                    }
+                })
+            }}
+        </Show>
     }
 }

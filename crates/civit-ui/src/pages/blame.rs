@@ -58,6 +58,35 @@ struct FileCommitsData {
 
 // ── Blame View ──
 
+const BLAME_AUTHOR_BG_COLORS: &[&str] = &[
+    "#eef2ff", "#fef2f2", "#f0fdf4", "#fffbeb", "#f5f3ff",
+    "#fdf2f8", "#ecfeff", "#fff7ed", "#f0fdfa", "#faf5ff",
+];
+
+const BLAME_AUTHOR_BG_COLORS_DARK: &[&str] = &[
+    "#1e1b4b20", "#450a0a20", "#052e1620", "#451a0320", "#2e106520",
+    "#4a044e20", "#08334420", "#43140720", "#042f2e20", "#3b076420",
+];
+
+fn author_bg_color(author: &str, dark: bool) -> String {
+    let hash: usize = author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+    let idx = hash % BLAME_AUTHOR_BG_COLORS.len();
+    if dark {
+        BLAME_AUTHOR_BG_COLORS_DARK[idx].to_string()
+    } else {
+        BLAME_AUTHOR_BG_COLORS[idx].to_string()
+    }
+}
+
+fn author_text_color(author: &str) -> String {
+    let hash: usize = author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+    let colors = &[
+        "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
+        "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7",
+    ];
+    colors[hash % colors.len()].to_string()
+}
+
 #[component]
 pub fn BlamePage() -> impl IntoView {
     let params = use_params_map();
@@ -176,20 +205,32 @@ pub fn BlamePage() -> impl IntoView {
                                         } else {
                                             line.commit_id.clone()
                                         };
+                                        let commit_id = line.commit_id.clone();
                                         let author = line.author.clone();
                                         let time = line.time.clone();
                                         let lang = blame_lang.get();
+                                        let bg = author_bg_color(&author, false);
+                                        let text_c = author_text_color(&author);
+                                        let owner_v = owner();
+                                        let name_v = name();
                                         view! {
-                                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                            <tr class="hover:brightness-95 dark:hover:brightness-110 transition-all">
                                                 <td class="py-0.5 pr-4 text-gray-400 dark:text-gray-500 text-right select-none">
                                                     {line.line_number}
                                                 </td>
-                                                <td class="py-0.5 pr-4 text-xs">
-                                                    <span class="text-blue-600 dark:text-blue-400 font-mono">{short_id}</span>
-                                                    <span class="ml-1 text-gray-500 dark:text-gray-400 truncate block max-w-[200px]" title=msg_title>{msg}</span>
+                                                <td class="py-0.5 pr-4 text-xs" style=format!("background-color: {bg}")>
+                                                    <a
+                                                        class="font-mono hover:underline"
+                                                        style=format!("color: {text_c}")
+                                                        href=format!("/repos/{}/{}/commit/{}", owner_v, name_v, commit_id)
+                                                        title=msg_title
+                                                    >
+                                                        {short_id}
+                                                    </a>
+                                                    <span class="ml-1 text-gray-500 dark:text-gray-400 truncate block max-w-[200px]">{msg}</span>
                                                 </td>
-                                                <td class="py-0.5 pr-4 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                                    {author}
+                                                <td class="py-0.5 pr-4 text-xs whitespace-nowrap" style=format!("background-color: {bg}")>
+                                                    <span style=format!("color: {text_c}")>{author}</span>
                                                     <span class="ml-1 text-gray-400 dark:text-gray-500">{time}</span>
                                                 </td>
                                                 <td class="py-0.5 whitespace-pre">

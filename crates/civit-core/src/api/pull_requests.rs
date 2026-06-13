@@ -420,6 +420,32 @@ pub async fn create_pull_request(
         let _ = state.db.add_pr_reviewer(pr.id, user_id).await;
     }
 
+    // CODEOWNERS enforcement: auto-request reviews from code owners
+    {
+        let storage_path = &state.config.storage_path;
+        let changed_files: Vec<String> = vec![req.source_branch.clone()];
+        let required = crate::api::codeowners::get_required_reviewers(
+            &owner,
+            &name,
+            storage_path,
+            &changed_files,
+        )
+        .await;
+        if !required.is_empty() {
+            let _ = crate::api::codeowners::insert_codeowners_reviews_for_pr(
+                pool,
+                pr.id,
+                &required,
+            )
+            .await;
+            for username in &required {
+                if let Ok(user) = state.db.get_user_by_username(username).await {
+                    let _ = state.db.add_pr_reviewer(pr.id, user.id).await;
+                }
+            }
+        }
+    }
+
     let resp = pr_to_response(pr.clone(), None, None, None);
 
     let dispatcher = crate::webhooks::WebhookDispatcher::new();
@@ -760,6 +786,17 @@ pub async fn submit_review(
 
     match state.db.submit_pr_review(pr.id, uid, &req.status).await {
         Ok(rv) => {
+            // Update CODEOWNERS review if this reviewer is a required owner
+            if req.status == "approved" {
+                let _ = crate::api::codeowners::update_codeowners_review_approval(
+                    pool,
+                    pr.id,
+                    &uid.to_string(),
+                    true,
+                )
+                .await;
+            }
+
             let resp = ReviewerResponse {
                 user_id: rv.user_id.to_string(),
                 review_status: rv.review_status,
@@ -813,6 +850,16 @@ pub async fn merge_pull_request(
         return err_response(CoreError::BadRequest(format!(
             "PR #{number} is a draft and cannot be merged",
         )));
+    }
+
+    // CODEOWNERS enforcement: block merge if required owners haven't approved
+    let codeowners_approved = crate::api::codeowners::check_codeowners_approval(pool, pr.id)
+        .await
+        .unwrap_or(true);
+    if !codeowners_approved {
+        return err_response(CoreError::Forbidden(
+            "merge blocked: CODEOWNERS required reviewers have not approved".into(),
+        ));
     }
 
     let strategy_str = body
@@ -1282,6 +1329,18 @@ pub async fn check_auto_merge(state: &AppState, repo_id: Uuid, commit_sha: &str)
             continue;
         }
 
+        // Verify CODEOWNERS approval
+        let codeowners_approved = crate::api::codeowners::check_codeowners_approval(pool, pr.id)
+            .await
+            .unwrap_or(true);
+        if !codeowners_approved {
+            tracing::info!(
+                pr_number = pr.number,
+                "auto_merge: CODEOWNERS approval not satisfied, skipping"
+            );
+            continue;
+        }
+
         // Resolve owner username from repo
         let owner_username: Option<String> = sqlx::query_scalar(
             "SELECT u.username FROM users u JOIN repositories r ON r.owner_id = u.id WHERE r.id = $1",
@@ -1386,6 +1445,30 @@ pub async fn check_auto_merge(state: &AppState, repo_id: Uuid, commit_sha: &str)
             );
         }
     }
+}
+
+/// Trigger auto-merge for PRs when a pipeline succeeds.
+/// This checks if any open PRs with auto_merge enabled have all checks passing
+/// and all required CODEOWNERS reviews approved, then merges them.
+pub async fn trigger_auto_merge_on_success(state: &AppState, pipeline_id: Uuid) {
+    let pool = state.db.pool();
+
+    // Find the pipeline run to get repo_id and commit_sha
+    let pipeline: Option<(Uuid, String, String)> = sqlx::query_as(
+        r#"SELECT repo_id, commit_sha, ref_name FROM pipeline_runs WHERE id = $1"#,
+    )
+    .bind(pipeline_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    let (repo_id, commit_sha, _ref_name) = match pipeline {
+        Some(p) => p,
+        None => return,
+    };
+
+    check_auto_merge(state, repo_id, &commit_sha).await;
 }
 
 /// GET /repos/{owner}/{name}/pulls/{number}/patch

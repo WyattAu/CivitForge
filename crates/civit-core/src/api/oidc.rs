@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{get, patch},
+    routing::{get, patch, post},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -27,6 +27,35 @@ pub struct OidcExchangeResponse {
     pub provider: String,
     pub provider_user_id: String,
     pub linked: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OidcTokenExchangeRequest {
+    pub token: String,
+    pub audience: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TokenExchangeResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+    pub refresh_token: String,
+    pub scope: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OidcRefreshTokenRequest {
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RefreshTokenResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+    pub refresh_token: String,
+    pub scope: String,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
@@ -275,6 +304,245 @@ pub async fn delete_oidc_provider(
     }
 }
 
+/// POST /oidc/token-exchange
+/// Exchange an OIDC token for a CivitForge access token.
+/// Validates the token against known OIDC providers, extracts the subject,
+/// and issues a CivitForge JWT access token.
+pub async fn token_exchange(
+    State(state): State<AppState>,
+    Json(req): Json<OidcTokenExchangeRequest>,
+) -> impl IntoResponse {
+    if req.token.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::Config("token is required".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Decode the OIDC token to extract subject and provider
+    let sub = match decode_id_token_sub(&req.token) {
+        Some(s) => s,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Auth("invalid OIDC token".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Validate audience restriction if provided
+    if let Some(ref audience) = req.audience {
+        if let Some(token_audience) = decode_id_token_aud(&req.token) {
+            if token_audience != *audience {
+                return (
+                    StatusCode::UNAUTHORIZED,
+                    Json(CoreError::Auth("audience mismatch".into()).error_response()),
+                )
+                    .into_response();
+            }
+        }
+    }
+
+    let pool = state.db.pool();
+
+    // Look up user by OIDC identity
+    let identity: Option<OidcIdentity> = sqlx::query_as(
+        r#"SELECT * FROM oidc_identities WHERE provider_user_id = $1 LIMIT 1"#,
+    )
+    .bind(&sub)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    let (user_id, username) = match identity {
+        Some(id) => {
+            let user = state.db.get_user_by_id(id.user_id).await.ok();
+            match user {
+                Some(u) => (u.id, u.username),
+                None => {
+                    return (
+                        StatusCode::UNAUTHORIZED,
+                        Json(CoreError::Auth("user not found for OIDC identity".into()).error_response()),
+                    )
+                        .into_response();
+                }
+            }
+        }
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Auth("OIDC identity not linked to any user".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate CivitForge access token
+    let access_token = match state.jwt_service.generate_token(
+        &user_id.to_string(),
+        &username,
+        "user",
+        None,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate refresh token
+    let refresh_token = format!(
+        "civit_refresh_{}_{}",
+        user_id,
+        chrono::Utc::now().timestamp()
+    );
+
+    // Store refresh token
+    let _ = sqlx::query(
+        r#"INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+           VALUES ($1, $2, NOW() + INTERVAL '30 days')
+           ON CONFLICT DO NOTHING"#,
+    )
+    .bind(user_id)
+    .bind(&refresh_token)
+    .execute(pool)
+    .await;
+
+    let resp = TokenExchangeResponse {
+        access_token,
+        token_type: "Bearer".into(),
+        expires_in: state.config.jwt_expiry_hours as i64 * 3600,
+        refresh_token,
+        scope: "openid profile email".into(),
+    };
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+/// POST /oidc/refresh
+/// Refresh a CivitForge access token using a refresh token.
+pub async fn refresh_token(
+    State(state): State<AppState>,
+    Json(req): Json<OidcRefreshTokenRequest>,
+) -> impl IntoResponse {
+    if req.refresh_token.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::Config("refresh_token is required".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let pool = state.db.pool();
+
+    // Validate the refresh token
+    let row: Option<(Uuid,)> = sqlx::query_as(
+        r#"SELECT user_id FROM refresh_tokens
+           WHERE token_hash = $1 AND expires_at > NOW()
+           LIMIT 1"#,
+    )
+    .bind(&req.refresh_token)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    let user_id = match row {
+        Some((id,)) => id,
+        None => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Auth("invalid or expired refresh token".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user = match state.db.get_user_by_id(user_id).await {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(CoreError::Auth("user not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate new access token
+    let access_token = match state.jwt_service.generate_token(
+        &user.id.to_string(),
+        &user.username,
+        "user",
+        None,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate new refresh token and invalidate old one
+    let new_refresh_token = format!(
+        "civit_refresh_{}_{}",
+        user_id,
+        chrono::Utc::now().timestamp()
+    );
+
+    let _ = sqlx::query("DELETE FROM refresh_tokens WHERE token_hash = $1")
+        .bind(&req.refresh_token)
+        .execute(pool)
+        .await;
+
+    let _ = sqlx::query(
+        r#"INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+           VALUES ($1, $2, NOW() + INTERVAL '30 days')
+           ON CONFLICT DO NOTHING"#,
+    )
+    .bind(user_id)
+    .bind(&new_refresh_token)
+    .execute(pool)
+    .await;
+
+    let resp = RefreshTokenResponse {
+        access_token,
+        token_type: "Bearer".into(),
+        expires_in: state.config.jwt_expiry_hours as i64 * 3600,
+        refresh_token: new_refresh_token,
+        scope: "openid profile email".into(),
+    };
+    (StatusCode::OK, Json(resp)).into_response()
+}
+
+fn decode_id_token_aud(id_token: &str) -> Option<String> {
+    let parts: Vec<&str> = id_token.split('.').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    use base64::Engine;
+    let payload = parts.get(1)?;
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload.as_bytes())
+        .ok()?;
+    let json: serde_json::Value = serde_json::from_slice(&decoded).ok()?;
+    // aud can be a string or an array
+    match json.get("aud")? {
+        serde_json::Value::String(s) => Some(s.clone()),
+        serde_json::Value::Array(arr) => arr.first()?.as_str().map(String::from),
+        _ => None,
+    }
+}
+
 pub async fn exchange_oidc_token(
     State(state): State<AppState>,
     auth: AuthUser,
@@ -378,6 +646,14 @@ pub fn oidc_routes() -> Router<AppState> {
         .route(
             "/api/v1/admin/oidc-providers/{id}",
             patch(update_oidc_provider).delete(delete_oidc_provider),
+        )
+        .route(
+            "/api/v1/oidc/token-exchange",
+            post(token_exchange),
+        )
+        .route(
+            "/api/v1/oidc/refresh",
+            post(refresh_token),
         )
 }
 

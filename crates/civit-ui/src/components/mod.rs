@@ -8,6 +8,7 @@ pub mod card;
 pub mod debug_panel;
 pub mod error_banner;
 pub mod error_boundary;
+pub mod footer;
 pub mod form_field;
 pub mod input;
 pub mod keyboard;
@@ -25,6 +26,7 @@ pub use card::*;
 #[cfg(feature = "debug-panel")]
 pub use debug_panel::*;
 pub use error_banner::*;
+pub use footer::*;
 pub use form_field::*;
 pub use input::*;
 pub use keyboard::*;
