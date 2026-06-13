@@ -300,6 +300,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         router = router.fallback_service(ServeDir::new("/tmp/nonexistent-civit-ui"));
     }
 
+    // Automation endpoints for Playwright testing
+    router = router.route("/__navigate__", get(|| async { "" }));
+    router = router.route("/__capture__", post(|| async { "" }));
+    router = router.route("/__logout__", get(|| async { "" }));
+
     Ok(router)
 }
 

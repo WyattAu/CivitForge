@@ -33,6 +33,11 @@ COPY crates/ crates/
 RUN cargo build --release --locked \
     -p civit-core -p civit-brain -p civit-runner -p civit-vfs
 
+# Install trunk and build WASM UI
+RUN apt-get update && apt-get install -y --no-install-recommends protobuf-compiler && rm -rf /var/lib/apt/lists/*
+RUN cargo install trunk --locked
+RUN cd crates/civit-ui && trunk build --release
+
 # Strip debug symbols
 RUN for bin in civit-core civit-brain civit-runner civit-vfs; do \
         strip /app/target/release/${bin} 2>/dev/null || true; \
@@ -70,7 +75,7 @@ WORKDIR /data
 
 # Configuration via environment variables
 ENV CIVIT_STORAGE_PATH=/var/lib/civit/repos
-ENV CIVIT_UI_DIR=/srv/civit-ui
+ENV UI_ASSETS_PATH=/srv/civit-ui
 ENV CIVIT_HOST=0.0.0.0
 ENV CIVIT_PORT=8080
 ENV RUST_LOG=civit_core=info,tower_http=debug
