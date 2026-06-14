@@ -165,7 +165,7 @@ pub fn BlamePage() -> impl IntoView {
                     <span>"/"</span>
                     <A href=format!("/repos/{}/{}", owner(), name())><span class="hover:text-blue-600 dark:hover:text-blue-400">{format!("{}/{}", owner(), name())}</span></A>
                     <span>"/"</span>
-                    <A href=format!("/repos/{}/{}/code/{}", owner(), name(), path_param())><span class="hover:text-blue-600 dark:hover:text-blue-400">{path_param()}</span></A>
+                    <A href=format!("/repos/{}/{}/code/{}", owner(), name(), path_param()) attr:aria-label="View in code browser"><span class="hover:text-blue-600 dark:hover:text-blue-400">{if path_param().is_empty() { "code".to_string() } else { path_param() }}</span></A>
                     <span>"/"</span>
                     <span class="text-gray-700 dark:text-gray-300">"Blame"</span>
                 </div>
@@ -350,7 +350,7 @@ pub fn FileCommitsPage() -> impl IntoView {
                     <span>"/"</span>
                     <A href=format!("/repos/{}/{}", owner(), name())><span class="hover:text-blue-600 dark:hover:text-blue-400">{format!("{}/{}", owner(), name())}</span></A>
                     <span>"/"</span>
-                    <A href=format!("/repos/{}/{}/code/{}", owner(), name(), path_param())><span class="hover:text-blue-600 dark:hover:text-blue-400">{path_param()}</span></A>
+                    <A href=format!("/repos/{}/{}/code/{}", owner(), name(), path_param()) attr:aria-label="View in code browser"><span class="hover:text-blue-600 dark:hover:text-blue-400">{if path_param().is_empty() { "code".to_string() } else { path_param() }}</span></A>
                     <span>"/"</span>
                     <span class="text-gray-700 dark:text-gray-300">"History"</span>
                 </div>

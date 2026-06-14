@@ -884,6 +884,7 @@ pub fn AdminPage() -> impl IntoView {
                         <input
                             type="text"
                             placeholder="Filter by action..."
+                            aria-label="Filter by action"
                             class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             prop:value=move || audit_action_filter.get()
                             on:input=move |ev| set_audit_action_filter.set(event_target_value(&ev))
@@ -891,6 +892,7 @@ pub fn AdminPage() -> impl IntoView {
                         <input
                             type="text"
                             placeholder="Filter by resource type..."
+                            aria-label="Filter by resource type"
                             class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             prop:value=move || audit_resource_filter.get()
                             on:input=move |ev| set_audit_resource_filter.set(event_target_value(&ev))
@@ -898,6 +900,7 @@ pub fn AdminPage() -> impl IntoView {
                         <input
                             type="text"
                             placeholder="Filter by actor ID..."
+                            aria-label="Filter by actor ID"
                             class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             prop:value=move || audit_actor_filter.get()
                             on:input=move |ev| set_audit_actor_filter.set(event_target_value(&ev))
@@ -905,6 +908,7 @@ pub fn AdminPage() -> impl IntoView {
                         <input
                             type="date"
                             placeholder="From..."
+                            aria-label="Filter from date"
                             class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             prop:value=move || audit_date_from.get()
                             on:input=move |ev| set_audit_date_from.set(event_target_value(&ev))
@@ -912,6 +916,7 @@ pub fn AdminPage() -> impl IntoView {
                         <input
                             type="date"
                             placeholder="To..."
+                            aria-label="Filter to date"
                             class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             prop:value=move || audit_date_to.get()
                             on:input=move |ev| set_audit_date_to.set(event_target_value(&ev))
@@ -1091,6 +1096,7 @@ pub fn AdminPage() -> impl IntoView {
                         <input
                             type="text"
                             placeholder="Search repositories..."
+                            aria-label="Search repositories"
                             class="flex-1 px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             prop:value=move || repo_search.get()
                             on:input=move |ev| set_repo_search.set(event_target_value(&ev))
