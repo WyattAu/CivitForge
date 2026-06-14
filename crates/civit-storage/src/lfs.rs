@@ -272,14 +272,16 @@ mod tests {
 
     #[test]
     fn test_parse_lfs_pointer_valid() {
-        let content = "version https://git-lfs.github.com/spec/v1\noid sha256:abc123def456\nsize 1024\n";
+        let content =
+            "version https://git-lfs.github.com/spec/v1\noid sha256:abc123def456\nsize 1024\n";
         let result = parse_lfs_pointer(content);
         assert_eq!(result, Some(("abc123def456".into(), 1024)));
     }
 
     #[test]
     fn test_parse_lfs_pointer_with_whitespace() {
-        let content = "version  https://git-lfs.github.com/spec/v1  \noid sha256:abc  \nsize 2048  \n";
+        let content =
+            "version  https://git-lfs.github.com/spec/v1  \noid sha256:abc  \nsize 2048  \n";
         let result = parse_lfs_pointer(content);
         assert_eq!(result, Some(("abc".into(), 2048)));
     }
@@ -307,7 +309,8 @@ mod tests {
 
     #[test]
     fn test_parse_lfs_pointer_invalid_size() {
-        let content = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize notanumber\n";
+        let content =
+            "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize notanumber\n";
         let result = parse_lfs_pointer(content);
         assert!(result.is_none());
     }

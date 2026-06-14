@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 use std::io::{Seek, Write};
 use std::path::Path;
 use zip::write::SimpleFileOptions;
@@ -48,7 +48,10 @@ pub fn generate_archive(
     format: ArchiveFormat,
 ) -> Result<ArchiveResult> {
     if !repo_path.join("HEAD").exists() {
-        return Err(anyhow::anyhow!("repository not found at {}", repo_path.display()));
+        return Err(anyhow::anyhow!(
+            "repository not found at {}",
+            repo_path.display()
+        ));
     }
 
     match format {
@@ -195,14 +198,41 @@ mod tests {
     fn create_repo_with_file(path: &Path, filename: &str, content: &[u8]) {
         let work_tmp = tempfile::tempdir().unwrap();
         let work = work_tmp.path();
-        std::process::Command::new("git").args(["init", work.to_str().unwrap()]).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init", work.to_str().unwrap()])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(work)
+            .output()
+            .unwrap();
         std::fs::write(work.join(filename), content).unwrap();
-        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "init"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(work)
+            .output()
+            .unwrap();
         std::fs::create_dir_all(path).unwrap();
-        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git")
+            .args([
+                "clone",
+                "--bare",
+                work.to_str().unwrap(),
+                path.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
     }
 
     #[test]
@@ -235,10 +265,11 @@ mod tests {
     #[test]
     fn test_create_zip_from_bytes_roundtrip() {
         let mut buf = std::io::Cursor::new(Vec::new());
-        create_zip_from_bytes(&mut buf, &[
-            ("a.txt", b"content a"),
-            ("b.txt", b"content b"),
-        ]).unwrap();
+        create_zip_from_bytes(
+            &mut buf,
+            &[("a.txt", b"content a"), ("b.txt", b"content b")],
+        )
+        .unwrap();
         let data = buf.into_inner();
         assert!(data.len() > 10);
         // Verify it's a valid zip by reading it back
@@ -250,10 +281,11 @@ mod tests {
     #[test]
     fn test_create_tar_gz_from_bytes_roundtrip() {
         let mut buf = Vec::new();
-        create_tar_gz_from_bytes(&mut buf, &[
-            ("a.txt", b"content a"),
-            ("b.txt", b"content b"),
-        ]).unwrap();
+        create_tar_gz_from_bytes(
+            &mut buf,
+            &[("a.txt", b"content a"), ("b.txt", b"content b")],
+        )
+        .unwrap();
         assert!(buf.len() > 10);
     }
 }

@@ -2633,11 +2633,8 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
                     ];
                     o.request_body = Some(RequestBody {
                         description: Some("Asset file upload".into()),
-                        content: [(
-                            "multipart/form-data".into(),
-                            MediaType { schema: None },
-                        )]
-                        .into(),
+                        content: [("multipart/form-data".into(), MediaType { schema: None })]
+                            .into(),
                         required: true,
                     });
                     o.responses = [("201".into(), resp("Uploaded asset", ""))].into();
@@ -2909,11 +2906,7 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{repo}/secrets",
             PathItem {
                 get: Some({
-                    let mut o = op(
-                        "listPipelineSecrets",
-                        "List pipeline secrets",
-                        "pipelines",
-                    );
+                    let mut o = op("listPipelineSecrets", "List pipeline secrets", "pipelines");
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("repo", ParameterLocation::Path, true, "string"),
@@ -2956,7 +2949,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{repo}/secrets/{secret_name}",
             PathItem {
                 delete: Some({
-                    let mut o = op("deletePipelineSecret", "Delete a pipeline secret", "pipelines");
+                    let mut o = op(
+                        "deletePipelineSecret",
+                        "Delete a pipeline secret",
+                        "pipelines",
+                    );
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("repo", ParameterLocation::Path, true, "string"),
@@ -3000,7 +2997,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{repo}/caches/{cache_key}",
             PathItem {
                 delete: Some({
-                    let mut o = op("deletePipelineCache", "Delete a pipeline cache", "pipelines");
+                    let mut o = op(
+                        "deletePipelineCache",
+                        "Delete a pipeline cache",
+                        "pipelines",
+                    );
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("repo", ParameterLocation::Path, true, "string"),
@@ -3023,7 +3024,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{name}/schedules",
             PathItem {
                 get: Some({
-                    let mut o = op("listPipelineSchedules", "List pipeline schedules", "pipelines");
+                    let mut o = op(
+                        "listPipelineSchedules",
+                        "List pipeline schedules",
+                        "pipelines",
+                    );
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("name", ParameterLocation::Path, true, "string"),
@@ -3032,7 +3037,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
                     o
                 }),
                 post: Some({
-                    let mut o = op("createPipelineSchedule", "Create pipeline schedule", "pipelines");
+                    let mut o = op(
+                        "createPipelineSchedule",
+                        "Create pipeline schedule",
+                        "pipelines",
+                    );
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("name", ParameterLocation::Path, true, "string"),
@@ -3078,7 +3087,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
                     o
                 }),
                 delete: Some({
-                    let mut o = op("deletePipelineSchedule", "Delete pipeline schedule", "pipelines");
+                    let mut o = op(
+                        "deletePipelineSchedule",
+                        "Delete pipeline schedule",
+                        "pipelines",
+                    );
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("name", ParameterLocation::Path, true, "string"),
@@ -3099,7 +3112,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{name}/schedules/{id}/run",
             PathItem {
                 post: Some({
-                    let mut o = op("triggerSchedule", "Trigger pipeline schedule now", "pipelines");
+                    let mut o = op(
+                        "triggerSchedule",
+                        "Trigger pipeline schedule now",
+                        "pipelines",
+                    );
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("name", ParameterLocation::Path, true, "string"),
@@ -3248,11 +3265,7 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{name}/slsa/verify/{attestation_id}",
             PathItem {
                 get: Some({
-                    let mut o = op(
-                        "verifySlsaAttestation",
-                        "Verify SLSA attestation",
-                        "slsa",
-                    );
+                    let mut o = op("verifySlsaAttestation", "Verify SLSA attestation", "slsa");
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("name", ParameterLocation::Path, true, "string"),
@@ -3274,11 +3287,7 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/repos/{owner}/{name}/slsa/scorecard",
             PathItem {
                 get: Some({
-                    let mut o = op(
-                        "getSlsaScorecard",
-                        "Get OpenSSF Scorecard for repo",
-                        "slsa",
-                    );
+                    let mut o = op("getSlsaScorecard", "Get OpenSSF Scorecard for repo", "slsa");
                     o.parameters = vec![
                         p("owner", ParameterLocation::Path, true, "string"),
                         p("name", ParameterLocation::Path, true, "string"),
@@ -3395,11 +3404,7 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
                     ];
                     o.request_body = Some(RequestBody {
                         description: Some("LFS batch request".into()),
-                        content: [(
-                            "application/json".into(),
-                            MediaType { schema: None },
-                        )]
-                        .into(),
+                        content: [("application/json".into(), MediaType { schema: None })].into(),
                         required: true,
                     });
                     o.responses = [("200".into(), resp("Batch response", ""))].into();
@@ -3456,11 +3461,7 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
                     ];
                     o.request_body = Some(RequestBody {
                         description: Some("Verify request".into()),
-                        content: [(
-                            "application/json".into(),
-                            MediaType { schema: None },
-                        )]
-                        .into(),
+                        content: [("application/json".into(), MediaType { schema: None })].into(),
                         required: true,
                     });
                     o.responses = [("200".into(), resp("Verify result", ""))].into();
@@ -3657,7 +3658,11 @@ pub fn generate_openapi_spec() -> OpenApiGenerator {
             "/api/v1/notifications/unread-count",
             PathItem {
                 get: Some({
-                    let mut o = op("unreadCount", "Get unread notification count", "notifications");
+                    let mut o = op(
+                        "unreadCount",
+                        "Get unread notification count",
+                        "notifications",
+                    );
                     o.responses = [("200".into(), resp("Count", ""))].into();
                     o
                 }),

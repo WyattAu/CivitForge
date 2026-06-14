@@ -158,10 +158,14 @@ pub async fn receive_pack(
                 update_prs_on_push(&state_clone, &owner_clone, &name_clone).await;
 
                 // Incremental search re-index after push
-                if let Some(repo_id) = get_repo_id_from_owner_name(&state_clone, &owner_clone, &name_clone).await {
+                if let Some(repo_id) =
+                    get_repo_id_from_owner_name(&state_clone, &owner_clone, &name_clone).await
+                {
                     let pool = state_clone.db.pool();
                     let rp = state_clone.git_service.repo_path(&owner_clone, &name_clone);
-                    if let Err(e) = crate::api::search::reindex_repo_after_push(pool, &repo_id, &rp).await {
+                    if let Err(e) =
+                        crate::api::search::reindex_repo_after_push(pool, &repo_id, &rp).await
+                    {
                         tracing::warn!(error = %e, "failed to re-index search after push for {owner_clone}/{name_clone}");
                     }
                 }
@@ -171,7 +175,13 @@ pub async fn receive_pack(
                 let indexing_owner = owner_clone.clone();
                 let indexing_name = name_clone.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = crate::api::search::trigger_repo_index_background(&indexing_state, &indexing_owner, &indexing_name).await {
+                    if let Err(e) = crate::api::search::trigger_repo_index_background(
+                        &indexing_state,
+                        &indexing_owner,
+                        &indexing_name,
+                    )
+                    .await
+                    {
                         tracing::warn!("background search indexing failed: {e}");
                     }
                 });

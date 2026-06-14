@@ -191,17 +191,23 @@ pub async fn get_secret(
                 Err(e) => {
                     return (
                         axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(CoreError::Internal(format!("decryption failed: {e}")).error_response()),
+                        Json(
+                            CoreError::Internal(format!("decryption failed: {e}")).error_response(),
+                        ),
                     )
                         .into_response();
                 }
             };
-            (axum::http::StatusCode::OK, Json(SecretDetailResponse {
-                name: secret_name,
-                value,
-                created_at: created_at.to_rfc3339(),
-                updated_at: updated_at.to_rfc3339(),
-            })).into_response()
+            (
+                axum::http::StatusCode::OK,
+                Json(SecretDetailResponse {
+                    name: secret_name,
+                    value,
+                    created_at: created_at.to_rfc3339(),
+                    updated_at: updated_at.to_rfc3339(),
+                }),
+            )
+                .into_response()
         }
         Ok(None) => (
             axum::http::StatusCode::NOT_FOUND,

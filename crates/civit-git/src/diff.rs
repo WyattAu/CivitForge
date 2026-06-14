@@ -20,11 +20,7 @@ pub struct DiffResult {
     pub head_ref: String,
 }
 
-pub fn generate_diff(
-    repo_path: &Path,
-    base_ref: &str,
-    head_ref: &str,
-) -> Result<DiffResult> {
+pub fn generate_diff(repo_path: &Path, base_ref: &str, head_ref: &str) -> Result<DiffResult> {
     if !repo_path.join("HEAD").exists() {
         return Err(anyhow::anyhow!(
             "repository not found at {}",
@@ -108,7 +104,13 @@ pub fn generate_commit_diff(repo_path: &Path, commit_sha: &str) -> Result<DiffRe
 
     let output = std::process::Command::new(&git_bin)
         .current_dir(repo_path)
-        .args(["diff", "--numstat", "--no-renames", &format!("{commit_sha}~1"), commit_sha])
+        .args([
+            "diff",
+            "--numstat",
+            "--no-renames",
+            &format!("{commit_sha}~1"),
+            commit_sha,
+        ])
         .output()
         .context("failed to run git diff")?;
 
@@ -189,31 +191,104 @@ mod tests {
         // Create a work directory, then convert to bare (since diff functions check for HEAD at root)
         let work_tmp = tempfile::tempdir().unwrap();
         let work = work_tmp.path();
-        std::process::Command::new("git").args(["init", "-b", "main", work.to_str().unwrap()]).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init", "-b", "main", work.to_str().unwrap()])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(work)
+            .output()
+            .unwrap();
 
         // Commit 1: initial
         std::fs::write(work.join("file.txt"), "line1\nline2\n").unwrap();
-        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "initial"]).current_dir(work).output().unwrap();
-        let sha1 = String::from_utf8(std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(work).output().unwrap().stdout).unwrap().trim().to_string();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        let sha1 = String::from_utf8(
+            std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(work)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_string();
 
         // Commit 2: modify
         std::fs::write(work.join("file.txt"), "line1\nchanged\nline3\n").unwrap();
-        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "modify"]).current_dir(work).output().unwrap();
-        let sha2 = String::from_utf8(std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(work).output().unwrap().stdout).unwrap().trim().to_string();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "modify"])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        let sha2 = String::from_utf8(
+            std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(work)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_string();
 
         // Commit 3: add new file
         std::fs::write(work.join("new.txt"), "new content").unwrap();
-        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "add file"]).current_dir(work).output().unwrap();
-        let sha3 = String::from_utf8(std::process::Command::new("git").args(["rev-parse", "HEAD"]).current_dir(work).output().unwrap().stdout).unwrap().trim().to_string();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "add file"])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        let sha3 = String::from_utf8(
+            std::process::Command::new("git")
+                .args(["rev-parse", "HEAD"])
+                .current_dir(work)
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap()
+        .trim()
+        .to_string();
 
         // Convert to bare
         std::fs::create_dir_all(path).unwrap();
-        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git")
+            .args([
+                "clone",
+                "--bare",
+                work.to_str().unwrap(),
+                path.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
 
         vec![sha1, sha2, sha3]
     }

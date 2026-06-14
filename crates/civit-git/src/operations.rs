@@ -220,9 +220,7 @@ impl GitService {
     ) -> Result<MergeResult> {
         let bare_path = self.repo_path(owner, name);
         if !bare_path.exists() {
-            return Err(anyhow::anyhow!(
-                "repository {owner}/{name} does not exist"
-            ));
+            return Err(anyhow::anyhow!("repository {owner}/{name} does not exist"));
         }
 
         let tmp_dir = tempfile::tempdir().context("failed to create temp dir")?;
@@ -238,14 +236,8 @@ impl GitService {
             ],
         )?;
 
-        run_git(
-            work_path,
-            &["config", "user.name", committer_name],
-        )?;
-        run_git(
-            work_path,
-            &["config", "user.email", committer_email],
-        )?;
+        run_git(work_path, &["config", "user.name", committer_name])?;
+        run_git(work_path, &["config", "user.email", committer_email])?;
 
         run_git(work_path, &["checkout", target_branch])?;
         run_git(work_path, &["fetch", "origin"])?;
@@ -278,8 +270,7 @@ impl GitService {
                 }
             }
             MergeStrategy::Squash => {
-                let _ =
-                    run_git(work_path, &["merge", "--squash", "source-temp"])?;
+                let _ = run_git(work_path, &["merge", "--squash", "source-temp"])?;
                 let _ = run_git(
                     work_path,
                     &[
@@ -309,8 +300,7 @@ impl GitService {
             }
             MergeStrategy::Merge => {
                 if can_ff {
-                    let output =
-                        run_git(work_path, &["merge", "--ff", "source-temp"])?;
+                    let output = run_git(work_path, &["merge", "--ff", "source-temp"])?;
                     let sha = get_head_sha(work_path)?;
                     let was_ff = output.contains("Fast-forward");
                     MergeResult {
@@ -566,7 +556,16 @@ mod tests {
             run_git(work, &["add", "."]).unwrap();
             run_git(work, &["commit", "-m", &format!("commit {i}")]).unwrap();
         }
-        run_git(work, &["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).unwrap();
+        run_git(
+            work,
+            &[
+                "clone",
+                "--bare",
+                work.to_str().unwrap(),
+                path.to_str().unwrap(),
+            ],
+        )
+        .unwrap();
     }
 
     #[test]
@@ -626,7 +625,17 @@ mod tests {
         run_git(work, &["commit", "-m", "feature commit"]).unwrap();
         run_git(work, &["push", "origin", "feature"]).unwrap();
 
-        let result = svc.merge_branch("org", "ffrepo", "feature", "main", MergeStrategy::FastForward, "Merger", "merge@test.com").unwrap();
+        let result = svc
+            .merge_branch(
+                "org",
+                "ffrepo",
+                "feature",
+                "main",
+                MergeStrategy::FastForward,
+                "Merger",
+                "merge@test.com",
+            )
+            .unwrap();
         assert!(result.was_ff);
         assert!(!result.commit_sha.is_empty());
     }
@@ -649,7 +658,17 @@ mod tests {
         run_git(work, &["commit", "-m", "feature commit"]).unwrap();
         run_git(work, &["push", "origin", "feature"]).unwrap();
 
-        let result = svc.merge_branch("org", "mrgrepo", "feature", "main", MergeStrategy::Merge, "Merger", "merge@test.com").unwrap();
+        let result = svc
+            .merge_branch(
+                "org",
+                "mrgrepo",
+                "feature",
+                "main",
+                MergeStrategy::Merge,
+                "Merger",
+                "merge@test.com",
+            )
+            .unwrap();
         assert!(!result.commit_sha.is_empty());
     }
 
@@ -671,7 +690,17 @@ mod tests {
         run_git(work, &["commit", "-m", "feature commit"]).unwrap();
         run_git(work, &["push", "origin", "feature"]).unwrap();
 
-        let result = svc.merge_branch("org", "sqrepo", "feature", "main", MergeStrategy::Squash, "Merger", "merge@test.com").unwrap();
+        let result = svc
+            .merge_branch(
+                "org",
+                "sqrepo",
+                "feature",
+                "main",
+                MergeStrategy::Squash,
+                "Merger",
+                "merge@test.com",
+            )
+            .unwrap();
         assert_eq!(result.strategy_used, "squash");
     }
 
@@ -679,7 +708,15 @@ mod tests {
     fn test_merge_nonexistent_repo() {
         let tmp = tempfile::tempdir().unwrap();
         let svc = GitService::new(tmp.path().to_path_buf());
-        let result = svc.merge_branch("org", "nope", "a", "b", MergeStrategy::Merge, "T", "t@t.com");
+        let result = svc.merge_branch(
+            "org",
+            "nope",
+            "a",
+            "b",
+            MergeStrategy::Merge,
+            "T",
+            "t@t.com",
+        );
         assert!(result.is_err());
     }
 }

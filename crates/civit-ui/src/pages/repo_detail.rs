@@ -336,7 +336,15 @@ fn RepoTabs(
         let pathname = location.pathname.with(|p| p.clone());
         let base = format!("/repos/{}/{}", owner(), name());
         let rest = pathname.strip_prefix(&base).unwrap_or("");
-        if rest.is_empty() || rest.starts_with("/code") {
+        if rest.is_empty()
+            || rest.starts_with("/code")
+            || rest.starts_with("/blame")
+            || rest.starts_with("/commits")
+            || rest.starts_with("/graph")
+            || rest.starts_with("/releases")
+            || rest.starts_with("/environments")
+            || rest.starts_with("/deployments")
+        {
             "code"
         } else if rest.starts_with("/issues") {
             "issues"
@@ -348,21 +356,7 @@ fn RepoTabs(
             "wiki"
         } else if rest.starts_with("/pipelines") {
             "pipelines"
-        } else if rest.starts_with("/settings") {
-            "settings"
-        } else if rest.starts_with("/blame") {
-            "code"
-        } else if rest.starts_with("/commits") {
-            "code"
-        } else if rest.starts_with("/graph") {
-            "code"
-        } else if rest.starts_with("/releases") {
-            "code"
-        } else if rest.starts_with("/environments") {
-            "code"
-        } else if rest.starts_with("/deployments") {
-            "code"
-        } else if rest.starts_with("/branch-protection") {
+        } else if rest.starts_with("/settings") || rest.starts_with("/branch-protection") {
             "settings"
         } else {
             "code"

@@ -1,13 +1,9 @@
 #![forbid(unsafe_code)]
 
-#[cfg(feature = "csr")]
-use js_sys::{Function, Reflect, global};
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 #[cfg(feature = "csr")]
 use wasm_bindgen::JsCast;
-#[cfg(feature = "csr")]
-use wasm_bindgen::JsValue;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{AuthResponse, RegisterRequest};
@@ -82,7 +78,13 @@ pub fn RegisterPage() -> impl IntoView {
                     if status.is_success() {
                         match serde_json::from_str::<AuthResponse>(&text) {
                             Ok(data) => {
-                                login(&auth_clone, data.user.id, data.user.username, data.token, data.user.is_admin);
+                                login(
+                                    &auth_clone,
+                                    data.user.id,
+                                    data.user.username,
+                                    data.token,
+                                    data.user.is_admin,
+                                );
                                 nav_clone("/repos", Default::default());
                             }
                             Err(e) => {

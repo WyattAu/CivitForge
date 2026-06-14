@@ -1,33 +1,46 @@
 # CivitForge Version Tracker
 
-Version: 2.1.2
-Last Updated: 2026-06-05
-Tests: 3,076 passing
+Version: 2.2.0
+Last Updated: 2026-06-14
+Tests: 3,707 passing (118 ignored, require PostgreSQL)
 Clippy: 0 warnings
+Format: 0 violations
 
 ## Artifact Summary
 
-- Rust source files: 320+
-- Rust lines of code: ~125,000
-- Cargo workspace crates: 8 (civit-shared, civit-pipeline, civit-core, civit-runner, civit-brain, civit-vfs, civit-crypto, civit-ui)
+- Rust workspace crates: 12 (civit-shared, civit-pipeline, civit-core, civit-ci,
+  civit-storage, civit-db, civit-git, civit-runner, civit-brain, civit-vfs,
+  civit-crypto, civit-auth, civit-ui)
 - Cargo standalone crates: 1 (civit-desktop, buildable separately)
-- Unit tests passing: 3,076
+- Unit + integration tests passing: 3,707
+- Tests ignored (require PostgreSQL): 118
 - Clippy warnings: 0
 - Format violations: 0
-- `#![forbid(unsafe_code)`: Enforced across all crates
+- `#![forbid(unsafe_code)]`: Enforced across all crates
 - API endpoints: ~85 routes (debug gated by --debug flag)
-- Migrations: 001-027 (odd-numbered)
+- Migrations: 001-027 (odd-numbered) in civit-db; mirrored 050+ in civit-core
 - OpenAPI: v3.1 spec at /api/v1/openapi.json
-- WASM: 2.8MB WASM + 54KB JS + sw.js (trunk build, copy-file for sw.js)
-- WASM rendering tests: 34 tests (wasm-bindgen-test, gated on wasm32+csr)
+- WASM: Leptos CSR build via trunk
+- WASM rendering tests: gated on wasm32+csr
 - Rust edition: 2024
 - MSRV: 1.88
 - E2E tests: Playwright (15 pages, all buttons/forms, benchmarks)
-- GUI tests: Playwright (12 pages, 63 actions, 0 errors — path routing)
-- Desktop smoke: Xvfb + GTK + WebKit (11 checks, 0 failures)
+- GUI tests: Playwright (path routing traversal)
+- Desktop smoke: Xvfb + GTK + WebKit
 - Desktop: Tauri 2 (buildable, system deps required)
 - Code search: Tantivy 0.22 (full-text with fuzzy, code-aware tokenization)
 - Wiki: Git-backed via gix (bare repos with commit history)
+- Pre-commit hook: `.githooks/pre-commit` (fmt + clippy + test + emoji scan)
+
+## v2.2.0 Changes
+
+- Fixed broken civit-db integration tests (create_pr signature: added auto_merge arg)
+- Fixed PullRequest initializer (missing auto_merge field)
+- Fixed UserResponse initializer (missing avatar_url/location/website fields)
+- Resolved all clippy warnings (22 in civit-ui, 7 in civit-core tests)
+- Consolidated pre-commit hooks: removed husky, canonicalized .githooks/
+- Pre-commit hook now enforces: no emoji, fmt, clippy (-D warnings), tests
+- Added conventional-commit subject hint and SKIP_PRE_COMMIT bypass
 
 ## v2.1.2 Changes
 

@@ -1188,19 +1188,50 @@ fn CollapsibleDiffFile(
     let (collapsed, set_collapsed) = signal(false);
 
     let (status_bg, status_icon, _status_label_text) = match status.as_str() {
-        "added" => ("bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300", "A", "Added"),
-        "removed" => ("bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300", "D", "Deleted"),
-        "renamed" | "copied" => ("bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300", "R", "Renamed"),
-        "modified" => ("bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300", "M", "Modified"),
-        _ => ("bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300", "M", "Modified"),
+        "added" => (
+            "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
+            "A",
+            "Added",
+        ),
+        "removed" => (
+            "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+            "D",
+            "Deleted",
+        ),
+        "renamed" | "copied" => (
+            "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300",
+            "R",
+            "Renamed",
+        ),
+        "modified" => (
+            "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
+            "M",
+            "Modified",
+        ),
+        _ => (
+            "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300",
+            "M",
+            "Modified",
+        ),
     };
 
     let total = additions + deletions;
-    let add_pct = if total > 0 { (additions as f64 / total as f64 * 100.0) as u32 } else { 50 };
+    let add_pct = if total > 0 {
+        (additions as f64 / total as f64 * 100.0) as u32
+    } else {
+        50
+    };
     let del_pct = if total > 0 { 100 - add_pct } else { 50 };
 
-    let chevron_class = move || format!("w-4 h-4 text-gray-400 transition-transform {}", if collapsed.get() { "" } else { "rotate-90" });
-    let badge_class = StoredValue::new(format!("inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold {status_bg}"));
+    let chevron_class = move || {
+        format!(
+            "w-4 h-4 text-gray-400 transition-transform {}",
+            if collapsed.get() { "" } else { "rotate-90" }
+        )
+    };
+    let badge_class = StoredValue::new(format!(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold {status_bg}"
+    ));
     let hunks_sv = StoredValue::new(hunks);
     let path_sv = StoredValue::new(path);
 

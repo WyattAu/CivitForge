@@ -35,9 +35,7 @@ pub struct UpdateSiteSettingsRequest {
     pub contact_email: Option<String>,
 }
 
-pub async fn get_site_settings(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_site_settings(State(state): State<AppState>) -> impl IntoResponse {
     let pool = state.db.pool();
     let result = sqlx::query_as::<_, SiteSettingsRow>(
         "SELECT id, site_name, site_description, footer_text, logo_url, contact_email, updated_at FROM site_settings WHERE id = 1",
@@ -46,11 +44,7 @@ pub async fn get_site_settings(
     .await;
 
     match result {
-        Ok(Some(row)) => (
-            StatusCode::OK,
-            Json(SiteSettings::from(row)),
-        )
-            .into_response(),
+        Ok(Some(row)) => (StatusCode::OK, Json(SiteSettings::from(row))).into_response(),
         Ok(None) => {
             let defaults = SiteSettings {
                 id: 1,

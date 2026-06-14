@@ -3,7 +3,8 @@
 pub const M_001_INITIAL_SCHEMA_UP: &str = include_str!("001_initial_schema.sql");
 pub const M_001_INITIAL_SCHEMA_DOWN: &str = include_str!("down/002_initial_schema_down.sql");
 pub const M_003_PHASE1_UP: &str = include_str!("003_add_ssh_keys_branches_steps_events.sql");
-pub const M_003_PHASE1_DOWN: &str = include_str!("down/004_add_ssh_keys_branches_steps_events_down.sql");
+pub const M_003_PHASE1_DOWN: &str =
+    include_str!("down/004_add_ssh_keys_branches_steps_events_down.sql");
 pub const M_005_AUTH_UP: &str = include_str!("005_add_auth_identity_tables.sql");
 pub const M_005_AUTH_DOWN: &str = include_str!("down/006_add_auth_identity_tables_down.sql");
 pub const M_007_PERMISSIONS_UP: &str = include_str!("007_add_permissions_tables.sql");
@@ -19,7 +20,8 @@ pub const M_015_WIKI_DOWN: &str = include_str!("down/016_add_wiki_tables_down.sq
 pub const M_017_SEARCH_UP: &str = include_str!("017_add_code_search_tables.sql");
 pub const M_017_SEARCH_DOWN: &str = include_str!("down/018_add_code_search_tables_down.sql");
 pub const M_019_WIKI_SNAPSHOT_UP: &str = include_str!("019_add_wiki_content_snapshot.sql");
-pub const M_019_WIKI_SNAPSHOT_DOWN: &str = include_str!("down/020_add_wiki_content_snapshot_down.sql");
+pub const M_019_WIKI_SNAPSHOT_DOWN: &str =
+    include_str!("down/020_add_wiki_content_snapshot_down.sql");
 pub const M_021_FTS_UP: &str = include_str!("021_add_fulltext_search.sql");
 pub const M_021_FTS_DOWN: &str = include_str!("down/022_add_fulltext_search_down.sql");
 pub const M_023_WIKI_FK_UP: &str = include_str!("023_drop_wiki_created_by_fk.sql");
@@ -32,7 +34,8 @@ pub const M_029_PASSWORD_HASH_UP: &str = include_str!("029_add_password_hash.sql
 pub const M_031_PR_TRACKING_UP: &str = include_str!("031_add_pr_tracking.sql");
 pub const M_031_PR_TRACKING_DOWN: &str = include_str!("down/032_add_pr_tracking_down.sql");
 pub const M_033_STAR_WATCH_COUNTS_UP: &str = include_str!("033_add_star_watch_counts.sql");
-pub const M_033_STAR_WATCH_COUNTS_DOWN: &str = include_str!("down/034_add_star_watch_counts_down.sql");
+pub const M_033_STAR_WATCH_COUNTS_DOWN: &str =
+    include_str!("down/034_add_star_watch_counts_down.sql");
 pub const M_035_LOGIN_ATTEMPTS_UP: &str = include_str!("035_add_login_attempts.sql");
 pub const M_036_EMAIL_VERIFICATION_UP: &str = include_str!("036_add_email_verification.sql");
 pub const M_038_REPO_SECRETS_CACHES_UP: &str =
@@ -559,7 +562,9 @@ mod tests {
     #[test]
     fn test_webhook_deliveries_sql_not_empty() {
         assert_ne!(M_042_WEBHOOK_DELIVERIES_UP, "");
-        assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("CREATE TABLE IF NOT EXISTS webhook_deliveries"));
+        assert!(
+            M_042_WEBHOOK_DELIVERIES_UP.contains("CREATE TABLE IF NOT EXISTS webhook_deliveries")
+        );
         assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("webhook_id"));
         assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("event"));
         assert!(M_042_WEBHOOK_DELIVERIES_UP.contains("payload"));

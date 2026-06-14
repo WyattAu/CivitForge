@@ -11,9 +11,7 @@ use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Json, Router};
-use civit_ci::pipeline::{
-    self, PipelineListParams, PipelineRunResponse, TriggerPipelineRequest,
-};
+use civit_ci::pipeline::{self, PipelineListParams, PipelineRunResponse, TriggerPipelineRequest};
 use civit_pipeline::trigger::TriggerContext;
 use civit_pipeline::{expand_matrix, matches_trigger, parse_pipeline, validate_pipeline};
 use uuid::Uuid;
@@ -356,7 +354,9 @@ pub async fn cancel_pipeline(
                     "repo_id": rid.to_string(),
                     "status": run.status,
                 });
-                tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, payload).await });
+                tokio::spawn(
+                    async move { dispatcher.dispatch(&pool_clone, rid, &evt, payload).await },
+                );
             }
             (axum::http::StatusCode::OK, Json(run)).into_response()
         }

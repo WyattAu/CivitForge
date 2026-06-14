@@ -3,9 +3,7 @@
 use leptos::prelude::*;
 
 use crate::api::client::ApiClient;
-use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner,
-};
+use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
@@ -93,6 +91,7 @@ struct SlsaScorecard {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct AdminEnvironment {
     id: String,
     name: String,
@@ -105,6 +104,7 @@ struct AdminEnvironment {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct AdminDeployment {
     id: String,
     repo_id: String,
@@ -117,6 +117,7 @@ struct AdminDeployment {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct AdminTeam {
     id: String,
     name: String,
@@ -146,12 +147,14 @@ struct MergeQueueEntry {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct MergeQueueListResponse {
     items: Vec<MergeQueueEntry>,
     total: i64,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct OidcProviderItem {
     id: String,
     name: String,
@@ -181,6 +184,7 @@ struct UpdateOidcProviderBody {
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct LdapStatusResponse {
     enabled: bool,
     connected: bool,
@@ -198,6 +202,7 @@ struct LdapSyncResult {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
+#[allow(dead_code)]
 struct LdapTestRequest {
     server_url: String,
     bind_dn: String,
@@ -301,7 +306,9 @@ pub fn AdminPage() -> impl IntoView {
     let fetch_audit = move || {
         let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
         if !is_admin_check {
-            set_audit_error.set(Some("Admin access required. Please sign in as an administrator.".to_string()));
+            set_audit_error.set(Some(
+                "Admin access required. Please sign in as an administrator.".to_string(),
+            ));
             set_audit_loading.set(false);
             return;
         }
@@ -335,7 +342,9 @@ pub fn AdminPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<AuditLogResponse>().await {
                         Ok(data) => set_audit_events.set(data.data),
-                        Err(_) => set_audit_error.set(Some("Failed to load audit log.".to_string())),
+                        Err(_) => {
+                            set_audit_error.set(Some("Failed to load audit log.".to_string()))
+                        }
                     }
                 }
                 Ok(_) => {
@@ -436,7 +445,8 @@ pub fn AdminPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<SecretScanResponse>().await {
                         Ok(data) => set_scan_results.set(data.data),
-                        Err(_) => set_scan_error.set(Some("Failed to load secret scan results.".to_string())),
+                        Err(_) => set_scan_error
+                            .set(Some("Failed to load secret scan results.".to_string())),
                     }
                 }
                 Ok(_) => {
@@ -455,14 +465,16 @@ pub fn AdminPage() -> impl IntoView {
                 Ok(resp) if resp.status().is_success() => {
                     match resp.json::<SlsaScorecard>().await {
                         Ok(data) => set_scorecard.set(Some(data)),
-                        Err(_) => set_scorecard_error.set(Some("Failed to load SLSA scorecard.".to_string())),
+                        Err(_) => set_scorecard_error
+                            .set(Some("Failed to load SLSA scorecard.".to_string())),
                     }
                 }
                 Ok(_) => {
                     set_scorecard_error.set(Some("Failed to load SLSA scorecard.".to_string()));
                 }
                 Err(_) => {
-                    set_scorecard_error.set(Some("Network error. Check your connection.".to_string()));
+                    set_scorecard_error
+                        .set(Some("Network error. Check your connection.".to_string()));
                 }
             }
             set_scorecard_loading.set(false);
@@ -697,7 +709,10 @@ pub fn AdminPage() -> impl IntoView {
         let token = auth.0.with(|a| a.token.clone());
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
-            match client.post("/admin/ldap/test", &serde_json::json!({})).await {
+            match client
+                .post("/admin/ldap/test", &serde_json::json!({}))
+                .await
+            {
                 Ok(resp) if resp.status().is_success() => {
                     set_ldap_test_result.set(Some("LDAP connection successful".to_string()));
                 }

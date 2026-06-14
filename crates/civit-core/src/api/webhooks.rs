@@ -299,7 +299,18 @@ pub async fn list_webhook_deliveries(
     };
 
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
-    let rows = sqlx::query_as::<_, (Uuid, String, String, i32, Option<String>, Option<DateTime<Utc>>, DateTime<Utc>)>(
+    let rows = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            String,
+            String,
+            i32,
+            Option<String>,
+            Option<DateTime<Utc>>,
+            DateTime<Utc>,
+        ),
+    >(
         "SELECT id, event, status, attempts, last_error, next_retry_at, created_at \
          FROM webhook_deliveries WHERE webhook_id = $1 \
          ORDER BY created_at DESC LIMIT $2 OFFSET $3",
@@ -506,7 +517,9 @@ pub fn webhook_routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route(
             "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}",
-            get(get_webhook).patch(update_webhook).delete(delete_webhook),
+            get(get_webhook)
+                .patch(update_webhook)
+                .delete(delete_webhook),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/deliveries",

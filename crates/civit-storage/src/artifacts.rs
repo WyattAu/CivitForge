@@ -36,7 +36,12 @@ pub struct ArtifactDownloadQuery {
     pub token: Option<String>,
 }
 
-pub fn artifact_storage_path(base_path: &str, owner: &str, repo: &str, artifact_id: &str) -> PathBuf {
+pub fn artifact_storage_path(
+    base_path: &str,
+    owner: &str,
+    repo: &str,
+    artifact_id: &str,
+) -> PathBuf {
     PathBuf::from(base_path)
         .join("artifacts")
         .join(owner)
@@ -137,10 +142,7 @@ mod tests {
     #[test]
     fn test_artifact_storage_path() {
         let path = artifact_storage_path("/data", "owner1", "repo1", "art123");
-        assert_eq!(
-            path,
-            PathBuf::from("/data/artifacts/owner1/repo1/art123")
-        );
+        assert_eq!(path, PathBuf::from("/data/artifacts/owner1/repo1/art123"));
     }
 
     #[test]
@@ -161,19 +163,12 @@ mod tests {
     #[test]
     fn test_generate_presigned_url() {
         let url = generate_presigned_url("https://storage.example.com", "file.zip", 3600);
-        assert_eq!(
-            url,
-            "https://storage.example.com/file.zip?expires=3600"
-        );
+        assert_eq!(url, "https://storage.example.com/file.zip?expires=3600");
     }
 
     #[test]
     fn test_generate_presigned_url_existing_query() {
-        let url = generate_presigned_url(
-            "https://storage.example.com?token=abc",
-            "file.zip",
-            7200,
-        );
+        let url = generate_presigned_url("https://storage.example.com?token=abc", "file.zip", 7200);
         assert_eq!(
             url,
             "https://storage.example.com/file.zip?token=abc&expires=7200"

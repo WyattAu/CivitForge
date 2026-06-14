@@ -240,9 +240,7 @@ impl ApiClient {
         column_id: &str,
         body: &super::types::CreateCardBody,
     ) -> Result<super::types::BoardCardResponse, String> {
-        let path = format!(
-            "/repos/{owner}/{repo}/boards/{board_id}/columns/{column_id}/cards"
-        );
+        let path = format!("/repos/{owner}/{repo}/boards/{board_id}/columns/{column_id}/cards");
         let resp = self.post(&path, body).await.map_err(|e| e.to_string())?;
         if resp.status().is_success() {
             resp.json().await.map_err(|e| e.to_string())
@@ -297,7 +295,8 @@ impl ApiClient {
         &self,
         user_id: &str,
     ) -> Result<civit_shared::user::UserResponse, String> {
-        let resp = self.get(&format!("/users/{user_id}"))
+        let resp = self
+            .get(&format!("/users/{user_id}"))
             .await
             .map_err(|e| e.to_string())?;
         if resp.status().is_success() {

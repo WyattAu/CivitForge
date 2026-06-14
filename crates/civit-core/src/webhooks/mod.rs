@@ -264,10 +264,7 @@ impl WebhookDispatcher {
             }
         }
 
-        let error_msg = last_err
-            .as_ref()
-            .map(|e| e.to_string())
-            .unwrap_or_default();
+        let error_msg = last_err.as_ref().map(|e| e.to_string()).unwrap_or_default();
         let next_retry = self.compute_next_retry(self.max_retries);
         let final_status = if next_retry.is_some() {
             DeliveryStatus::Retrying
@@ -367,7 +364,11 @@ impl WebhookDispatcher {
                 timestamp: Utc::now(),
             };
 
-            if self.deliver_with_retry(pool, &webhook, &delivery).await.is_ok() {
+            if self
+                .deliver_with_retry(pool, &webhook, &delivery)
+                .await
+                .is_ok()
+            {
                 retried += 1;
             }
         }

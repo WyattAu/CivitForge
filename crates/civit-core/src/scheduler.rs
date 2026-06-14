@@ -550,11 +550,15 @@ async fn tick_webhook_retries(
 /// Compute next retry time with exponential backoff: 1min, 5min, 15min.
 fn compute_next_retry_backoff(attempts: i32) -> Option<chrono::DateTime<chrono::Utc>> {
     let backoff_secs = match attempts {
-        0 => 60,       // 1 minute
-        1 => 300,      // 5 minutes
-        _ => 900,      // 15 minutes
+        0 => 60,  // 1 minute
+        1 => 300, // 5 minutes
+        _ => 900, // 15 minutes
     };
-    Some(Utc::now() + chrono::Duration::from_std(std::time::Duration::from_secs(backoff_secs)).unwrap_or_default())
+    Some(
+        Utc::now()
+            + chrono::Duration::from_std(std::time::Duration::from_secs(backoff_secs))
+                .unwrap_or_default(),
+    )
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -698,7 +702,11 @@ async fn sync_single_mirror(
             }
         }
         _ => {
-            tracing::warn!("mirror sync: invalid direction '{}' for {}", mirror.direction, mirror.id);
+            tracing::warn!(
+                "mirror sync: invalid direction '{}' for {}",
+                mirror.direction,
+                mirror.id
+            );
             return Ok(());
         }
     };
@@ -723,9 +731,17 @@ async fn sync_single_mirror(
     .await?;
 
     if status == "success" {
-        tracing::info!("mirror synced: id={}, direction={}", mirror.id, mirror.direction);
+        tracing::info!(
+            "mirror synced: id={}, direction={}",
+            mirror.id,
+            mirror.direction
+        );
     } else {
-        tracing::warn!("mirror sync failed: id={}, error={:?}", mirror.id, error_msg);
+        tracing::warn!(
+            "mirror sync failed: id={}, error={:?}",
+            mirror.id,
+            error_msg
+        );
     }
 
     Ok(())

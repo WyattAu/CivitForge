@@ -61,7 +61,15 @@ pub async fn get_secret_value_db(
     pool: &sqlx::PgPool,
     repo_id: Uuid,
     secret_name: &str,
-) -> std::result::Result<Option<(Vec<u8>, Vec<u8>, chrono::DateTime<Utc>, chrono::DateTime<Utc>)>, sqlx::Error> {
+) -> std::result::Result<
+    Option<(
+        Vec<u8>,
+        Vec<u8>,
+        chrono::DateTime<Utc>,
+        chrono::DateTime<Utc>,
+    )>,
+    sqlx::Error,
+> {
     sqlx::query_as::<_, SecretValueRow>(
         "SELECT value_enc, nonce, created_at, updated_at FROM repo_secrets WHERE repo_id = $1 AND name = $2",
     )

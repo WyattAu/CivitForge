@@ -509,6 +509,9 @@ fn user_response_roundtrip() {
         display_name: Some("Alice Smith".into()),
         bio: None,
         role: UserRole::Admin,
+        avatar_url: None,
+        location: None,
+        website: None,
         created_at: Utc.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap(),
         updated_at: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
     };

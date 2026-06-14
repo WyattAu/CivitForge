@@ -59,17 +59,27 @@ struct FileCommitsData {
 // ── Blame View ──
 
 const BLAME_AUTHOR_BG_COLORS: &[&str] = &[
-    "#eef2ff", "#fef2f2", "#f0fdf4", "#fffbeb", "#f5f3ff",
-    "#fdf2f8", "#ecfeff", "#fff7ed", "#f0fdfa", "#faf5ff",
+    "#eef2ff", "#fef2f2", "#f0fdf4", "#fffbeb", "#f5f3ff", "#fdf2f8", "#ecfeff", "#fff7ed",
+    "#f0fdfa", "#faf5ff",
 ];
 
 const BLAME_AUTHOR_BG_COLORS_DARK: &[&str] = &[
-    "#1e1b4b20", "#450a0a20", "#052e1620", "#451a0320", "#2e106520",
-    "#4a044e20", "#08334420", "#43140720", "#042f2e20", "#3b076420",
+    "#1e1b4b20",
+    "#450a0a20",
+    "#052e1620",
+    "#451a0320",
+    "#2e106520",
+    "#4a044e20",
+    "#08334420",
+    "#43140720",
+    "#042f2e20",
+    "#3b076420",
 ];
 
 fn author_bg_color(author: &str, dark: bool) -> String {
-    let hash: usize = author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+    let hash: usize = author
+        .bytes()
+        .fold(0, |acc, b| acc.wrapping_add(b as usize));
     let idx = hash % BLAME_AUTHOR_BG_COLORS.len();
     if dark {
         BLAME_AUTHOR_BG_COLORS_DARK[idx].to_string()
@@ -79,10 +89,12 @@ fn author_bg_color(author: &str, dark: bool) -> String {
 }
 
 fn author_text_color(author: &str) -> String {
-    let hash: usize = author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+    let hash: usize = author
+        .bytes()
+        .fold(0, |acc, b| acc.wrapping_add(b as usize));
     let colors = &[
-        "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
-        "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7",
+        "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316",
+        "#14b8a6", "#a855f7",
     ];
     colors[hash % colors.len()].to_string()
 }
@@ -154,7 +166,9 @@ pub fn BlamePage() -> impl IntoView {
 
     let dismiss_error = Callback::new(move |_: ()| set_error.set(None));
     let is_no_path = Signal::derive(move || error.get().as_deref() == Some("__no_path__"));
-    let is_other_error = Signal::derive(move || error.get().is_some() && error.get().as_deref() != Some("__no_path__"));
+    let is_other_error = Signal::derive(move || {
+        error.get().is_some() && error.get().as_deref() != Some("__no_path__")
+    });
 
     view! {
         <div class="space-y-4">

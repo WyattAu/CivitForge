@@ -249,17 +249,13 @@ struct BlameLineData {
 }
 
 const BLAME_AUTHOR_COLORS: &[&str] = &[
-    "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
-    "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7",
+    "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316",
+    "#14b8a6", "#a855f7",
 ];
 
 /// Sub-component: single blame row with author color coding.
 #[component]
-fn BlameRow(
-    line: BlameLineData,
-    owner: String,
-    repo: String,
-) -> impl IntoView {
+fn BlameRow(line: BlameLineData, owner: String, repo: String) -> impl IntoView {
     let short_id = if line.commit_id.len() >= 8 {
         line.commit_id[..8].to_string()
     } else {
@@ -275,7 +271,9 @@ fn BlameRow(
 
     // Compute consistent color from author name using simple hash
     let author_color = {
-        let hash: usize = author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+        let hash: usize = author
+            .bytes()
+            .fold(0, |acc, b| acc.wrapping_add(b as usize));
         BLAME_AUTHOR_COLORS[hash % BLAME_AUTHOR_COLORS.len()].to_string()
     };
 
@@ -286,11 +284,18 @@ fn BlameRow(
         let text = content_for_copy.clone();
         leptos::task::spawn_local(async move {
             // Use js_sys eval for clipboard write
-            let escaped = text.replace('\\', "\\\\").replace('\'', "\\'").replace('\n', "\\n").replace('\r', "\\r");
+            let escaped = text
+                .replace('\\', "\\\\")
+                .replace('\'', "\\'")
+                .replace('\n', "\\n")
+                .replace('\r', "\\r");
             let js_code = format!("navigator.clipboard.writeText('{escaped}')");
             let _ = js_sys::eval(&js_code);
             set_copied.set(true);
-            let _ = js_sys::Promise::resolve(&js_sys::eval("new Promise(r => setTimeout(r, 1500))").unwrap()).await;
+            let _ = js_sys::Promise::resolve(
+                &js_sys::eval("new Promise(r => setTimeout(r, 1500))").unwrap(),
+            )
+            .await;
             set_copied.set(false);
         });
     };
@@ -412,7 +417,10 @@ fn BlameSectionRow(
     );
     let (collapsed, set_collapsed) = signal(false);
     let author_color = {
-        let hash: usize = section.author.bytes().fold(0, |acc, b| acc.wrapping_add(b as usize));
+        let hash: usize = section
+            .author
+            .bytes()
+            .fold(0, |acc, b| acc.wrapping_add(b as usize));
         BLAME_AUTHOR_COLORS[hash % BLAME_AUTHOR_COLORS.len()].to_string()
     };
     let line_count = section.lines.len();
@@ -896,7 +904,8 @@ pub fn CodePage() -> impl IntoView {
     #[allow(clippy::redundant_closure)]
     let path_sig = Signal::derive(move || path_param());
     let is_root_sig = Signal::derive(move || path_param().is_empty());
-    let auth_token_sig = Signal::derive(move || auth.0.with(|a| a.token.clone()).unwrap_or_default());
+    let auth_token_sig =
+        Signal::derive(move || auth.0.with(|a| a.token.clone()).unwrap_or_default());
 
     let ref_query = move || query.with(|q| q.get("ref").unwrap_or_default());
 

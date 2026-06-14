@@ -26,10 +26,11 @@ pub async fn badge_svg(
         _ => return badge_response("no pipelines", "#959595", "#ccc"),
     };
 
-    let status = match badges::get_latest_pipeline_status(pool, repo_id, params.branch.as_deref()).await {
-        Ok(Some(s)) => s,
-        _ => return badge_response("no pipelines", "#959595", "#ccc"),
-    };
+    let status =
+        match badges::get_latest_pipeline_status(pool, repo_id, params.branch.as_deref()).await {
+            Ok(Some(s)) => s,
+            _ => return badge_response("no pipelines", "#959595", "#ccc"),
+        };
 
     let (label, fg, bg) = match status.as_str() {
         "success" => ("passing", "#4c1", "#333"),

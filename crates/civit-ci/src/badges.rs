@@ -72,7 +72,11 @@ mod tests {
     #[test]
     fn test_badge_svg_passing() {
         let (headers, svg) = badge_response("passing", "#4c1", "#333");
-        assert!(headers.iter().any(|(k, v)| k == &"content-type" && v.contains("image/svg+xml")));
+        assert!(
+            headers
+                .iter()
+                .any(|(k, v)| k == &"content-type" && v.contains("image/svg+xml"))
+        );
         assert!(svg.contains("passing"));
         assert!(svg.contains("#4c1"));
     }

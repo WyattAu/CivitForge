@@ -103,7 +103,10 @@ pub fn validate_mirror_url(url: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn compute_next_sync(last_sync: Option<chrono::DateTime<chrono::Utc>>, interval_minutes: i32) -> chrono::DateTime<chrono::Utc> {
+pub fn compute_next_sync(
+    last_sync: Option<chrono::DateTime<chrono::Utc>>,
+    interval_minutes: i32,
+) -> chrono::DateTime<chrono::Utc> {
     match last_sync {
         Some(last) => last + chrono::Duration::minutes(interval_minutes as i64),
         None => chrono::Utc::now(),
@@ -278,7 +281,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_sync_output_io_error() {
-        let output = Err(std::io::Error::new(std::io::ErrorKind::NotFound, "git not found"));
+        let output = Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "git not found",
+        ));
         let result = handle_sync_output(output).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("git not found"));

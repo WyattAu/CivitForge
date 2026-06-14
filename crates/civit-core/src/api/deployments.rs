@@ -227,7 +227,16 @@ pub async fn list_deployments(
             let deps: Vec<DeploymentResponse> = rows
                 .into_iter()
                 .map(
-                    |(id, repo_id, environment_id, sha, status, creator_id, created_at, updated_at)| {
+                    |(
+                        id,
+                        repo_id,
+                        environment_id,
+                        sha,
+                        status,
+                        creator_id,
+                        created_at,
+                        updated_at,
+                    )| {
                         DeploymentResponse {
                             id: id.to_string(),
                             repo_id: repo_id.to_string(),
@@ -323,8 +332,9 @@ pub async fn update_deployment_status(
     .await;
 
     match result {
-        Ok((id, repo_id, environment_id, sha, status, creator_id, created_at, updated_at)) => {
-            (StatusCode::OK, Json(DeploymentResponse {
+        Ok((id, repo_id, environment_id, sha, status, creator_id, created_at, updated_at)) => (
+            StatusCode::OK,
+            Json(DeploymentResponse {
                 id: id.to_string(),
                 repo_id: repo_id.to_string(),
                 environment_id: environment_id.map(|e| e.to_string()),
@@ -333,9 +343,9 @@ pub async fn update_deployment_status(
                 creator_id: creator_id.map(|c| c.to_string()),
                 created_at: created_at.to_rfc3339(),
                 updated_at: updated_at.to_rfc3339(),
-            }))
-                .into_response()
-        }
+            }),
+        )
+            .into_response(),
         Err(e) => {
             let msg = e.to_string();
             if msg.contains("returned no rows") {

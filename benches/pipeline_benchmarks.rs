@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use civit_pipeline::{expand_matrix, parse_pipeline, validate_pipeline};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 
 const SMALL_YAML: &str = r#"
 version: '1'

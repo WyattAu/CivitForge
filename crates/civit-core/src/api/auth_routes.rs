@@ -506,10 +506,7 @@ async fn do_change_password_auth(
     })
 }
 
-pub async fn ldap_admin_status(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn ldap_admin_status(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
@@ -537,10 +534,7 @@ pub async fn ldap_admin_status(
     (StatusCode::OK, Json(resp)).into_response()
 }
 
-pub async fn ldap_admin_test(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn ldap_admin_test(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
@@ -561,16 +555,15 @@ pub async fn ldap_admin_test(
             .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({"status": "error", "message": format!("LDAP test error: {e}")})),
+            Json(
+                serde_json::json!({"status": "error", "message": format!("LDAP test error: {e}")}),
+            ),
         )
             .into_response(),
     }
 }
 
-pub async fn ldap_admin_sync(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn ldap_admin_sync(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
@@ -592,9 +585,7 @@ pub async fn ldap_admin_sync(
             Json(LdapAdminSyncResponse {
                 groups_synced: groups_synced as i32,
                 users_mapped: users_mapped as i32,
-                message: format!(
-                    "Synced {groups_synced} LDAP groups, mapped {users_mapped} users"
-                ),
+                message: format!("Synced {groups_synced} LDAP groups, mapped {users_mapped} users"),
             }),
         )
             .into_response(),
@@ -678,16 +669,13 @@ pub async fn oidc_admin_users_count(
     }
 
     let pool = state.db.pool();
-    let result = sqlx::query_scalar::<_, i64>("SELECT COUNT(DISTINCT user_id) FROM oidc_identities")
-        .fetch_one(pool)
-        .await;
+    let result =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(DISTINCT user_id) FROM oidc_identities")
+            .fetch_one(pool)
+            .await;
 
     match result {
-        Ok(count) => (
-            StatusCode::OK,
-            Json(OidcUsersCountResponse { count }),
-        )
-            .into_response(),
+        Ok(count) => (StatusCode::OK, Json(OidcUsersCountResponse { count })).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),

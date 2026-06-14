@@ -190,9 +190,10 @@ mod tests {
     #[test]
     fn test_missing_header_returns_unauthorized() {
         let svc = make_jwt_service();
-        let noop_validator = |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
-            Err(AuthError::Auth("not implemented".into()))
-        };
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
         let result = extract_auth_user("invalid", &svc, &noop_validator);
         assert!(result.is_err());
     }
@@ -200,9 +201,10 @@ mod tests {
     #[test]
     fn test_invalid_scheme_returns_unauthorized() {
         let svc = make_jwt_service();
-        let noop_validator = |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
-            Err(AuthError::Auth("not implemented".into()))
-        };
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
         let result = extract_auth_user("Basic abc123", &svc, &noop_validator);
         assert!(result.is_err());
     }
@@ -210,9 +212,10 @@ mod tests {
     #[test]
     fn test_valid_jwt_token_succeeds() {
         let svc = make_jwt_service();
-        let noop_validator = |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
-            Err(AuthError::Auth("not implemented".into()))
-        };
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
         let token = svc
             .generate_token("user-1", "alice", "admin", Some("org-1"))
             .unwrap();

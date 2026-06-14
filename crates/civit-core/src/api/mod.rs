@@ -13,8 +13,8 @@ pub mod codeowners;
 pub mod deploy_keys;
 pub mod deployments;
 pub mod diagnostics;
-pub mod environments;
 pub mod edit;
+pub mod environments;
 pub mod error_reports;
 pub mod federation_routes;
 pub mod git_http;
@@ -43,8 +43,8 @@ pub mod repos;
 pub mod runners;
 pub mod search;
 pub mod secret_scanning;
-pub mod slsa_dashboard;
 pub mod site_settings;
+pub mod slsa_dashboard;
 pub mod ssh_keys;
 pub mod teams;
 pub mod tokens;
@@ -188,14 +188,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             get(codeowners::get_codeowners).put(codeowners::update_codeowners),
         )
         .route("/graphql", post(graphql::graphql_endpoint))
-        .route(
-            "/graphql/playground",
-            get(graphql::graphql_playground),
-        )
-        .route(
-            "/graphql/subscribe",
-            get(graphql::graphql_subscribe),
-        )
+        .route("/graphql/playground", get(graphql::graphql_playground))
+        .route("/graphql/subscribe", get(graphql::graphql_subscribe))
         .merge(deploy_keys::deploy_key_routes())
         .merge(deployments::deployment_routes())
         .merge(environments::environment_routes())
@@ -212,7 +206,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
                 .delete(users::delete_user),
         )
         .route("/api/v1/user/profile", patch(users::update_profile))
-        .route("/api/v1/auth/oidc/exchange", post(oidc::exchange_oidc_token))
+        .route(
+            "/api/v1/auth/oidc/exchange",
+            post(oidc::exchange_oidc_token),
+        )
         .route("/api/v1/orgs", get(orgs::list_orgs).post(orgs::create_org))
         .route(
             "/api/v1/orgs/{id}",

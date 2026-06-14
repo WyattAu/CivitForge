@@ -91,17 +91,12 @@ pub struct InboxResponse {
     pub message: String,
 }
 
-
-
 pub fn federation_routes() -> Router<AppState> {
     Router::new()
         .route("/.well-known/webfinger", get(webfinger))
         .route("/api/v1/federation/actor", get(actor_endpoint))
         .route("/api/v1/federation/inbox", post(inbox))
-        .route(
-            "/api/v1/federation/outbox",
-            get(outbox).post(outbox_post),
-        )
+        .route("/api/v1/federation/outbox", get(outbox).post(outbox_post))
 }
 
 pub async fn webfinger(
@@ -742,11 +737,7 @@ pub async fn outbox_post(
     }
 
     let domain = &state.config.federation_instance_domain;
-    let activity_id = format!(
-        "https://{}/activities/{}",
-        domain,
-        uuid::Uuid::new_v4()
-    );
+    let activity_id = format!("https://{}/activities/{}", domain, uuid::Uuid::new_v4());
 
     let activity = crate::federation::activitypub::Activity {
         r#type: match body.type_.as_str() {
@@ -795,9 +786,7 @@ pub async fn outbox_post(
 }
 
 /// Resolve follower inbox URLs from the database.
-async fn get_follower_inbox_urls(
-    pool: &sqlx::PgPool,
-) -> Result<Vec<String>, sqlx::Error> {
+async fn get_follower_inbox_urls(pool: &sqlx::PgPool) -> Result<Vec<String>, sqlx::Error> {
     let rows = sqlx::query_scalar::<_, String>(
         "SELECT inbox_url FROM federation_followers WHERE status = 'accepted'",
     )

@@ -8,7 +8,7 @@ use axum::{
     response::{Html, IntoResponse, Json, Response},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[derive(Debug, Deserialize)]
 pub struct GraphQLRequest {
@@ -54,7 +54,11 @@ pub async fn graphql_endpoint(
     } else if trimmed.starts_with("mutation") {
         handle_mutation(trimmed).await
     } else {
-        (StatusCode::BAD_REQUEST, error_response("Unsupported operation type")).into_response()
+        (
+            StatusCode::BAD_REQUEST,
+            error_response("Unsupported operation type"),
+        )
+            .into_response()
     }
 }
 
@@ -83,9 +87,20 @@ async fn handle_query(state: &AppState, query: &str) -> Response {
                         })
                     }).collect::<Vec<_>>(),
                 });
-                (StatusCode::OK, Json(GraphQLResponse { data: Some(data), errors: None })).into_response()
+                (
+                    StatusCode::OK,
+                    Json(GraphQLResponse {
+                        data: Some(data),
+                        errors: None,
+                    }),
+                )
+                    .into_response()
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, error_response(&e.to_string())).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error_response(&e.to_string()),
+            )
+                .into_response(),
         }
     } else if query_lower.contains("repos") {
         let pool = state.db.pool();
@@ -113,9 +128,20 @@ async fn handle_query(state: &AppState, query: &str) -> Response {
                         })
                     }).collect::<Vec<_>>(),
                 });
-                (StatusCode::OK, Json(GraphQLResponse { data: Some(data), errors: None })).into_response()
+                (
+                    StatusCode::OK,
+                    Json(GraphQLResponse {
+                        data: Some(data),
+                        errors: None,
+                    }),
+                )
+                    .into_response()
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, error_response(&e.to_string())).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error_response(&e.to_string()),
+            )
+                .into_response(),
         }
     } else if query_lower.contains("issues") {
         let pool = state.db.pool();
@@ -140,9 +166,20 @@ async fn handle_query(state: &AppState, query: &str) -> Response {
                         })
                     }).collect::<Vec<_>>(),
                 });
-                (StatusCode::OK, Json(GraphQLResponse { data: Some(data), errors: None })).into_response()
+                (
+                    StatusCode::OK,
+                    Json(GraphQLResponse {
+                        data: Some(data),
+                        errors: None,
+                    }),
+                )
+                    .into_response()
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, error_response(&e.to_string())).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error_response(&e.to_string()),
+            )
+                .into_response(),
         }
     } else if query_lower.contains("pull_requests") {
         let pool = state.db.pool();
@@ -167,9 +204,20 @@ async fn handle_query(state: &AppState, query: &str) -> Response {
                         })
                     }).collect::<Vec<_>>(),
                 });
-                (StatusCode::OK, Json(GraphQLResponse { data: Some(data), errors: None })).into_response()
+                (
+                    StatusCode::OK,
+                    Json(GraphQLResponse {
+                        data: Some(data),
+                        errors: None,
+                    }),
+                )
+                    .into_response()
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, error_response(&e.to_string())).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error_response(&e.to_string()),
+            )
+                .into_response(),
         }
     } else if query_lower.contains("pipelines") {
         let pool = state.db.pool();
@@ -193,12 +241,27 @@ async fn handle_query(state: &AppState, query: &str) -> Response {
                         })
                     }).collect::<Vec<_>>(),
                 });
-                (StatusCode::OK, Json(GraphQLResponse { data: Some(data), errors: None })).into_response()
+                (
+                    StatusCode::OK,
+                    Json(GraphQLResponse {
+                        data: Some(data),
+                        errors: None,
+                    }),
+                )
+                    .into_response()
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, error_response(&e.to_string())).into_response(),
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error_response(&e.to_string()),
+            )
+                .into_response(),
         }
     } else {
-        (StatusCode::BAD_REQUEST, error_response("Unknown query field")).into_response()
+        (
+            StatusCode::BAD_REQUEST,
+            error_response("Unknown query field"),
+        )
+            .into_response()
     }
 }
 
@@ -206,50 +269,66 @@ async fn handle_mutation(mutation: &str) -> Response {
     let m_lower = mutation.to_lowercase();
 
     if m_lower.contains("create_issue") {
-        (StatusCode::OK, Json(GraphQLResponse {
-            data: Some(json!({
-                "createIssue": {
-                    "id": uuid::Uuid::new_v4().to_string(),
-                    "number": 1,
-                    "title": "Created via GraphQL",
-                    "state": "open",
-                }
-            })),
-            errors: None,
-        })).into_response()
+        (
+            StatusCode::OK,
+            Json(GraphQLResponse {
+                data: Some(json!({
+                    "createIssue": {
+                        "id": uuid::Uuid::new_v4().to_string(),
+                        "number": 1,
+                        "title": "Created via GraphQL",
+                        "state": "open",
+                    }
+                })),
+                errors: None,
+            }),
+        )
+            .into_response()
     } else if m_lower.contains("create_pr") {
-        (StatusCode::OK, Json(GraphQLResponse {
-            data: Some(json!({
-                "createPullRequest": {
-                    "id": uuid::Uuid::new_v4().to_string(),
-                    "number": 1,
-                    "title": "Created via GraphQL",
-                    "state": "open",
-                }
-            })),
-            errors: None,
-        })).into_response()
+        (
+            StatusCode::OK,
+            Json(GraphQLResponse {
+                data: Some(json!({
+                    "createPullRequest": {
+                        "id": uuid::Uuid::new_v4().to_string(),
+                        "number": 1,
+                        "title": "Created via GraphQL",
+                        "state": "open",
+                    }
+                })),
+                errors: None,
+            }),
+        )
+            .into_response()
     } else if m_lower.contains("star_repo") {
-        (StatusCode::OK, Json(GraphQLResponse {
-            data: Some(json!({
-                "starRepo": {
-                    "starred": true,
-                    "starsCount": 1,
-                }
-            })),
-            errors: None,
-        })).into_response()
+        (
+            StatusCode::OK,
+            Json(GraphQLResponse {
+                data: Some(json!({
+                    "starRepo": {
+                        "starred": true,
+                        "starsCount": 1,
+                    }
+                })),
+                errors: None,
+            }),
+        )
+            .into_response()
     } else if m_lower.contains("fork_repo") {
-        (StatusCode::OK, Json(GraphQLResponse {
-            data: Some(json!({
-                "forkRepo": {
-                    "id": uuid::Uuid::new_v4().to_string(),
-                    "name": "fork",
-                    "isFork": true,
-                }
-            })),
-            errors: None,
-        })).into_response()
+        (
+            StatusCode::OK,
+            Json(GraphQLResponse {
+                data: Some(json!({
+                    "forkRepo": {
+                        "id": uuid::Uuid::new_v4().to_string(),
+                        "name": "fork",
+                        "isFork": true,
+                    }
+                })),
+                errors: None,
+            }),
+        )
+            .into_response()
     } else {
         (StatusCode::BAD_REQUEST, error_response("Unknown mutation")).into_response()
     }
@@ -317,9 +396,7 @@ pub async fn graphql_subscribe(
                                 "changedFrom": prev,
                             });
                             if let Ok(data) = serde_json::to_string(&payload) {
-                                let event = Event::default()
-                                    .event("pipeline_status")
-                                    .data(data);
+                                let event = Event::default().event("pipeline_status").data(data);
                                 if tx.send(Ok(event)).await.is_err() {
                                     return;
                                 }

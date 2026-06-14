@@ -32,7 +32,11 @@ pub struct CodeownersOwner {
 }
 
 /// Parse CODEOWNERS file from a repository's filesystem paths.
-pub async fn parse_codeowners_from_repo(owner: &str, name: &str, storage_path: &str) -> Option<Vec<CodeownersOwner>> {
+pub async fn parse_codeowners_from_repo(
+    owner: &str,
+    name: &str,
+    storage_path: &str,
+) -> Option<Vec<CodeownersOwner>> {
     let repo_path = std::path::Path::new(storage_path)
         .join(owner)
         .join(format!("{name}.git"));
@@ -70,12 +74,11 @@ pub async fn check_codeowners_approval(
     pool: &sqlx::PgPool,
     pr_id: Uuid,
 ) -> Result<bool, sqlx::Error> {
-    let rows: Vec<(bool,)> = sqlx::query_as(
-        "SELECT approved FROM codeowners_reviews WHERE pr_id = $1",
-    )
-    .bind(pr_id)
-    .fetch_all(pool)
-    .await?;
+    let rows: Vec<(bool,)> =
+        sqlx::query_as("SELECT approved FROM codeowners_reviews WHERE pr_id = $1")
+            .bind(pr_id)
+            .fetch_all(pool)
+            .await?;
 
     if rows.is_empty() {
         return Ok(true);
@@ -150,11 +153,7 @@ pub async fn get_codeowners(
         }
     };
 
-    let repo = match state
-        .db
-        .get_repo_by_owner_name(owner_user.id, &name)
-        .await
-    {
+    let repo = match state.db.get_repo_by_owner_name(owner_user.id, &name).await {
         Ok(r) => r,
         Err(_) => {
             return (
@@ -226,11 +225,7 @@ pub async fn update_codeowners(
         }
     };
 
-    let repo = match state
-        .db
-        .get_repo_by_owner_name(owner_user.id, &name)
-        .await
-    {
+    let repo = match state.db.get_repo_by_owner_name(owner_user.id, &name).await {
         Ok(r) => r,
         Err(_) => {
             return (
@@ -256,9 +251,7 @@ pub async fn update_codeowners(
     let repo_path = git_service.repo_path(&owner, &name);
     let codeowners_path = repo_path.join("CODEOWNERS");
 
-    let message = req
-        .message
-        .unwrap_or_else(|| "Update CODEOWNERS".into());
+    let message = req.message.unwrap_or_else(|| "Update CODEOWNERS".into());
 
     // Write CODEOWNERS file
     if let Err(e) = std::fs::write(&codeowners_path, &req.content) {

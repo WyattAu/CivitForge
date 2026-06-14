@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use civit_db::{DbRepository, User, Repository};
+use civit_db::{DbRepository, Repository, User};
 use sqlx::postgres::PgPool;
 use uuid::Uuid;
 
@@ -73,7 +73,12 @@ async fn test_user_update(pool: PgPool) {
     let user = create_test_user(&db, "carol").await;
 
     let updated = db
-        .update_user(user.id, Some("Carol Updated"), Some("New bio"), Some("admin"))
+        .update_user(
+            user.id,
+            Some("Carol Updated"),
+            Some("New bio"),
+            Some("admin"),
+        )
         .await
         .unwrap();
 
@@ -155,7 +160,10 @@ async fn test_repo_get_by_owner_name(pool: PgPool) {
     let user = create_test_user(&db, "owner2").await;
     let repo = create_test_repo(&db, user.id, "target").await;
 
-    let fetched = db.get_repo_by_owner_name(user.id, "repo_target").await.unwrap();
+    let fetched = db
+        .get_repo_by_owner_name(user.id, "repo_target")
+        .await
+        .unwrap();
     assert_eq!(fetched.id, repo.id);
 }
 
@@ -343,6 +351,7 @@ async fn test_pr_create_and_get(pool: PgPool) {
             "feature-x",
             "main",
             false,
+            false, // auto_merge
         )
         .await
         .unwrap();
@@ -368,13 +377,7 @@ async fn test_pr_update(pool: PgPool) {
 
     let pr = db
         .create_pr(
-            repo.id,
-            "Draft PR",
-            "WIP",
-            user.id,
-            "wip",
-            "main",
-            true,
+            repo.id, "Draft PR", "WIP", user.id, "wip", "main", true, false, // auto_merge
         )
         .await
         .unwrap();
@@ -396,24 +399,12 @@ async fn test_pr_list(pool: PgPool) {
     let repo = create_test_repo(&db, user.id, "pr_list_repo").await;
 
     db.create_pr(
-        repo.id,
-        "PR 1",
-        "Body 1",
-        user.id,
-        "branch1",
-        "main",
-        false,
+        repo.id, "PR 1", "Body 1", user.id, "branch1", "main", false, false, // auto_merge
     )
     .await
     .unwrap();
     db.create_pr(
-        repo.id,
-        "PR 2",
-        "Body 2",
-        user.id,
-        "branch2",
-        "main",
-        false,
+        repo.id, "PR 2", "Body 2", user.id, "branch2", "main", false, false, // auto_merge
     )
     .await
     .unwrap();
@@ -439,6 +430,7 @@ async fn test_pr_reviewer(pool: PgPool) {
             "feature",
             "main",
             false,
+            false, // auto_merge
         )
         .await
         .unwrap();
@@ -472,20 +464,13 @@ async fn test_pr_comment(pool: PgPool) {
             "feature",
             "main",
             false,
+            false, // auto_merge
         )
         .await
         .unwrap();
 
     let comment = db
-        .create_pr_comment(
-            pr.id,
-            author.id,
-            "Looks good!",
-            None,
-            None,
-            None,
-            None,
-        )
+        .create_pr_comment(pr.id, author.id, "Looks good!", None, None, None, None)
         .await
         .unwrap();
 
@@ -507,13 +492,8 @@ async fn test_pr_merge(pool: PgPool) {
 
     let pr = db
         .create_pr(
-            repo.id,
-            "Merge me",
-            "Body",
-            user.id,
-            "feature",
-            "main",
-            false,
+            repo.id, "Merge me", "Body", user.id, "feature", "main", false,
+            false, // auto_merge
         )
         .await
         .unwrap();
@@ -543,13 +523,7 @@ async fn test_pr_draft(pool: PgPool) {
 
     let pr = db
         .create_pr(
-            repo.id,
-            "Draft",
-            "WIP",
-            user.id,
-            "draft",
-            "main",
-            false,
+            repo.id, "Draft", "WIP", user.id, "draft", "main", false, false, // auto_merge
         )
         .await
         .unwrap();
@@ -574,10 +548,7 @@ async fn test_pipeline_create_and_get(pool: PgPool) {
     let user = create_test_user(&db, "pipe_auth").await;
     let repo = create_test_repo(&db, user.id, "pipe_repo").await;
 
-    let pipeline = db
-        .create_pipeline(repo.id, "abc123", "push")
-        .await
-        .unwrap();
+    let pipeline = db.create_pipeline(repo.id, "abc123", "push").await.unwrap();
 
     assert!(!pipeline.id.is_nil());
     assert_eq!(pipeline.repo_id, repo.id);
@@ -597,7 +568,8 @@ async fn test_pipeline_list(pool: PgPool) {
     let repo = create_test_repo(&db, user.id, "pipe_list_repo").await;
 
     db.create_pipeline(repo.id, "sha1", "push").await.unwrap();
-    db.create_pipeline(repo.id, "sha2", "pull_request").await
+    db.create_pipeline(repo.id, "sha2", "pull_request")
+        .await
         .unwrap();
 
     let pipelines = db.list_pipelines(repo.id, 10, 0).await.unwrap();
@@ -658,26 +630,23 @@ async fn test_webhook_crud(pool: PgPool) {
     let webhook_id = row.0;
 
     // Get
-    let fetched: (Uuid, String, bool) = sqlx::query_as(
-        "SELECT id, url, active FROM webhooks WHERE id = $1",
-    )
-    .bind(webhook_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let fetched: (Uuid, String, bool) =
+        sqlx::query_as("SELECT id, url, active FROM webhooks WHERE id = $1")
+            .bind(webhook_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(fetched.0, webhook_id);
     assert_eq!(fetched.1, "https://example.com/hook");
     assert!(fetched.2);
 
     // List
-    let all: Vec<(Uuid,)> = sqlx::query_as(
-        "SELECT id FROM webhooks WHERE repo_id = $1",
-    )
-    .bind(repo.id)
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let all: Vec<(Uuid,)> = sqlx::query_as("SELECT id FROM webhooks WHERE repo_id = $1")
+        .bind(repo.id)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 1);
 
     // Delete
@@ -687,13 +656,11 @@ async fn test_webhook_crud(pool: PgPool) {
         .await
         .unwrap();
 
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*)::bigint FROM webhooks WHERE id = $1",
-    )
-    .bind(webhook_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let count: (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM webhooks WHERE id = $1")
+        .bind(webhook_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(count.0, 0);
 }
 
@@ -754,15 +721,17 @@ async fn test_migrations_apply_cleanly(pool: PgPool) {
 async fn test_migration_count(pool: PgPool) {
     // sqlx::test uses its own migration tracking table (sqlx_migrations)
     // Count the number of migrations that were applied
-    let row: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*)::bigint FROM _sqlx_migrations",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let row: (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM _sqlx_migrations")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     // 29 built-in migrations + 3 new ones (047, 048, 049) = 32
-    assert!(row.0 >= 29, "Expected at least 29 migrations, got {}", row.0);
+    assert!(
+        row.0 >= 29,
+        "Expected at least 29 migrations, got {}",
+        row.0
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -810,12 +779,12 @@ async fn test_pr_count(pool: PgPool) {
     assert_eq!(db.count_prs(repo.id, None).await.unwrap(), 0);
 
     db.create_pr(
-        repo.id, "PR1", "B1", user.id, "b1", "main", false,
+        repo.id, "PR1", "B1", user.id, "b1", "main", false, false, // auto_merge
     )
     .await
     .unwrap();
     db.create_pr(
-        repo.id, "PR2", "B2", user.id, "b2", "main", false,
+        repo.id, "PR2", "B2", user.id, "b2", "main", false, false, // auto_merge
     )
     .await
     .unwrap();
@@ -944,10 +913,7 @@ async fn test_activity_event_lifecycle(pool: PgPool) {
     assert_eq!(event.action, "push");
     assert_eq!(event.description, "Pushed 3 commits");
 
-    let events = db
-        .list_activity_events(None, None, 10, 0)
-        .await
-        .unwrap();
+    let events = db.list_activity_events(None, None, 10, 0).await.unwrap();
     assert_eq!(events.len(), 1);
 }
 
@@ -986,9 +952,15 @@ async fn test_email_verification(pool: PgPool) {
 async fn test_login_attempts(pool: PgPool) {
     let db = DbRepository::new(pool);
 
-    db.record_login_attempt("alice", "127.0.0.1", false).await.unwrap();
-    db.record_login_attempt("alice", "127.0.0.1", false).await.unwrap();
-    db.record_login_attempt("alice", "127.0.0.1", true).await.unwrap();
+    db.record_login_attempt("alice", "127.0.0.1", false)
+        .await
+        .unwrap();
+    db.record_login_attempt("alice", "127.0.0.1", false)
+        .await
+        .unwrap();
+    db.record_login_attempt("alice", "127.0.0.1", true)
+        .await
+        .unwrap();
 
     let count = db.count_recent_failed_logins("alice", 3600).await.unwrap();
     assert_eq!(count, 2);
@@ -1014,6 +986,7 @@ async fn test_pr_status_check(pool: PgPool) {
             "feature",
             "main",
             false,
+            false, // auto_merge
         )
         .await
         .unwrap();
@@ -1053,6 +1026,7 @@ async fn test_pr_timeline(pool: PgPool) {
             "feature",
             "main",
             false,
+            false, // auto_merge
         )
         .await
         .unwrap();

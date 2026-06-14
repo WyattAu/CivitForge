@@ -21,7 +21,13 @@ pub struct AddSshKeyRequest {
 }
 
 pub fn validate_ssh_key_type(key_type: &str) -> Result<()> {
-    let valid_types = ["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"];
+    let valid_types = [
+        "ssh-ed25519",
+        "ssh-rsa",
+        "ecdsa-sha2-nistp256",
+        "ecdsa-sha2-nistp384",
+        "ecdsa-sha2-nistp521",
+    ];
     if valid_types.contains(&key_type) {
         Ok(())
     } else {
@@ -70,8 +76,7 @@ pub fn from_db_key(key: civit_db::models::SshKey) -> SshKeyInfo {
 }
 
 pub fn parse_user_id(user_id: &str) -> Result<uuid::Uuid> {
-    uuid::Uuid::parse_str(user_id)
-        .map_err(|_| AuthError::BadRequest("invalid user id".into()))
+    uuid::Uuid::parse_str(user_id).map_err(|_| AuthError::BadRequest("invalid user id".into()))
 }
 
 #[cfg(test)]
@@ -159,7 +164,13 @@ mod tests {
 
     #[test]
     fn test_validate_ssh_key_type_all_valid() {
-        let valid = ["ssh-ed25519", "ssh-rsa", "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521"];
+        let valid = [
+            "ssh-ed25519",
+            "ssh-rsa",
+            "ecdsa-sha2-nistp256",
+            "ecdsa-sha2-nistp384",
+            "ecdsa-sha2-nistp521",
+        ];
         for k in valid {
             assert!(validate_ssh_key_type(k).is_ok(), "expected ok for {k}");
         }
@@ -167,7 +178,13 @@ mod tests {
 
     #[test]
     fn test_validate_ssh_key_type_invalid_various() {
-        let invalid = ["ssh-dss", "ssh-dsa", "ecdsa-sha2-nistp192", "", "ssh-ed25519-cert-v01@openssh.com"];
+        let invalid = [
+            "ssh-dss",
+            "ssh-dsa",
+            "ecdsa-sha2-nistp192",
+            "",
+            "ssh-ed25519-cert-v01@openssh.com",
+        ];
         for k in invalid {
             assert!(validate_ssh_key_type(k).is_err(), "expected err for {k}");
         }

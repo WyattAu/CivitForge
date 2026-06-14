@@ -848,7 +848,13 @@ fn diff_trees(
     repo: &gix::Repository,
     old_tree_id: Option<gix::hash::ObjectId>,
     new_tree_id: gix::hash::ObjectId,
-) -> Result<(std::collections::HashSet<String>, std::collections::HashSet<String>), CoreError> {
+) -> Result<
+    (
+        std::collections::HashSet<String>,
+        std::collections::HashSet<String>,
+    ),
+    CoreError,
+> {
     use std::collections::{HashMap, HashSet};
 
     let mut old_files: HashMap<String, gix::hash::ObjectId> = HashMap::new();
@@ -1025,9 +1031,7 @@ struct DiffIndexData {
 }
 
 /// Collect diff data synchronously (no gix types escape this function).
-fn collect_diff_data(
-    repo_path: &std::path::Path,
-) -> Result<DiffIndexData, CoreError> {
+fn collect_diff_data(repo_path: &std::path::Path) -> Result<DiffIndexData, CoreError> {
     let repo = gix::open(repo_path).map_err(|e| CoreError::Git(format!("open repository: {e}")))?;
 
     let head_id = repo
@@ -1098,14 +1102,12 @@ pub async fn reindex_changed_files_after_push(
         .await
         .map_err(|e| CoreError::Database(e.to_string()))?;
 
-        sqlx::query(
-            "DELETE FROM code_search_index WHERE repo_id = $1 AND file_path = $2",
-        )
-        .bind(repo_id)
-        .bind(path)
-        .execute(pool)
-        .await
-        .map_err(|e| CoreError::Database(e.to_string()))?;
+        sqlx::query("DELETE FROM code_search_index WHERE repo_id = $1 AND file_path = $2")
+            .bind(repo_id)
+            .bind(path)
+            .execute(pool)
+            .await
+            .map_err(|e| CoreError::Database(e.to_string()))?;
     }
 
     if data.added_modified_files.is_empty() {
@@ -1125,14 +1127,12 @@ pub async fn reindex_changed_files_after_push(
         .await
         .map_err(|e| CoreError::Database(e.to_string()))?;
 
-        sqlx::query(
-            "DELETE FROM code_search_index WHERE repo_id = $1 AND file_path = $2",
-        )
-        .bind(repo_id)
-        .bind(&file.path)
-        .execute(pool)
-        .await
-        .map_err(|e| CoreError::Database(e.to_string()))?;
+        sqlx::query("DELETE FROM code_search_index WHERE repo_id = $1 AND file_path = $2")
+            .bind(repo_id)
+            .bind(&file.path)
+            .execute(pool)
+            .await
+            .map_err(|e| CoreError::Database(e.to_string()))?;
 
         let index_id = sqlx::query_scalar::<_, uuid::Uuid>(
             "INSERT INTO code_search_index \
@@ -1208,12 +1208,7 @@ pub async fn trigger_repo_index_background(
         .await
         .map_err(|e| format!("failed to index files: {e}"))?;
 
-    tracing::info!(
-        owner,
-        name,
-        indexed,
-        "background search indexing complete"
-    );
+    tracing::info!(owner, name, indexed, "background search indexing complete");
     Ok(())
 }
 

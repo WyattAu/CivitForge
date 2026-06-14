@@ -600,7 +600,9 @@ mod tests {
 
     #[test]
     fn test_pipeline_status_transitions() {
-        let statuses = ["pending", "queued", "running", "success", "failed", "canceled"];
+        let statuses = [
+            "pending", "queued", "running", "success", "failed", "canceled",
+        ];
         for s in statuses {
             let resp = PipelineRunResponse {
                 id: "id".into(),

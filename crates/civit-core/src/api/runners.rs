@@ -598,7 +598,8 @@ pub async fn complete_job(
                     let state_clone = state.clone();
                     let sha = commit_sha.clone();
                     tokio::spawn(async move {
-                        crate::api::pull_requests::check_auto_merge(&state_clone, repo_id, &sha).await;
+                        crate::api::pull_requests::check_auto_merge(&state_clone, repo_id, &sha)
+                            .await;
                     });
                 }
             }
@@ -851,14 +852,13 @@ async fn check_run_completion(
                 .await;
 
                 // Fetch commit_sha and repo_id for auto-merge check
-                let run_info: Option<(String, Uuid)> = sqlx::query_as(
-                    "SELECT commit_sha, repo_id FROM pipeline_runs WHERE id = $1",
-                )
-                .bind(run_id)
-                .fetch_optional(pool)
-                .await
-                .ok()
-                .flatten();
+                let run_info: Option<(String, Uuid)> =
+                    sqlx::query_as("SELECT commit_sha, repo_id FROM pipeline_runs WHERE id = $1")
+                        .bind(run_id)
+                        .fetch_optional(pool)
+                        .await
+                        .ok()
+                        .flatten();
 
                 if let Some((commit_sha, repo_id)) = run_info {
                     return Some((run_id, final_status.to_string(), commit_sha, repo_id));

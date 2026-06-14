@@ -7,7 +7,7 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client::ApiClient;
 use crate::api::types::{CreateIssueBody, IssueResponse, ListResponse};
 use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Pagination, Spinner, TabItem, Tabs,
+    Badge, Button, ButtonVariant, Card, ErrorBanner, Pagination, Spinner, TabItem, Tabs,
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
@@ -129,10 +129,17 @@ fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl I
     let total_sig = Memo::new(move |_| analytics.get().map(|a| a.total).unwrap_or(0));
     let open_sig = Memo::new(move |_| analytics.get().map(|a| a.open_count).unwrap_or(0));
     let closed_sig = Memo::new(move |_| analytics.get().map(|a| a.closed_count).unwrap_or(0));
-    let in_progress_sig = Memo::new(move |_| analytics.get().map(|a| a.in_progress_count).unwrap_or(0));
+    let in_progress_sig =
+        Memo::new(move |_| analytics.get().map(|a| a.in_progress_count).unwrap_or(0));
     let by_label_sig = Memo::new(move |_| analytics.get().map(|a| a.by_label).unwrap_or_default());
-    let by_author_sig = Memo::new(move |_| analytics.get().map(|a| a.by_author).unwrap_or_default());
-    let created_per_week_sig = Memo::new(move |_| analytics.get().map(|a| a.created_per_week).unwrap_or_default());
+    let by_author_sig =
+        Memo::new(move |_| analytics.get().map(|a| a.by_author).unwrap_or_default());
+    let created_per_week_sig = Memo::new(move |_| {
+        analytics
+            .get()
+            .map(|a| a.created_per_week)
+            .unwrap_or_default()
+    });
 
     // Color palette for label bars
     let label_colors = [

@@ -1014,7 +1014,8 @@ pub async fn star_repo(
             to: vec![format!("https://{domain}/api/v1/federation/actor")],
             cc: vec![],
         };
-        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone())
+            .await;
     }
 
     let resp = StarToggleResponse {
@@ -1204,7 +1205,11 @@ pub async fn fork_repo(
                     to: vec![format!("https://{domain}/api/v1/federation/actor")],
                     cc: vec![],
                 };
-                crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+                crate::api::federation_routes::deliver_to_followers(
+                    activity,
+                    state.db.pool().clone(),
+                )
+                .await;
             }
 
             let resp = repo_to_response(forked, Some(forker_name), &state);

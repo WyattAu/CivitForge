@@ -10,10 +10,8 @@ pub fn KeyboardShortcuts() -> impl IntoView {
 
     #[cfg(feature = "csr")]
     {
-        let set_help = set_show_help.clone();
         leptos::task::spawn_local(async move {
             if let Some(window) = web_sys::window() {
-                let set_clone = set_help.clone();
                 let cb = web_sys::js_sys::Function::new_with_args(
                     "ev",
                     "if(ev.key==='?'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){ev.preventDefault();window.__civit_toggle_help();}",

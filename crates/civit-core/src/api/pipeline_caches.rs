@@ -65,7 +65,15 @@ pub async fn list_caches(
         }
     };
 
-    match caches::list_caches_db(pool, repo_id, params.limit, params.offset, params.prefix.as_deref()).await {
+    match caches::list_caches_db(
+        pool,
+        repo_id,
+        params.limit,
+        params.offset,
+        params.prefix.as_deref(),
+    )
+    .await
+    {
         Ok(c) => (axum::http::StatusCode::OK, Json(c)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,

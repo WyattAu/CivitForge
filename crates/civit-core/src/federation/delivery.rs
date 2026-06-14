@@ -530,10 +530,7 @@ impl FederationDelivery {
 
         let parsed_url = reqwest::Url::parse(target_url)
             .map_err(|e| DeliveryError::HttpClientError(format!("invalid target URL: {e}")))?;
-        let host = parsed_url
-            .host_str()
-            .unwrap_or("")
-            .to_string();
+        let host = parsed_url.host_str().unwrap_or("").to_string();
         let path = parsed_url.path().to_string();
 
         let client = reqwest::Client::builder()
@@ -772,10 +769,7 @@ mod tests {
         headers.insert("(path)".into(), "/users/alice/inbox".into());
         headers.insert("host".into(), "remote.example.com".into());
         headers.insert("date".into(), "Mon, 10 Jun 2026 12:00:00 GMT".into());
-        headers.insert(
-            "digest".into(),
-            "SHA-256=abc123".into(),
-        );
+        headers.insert("digest".into(), "SHA-256=abc123".into());
 
         let result = compute_signature("POST", "/users/alice/inbox", &headers, &private_key);
         assert!(result.is_ok());

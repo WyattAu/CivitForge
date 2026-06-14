@@ -5,7 +5,7 @@ use leptos_router::components::A;
 
 use crate::api::client::ApiClient;
 use crate::components::Avatar;
-use crate::i18n::{self, t, LOCALES};
+use crate::i18n::{self, LOCALES, t};
 use crate::state::auth::use_auth;
 
 #[derive(Clone)]

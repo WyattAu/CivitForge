@@ -180,14 +180,13 @@ pub async fn get_merge_queue(
             let total = rows.len() as i64;
             let mut items = Vec::new();
             for row in rows {
-                let pr_number: Option<(i32,)> = sqlx::query_as(
-                    "SELECT number FROM pull_requests WHERE id = $1",
-                )
-                .bind(row.pr_id)
-                .fetch_optional(pool)
-                .await
-                .ok()
-                .flatten();
+                let pr_number: Option<(i32,)> =
+                    sqlx::query_as("SELECT number FROM pull_requests WHERE id = $1")
+                        .bind(row.pr_id)
+                        .fetch_optional(pool)
+                        .await
+                        .ok()
+                        .flatten();
 
                 items.push(MergeQueueEntry {
                     id: row.id.to_string(),
@@ -202,7 +201,11 @@ pub async fn get_merge_queue(
                 });
             }
 
-            (axum::http::StatusCode::OK, Json(MergeQueueResponse { items, total })).into_response()
+            (
+                axum::http::StatusCode::OK,
+                Json(MergeQueueResponse { items, total }),
+            )
+                .into_response()
         }
         Err(e) => err_response(e),
     }
@@ -216,7 +219,11 @@ pub async fn process_merge_queue_handler(
     _auth: AuthUser,
 ) -> impl IntoResponse {
     match process_merge_queue(&state, &owner, &name).await {
-        Ok(()) => (axum::http::StatusCode::OK, Json(serde_json::json!({"status": "processed"}))).into_response(),
+        Ok(()) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "processed"})),
+        )
+            .into_response(),
         Err(e) => err_response(e),
     }
 }
@@ -238,14 +245,12 @@ pub async fn remove_from_merge_queue(
         Err(_) => return err_response(CoreError::BadRequest("invalid queue entry id".into())),
     };
 
-    let result = sqlx::query(
-        "DELETE FROM merge_queue WHERE id = $1 AND repo_id = $2",
-    )
-    .bind(entry_id)
-    .bind(repo_id)
-    .execute(pool)
-    .await
-    .map_err(|e| CoreError::Database(format!("remove_from_merge_queue: {e}")));
+    let result = sqlx::query("DELETE FROM merge_queue WHERE id = $1 AND repo_id = $2")
+        .bind(entry_id)
+        .bind(repo_id)
+        .execute(pool)
+        .await
+        .map_err(|e| CoreError::Database(format!("remove_from_merge_queue: {e}")));
 
     match result {
         Ok(r) => {
@@ -306,8 +311,7 @@ pub async fn admin_list_all_merge_queue(
                 .ok()
                 .flatten();
 
-                let (pr_title, pr_number, repo_full_name, branch) = pr_info
-                    .unwrap_or_default();
+                let (pr_title, pr_number, repo_full_name, branch) = pr_info.unwrap_or_default();
 
                 items.push(AdminMergeQueueEntry {
                     id: row.id.to_string(),
@@ -321,7 +325,11 @@ pub async fn admin_list_all_merge_queue(
                 });
             }
             let total = items.len() as i64;
-            (axum::http::StatusCode::OK, Json(AdminMergeQueueResponse { items, total })).into_response()
+            (
+                axum::http::StatusCode::OK,
+                Json(AdminMergeQueueResponse { items, total }),
+            )
+                .into_response()
         }
         Err(e) => err_response(e),
     }
@@ -379,14 +387,12 @@ pub async fn admin_reorder_merge_queue_entry(
     };
 
     // Get current entry to find repo_id
-    let current: Option<MergeQueueRow> = sqlx::query_as(
-        "SELECT * FROM merge_queue WHERE id = $1",
-    )
-    .bind(entry_id)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten();
+    let current: Option<MergeQueueRow> = sqlx::query_as("SELECT * FROM merge_queue WHERE id = $1")
+        .bind(entry_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
 
     let current = match current {
         Some(c) => c,
@@ -422,13 +428,11 @@ pub async fn admin_reorder_merge_queue_entry(
         .await;
     }
 
-    let _ = sqlx::query(
-        "UPDATE merge_queue SET position = $1, updated_at = NOW() WHERE id = $2",
-    )
-    .bind(new_pos)
-    .bind(entry_id)
-    .execute(pool)
-    .await;
+    let _ = sqlx::query("UPDATE merge_queue SET position = $1, updated_at = NOW() WHERE id = $2")
+        .bind(new_pos)
+        .bind(entry_id)
+        .execute(pool)
+        .await;
 
     (axum::http::StatusCode::OK, ()).into_response()
 }
@@ -457,12 +461,11 @@ pub async fn process_merge_queue(state: &AppState, owner: &str, name: &str) -> R
     };
 
     // Mark as merging
-    let _ = sqlx::query(
-        "UPDATE merge_queue SET status = 'merging', updated_at = NOW() WHERE id = $1",
-    )
-    .bind(entry.id)
-    .execute(pool)
-    .await;
+    let _ =
+        sqlx::query("UPDATE merge_queue SET status = 'merging', updated_at = NOW() WHERE id = $1")
+            .bind(entry.id)
+            .execute(pool)
+            .await;
 
     // Get the PR
     let pr = match state.db.get_pr(entry.pr_id).await {
@@ -554,12 +557,11 @@ pub async fn process_merge_queue(state: &AppState, owner: &str, name: &str) -> R
 }
 
 async fn mark_queue_failed(pool: &sqlx::PgPool, entry_id: Uuid) {
-    let _ = sqlx::query(
-        "UPDATE merge_queue SET status = 'failed', updated_at = NOW() WHERE id = $1",
-    )
-    .bind(entry_id)
-    .execute(pool)
-    .await;
+    let _ =
+        sqlx::query("UPDATE merge_queue SET status = 'failed', updated_at = NOW() WHERE id = $1")
+            .bind(entry_id)
+            .execute(pool)
+            .await;
 }
 
 pub fn merge_queue_routes() -> Router<AppState> {
@@ -576,10 +578,7 @@ pub fn merge_queue_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{name}/merge-queue/process",
             post(process_merge_queue_handler),
         )
-        .route(
-            "/api/v1/admin/merge-queue",
-            get(admin_list_all_merge_queue),
-        )
+        .route("/api/v1/admin/merge-queue", get(admin_list_all_merge_queue))
         .route(
             "/api/v1/admin/merge-queue/{id}",
             delete(admin_remove_merge_queue_entry),

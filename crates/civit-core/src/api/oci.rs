@@ -107,9 +107,21 @@ pub async fn head_blob(
     match row {
         Some((size, media_type)) => {
             let mut headers = HeaderMap::new();
-            headers.insert("content-length", size.to_string().parse().unwrap_or(HeaderValue::from_static("0")));
-            headers.insert("content-type", HeaderValue::from_str(&media_type).unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")));
-            headers.insert("docker-content-digest", HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("")));
+            headers.insert(
+                "content-length",
+                size.to_string()
+                    .parse()
+                    .unwrap_or(HeaderValue::from_static("0")),
+            );
+            headers.insert(
+                "content-type",
+                HeaderValue::from_str(&media_type)
+                    .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+            );
+            headers.insert(
+                "docker-content-digest",
+                HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("")),
+            );
             (StatusCode::OK, headers).into_response()
         }
         None => StatusCode::NOT_FOUND.into_response(),
@@ -142,9 +154,21 @@ pub async fn get_blob(
                 Err(_) => return StatusCode::NOT_FOUND.into_response(),
             };
             let mut headers = HeaderMap::new();
-            headers.insert("content-length", size.to_string().parse().unwrap_or(HeaderValue::from_static("0")));
-            headers.insert("content-type", HeaderValue::from_str(&media_type).unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")));
-            headers.insert("docker-content-digest", HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("")));
+            headers.insert(
+                "content-length",
+                size.to_string()
+                    .parse()
+                    .unwrap_or(HeaderValue::from_static("0")),
+            );
+            headers.insert(
+                "content-type",
+                HeaderValue::from_str(&media_type)
+                    .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+            );
+            headers.insert(
+                "docker-content-digest",
+                HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("")),
+            );
             (StatusCode::OK, headers, axum::body::Body::from(data)).into_response()
         }
         None => StatusCode::NOT_FOUND.into_response(),
@@ -160,11 +184,23 @@ pub async fn initiate_blob_upload(
     let session_id = uuid::Uuid::new_v4().to_string();
 
     let mut headers = HeaderMap::new();
-    headers.insert("location", HeaderValue::from_str(&format!("/v2/{name}/blobs/uploads/{session_id}")).unwrap_or_else(|_| HeaderValue::from_static("/v2/blobs/uploads/")));
-    headers.insert("oci-upload-uuid", HeaderValue::from_str(&session_id).unwrap_or_else(|_| HeaderValue::from_static("")));
+    headers.insert(
+        "location",
+        HeaderValue::from_str(&format!("/v2/{name}/blobs/uploads/{session_id}"))
+            .unwrap_or_else(|_| HeaderValue::from_static("/v2/blobs/uploads/")),
+    );
+    headers.insert(
+        "oci-upload-uuid",
+        HeaderValue::from_str(&session_id).unwrap_or_else(|_| HeaderValue::from_static("")),
+    );
     headers.insert("range", HeaderValue::from_static("0-0"));
 
-    (StatusCode::ACCEPTED, headers, Json(serde_json::json!({ "session_id": session_id }))).into_response()
+    (
+        StatusCode::ACCEPTED,
+        headers,
+        Json(serde_json::json!({ "session_id": session_id })),
+    )
+        .into_response()
 }
 
 pub async fn upload_blob_chunk(
@@ -174,9 +210,17 @@ pub async fn upload_blob_chunk(
     _body: axum::body::Bytes,
 ) -> impl IntoResponse {
     let mut headers = HeaderMap::new();
-    headers.insert("location", HeaderValue::from_str(&format!("/v2/{name}/blobs/uploads/{session_id}")).unwrap_or_else(|_| HeaderValue::from_static("/v2/blobs/uploads/")));
+    headers.insert(
+        "location",
+        HeaderValue::from_str(&format!("/v2/{name}/blobs/uploads/{session_id}"))
+            .unwrap_or_else(|_| HeaderValue::from_static("/v2/blobs/uploads/")),
+    );
     let range_start = params.range_start.unwrap_or(0);
-    headers.insert("range", HeaderValue::from_str(&format!("{range_start}-{range_start}")).unwrap_or_else(|_| HeaderValue::from_static("0-0")));
+    headers.insert(
+        "range",
+        HeaderValue::from_str(&format!("{range_start}-{range_start}"))
+            .unwrap_or_else(|_| HeaderValue::from_static("0-0")),
+    );
     (StatusCode::ACCEPTED, headers).into_response()
 }
 
@@ -198,7 +242,10 @@ pub async fn complete_blob_upload(
         }
     };
 
-    let media_type = params.content_type.as_deref().unwrap_or("application/octet-stream");
+    let media_type = params
+        .content_type
+        .as_deref()
+        .unwrap_or("application/octet-stream");
 
     let blob_dir = format!("/var/lib/civitforge/oci/blobs/{}", &digest[7..12]);
     let blob_path = format!("{}/{}", blob_dir, digest.replace(':', "_"));
@@ -246,11 +293,22 @@ pub async fn put_manifest(
         }
     };
 
-    let media_type = manifest_value.get("mediaType").and_then(|v| v.as_str()).unwrap_or("application/vnd.oci.image.manifest.v1+json");
+    let media_type = manifest_value
+        .get("mediaType")
+        .and_then(|v| v.as_str())
+        .unwrap_or("application/vnd.oci.image.manifest.v1+json");
     let digest = oci::compute_digest(&body);
 
-    let config_digest = manifest_value.get("config").and_then(|v| v.get("digest")).and_then(|v| v.as_str()).map(|s| s.to_string());
-    let config_size = manifest_value.get("config").and_then(|v| v.get("size")).and_then(|v| v.as_i64()).unwrap_or(0);
+    let config_digest = manifest_value
+        .get("config")
+        .and_then(|v| v.get("digest"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let config_size = manifest_value
+        .get("config")
+        .and_then(|v| v.get("size"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
 
     if let Err(e) = sqlx::query(
         "INSERT INTO oci_manifests (repo_id, digest, media_type, raw_json, config_digest, config_size) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (repo_id, digest) DO UPDATE SET raw_json = EXCLUDED.raw_json",
@@ -271,7 +329,10 @@ pub async fn put_manifest(
         for (i, layer) in layers.iter().enumerate() {
             let layer_digest = layer.get("digest").and_then(|v| v.as_str()).unwrap_or("");
             let layer_size = layer.get("size").and_then(|v| v.as_i64()).unwrap_or(0);
-            let layer_media = layer.get("mediaType").and_then(|v| v.as_str()).unwrap_or("");
+            let layer_media = layer
+                .get("mediaType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             let _ = sqlx::query(
                 "INSERT INTO oci_manifest_layers (manifest_id, blob_digest, blob_size, media_type, sort_order) VALUES ((SELECT id FROM oci_manifests WHERE repo_id = $1 AND digest = $2), $3, $4, $5, $6) ON CONFLICT DO NOTHING",
@@ -313,8 +374,15 @@ pub async fn put_manifest(
     }
 
     let mut headers = HeaderMap::new();
-    headers.insert("location", HeaderValue::from_str(&format!("/v2/{name}/manifests/{digest}")).unwrap_or_else(|_| HeaderValue::from_static("/v2/manifests/sha256:")));
-    headers.insert("docker-content-digest", HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("sha256:")));
+    headers.insert(
+        "location",
+        HeaderValue::from_str(&format!("/v2/{name}/manifests/{digest}"))
+            .unwrap_or_else(|_| HeaderValue::from_static("/v2/manifests/sha256:")),
+    );
+    headers.insert(
+        "docker-content-digest",
+        HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("sha256:")),
+    );
     (StatusCode::CREATED, headers).into_response()
 }
 
@@ -358,9 +426,24 @@ pub async fn get_manifest(
     match row {
         Some((raw_json, media_type)) => {
             let mut headers = HeaderMap::new();
-            headers.insert("content-type", HeaderValue::from_str(&media_type).unwrap_or_else(|_| HeaderValue::from_static("application/vnd.oci.image.manifest.v1+json")));
-            headers.insert("docker-content-digest", HeaderValue::from_str(&digest).unwrap_or_else(|_| HeaderValue::from_static("sha256:")));
-            headers.insert("content-length", (raw_json.len() as u64).to_string().parse().unwrap_or(HeaderValue::from_static("0")));
+            headers.insert(
+                "content-type",
+                HeaderValue::from_str(&media_type).unwrap_or_else(|_| {
+                    HeaderValue::from_static("application/vnd.oci.image.manifest.v1+json")
+                }),
+            );
+            headers.insert(
+                "docker-content-digest",
+                HeaderValue::from_str(&digest)
+                    .unwrap_or_else(|_| HeaderValue::from_static("sha256:")),
+            );
+            headers.insert(
+                "content-length",
+                (raw_json.len() as u64)
+                    .to_string()
+                    .parse()
+                    .unwrap_or(HeaderValue::from_static("0")),
+            );
             (StatusCode::OK, headers, axum::body::Body::from(raw_json)).into_response()
         }
         None => StatusCode::NOT_FOUND.into_response(),
@@ -384,7 +467,11 @@ pub async fn delete_manifest(
             .execute(pool)
             .await
             .unwrap_or_default();
-        return if result.rows_affected() > 0 { StatusCode::ACCEPTED.into_response() } else { StatusCode::NOT_FOUND.into_response() };
+        return if result.rows_affected() > 0 {
+            StatusCode::ACCEPTED.into_response()
+        } else {
+            StatusCode::NOT_FOUND.into_response()
+        };
     }
 
     let result = sqlx::query("DELETE FROM oci_manifests WHERE repo_id = $1 AND digest = $2")
@@ -394,7 +481,11 @@ pub async fn delete_manifest(
         .await
         .unwrap_or_default();
 
-    if result.rows_affected() > 0 { StatusCode::ACCEPTED.into_response() } else { StatusCode::NOT_FOUND.into_response() }
+    if result.rows_affected() > 0 {
+        StatusCode::ACCEPTED.into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
 }
 
 pub async fn get_referrers(
@@ -405,7 +496,13 @@ pub async fn get_referrers(
     let pool = state.db.pool();
     let repo_id = match oci::resolve_repo(pool, &name).await {
         Some(r) => r,
-        None => return (StatusCode::NOT_FOUND, Json(serde_json::json!({"errors": []}))).into_response(),
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"errors": []})),
+            )
+                .into_response();
+        }
     };
 
     let artifact_type = params.artifact_type.as_deref().unwrap_or("");
@@ -445,11 +542,15 @@ pub async fn get_referrers(
         }
     }
 
-    (StatusCode::OK, Json(serde_json::json!({
-        "schemaVersion": 2,
-        "mediaType": "application/vnd.oci.image.index.v1+json",
-        "manifests": manifests,
-    }))).into_response()
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "schemaVersion": 2,
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "manifests": manifests,
+        })),
+    )
+        .into_response()
 }
 
 pub async fn list_repositories(
@@ -471,7 +572,11 @@ pub async fn list_repositories(
 
     let repos: Vec<serde_json::Value> = rows.iter().map(|r| serde_json::json!({ "id": r.0, "name": r.1, "namespace_type": r.2, "visibility": r.3 })).collect();
 
-    (StatusCode::OK, Json(serde_json::json!({ "repositories": repos }))).into_response()
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "repositories": repos })),
+    )
+        .into_response()
 }
 
 pub async fn get_repository(
@@ -494,9 +599,24 @@ pub async fn get_repository(
 
     match repo {
         Some(r) => {
-            let tag_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM oci_tags WHERE repo_id = $1").bind(repo_id).fetch_one(pool).await.unwrap_or(0);
-            let manifest_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM oci_manifests WHERE repo_id = $1").bind(repo_id).fetch_one(pool).await.unwrap_or(0);
-            let blob_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM oci_blobs WHERE repo_id = $1").bind(repo_id).fetch_one(pool).await.unwrap_or(0);
+            let tag_count: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM oci_tags WHERE repo_id = $1")
+                    .bind(repo_id)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap_or(0);
+            let manifest_count: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM oci_manifests WHERE repo_id = $1")
+                    .bind(repo_id)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap_or(0);
+            let blob_count: i64 =
+                sqlx::query_scalar("SELECT COUNT(*) FROM oci_blobs WHERE repo_id = $1")
+                    .bind(repo_id)
+                    .fetch_one(pool)
+                    .await
+                    .unwrap_or(0);
 
             (StatusCode::OK, Json(serde_json::json!({
                 "id": repo_id, "name": r.0, "namespace_type": r.1, "namespace_id": r.2, "visibility": r.3,
@@ -512,15 +632,25 @@ pub async fn delete_repository(
     auth: AuthUser,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(rejection) = require_admin(&auth) { return rejection.into_response(); }
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let pool = state.db.pool();
     let repo_id = match oci::resolve_repo(pool, &name).await {
         Some(r) => r,
         None => return StatusCode::NOT_FOUND.into_response(),
     };
 
-    let result = sqlx::query("DELETE FROM oci_repositories WHERE id = $1").bind(repo_id).execute(pool).await.unwrap_or_default();
-    if result.rows_affected() > 0 { StatusCode::NO_CONTENT.into_response() } else { StatusCode::NOT_FOUND.into_response() }
+    let result = sqlx::query("DELETE FROM oci_repositories WHERE id = $1")
+        .bind(repo_id)
+        .execute(pool)
+        .await
+        .unwrap_or_default();
+    if result.rows_affected() > 0 {
+        StatusCode::NO_CONTENT.into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
 }
 
 pub async fn set_policy(
@@ -554,11 +684,21 @@ pub async fn delete_policy(
         None => return StatusCode::NOT_FOUND.into_response(),
     };
 
-    let result = sqlx::query("DELETE FROM oci_policies WHERE repo_id = $1 AND entity_type = $2 AND entity_id = $3")
-        .bind(repo_id).bind(&entity_type).bind(&entity_id)
-        .execute(pool).await.unwrap_or_default();
+    let result = sqlx::query(
+        "DELETE FROM oci_policies WHERE repo_id = $1 AND entity_type = $2 AND entity_id = $3",
+    )
+    .bind(repo_id)
+    .bind(&entity_type)
+    .bind(&entity_id)
+    .execute(pool)
+    .await
+    .unwrap_or_default();
 
-    if result.rows_affected() > 0 { StatusCode::NO_CONTENT.into_response() } else { StatusCode::NOT_FOUND.into_response() }
+    if result.rows_affected() > 0 {
+        StatusCode::NO_CONTENT.into_response()
+    } else {
+        StatusCode::NOT_FOUND.into_response()
+    }
 }
 
 pub async fn trigger_gc(
@@ -566,7 +706,9 @@ pub async fn trigger_gc(
     auth: AuthUser,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(rejection) = require_admin(&auth) { return rejection.into_response(); }
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
     let pool = state.db.pool();
     let repo_id = match oci::resolve_repo(pool, &name).await {
         Some(r) => r,
@@ -585,14 +727,23 @@ pub async fn trigger_gc(
     let mut freed_count: usize = 0;
 
     for (digest, path) in &orphaned {
-        if let Ok(metadata) = tokio::fs::metadata(path).await { freed_bytes += metadata.len() as i64; }
+        if let Ok(metadata) = tokio::fs::metadata(path).await {
+            freed_bytes += metadata.len() as i64;
+        }
         let _ = tokio::fs::remove_file(path).await;
         let _ = sqlx::query("DELETE FROM oci_blobs WHERE repo_id = $1 AND digest = $2")
-            .bind(repo_id).bind(digest).execute(pool).await;
+            .bind(repo_id)
+            .bind(digest)
+            .execute(pool)
+            .await;
         freed_count += 1;
     }
 
-    (StatusCode::OK, Json(serde_json::json!({ "freed_count": freed_count, "freed_bytes": freed_bytes }))).into_response()
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "freed_count": freed_count, "freed_bytes": freed_bytes })),
+    )
+        .into_response()
 }
 
 pub fn registry_routes() -> axum::Router<AppState> {
@@ -600,19 +751,55 @@ pub fn registry_routes() -> axum::Router<AppState> {
         .route("/v2/", axum::routing::get(version_check))
         .route("/v2/_catalog", axum::routing::get(catalog))
         .route("/v2/{name}/tags/list", axum::routing::get(list_tags))
-        .route("/v2/{name}/blobs/uploads", axum::routing::post(initiate_blob_upload))
-        .route("/v2/{name}/blobs/uploads/{uuid}", axum::routing::patch(upload_blob_chunk))
-        .route("/v2/{name}/blobs/uploads/{uuid}", axum::routing::put(complete_blob_upload))
+        .route(
+            "/v2/{name}/blobs/uploads",
+            axum::routing::post(initiate_blob_upload),
+        )
+        .route(
+            "/v2/{name}/blobs/uploads/{uuid}",
+            axum::routing::patch(upload_blob_chunk),
+        )
+        .route(
+            "/v2/{name}/blobs/uploads/{uuid}",
+            axum::routing::put(complete_blob_upload),
+        )
         .route("/v2/{name}/blobs/{digest}", axum::routing::head(head_blob))
         .route("/v2/{name}/blobs/{digest}", axum::routing::get(get_blob))
-        .route("/v2/{name}/manifests/{reference}", axum::routing::put(put_manifest))
-        .route("/v2/{name}/manifests/{reference}", axum::routing::get(get_manifest))
-        .route("/v2/{name}/manifests/{reference}", axum::routing::delete(delete_manifest))
-        .route("/v2/{name}/referrers/{digest}", axum::routing::get(get_referrers))
+        .route(
+            "/v2/{name}/manifests/{reference}",
+            axum::routing::put(put_manifest),
+        )
+        .route(
+            "/v2/{name}/manifests/{reference}",
+            axum::routing::get(get_manifest),
+        )
+        .route(
+            "/v2/{name}/manifests/{reference}",
+            axum::routing::delete(delete_manifest),
+        )
+        .route(
+            "/v2/{name}/referrers/{digest}",
+            axum::routing::get(get_referrers),
+        )
         .route("/api/v1/registry", axum::routing::get(list_repositories))
-        .route("/api/v1/registry/{name}", axum::routing::get(get_repository))
-        .route("/api/v1/registry/{name}", axum::routing::delete(delete_repository))
-        .route("/api/v1/registry/{name}/policy", axum::routing::post(set_policy))
-        .route("/api/v1/registry/{name}/policy/{entity_type}/{entity_id}", axum::routing::delete(delete_policy))
-        .route("/api/v1/registry/{name}/gc", axum::routing::post(trigger_gc))
+        .route(
+            "/api/v1/registry/{name}",
+            axum::routing::get(get_repository),
+        )
+        .route(
+            "/api/v1/registry/{name}",
+            axum::routing::delete(delete_repository),
+        )
+        .route(
+            "/api/v1/registry/{name}/policy",
+            axum::routing::post(set_policy),
+        )
+        .route(
+            "/api/v1/registry/{name}/policy/{entity_type}/{entity_id}",
+            axum::routing::delete(delete_policy),
+        )
+        .route(
+            "/api/v1/registry/{name}/gc",
+            axum::routing::post(trigger_gc),
+        )
 }

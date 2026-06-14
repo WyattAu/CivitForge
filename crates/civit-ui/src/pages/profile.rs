@@ -6,7 +6,9 @@ use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
 use crate::api::types::AuthUser;
-use crate::components::{Avatar, Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Spinner};
+use crate::components::{
+    Avatar, Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Spinner,
+};
 use crate::state::auth::use_auth;
 use crate::utils::*;
 use civit_shared::user::UserResponse;
@@ -28,7 +30,7 @@ struct UpdateProfileBody {
 #[component]
 pub fn ProfilePage() -> impl IntoView {
     let params = use_params_map();
-    let username_param = move || params.with(|p| p.get("username").map(|s| s.clone()).unwrap_or_default());
+    let username_param = move || params.with(|p| p.get("username").unwrap_or_default());
     let auth = use_auth();
 
     let (user_sig, set_user) = signal(None::<UserResponse>);
@@ -64,7 +66,9 @@ pub fn ProfilePage() -> impl IntoView {
                                         set_user.set(Some(u));
                                     }
                                 }
-                                _ => set_error.set(Some("Failed to load user profile.".to_string())),
+                                _ => {
+                                    set_error.set(Some("Failed to load user profile.".to_string()))
+                                }
                             }
                         }
                     }
@@ -291,9 +295,24 @@ fn ProfileUserInfo(user_sig: ReadSignal<Option<UserResponse>>) -> impl IntoView 
 
 #[component]
 fn ProfileDetails(user_sig: ReadSignal<Option<UserResponse>>) -> impl IntoView {
-    let loc = Signal::derive(move || user_sig.get().and_then(|u| u.location.clone()).unwrap_or_default());
-    let website = Signal::derive(move || user_sig.get().and_then(|u| u.website.clone()).unwrap_or_default());
-    let created = Signal::derive(move || user_sig.get().map(|u| u.created_at.format("%b %d, %Y").to_string()).unwrap_or_default());
+    let loc = Signal::derive(move || {
+        user_sig
+            .get()
+            .and_then(|u| u.location.clone())
+            .unwrap_or_default()
+    });
+    let website = Signal::derive(move || {
+        user_sig
+            .get()
+            .and_then(|u| u.website.clone())
+            .unwrap_or_default()
+    });
+    let created = Signal::derive(move || {
+        user_sig
+            .get()
+            .map(|u| u.created_at.format("%b %d, %Y").to_string())
+            .unwrap_or_default()
+    });
     let has_loc = Signal::derive(move || !loc.get().is_empty());
     let has_website = Signal::derive(move || !website.get().is_empty());
 

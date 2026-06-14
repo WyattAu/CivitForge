@@ -432,12 +432,9 @@ pub async fn create_pull_request(
         )
         .await;
         if !required.is_empty() {
-            let _ = crate::api::codeowners::insert_codeowners_reviews_for_pr(
-                pool,
-                pr.id,
-                &required,
-            )
-            .await;
+            let _ =
+                crate::api::codeowners::insert_codeowners_reviews_for_pr(pool, pr.id, &required)
+                    .await;
             for username in &required {
                 if let Ok(user) = state.db.get_user_by_username(username).await {
                     let _ = state.db.add_pr_reviewer(pr.id, user.id).await;
@@ -480,7 +477,8 @@ pub async fn create_pull_request(
             to: vec![format!("https://{domain}/api/v1/federation/actor")],
             cc: vec![],
         };
-        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone())
+            .await;
     }
 
     (axum::http::StatusCode::CREATED, Json(resp)).into_response()
@@ -723,7 +721,8 @@ pub async fn request_review(
         // Use PR title + source_branch as a proxy for changed files
         // In production this would diff the PR commits
         let changed_files = vec![pr.source_branch.clone()];
-        let owner_usernames = crate::api::codeowners::find_codeowners_for_files(&entries, &changed_files);
+        let owner_usernames =
+            crate::api::codeowners::find_codeowners_for_files(&entries, &changed_files);
         for username in &owner_usernames {
             // Strip leading @ if present
             let uname = username.trim_start_matches('@');
@@ -971,7 +970,8 @@ pub async fn merge_pull_request(
                 to: vec![format!("https://{domain}/api/v1/federation/actor")],
                 cc: vec![],
             };
-            crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+            crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone())
+                .await;
         }
     }
 
@@ -1319,7 +1319,9 @@ pub async fn check_auto_merge(state: &AppState, repo_id: Uuid, commit_sha: &str)
         };
 
         let all_passing = !checks.is_empty()
-            && checks.iter().all(|c| c.state == "success" || c.state == "passed");
+            && checks
+                .iter()
+                .all(|c| c.state == "success" || c.state == "passed");
 
         if !all_passing {
             tracing::info!(
@@ -1356,14 +1358,13 @@ pub async fn check_auto_merge(state: &AppState, repo_id: Uuid, commit_sha: &str)
             None => continue,
         };
 
-        let repo_name: Option<String> = sqlx::query_scalar(
-            "SELECT name FROM repositories WHERE id = $1",
-        )
-        .bind(repo_id)
-        .fetch_optional(pool)
-        .await
-        .ok()
-        .flatten();
+        let repo_name: Option<String> =
+            sqlx::query_scalar("SELECT name FROM repositories WHERE id = $1")
+                .bind(repo_id)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten();
 
         let name = match repo_name {
             Some(n) => n,
@@ -1454,14 +1455,13 @@ pub async fn trigger_auto_merge_on_success(state: &AppState, pipeline_id: Uuid) 
     let pool = state.db.pool();
 
     // Find the pipeline run to get repo_id and commit_sha
-    let pipeline: Option<(Uuid, String, String)> = sqlx::query_as(
-        r#"SELECT repo_id, commit_sha, ref_name FROM pipeline_runs WHERE id = $1"#,
-    )
-    .bind(pipeline_id)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten();
+    let pipeline: Option<(Uuid, String, String)> =
+        sqlx::query_as(r#"SELECT repo_id, commit_sha, ref_name FROM pipeline_runs WHERE id = $1"#)
+            .bind(pipeline_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
 
     let (repo_id, commit_sha, _ref_name) = match pipeline {
         Some(p) => p,
@@ -1502,7 +1502,10 @@ pub async fn download_patch(
     ) {
         Ok(patch) => (
             axum::http::StatusCode::OK,
-            [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; charset=utf-8",
+            )],
             patch,
         )
             .into_response(),

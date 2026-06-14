@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use leptos::prelude::*;
-use leptos_router::hooks::{use_params_map, use_navigate};
+use leptos_router::hooks::{use_navigate, use_params_map};
 
 use crate::api::client::ApiClient;
 use crate::components::{
@@ -239,18 +239,15 @@ pub fn ReleasesPage() -> impl IntoView {
         set_uploading_asset.set(true);
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
-            let path = format!(
-                "/repos/{owner_val}/{name_val}/releases/{release_id}/assets"
-            );
+            let path = format!("/repos/{owner_val}/{name_val}/releases/{release_id}/assets");
             match client.post(&path, &body).await {
                 Ok(resp) if resp.status().is_success() => {
                     set_show_upload_asset.set(false);
                     // Reload assets
                     let token2 = auth.0.with(|a| a.token.clone());
                     let client2 = ApiClient::new(token2);
-                    let assets_path = format!(
-                        "/repos/{owner_val}/{name_val}/releases/{release_id}/assets"
-                    );
+                    let assets_path =
+                        format!("/repos/{owner_val}/{name_val}/releases/{release_id}/assets");
                     if let Ok(r) = client2.get(&assets_path).await {
                         if let Ok(data) = r.json::<Vec<ReleaseAssetResponse>>().await {
                             set_assets.set(data);
@@ -287,9 +284,7 @@ pub fn ReleasesPage() -> impl IntoView {
 
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
-            let path = format!(
-                "/repos/{owner_val}/{name_val}/releases/{release_id}"
-            );
+            let path = format!("/repos/{owner_val}/{name_val}/releases/{release_id}");
             match client.delete(&path).await {
                 Ok(resp)
                     if resp.status().is_success()

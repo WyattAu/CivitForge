@@ -5,7 +5,9 @@ use leptos_router::components::A;
 use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner};
+use crate::components::{
+    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner,
+};
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
@@ -578,7 +580,10 @@ fn ScheduleRow(
     sched: PipelineSchedule,
     owner: String,
     repo_name: String,
-    auth: (ReadSignal<crate::state::auth::AuthState>, WriteSignal<crate::state::auth::AuthState>),
+    auth: (
+        ReadSignal<crate::state::auth::AuthState>,
+        WriteSignal<crate::state::auth::AuthState>,
+    ),
     on_refresh: impl Fn() + Clone + 'static,
 ) -> impl IntoView {
     let del_id = sched.id.clone();
@@ -616,7 +621,10 @@ fn SecretRow(
     sec: PipelineSecret,
     owner: String,
     repo_name: String,
-    auth: (ReadSignal<crate::state::auth::AuthState>, WriteSignal<crate::state::auth::AuthState>),
+    auth: (
+        ReadSignal<crate::state::auth::AuthState>,
+        WriteSignal<crate::state::auth::AuthState>,
+    ),
     on_refresh: impl Fn() + Clone + 'static,
     revealed: ReadSignal<Vec<String>>,
     set_revealed: WriteSignal<Vec<String>>,
@@ -663,7 +671,10 @@ fn CacheRow(
     cache: PipelineCache,
     owner: String,
     repo_name: String,
-    auth: (ReadSignal<crate::state::auth::AuthState>, WriteSignal<crate::state::auth::AuthState>),
+    auth: (
+        ReadSignal<crate::state::auth::AuthState>,
+        WriteSignal<crate::state::auth::AuthState>,
+    ),
     on_refresh: impl Fn() + Clone + 'static,
 ) -> impl IntoView {
     let cache_c = cache.clone();
@@ -700,7 +711,10 @@ fn VariableRow(
     var: PipelineVariable,
     owner: String,
     repo_name: String,
-    auth: (ReadSignal<crate::state::auth::AuthState>, WriteSignal<crate::state::auth::AuthState>),
+    auth: (
+        ReadSignal<crate::state::auth::AuthState>,
+        WriteSignal<crate::state::auth::AuthState>,
+    ),
     on_refresh: impl Fn() + Clone + 'static,
 ) -> impl IntoView {
     let var_c = var.clone();

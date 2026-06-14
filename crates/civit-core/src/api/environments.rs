@@ -273,8 +273,9 @@ pub async fn update_environment(
     .await;
 
     match result {
-        Ok((id, repo_id, name, protection_rules, variables, created_at, updated_at)) => {
-            (StatusCode::OK, Json(EnvironmentResponse {
+        Ok((id, repo_id, name, protection_rules, variables, created_at, updated_at)) => (
+            StatusCode::OK,
+            Json(EnvironmentResponse {
                 id: id.to_string(),
                 repo_id: repo_id.to_string(),
                 name,
@@ -282,9 +283,9 @@ pub async fn update_environment(
                 variables,
                 created_at: created_at.to_rfc3339(),
                 updated_at: updated_at.to_rfc3339(),
-            }))
-                .into_response()
-        }
+            }),
+        )
+            .into_response(),
         Err(e) => {
             let msg = e.to_string();
             if msg.contains("duplicate key") || msg.contains("unique") {
@@ -345,9 +346,7 @@ pub async fn delete_environment(
             .into_response(),
         Ok(_) => (
             StatusCode::NOT_FOUND,
-            Json(
-                CoreError::NotFound("environment not found".into()).error_response(),
-            ),
+            Json(CoreError::NotFound("environment not found".into()).error_response()),
         )
             .into_response(),
         Err(e) => (
@@ -388,10 +387,9 @@ mod tests {
 
     #[test]
     fn test_create_request_deserialize() {
-        let req: CreateEnvironmentRequest = serde_json::from_str(
-            r#"{"name": "staging", "protection_rules": {}, "variables": {}}"#,
-        )
-        .unwrap();
+        let req: CreateEnvironmentRequest =
+            serde_json::from_str(r#"{"name": "staging", "protection_rules": {}, "variables": {}}"#)
+                .unwrap();
         assert_eq!(req.name, "staging");
     }
 

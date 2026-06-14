@@ -185,11 +185,7 @@ pub async fn create_oidc_provider(
     .await;
 
     match result {
-        Ok(row) => (
-            StatusCode::CREATED,
-            Json(OidcProviderResponse::from(row)),
-        )
-            .into_response(),
+        Ok(row) => (StatusCode::CREATED, Json(OidcProviderResponse::from(row))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -348,14 +344,13 @@ pub async fn token_exchange(
     let pool = state.db.pool();
 
     // Look up user by OIDC identity
-    let identity: Option<OidcIdentity> = sqlx::query_as(
-        r#"SELECT * FROM oidc_identities WHERE provider_user_id = $1 LIMIT 1"#,
-    )
-    .bind(&sub)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten();
+    let identity: Option<OidcIdentity> =
+        sqlx::query_as(r#"SELECT * FROM oidc_identities WHERE provider_user_id = $1 LIMIT 1"#)
+            .bind(&sub)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
 
     let (user_id, username) = match identity {
         Some(id) => {
@@ -365,7 +360,10 @@ pub async fn token_exchange(
                 None => {
                     return (
                         StatusCode::UNAUTHORIZED,
-                        Json(CoreError::Auth("user not found for OIDC identity".into()).error_response()),
+                        Json(
+                            CoreError::Auth("user not found for OIDC identity".into())
+                                .error_response(),
+                        ),
                     )
                         .into_response();
                 }
@@ -374,28 +372,32 @@ pub async fn token_exchange(
         None => {
             return (
                 StatusCode::UNAUTHORIZED,
-                Json(CoreError::Auth("OIDC identity not linked to any user".into()).error_response()),
+                Json(
+                    CoreError::Auth("OIDC identity not linked to any user".into()).error_response(),
+                ),
             )
                 .into_response();
         }
     };
 
     // Generate CivitForge access token
-    let access_token = match state.jwt_service.generate_token(
-        &user_id.to_string(),
-        &username,
-        "user",
-        None,
-    ) {
-        Ok(t) => t,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
-            )
-                .into_response();
-        }
-    };
+    let access_token =
+        match state
+            .jwt_service
+            .generate_token(&user_id.to_string(), &username, "user", None)
+        {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        CoreError::Internal(format!("token generation failed: {e}"))
+                            .error_response(),
+                    ),
+                )
+                    .into_response();
+            }
+        };
 
     // Generate refresh token
     let refresh_token = format!(
@@ -476,21 +478,23 @@ pub async fn refresh_token(
     };
 
     // Generate new access token
-    let access_token = match state.jwt_service.generate_token(
-        &user.id.to_string(),
-        &user.username,
-        "user",
-        None,
-    ) {
-        Ok(t) => t,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
-            )
-                .into_response();
-        }
-    };
+    let access_token =
+        match state
+            .jwt_service
+            .generate_token(&user.id.to_string(), &user.username, "user", None)
+        {
+            Ok(t) => t,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        CoreError::Internal(format!("token generation failed: {e}"))
+                            .error_response(),
+                    ),
+                )
+                    .into_response();
+            }
+        };
 
     // Generate new refresh token and invalidate old one
     let new_refresh_token = format!(
@@ -647,14 +651,8 @@ pub fn oidc_routes() -> Router<AppState> {
             "/api/v1/admin/oidc-providers/{id}",
             patch(update_oidc_provider).delete(delete_oidc_provider),
         )
-        .route(
-            "/api/v1/oidc/token-exchange",
-            post(token_exchange),
-        )
-        .route(
-            "/api/v1/oidc/refresh",
-            post(refresh_token),
-        )
+        .route("/api/v1/oidc/token-exchange", post(token_exchange))
+        .route("/api/v1/oidc/refresh", post(refresh_token))
 }
 
 #[cfg(test)]
@@ -665,8 +663,9 @@ mod tests {
     fn test_decode_id_token_sub_valid() {
         use base64::Engine;
         let payload = serde_json::json!({"sub": "user123", "iss": "https://idp.example.com"});
-        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
-        let token = format!("header.{}", encoded);
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .encode(serde_json::to_vec(&payload).unwrap());
+        let token = format!("header.{encoded}");
         assert_eq!(decode_id_token_sub(&token).as_deref(), Some("user123"));
     }
 

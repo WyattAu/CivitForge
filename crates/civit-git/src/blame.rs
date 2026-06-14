@@ -21,7 +21,10 @@ pub struct BlameResult {
 
 pub fn git_blame(repo_path: &Path, ref_name: &str, file_path: &str) -> Result<BlameResult> {
     if !repo_path.join("HEAD").exists() {
-        return Err(anyhow::anyhow!("repository not found at {}", repo_path.display()));
+        return Err(anyhow::anyhow!(
+            "repository not found at {}",
+            repo_path.display()
+        ));
     }
 
     let git_bin = std::env::var("GIT_BIN").unwrap_or_else(|_| "/usr/bin/git".to_string());
@@ -115,15 +118,42 @@ mod tests {
         // Create a regular repo with a workdir, then convert to bare
         let work_tmp = tempfile::tempdir().unwrap();
         let work = work_tmp.path();
-        std::process::Command::new("git").args(["init", work.to_str().unwrap()]).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init", work.to_str().unwrap()])
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(work)
+            .output()
+            .unwrap();
         std::fs::write(work.join(filename), content).unwrap();
-        std::process::Command::new("git").args(["add", "."]).current_dir(work).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "init"]).current_dir(work).output().unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(work)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(work)
+            .output()
+            .unwrap();
         // Convert to bare repo
         std::fs::create_dir_all(path).unwrap();
-        std::process::Command::new("git").args(["clone", "--bare", work.to_str().unwrap(), path.to_str().unwrap()]).output().unwrap();
+        std::process::Command::new("git")
+            .args([
+                "clone",
+                "--bare",
+                work.to_str().unwrap(),
+                path.to_str().unwrap(),
+            ])
+            .output()
+            .unwrap();
     }
 
     #[test]

@@ -1,16 +1,16 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use civit_crypto::abac::conditions::{
-    AbacContext, AbacEnvironment, AbacResource, AbacSubject, DevicePosture, PolicyCondition,
-    ConditionType,
+    AbacContext, AbacEnvironment, AbacResource, AbacSubject, ConditionType, DevicePosture,
+    PolicyCondition,
 };
 use civit_crypto::abac::engine::{AbacEngine, AbacPolicy, Effect as AbacEffect};
-use civit_crypto::cel::{CelEnvironment, CelExpression, CelEvaluator, CelType, CelValue};
+use civit_crypto::cel::{CelEnvironment, CelEvaluator, CelExpression, CelType, CelValue};
 use civit_crypto::hash::{HashAlgorithm, HashService};
 use civit_crypto::hmac::HmacService;
 use civit_crypto::policy::{
     Action, Condition, Effect, PolicyEngine, PolicyStatement, Resource, Subject,
 };
 use civit_crypto::repo_keys::RepoEncryptionKey;
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -127,9 +127,7 @@ fn bench_policy_evaluation(c: &mut Criterion) {
             .collect();
         let engine = PolicyEngine::new(statements);
         group.bench_with_input(format!("evaluate_{rule_count}_rules"), &engine, |b, e| {
-            b.iter(|| {
-                black_box(e.evaluate(&subject, Action::Get, Resource::Repository, &attrs))
-            });
+            b.iter(|| black_box(e.evaluate(&subject, Action::Get, Resource::Repository, &attrs)));
         });
     }
     group.finish();

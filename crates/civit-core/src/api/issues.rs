@@ -618,7 +618,8 @@ pub async fn create_issue(
             to: vec![format!("https://{domain}/api/v1/federation/actor")],
             cc: vec![],
         };
-        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone())
+            .await;
     }
 
     (StatusCode::CREATED, Json(row)).into_response()
@@ -855,7 +856,8 @@ pub async fn update_issue(
             to: vec![format!("https://{domain}/api/v1/federation/actor")],
             cc: vec![],
         };
-        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone()).await;
+        crate::api::federation_routes::deliver_to_followers(activity, state.db.pool().clone())
+            .await;
     }
 
     (StatusCode::OK, Json(row)).into_response()
@@ -2272,7 +2274,7 @@ pub async fn create_branch_from_issue(
             let actor_id = match uuid::Uuid::parse_str(&auth.user_id) {
                 Ok(id) => id,
                 Err(_) => {
-                    return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token")
+                    return err_response(StatusCode::UNAUTHORIZED, "invalid user id in token");
                 }
             };
 
@@ -2348,23 +2350,26 @@ pub async fn issue_analytics(
         .await
         .unwrap_or((0,));
 
-    let open_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'open'")
-        .bind(repo_id)
-        .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+    let open_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'open'")
+            .bind(repo_id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or((0,));
 
-    let closed_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'closed'")
-        .bind(repo_id)
-        .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+    let closed_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'closed'")
+            .bind(repo_id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or((0,));
 
-    let in_progress_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'in_progress'")
-        .bind(repo_id)
-        .fetch_one(pool)
-        .await
-        .unwrap_or((0,));
+    let in_progress_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM issues WHERE repo_id = $1 AND state = 'in_progress'")
+            .bind(repo_id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or((0,));
 
     let by_label_rows: Vec<(String, i64)> = sqlx::query_as(
         r#"SELECT il.name AS label, COUNT(*) AS count
@@ -2821,9 +2826,18 @@ mod tests {
             total: 3,
             completed: 1,
             items: vec![
-                TaskItem { description: "a".into(), completed: true },
-                TaskItem { description: "b".into(), completed: false },
-                TaskItem { description: "c".into(), completed: false },
+                TaskItem {
+                    description: "a".into(),
+                    completed: true,
+                },
+                TaskItem {
+                    description: "b".into(),
+                    completed: false,
+                },
+                TaskItem {
+                    description: "c".into(),
+                    completed: false,
+                },
             ],
         };
         let json = serde_json::to_string(&summary).unwrap();

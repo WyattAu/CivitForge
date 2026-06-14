@@ -122,9 +122,9 @@ pub fn BoardsPage() -> impl IntoView {
     });
 
     let selected_board = move || {
-        selected_board_id.get().and_then(|id| {
-            boards.with(|bs| bs.iter().find(|b| b.id == id).cloned())
-        })
+        selected_board_id
+            .get()
+            .and_then(|id| boards.with(|bs| bs.iter().find(|b| b.id == id).cloned()))
     };
 
     let handle_create_board = move |ev: leptos::ev::SubmitEvent| {
@@ -330,9 +330,7 @@ pub fn BoardsPage() -> impl IntoView {
             let cid = card_id.clone();
             leptos::task::spawn_local(async move {
                 let client = ApiClient::new(token);
-                let _ = client
-                    .delete_card(&owner_val, &name_val, &bid, &cid)
-                    .await;
+                let _ = client.delete_card(&owner_val, &name_val, &bid, &cid).await;
             });
             set_boards.update(|bs| {
                 if let Some(b) = bs.iter_mut().find(|b| b.id == board_id) {
@@ -358,9 +356,7 @@ pub fn BoardsPage() -> impl IntoView {
     };
 
     let handle_drop = move |target_col_id: String| {
-        if let (Some(board_id), Some(card_id)) =
-            (selected_board_id.get(), drag_card_id.get())
-        {
+        if let (Some(board_id), Some(card_id)) = (selected_board_id.get(), drag_card_id.get()) {
             let owner_val = owner();
             let name_val = name();
             let token = auth.0.with(|a| a.token.clone());

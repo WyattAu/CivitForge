@@ -4,7 +4,9 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner};
+use crate::components::{
+    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner,
+};
 use crate::state::auth::use_auth;
 use crate::utils::get_input_value;
 
@@ -129,8 +131,16 @@ pub fn TeamsPage() -> impl IntoView {
 
         let body = CreateTeamBody {
             name: team_name.trim().to_string(),
-            description: if team_desc.trim().is_empty() { None } else { Some(team_desc.trim().to_string()) },
-            permission_level: if team_perm.is_empty() { "read".to_string() } else { team_perm },
+            description: if team_desc.trim().is_empty() {
+                None
+            } else {
+                Some(team_desc.trim().to_string())
+            },
+            permission_level: if team_perm.is_empty() {
+                "read".to_string()
+            } else {
+                team_perm
+            },
         };
 
         let token = auth.0.with(|a| a.token.clone());
@@ -163,7 +173,9 @@ pub fn TeamsPage() -> impl IntoView {
             return;
         }
 
-        let body = AddMemberBody { user_id: user_id.trim().to_string() };
+        let body = AddMemberBody {
+            user_id: user_id.trim().to_string(),
+        };
         let token = auth.0.with(|a| a.token.clone());
         let org_val = org_id();
         set_add_member_loading.set(true);

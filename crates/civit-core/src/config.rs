@@ -233,10 +233,8 @@ impl AppConfig {
                     .unwrap_or(false),
                 ldap_url: std::env::var("LDAP_URL")
                     .unwrap_or_else(|_| "ldap://localhost:389".into()),
-                ldap_bind_dn: std::env::var("LDAP_BIND_DN")
-                    .unwrap_or_default(),
-                ldap_bind_password: std::env::var("LDAP_BIND_PASSWORD")
-                    .unwrap_or_default(),
+                ldap_bind_dn: std::env::var("LDAP_BIND_DN").unwrap_or_default(),
+                ldap_bind_password: std::env::var("LDAP_BIND_PASSWORD").unwrap_or_default(),
                 ldap_user_search_base: std::env::var("LDAP_USER_SEARCH_BASE")
                     .unwrap_or_else(|_| "ou=users".into()),
                 ldap_user_filter: std::env::var("LDAP_USER_FILTER")

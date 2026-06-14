@@ -238,39 +238,51 @@ pub async fn list_tree(
     let head_id = match repo.head_id() {
         Ok(id) => id,
         Err(_) => {
-            return (StatusCode::OK, Json(PaginatedTreeResponse {
-                entries: Vec::new(),
-                total: 0,
-                page: params.page,
-                per_page: params.per_page,
-                total_pages: 0,
-            })).into_response();
+            return (
+                StatusCode::OK,
+                Json(PaginatedTreeResponse {
+                    entries: Vec::new(),
+                    total: 0,
+                    page: params.page,
+                    per_page: params.per_page,
+                    total_pages: 0,
+                }),
+            )
+                .into_response();
         }
     };
 
     let commit_obj = match head_id.object() {
         Ok(o) => o,
         Err(_) => {
-            return (StatusCode::OK, Json(PaginatedTreeResponse {
-                entries: Vec::new(),
-                total: 0,
-                page: params.page,
-                per_page: params.per_page,
-                total_pages: 0,
-            })).into_response();
+            return (
+                StatusCode::OK,
+                Json(PaginatedTreeResponse {
+                    entries: Vec::new(),
+                    total: 0,
+                    page: params.page,
+                    per_page: params.per_page,
+                    total_pages: 0,
+                }),
+            )
+                .into_response();
         }
     };
 
     let commit = match commit_obj.try_into_commit() {
         Ok(c) => c,
         Err(_) => {
-            return (StatusCode::OK, Json(PaginatedTreeResponse {
-                entries: Vec::new(),
-                total: 0,
-                page: params.page,
-                per_page: params.per_page,
-                total_pages: 0,
-            })).into_response();
+            return (
+                StatusCode::OK,
+                Json(PaginatedTreeResponse {
+                    entries: Vec::new(),
+                    total: 0,
+                    page: params.page,
+                    per_page: params.per_page,
+                    total_pages: 0,
+                }),
+            )
+                .into_response();
         }
     };
 
@@ -344,13 +356,17 @@ pub async fn list_tree(
                 let mode = entry.mode();
                 if !mode.is_tree() {
                     // The path points to a file, not a directory — return empty
-                    return (StatusCode::OK, Json(PaginatedTreeResponse {
-                        entries: Vec::new(),
-                        total: 0,
-                        page: params.page,
-                        per_page: params.per_page,
-                        total_pages: 0,
-                    })).into_response();
+                    return (
+                        StatusCode::OK,
+                        Json(PaginatedTreeResponse {
+                            entries: Vec::new(),
+                            total: 0,
+                            page: params.page,
+                            per_page: params.per_page,
+                            total_pages: 0,
+                        }),
+                    )
+                        .into_response();
                 }
                 let entry_obj = match entry.object() {
                     Ok(o) => o,
@@ -375,13 +391,17 @@ pub async fn list_tree(
             }
             Ok(None) => {
                 // Path doesn't exist in tree
-                return (StatusCode::OK, Json(PaginatedTreeResponse {
-                    entries: Vec::new(),
-                    total: 0,
-                    page: params.page,
-                    per_page: params.per_page,
-                    total_pages: 0,
-                })).into_response();
+                return (
+                    StatusCode::OK,
+                    Json(PaginatedTreeResponse {
+                        entries: Vec::new(),
+                        total: 0,
+                        page: params.page,
+                        per_page: params.per_page,
+                        total_pages: 0,
+                    }),
+                )
+                    .into_response();
             }
             Err(e) => {
                 return (

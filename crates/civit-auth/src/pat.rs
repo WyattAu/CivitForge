@@ -145,9 +145,20 @@ mod tests {
     #[test]
     fn test_validate_scopes_all_valid() {
         let scopes: Vec<String> = vec![
-            "read", "write", "admin", "repo:read", "repo:write",
-            "user:read", "org:read", "org:write", "ci:read", "ci:write",
-            "issues:read", "issues:write", "packages:read", "packages:write",
+            "read",
+            "write",
+            "admin",
+            "repo:read",
+            "repo:write",
+            "user:read",
+            "org:read",
+            "org:write",
+            "ci:read",
+            "ci:write",
+            "issues:read",
+            "issues:write",
+            "packages:read",
+            "packages:write",
         ]
         .into_iter()
         .map(String::from)

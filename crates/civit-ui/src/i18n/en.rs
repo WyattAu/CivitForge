@@ -95,7 +95,9 @@ pub fn get(key: &str) -> String {
         "settings.danger_zone" => "Danger Zone".to_string(),
         "settings.change_visibility" => "Change Visibility".to_string(),
         "settings.delete_repo" => "Delete this repository".to_string(),
-        "settings.delete_repo_confirm" => "Once you delete a repository, there is no going back.".to_string(),
+        "settings.delete_repo_confirm" => {
+            "Once you delete a repository, there is no going back.".to_string()
+        }
         "settings.ssh_keys" => "SSH Keys".to_string(),
         "settings.change_password" => "Change Password".to_string(),
         "settings.delete_account" => "Delete Account".to_string(),

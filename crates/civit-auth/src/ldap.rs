@@ -107,9 +107,10 @@ impl LdapPool {
 
     pub fn get_connection(&self) -> Result<LdapConn> {
         {
-            let mut pool = self.connections.lock().map_err(|e| {
-                AuthError::Internal(format!("LDAP pool lock poisoned: {e}"))
-            })?;
+            let mut pool = self
+                .connections
+                .lock()
+                .map_err(|e| AuthError::Internal(format!("LDAP pool lock poisoned: {e}")))?;
             let idle_timeout = Duration::from_secs(self.idle_timeout_secs);
             let now = Instant::now();
             pool.retain(|pc| now.duration_since(pc.last_used) < idle_timeout);
@@ -147,24 +148,32 @@ impl LdapPool {
         }
 
         let mut conn = LdapConn::with_settings(settings, &self.url).map_err(|e| {
-            self.metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+            self.metrics
+                .connections_failed
+                .fetch_add(1, Ordering::Relaxed);
             AuthError::Internal(format!("LDAP connection failed: {e}"))
         })?;
 
         match conn.simple_bind(&self.bind_dn, &self.bind_password) {
             Ok(result) => {
                 if let Err(e) = result.success() {
-                    self.metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+                    self.metrics
+                        .connections_failed
+                        .fetch_add(1, Ordering::Relaxed);
                     return Err(AuthError::Auth(format!("LDAP bind rejected: {e}")));
                 }
             }
             Err(e) => {
-                self.metrics.connections_failed.fetch_add(1, Ordering::Relaxed);
+                self.metrics
+                    .connections_failed
+                    .fetch_add(1, Ordering::Relaxed);
                 return Err(AuthError::Auth(format!("LDAP bind failed: {e}")));
             }
         }
 
-        self.metrics.connections_created.fetch_add(1, Ordering::Relaxed);
+        self.metrics
+            .connections_created
+            .fetch_add(1, Ordering::Relaxed);
         Ok(conn)
     }
 }
@@ -178,9 +187,7 @@ impl LdapAuth {
         password: &str,
     ) -> Result<LdapUserInfo> {
         if !config.enabled {
-            return Err(AuthError::Auth(
-                "LDAP authentication is not enabled".into(),
-            ));
+            return Err(AuthError::Auth("LDAP authentication is not enabled".into()));
         }
 
         let pool = LdapPool::new(config);
@@ -192,14 +199,7 @@ impl LdapAuth {
                 &config.user_search_base,
                 Scope::Subtree,
                 &filter,
-                vec![
-                    "uid",
-                    "cn",
-                    "mail",
-                    "displayName",
-                    "memberOf",
-                    "dn",
-                ],
+                vec!["uid", "cn", "mail", "displayName", "memberOf", "dn"],
             )
             .map_err(|e| AuthError::Internal(format!("LDAP search failed: {e}")))?;
 
@@ -264,14 +264,9 @@ impl LdapAuth {
         })
     }
 
-    pub async fn sync_groups(
-        config: &LdapConfig,
-        username: &str,
-    ) -> Result<Vec<String>> {
+    pub async fn sync_groups(config: &LdapConfig, username: &str) -> Result<Vec<String>> {
         if !config.enabled {
-            return Err(AuthError::Auth(
-                "LDAP authentication is not enabled".into(),
-            ));
+            return Err(AuthError::Auth("LDAP authentication is not enabled".into()));
         }
 
         let pool = LdapPool::new(config);
@@ -295,12 +290,7 @@ impl LdapAuth {
 
         let groups: Vec<String> = entries
             .iter()
-            .filter_map(|e| {
-                e.attrs
-                    .get("cn")
-                    .and_then(|v| v.first())
-                    .cloned()
-            })
+            .filter_map(|e| e.attrs.get("cn").and_then(|v| v.first()).cloned())
             .collect();
 
         pool.return_connection(conn);
@@ -341,9 +331,7 @@ impl LdapAuth {
 
     pub async fn sync_all_groups(config: &LdapConfig) -> Result<(usize, usize)> {
         if !config.enabled {
-            return Err(AuthError::Auth(
-                "LDAP authentication is not enabled".into(),
-            ));
+            return Err(AuthError::Auth("LDAP authentication is not enabled".into()));
         }
 
         let pool = LdapPool::new(config);

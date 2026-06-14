@@ -258,12 +258,7 @@ mod tests {
 
     #[test]
     fn test_oci_manifest_roundtrip() {
-        let manifest = create_oci_manifest(
-            "sha256:abc123",
-            512,
-            "sha256:def456",
-            1024,
-        );
+        let manifest = create_oci_manifest("sha256:abc123", 512, "sha256:def456", 1024);
         let json = serde_json::to_string(&manifest).unwrap();
         let parsed: OciManifest = serde_json::from_str(&json).unwrap();
         assert_eq!(manifest, parsed);
@@ -271,12 +266,7 @@ mod tests {
 
     #[test]
     fn test_oci_manifest_serialization() {
-        let manifest = create_oci_manifest(
-            "sha256:aaa",
-            100,
-            "sha256:bbb",
-            200,
-        );
+        let manifest = create_oci_manifest("sha256:aaa", 100, "sha256:bbb", 200);
         let json = serde_json::to_string_pretty(&manifest).unwrap();
         assert!(json.contains("schemaVersion"));
         assert!(json.contains("application/vnd.oci.image.manifest.v1+json"));

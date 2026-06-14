@@ -10,8 +10,8 @@ use crate::components::{Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
 
 const BRANCH_COLORS: &[&str] = &[
-    "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
-    "#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#a855f7",
+    "#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316",
+    "#14b8a6", "#a855f7",
 ];
 
 fn branch_color(branch: &str, all_branches: &[String]) -> &'static str {
@@ -59,7 +59,8 @@ fn layout_commits(nodes: &[GraphNode]) -> (Vec<GraphCommit>, Vec<String>) {
         .collect();
     branches.sort();
 
-    let mut sha_to_lane: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut sha_to_lane: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     let mut next_lane = 0usize;
 
     let mut commits = Vec::new();
@@ -100,11 +101,7 @@ fn layout_commits(nodes: &[GraphNode]) -> (Vec<GraphCommit>, Vec<String>) {
 }
 
 #[component]
-fn GraphCommitRow(
-    commit: GraphCommit,
-    total_lanes: usize,
-    color: String,
-) -> impl IntoView {
+fn GraphCommitRow(commit: GraphCommit, total_lanes: usize, color: String) -> impl IntoView {
     let lane_dots: Vec<usize> = (0..total_lanes).collect();
     let commit_sha = StoredValue::new(commit.sha.clone());
     let short_sha = commit.short_sha.clone();
@@ -208,7 +205,7 @@ fn GraphCommitRow(
                 <a
                     class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     href=move || format!("/repos/commit/{}", commit_sha.get_value())
-                    aria-label=move || format!("View commit {}", short_sha_label)
+                    aria-label=move || format!("View commit {short_sha_label}")
                 >
                     "View"
                 </a>

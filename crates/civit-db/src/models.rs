@@ -345,6 +345,7 @@ mod tests {
             target_branch: "main".into(),
             merge_commit_id: None,
             draft: false,
+            auto_merge: false,
             head_commit_sha: None,
             base_commit_sha: None,
             merge_strategy: "merge".into(),

@@ -168,9 +168,7 @@ mod tests {
     fn test_different_roles() {
         let svc = make_service();
         for role in &["admin", "member", "guest", "viewer", "owner"] {
-            let token = svc
-                .generate_token("u1", "user", role, None)
-                .unwrap();
+            let token = svc.generate_token("u1", "user", role, None).unwrap();
             let claims = svc.validate_token(&token).unwrap();
             assert_eq!(claims.role, *role);
         }

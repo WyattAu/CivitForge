@@ -11,6 +11,7 @@ use crate::state::auth::use_auth;
 use crate::utils::get_input_value;
 
 #[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
 struct Environment {
     id: String,
     name: String,
