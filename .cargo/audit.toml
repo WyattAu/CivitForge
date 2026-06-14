@@ -1,0 +1,26 @@
+# cargo-audit configuration.
+# Controls how `cargo audit` reports vulnerabilities.
+# CI fails on any unfixed medium/high/critical advisory NOT listed here.
+#
+# Each ignored advisory is documented here and tracked in ROADMAP.md for
+# remediation. They MUST be removed once a fix ships.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2023-0071 (rsa Marvin Attack): affects RSA *decryption* timing.
+    # CivitForge uses rsa only for federation HTTP signature *signing*
+    # (federation/http_signatures.rs), not the vulnerable path.
+    # Remediation: migrate to ring/aws-lc-rs RSA signing (ROADMAP).
+    "RUSTSEC-2023-0071",
+    # RUSTSEC-2025-0140 (gix-date non-UTF8 string): transitive via gix 0.70.
+    # Remediation: upgrade gix 0.70 -> 0.84 (breaking API, ROADMAP).
+    "RUSTSEC-2025-0140",
+    # RUSTSEC-2025-0021 (gix-features SHA-1 collision): transitive via gix 0.70.
+    # SHA-1 is inherent to Git's protocol; newer gix adds collision detection.
+    # Remediation: upgrade gix 0.70 -> 0.84 (breaking API, ROADMAP).
+    "RUSTSEC-2025-0021",
+]
+
+# Reporting: warn on unmaintained crates, deny medium+ severity.
+informational_warnings = ["unmaintained"]
+severity_threshold = "medium"

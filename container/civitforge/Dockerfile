@@ -55,6 +55,13 @@ COPY crates/civit-ui/ crates/civit-ui/
 RUN cargo build --release --locked \
     -p civit-core -p civit-brain -p civit-runner -p civit-vfs
 
+# Build WASM UI (trunk + wasm32 target)
+RUN rustup target add wasm32-unknown-unknown
+RUN cargo install trunk --locked
+WORKDIR /src/crates/civit-ui
+RUN trunk build --release
+WORKDIR /src
+
 # Strip debug symbols and copy to /out
 RUN for bin in civit-core civit-brain civit-runner civit-vfs; do \
         strip /src/target/release/${bin} 2>/dev/null || true; \
