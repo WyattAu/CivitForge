@@ -1,0 +1,1213 @@
+{
+  "startTime": "2026-06-14T14:24:14.771Z",
+  "pages": [
+    {
+      "name": "home",
+      "path": "/",
+      "url": "http://192.168.1.191:9200/",
+      "status": "passed",
+      "loadTimeMs": 7634,
+      "screenshots": [
+        "home-desktop",
+        "home-mobile"
+      ],
+      "domIssues": [],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 21
+        },
+        {
+          "type": "landmarks",
+          "banner": 1,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 1
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 2009.6000000238419,
+        "loadComplete": 5058.800000011921,
+        "domInteractive": 2008.800000011921,
+        "responseEnd": 340.7000000178814,
+        "resourceCount": 17,
+        "totalTransferSize": 6564817
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Get Started"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "Explore Repos"
+        },
+        {
+          "href": "http://192.168.1.191:9200/docs",
+          "text": "Documentation"
+        },
+        {
+          "href": "http://192.168.1.191:9200/api/v1",
+          "text": "API"
+        },
+        {
+          "href": "http://192.168.1.191:9200/status",
+          "text": "Status"
+        }
+      ]
+    },
+    {
+      "name": "login",
+      "path": "/login",
+      "url": "http://192.168.1.191:9200/login",
+      "status": "passed",
+      "loadTimeMs": 14856,
+      "screenshots": [
+        "login-desktop",
+        "login-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "username",
+          "name": "username"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "password",
+          "name": "password"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 21
+        },
+        {
+          "type": "landmarks",
+          "banner": 1,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 1
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1401.9000000059605,
+        "loadComplete": 11427.700000017881,
+        "domInteractive": 1399.800000011921,
+        "responseEnd": 21.599999994039536,
+        "resourceCount": 19,
+        "totalTransferSize": 6564817
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/login"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/login#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/docs",
+          "text": "Documentation"
+        },
+        {
+          "href": "http://192.168.1.191:9200/api/v1",
+          "text": "API"
+        },
+        {
+          "href": "http://192.168.1.191:9200/status",
+          "text": "Status"
+        }
+      ]
+    },
+    {
+      "name": "register",
+      "path": "/register",
+      "url": "http://192.168.1.191:9200/register",
+      "status": "failed",
+      "loadTimeMs": 25325,
+      "screenshots": [
+        "register-error"
+      ],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/register"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "error": "page.goto: Timeout 25000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://192.168.1.191:9200/register\", waiting until \"networkidle\"\u001b[22m\n"
+    },
+    {
+      "name": "explore",
+      "path": "/explore",
+      "url": "http://192.168.1.191:9200/explore",
+      "status": "failed",
+      "loadTimeMs": 27177,
+      "screenshots": [
+        "explore-error"
+      ],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/explore"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        }
+      ],
+      "error": "page.goto: Timeout 25000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://192.168.1.191:9200/explore\", waiting until \"networkidle\"\u001b[22m\n"
+    },
+    {
+      "name": "search",
+      "path": "/search",
+      "url": "http://192.168.1.191:9200/search",
+      "status": "passed",
+      "loadTimeMs": 13085,
+      "screenshots": [
+        "search-desktop",
+        "search-mobile"
+      ],
+      "domIssues": [],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 19
+        },
+        {
+          "type": "landmarks",
+          "banner": 1,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 1
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 5231.0999999940395,
+        "loadComplete": 5257.4000000059605,
+        "domInteractive": 5229.799999982119,
+        "responseEnd": 81.5,
+        "resourceCount": 16,
+        "totalTransferSize": 6564817
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/search"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/search#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "Go Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/docs",
+          "text": "Documentation"
+        },
+        {
+          "href": "http://192.168.1.191:9200/api/v1",
+          "text": "API"
+        },
+        {
+          "href": "http://192.168.1.191:9200/status",
+          "text": "Status"
+        }
+      ]
+    },
+    {
+      "name": "repos-list",
+      "path": "/repos",
+      "url": "http://192.168.1.191:9200/repos",
+      "status": "passed",
+      "loadTimeMs": 32371,
+      "screenshots": [
+        "repos-list-desktop",
+        "repos-list-mobile"
+      ],
+      "domIssues": [],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 23
+        },
+        {
+          "type": "landmarks",
+          "banner": 1,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 1
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 13134.700000017881,
+        "loadComplete": 16617,
+        "domInteractive": 13129.5,
+        "responseEnd": 4275.300000011921,
+        "resourceCount": 36,
+        "totalTransferSize": 6567173
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/new-repo",
+          "text": "New Repository"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axumpublicFork of tokio-rs/axumJun 12, 2026"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/axum-fork-admin2",
+          "text": "admin2/axum-fork-admin2publicFork of tokio-rs/axum"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/axum",
+          "text": "admin2/axumpublicFork of tokio-rs/axum - ergonomic"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/test-repo",
+          "text": "admin2/test-repopublicTest repositoryJun 11, 2026"
+        },
+        {
+          "href": "http://192.168.1.191:9200/docs",
+          "text": "Documentation"
+        },
+        {
+          "href": "http://192.168.1.191:9200/api/v1",
+          "text": "API"
+        },
+        {
+          "href": "http://192.168.1.191:9200/status",
+          "text": "Status"
+        }
+      ]
+    },
+    {
+      "name": "new-repo",
+      "path": "/new-repo",
+      "url": "http://192.168.1.191:9200/new-repo",
+      "status": "failed",
+      "loadTimeMs": 25019,
+      "screenshots": [
+        "new-repo-error"
+      ],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/new-repo"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "error": "page.goto: Timeout 25000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"http://192.168.1.191:9200/new-repo\", waiting until \"networkidle\"\u001b[22m\n"
+    },
+    {
+      "name": "activity",
+      "path": "/activity",
+      "url": "http://192.168.1.191:9200/activity",
+      "status": "passed",
+      "loadTimeMs": 18207,
+      "screenshots": [
+        "activity-desktop",
+        "activity-mobile"
+      ],
+      "domIssues": [],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 22
+        },
+        {
+          "type": "landmarks",
+          "banner": 1,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 1
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 8626.90000000596,
+        "loadComplete": 19751,
+        "domInteractive": 8603,
+        "responseEnd": 53.29999998211861,
+        "resourceCount": 19,
+        "totalTransferSize": 6565192
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/activity"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/activity#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/docs",
+          "text": "Documentation"
+        },
+        {
+          "href": "http://192.168.1.191:9200/api/v1",
+          "text": "API"
+        },
+        {
+          "href": "http://192.168.1.191:9200/status",
+          "text": "Status"
+        }
+      ]
+    },
+    {
+      "name": "settings",
+      "path": "/settings",
+      "url": "http://192.168.1.191:9200/settings",
+      "status": "failed",
+      "loadTimeMs": 34396,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/settings"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "error": "page.evaluate: Target page, context or browser has been closed"
+    },
+    {
+      "name": "profile",
+      "path": "/profile",
+      "url": "http://192.168.1.191:9200/profile",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "orgs",
+      "path": "/orgs",
+      "url": "http://192.168.1.191:9200/orgs",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "admin",
+      "path": "/admin",
+      "url": "http://192.168.1.191:9200/admin",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "admin-site-settings",
+      "path": "/admin/site-settings",
+      "url": "http://192.168.1.191:9200/admin/site-settings",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-detail",
+      "path": "/repos/admin/axum",
+      "url": "http://192.168.1.191:9200/repos/admin/axum",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-code",
+      "path": "/repos/admin/axum/code",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-code-file",
+      "path": "/repos/admin/axum/code/README.md",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code/README.md",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-blame",
+      "path": "/repos/admin/axum/blame",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/blame",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-commits",
+      "path": "/repos/admin/axum/commits",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/commits",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-issues",
+      "path": "/repos/admin/axum/issues",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/issues",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-pulls",
+      "path": "/repos/admin/axum/pulls",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-wiki",
+      "path": "/repos/admin/axum/wiki",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-pipelines",
+      "path": "/repos/admin/axum/pipelines",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-graph",
+      "path": "/repos/admin/axum/graph",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/graph",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-releases",
+      "path": "/repos/admin/axum/releases",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/releases",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-boards",
+      "path": "/repos/admin/axum/boards",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/boards",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-environments",
+      "path": "/repos/admin/axum/environments",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/environments",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-deployments",
+      "path": "/repos/admin/axum/deployments",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/deployments",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-settings",
+      "path": "/repos/admin/axum/settings",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/settings",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "repo-branch-protection",
+      "path": "/repos/admin/axum/branch-protection",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/branch-protection",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    },
+    {
+      "name": "not-found",
+      "path": "/this-does-not-exist",
+      "url": "http://192.168.1.191:9200/this-does-not-exist",
+      "status": "failed",
+      "loadTimeMs": null,
+      "screenshots": [],
+      "domIssues": [],
+      "a11yIssues": [],
+      "perfMetrics": {},
+      "consoleErrors": [],
+      "networkErrors": [],
+      "error": "Failed to create context: browser.newContext: Target page, context or browser has been closed"
+    }
+  ],
+  "networkErrors": [
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "home"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "home"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "login"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "login"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "register"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "register"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "explore"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "search"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "search"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repos-list"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repos-list"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "new-repo"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "new-repo"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "activity"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "activity"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "settings"
+    }
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/",
+      "page": "home"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/login",
+      "page": "login"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/register",
+      "page": "register"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/explore",
+      "page": "explore"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/search",
+      "page": "search"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos",
+      "page": "repos-list"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/new-repo",
+      "page": "new-repo"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/activity",
+      "page": "activity"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/settings",
+      "page": "settings"
+    }
+  ],
+  "accessibilityIssues": [
+    {
+      "type": "focusable-count",
+      "count": 21,
+      "page": "home"
+    },
+    {
+      "type": "landmarks",
+      "banner": 1,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 1,
+      "page": "home"
+    },
+    {
+      "type": "focusable-count",
+      "count": 21,
+      "page": "login"
+    },
+    {
+      "type": "landmarks",
+      "banner": 1,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 1,
+      "page": "login"
+    },
+    {
+      "type": "focusable-count",
+      "count": 19,
+      "page": "search"
+    },
+    {
+      "type": "landmarks",
+      "banner": 1,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 1,
+      "page": "search"
+    },
+    {
+      "type": "focusable-count",
+      "count": 23,
+      "page": "repos-list"
+    },
+    {
+      "type": "landmarks",
+      "banner": 1,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 1,
+      "page": "repos-list"
+    },
+    {
+      "type": "focusable-count",
+      "count": 22,
+      "page": "activity"
+    },
+    {
+      "type": "landmarks",
+      "banner": 1,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 1,
+      "page": "activity"
+    }
+  ],
+  "brokenLinks": [],
+  "missingImages": [],
+  "performanceMetrics": [],
+  "domIssues": [
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "username",
+      "name": "username",
+      "page": "login"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "password",
+      "name": "password",
+      "page": "login"
+    }
+  ],
+  "summary": {
+    "routes": 30,
+    "passed": 5,
+    "failed": 25,
+    "totalConsoleErrors": 9,
+    "totalNetworkErrors": 17,
+    "totalDomIssues": 2,
+    "totalA11yIssues": 10,
+    "domIssueTypes": {
+      "missing-aria-label": 2
+    },
+    "a11yIssueTypes": {
+      "focusable-count": 5,
+      "landmarks": 5
+    },
+    "performance": {
+      "avgLoadTimeMs": 22008,
+      "maxLoadTimeMs": 34396,
+      "minLoadTimeMs": 7634
+    },
+    "durationMs": 488095
+  }
+}

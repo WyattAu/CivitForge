@@ -1,0 +1,5378 @@
+{
+  "startTime": "2026-06-13T17:16:29.924Z",
+  "pages": [
+    {
+      "name": "home",
+      "path": "/",
+      "url": "http://192.168.1.191:9200/",
+      "status": "passed",
+      "loadTimeMs": 2261,
+      "screenshots": [
+        "home-desktop",
+        "home-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 16
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 752.6000000014901,
+        "loadComplete": 1004.4000000059605,
+        "domInteractive": 750.9000000059605,
+        "responseEnd": 90.80000000447035,
+        "resourceCount": 11,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Get Started"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "Explore Repos"
+        }
+      ]
+    },
+    {
+      "name": "login",
+      "path": "/login",
+      "url": "http://192.168.1.191:9200/login",
+      "status": "passed",
+      "loadTimeMs": 5253,
+      "screenshots": [
+        "login-desktop",
+        "login-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "username",
+          "name": "username"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "password",
+          "name": "password"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 16
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1150.6999999955297,
+        "loadComplete": 2707.7999999970198,
+        "domInteractive": 1149.8999999985099,
+        "responseEnd": 41.399999998509884,
+        "resourceCount": 15,
+        "totalTransferSize": 5594662
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/login"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/login#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "register",
+      "path": "/register",
+      "url": "http://192.168.1.191:9200/register",
+      "status": "passed",
+      "loadTimeMs": 3383,
+      "screenshots": [
+        "register-desktop",
+        "register-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "username",
+          "name": "username"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "password",
+          "name": "password"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 16
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1594.7000000029802,
+        "loadComplete": 1594.8999999985099,
+        "domInteractive": 1592.8999999985099,
+        "responseEnd": 153.80000000447035,
+        "resourceCount": 11,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/register"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/register#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "explore",
+      "path": "/explore",
+      "url": "http://192.168.1.191:9200/explore",
+      "status": "passed",
+      "loadTimeMs": 4712,
+      "screenshots": [
+        "explore-desktop",
+        "explore-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "q",
+          "name": "q"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "heading-skip",
+          "from": "h1",
+          "to": "h3",
+          "text": "axum"
+        },
+        {
+          "type": "focusable-count",
+          "count": 21
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 2,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1587.7000000029802,
+        "loadComplete": 1587.7999999970198,
+        "domInteractive": 1586.7999999970198,
+        "responseEnd": 23.5,
+        "resourceCount": 15,
+        "totalTransferSize": 5597018
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/explore"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/explore#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "axumpublicFork of tokio-rs/axumOwner: 74320fe7...C"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/axum-fork-admin2",
+          "text": "axum-fork-admin2publicFork of tokio-rs/axum - ergo"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/axum",
+          "text": "axumpublicFork of tokio-rs/axum - ergonomic Rust w"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/test-repo",
+          "text": "test-repopublicTest repositoryOwner: 15f35b04...Cr"
+        }
+      ]
+    },
+    {
+      "name": "search",
+      "path": "/search",
+      "url": "http://192.168.1.191:9200/search",
+      "status": "passed",
+      "loadTimeMs": 6073,
+      "screenshots": [
+        "search-desktop",
+        "search-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 14
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 2181.8000000044703,
+        "loadComplete": 3302.2000000029802,
+        "domInteractive": 2175.39999999851,
+        "responseEnd": 48.30000000447035,
+        "resourceCount": 15,
+        "totalTransferSize": 5594662
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/search"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/search#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "repos-list",
+      "path": "/repos",
+      "url": "http://192.168.1.191:9200/repos",
+      "status": "passed",
+      "loadTimeMs": 2527,
+      "screenshots": [
+        "repos-list-desktop",
+        "repos-list-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 18
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 859.8999999985099,
+        "loadComplete": 1377.5,
+        "domInteractive": 857.5999999940395,
+        "responseEnd": 65,
+        "resourceCount": 12,
+        "totalTransferSize": 5596718
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/new-repo",
+          "text": "New Repository"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axumpublicFork of tokio-rs/axumJun 12, 2026"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/axum-fork-admin2",
+          "text": "admin2/axum-fork-admin2publicFork of tokio-rs/axum"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/axum",
+          "text": "admin2/axumpublicFork of tokio-rs/axum - ergonomic"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin2/test-repo",
+          "text": "admin2/test-repopublicTest repositoryJun 11, 2026"
+        }
+      ]
+    },
+    {
+      "name": "new-repo",
+      "path": "/new-repo",
+      "url": "http://192.168.1.191:9200/new-repo",
+      "status": "passed",
+      "loadTimeMs": 2116,
+      "screenshots": [
+        "new-repo-desktop",
+        "new-repo-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "repo-name",
+          "name": "repo-name"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "TEXTAREA",
+          "id": "repo-description",
+          "name": "repo-description"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "visibility-public",
+          "name": "visibility"
+        },
+        {
+          "type": "radio",
+          "tag": "INPUT",
+          "id": "visibility-public",
+          "name": "visibility"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "visibility-internal",
+          "name": "visibility"
+        },
+        {
+          "type": "radio",
+          "tag": "INPUT",
+          "id": "visibility-internal",
+          "name": "visibility"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "visibility-private",
+          "name": "visibility"
+        },
+        {
+          "type": "radio",
+          "tag": "INPUT",
+          "id": "visibility-private",
+          "name": "visibility"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 20
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 633.5,
+        "loadComplete": 1203.5,
+        "domInteractive": 632.2999999970198,
+        "responseEnd": 18.69999999552965,
+        "resourceCount": 11,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/new-repo"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/new-repo#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Cancel"
+        }
+      ]
+    },
+    {
+      "name": "activity",
+      "path": "/activity",
+      "url": "http://192.168.1.191:9200/activity",
+      "status": "passed",
+      "loadTimeMs": 2531,
+      "screenshots": [
+        "activity-desktop",
+        "activity-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "heading-skip",
+          "from": "h1",
+          "to": "h3",
+          "text": "No recent activity"
+        },
+        {
+          "type": "focusable-count",
+          "count": 17
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 666.1999999955297,
+        "loadComplete": 1056.5999999940395,
+        "domInteractive": 665.1999999955297,
+        "responseEnd": 29.19999999552965,
+        "resourceCount": 12,
+        "totalTransferSize": 5594737
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/activity"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/activity#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "settings",
+      "path": "/settings",
+      "url": "http://192.168.1.191:9200/settings",
+      "status": "passed",
+      "loadTimeMs": 3960,
+      "screenshots": [
+        "settings-desktop",
+        "settings-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "pw-current",
+          "name": "pw-current"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "pw-new",
+          "name": "pw-new"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "pw-confirm",
+          "name": "pw-confirm"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "heading-skip",
+          "from": "h1",
+          "to": "h3",
+          "text": "Profile"
+        },
+        {
+          "type": "focusable-count",
+          "count": 19
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 683.3999999985099,
+        "loadComplete": 1666.8999999985099,
+        "domInteractive": 682.2000000029802,
+        "responseEnd": 41.600000001490116,
+        "resourceCount": 13,
+        "totalTransferSize": 5595024
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "url": "http://192.168.1.191:9200/settings"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/settings"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/api/v1/auth/me",
+          "status": 401,
+          "statusText": "Unauthorized"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/auth/me",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/settings#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "path": "/profile",
+      "url": "http://192.168.1.191:9200/profile",
+      "status": "passed",
+      "loadTimeMs": 3096,
+      "screenshots": [
+        "profile-desktop",
+        "profile-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 14
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1304.7000000029802,
+        "loadComplete": 1820.7000000029802,
+        "domInteractive": 1303.2000000029802,
+        "responseEnd": 26.600000001490116,
+        "resourceCount": 11,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/profile"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/profile#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "Go Home"
+        }
+      ]
+    },
+    {
+      "name": "orgs",
+      "path": "/orgs",
+      "url": "http://192.168.1.191:9200/orgs",
+      "status": "passed",
+      "loadTimeMs": 2864,
+      "screenshots": [
+        "orgs-desktop",
+        "orgs-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 13
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 867.8000000044703,
+        "loadComplete": 1471.9000000059605,
+        "domInteractive": 866.4000000059605,
+        "responseEnd": 33.80000000447035,
+        "resourceCount": 12,
+        "totalTransferSize": 5594738
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/orgs"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/orgs#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "admin",
+      "path": "/admin",
+      "url": "http://192.168.1.191:9200/admin",
+      "status": "passed",
+      "loadTimeMs": 2890,
+      "screenshots": [
+        "admin-desktop",
+        "admin-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "text",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "text",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "text",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "date",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "date",
+          "tag": "INPUT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 23
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 2,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 618,
+        "loadComplete": 2055.2999999970198,
+        "domInteractive": 617.1000000014901,
+        "responseEnd": 9.199999995529652,
+        "resourceCount": 11,
+        "totalTransferSize": 5594724
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "url": "http://192.168.1.191:9200/admin"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/admin"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/api/v1/audit-log?per_page=50",
+          "status": 401,
+          "statusText": "Unauthorized"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/audit-log?per_page=50",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/admin#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        }
+      ]
+    },
+    {
+      "name": "admin-site-settings",
+      "path": "/admin/site-settings",
+      "url": "http://192.168.1.191:9200/admin/site-settings",
+      "status": "passed",
+      "loadTimeMs": 2469,
+      "screenshots": [
+        "admin-site-settings-desktop",
+        "admin-site-settings-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 14
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 415,
+        "loadComplete": 780.3999999985099,
+        "domInteractive": 414,
+        "responseEnd": 14.100000001490116,
+        "resourceCount": 11,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/admin/site-settings"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/admin/site-settings#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "Go Home"
+        }
+      ]
+    },
+    {
+      "name": "repo-detail",
+      "path": "/repos/admin/axum",
+      "url": "http://192.168.1.191:9200/repos/admin/axum",
+      "status": "passed",
+      "loadTimeMs": 3393,
+      "screenshots": [
+        "repo-detail-desktop",
+        "repo-detail-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 27
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 532,
+        "loadComplete": 822.7000000029802,
+        "domInteractive": 531.2000000029802,
+        "responseEnd": 12.100000001490116,
+        "resourceCount": 22,
+        "totalTransferSize": 6636685
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+          "status": 404,
+          "statusText": "Not Found"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-code",
+      "path": "/repos/admin/axum/code",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code",
+      "status": "passed",
+      "loadTimeMs": 3875,
+      "screenshots": [
+        "repo-code-desktop",
+        "repo-code-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 27
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 598.1999999955297,
+        "loadComplete": 1029.7999999970198,
+        "domInteractive": 587.5999999940395,
+        "responseEnd": 46.099999994039536,
+        "resourceCount": 22,
+        "totalTransferSize": 6636685
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/code"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/code"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+          "status": 404,
+          "statusText": "Not Found"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/code#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-code-file",
+      "path": "/repos/admin/axum/code/README.md",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code/README.md",
+      "status": "passed",
+      "loadTimeMs": 3739,
+      "screenshots": [
+        "repo-code-file-desktop",
+        "repo-code-file-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 27
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1028.1000000014901,
+        "loadComplete": 1028.1000000014901,
+        "domInteractive": 1027.1000000014901,
+        "responseEnd": 15.400000005960464,
+        "resourceCount": 20,
+        "totalTransferSize": 6636051
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/code/README.md"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/code/README.md"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/blob?path=README.md",
+          "status": 404,
+          "statusText": "Not Found"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/blob?path=README.md",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/code/README.md#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-blame",
+      "path": "/repos/admin/axum/blame",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/blame",
+      "status": "passed",
+      "loadTimeMs": 3143,
+      "screenshots": [
+        "repo-blame-desktop",
+        "repo-blame-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "A",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "empty-link",
+          "href": "http://192.168.1.191:9200/repos/admin/axum/code/"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 28
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1229.1000000014901,
+        "loadComplete": 1660.1000000014901,
+        "domInteractive": 1227.8000000044703,
+        "responseEnd": 39.80000000447035,
+        "resourceCount": 14,
+        "totalTransferSize": 5595415
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/blame"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/blame#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/code/",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "name": "repo-commits",
+      "path": "/repos/admin/axum/commits",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/commits",
+      "status": "passed",
+      "loadTimeMs": 2949,
+      "screenshots": [
+        "repo-commits-desktop",
+        "repo-commits-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "A",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "empty-link",
+          "href": "http://192.168.1.191:9200/repos/admin/axum/code/"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 28
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1000.8999999985099,
+        "loadComplete": 1771.6000000014901,
+        "domInteractive": 990,
+        "responseEnd": 13.899999998509884,
+        "resourceCount": 12,
+        "totalTransferSize": 5595115
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/commits"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/commits#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/code/",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "name": "repo-issues",
+      "path": "/repos/admin/axum/issues",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/issues",
+      "status": "passed",
+      "loadTimeMs": 5130,
+      "screenshots": [
+        "repo-issues-desktop",
+        "repo-issues-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 34
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 3,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1893.1000000014901,
+        "loadComplete": 1893.2000000029802,
+        "domInteractive": 1892.3000000044703,
+        "responseEnd": 21.899999998509884,
+        "resourceCount": 16,
+        "totalTransferSize": 5596179
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/issues"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues/1",
+          "text": "#1Test issueOpen74320fe7...21h ago"
+        }
+      ]
+    },
+    {
+      "name": "repo-pulls",
+      "path": "/repos/admin/axum/pulls",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+      "status": "passed",
+      "loadTimeMs": 3174,
+      "screenshots": [
+        "repo-pulls-desktop",
+        "repo-pulls-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 31
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 2,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1637.7999999970198,
+        "loadComplete": 2264.89999999851,
+        "domInteractive": 1637.1000000014901,
+        "responseEnd": 63.600000001490116,
+        "resourceCount": 15,
+        "totalTransferSize": 5595777
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/pulls"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/pulls"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/pulls?per_page=20&page=1",
+          "status": 401,
+          "statusText": "Unauthorized"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/pulls?per_page=20&page=1",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-wiki",
+      "path": "/repos/admin/axum/wiki",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+      "status": "passed",
+      "loadTimeMs": 3302,
+      "screenshots": [
+        "repo-wiki-desktop",
+        "repo-wiki-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "wiki-search",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "heading-skip",
+          "from": "h1",
+          "to": "h3",
+          "text": "Pages"
+        },
+        {
+          "type": "focusable-count",
+          "count": 29
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1314.7000000029802,
+        "loadComplete": 1314.7999999970198,
+        "domInteractive": 1300,
+        "responseEnd": 23.100000001490116,
+        "resourceCount": 13,
+        "totalTransferSize": 5595512
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/wiki"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-pipelines",
+      "path": "/repos/admin/axum/pipelines",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+      "status": "passed",
+      "loadTimeMs": 2774,
+      "screenshots": [
+        "repo-pipelines-desktop",
+        "repo-pipelines-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 31
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1375.1999999955297,
+        "loadComplete": 2061.1999999955297,
+        "domInteractive": 1374.2999999970198,
+        "responseEnd": 40.79999999701977,
+        "resourceCount": 13,
+        "totalTransferSize": 5595417
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/pipelines"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-graph",
+      "path": "/repos/admin/axum/graph",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/graph",
+      "status": "passed",
+      "loadTimeMs": 3076,
+      "screenshots": [
+        "repo-graph-desktop",
+        "repo-graph-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "heading-skip",
+          "from": "h1",
+          "to": "h3",
+          "text": "Legend"
+        },
+        {
+          "type": "focusable-count",
+          "count": 27
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1130.5,
+        "loadComplete": 2020,
+        "domInteractive": 1128.3000000044703,
+        "responseEnd": 35.20000000298023,
+        "resourceCount": 15,
+        "totalTransferSize": 5595752
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/graph"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/graph#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/commits",
+          "text": "View as list"
+        }
+      ]
+    },
+    {
+      "name": "repo-releases",
+      "path": "/repos/admin/axum/releases",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/releases",
+      "status": "passed",
+      "loadTimeMs": 4731,
+      "screenshots": [
+        "repo-releases-desktop",
+        "repo-releases-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 26
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 2994.7000000029802,
+        "loadComplete": 4164.60000000149,
+        "domInteractive": 2993.9000000059605,
+        "responseEnd": 53.70000000298023,
+        "resourceCount": 14,
+        "totalTransferSize": 5595777
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/releases"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/releases"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/releases",
+          "status": 401,
+          "statusText": "Unauthorized"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/releases",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/releases#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        }
+      ]
+    },
+    {
+      "name": "repo-boards",
+      "path": "/repos/admin/axum/boards",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/boards",
+      "status": "passed",
+      "loadTimeMs": 6807,
+      "screenshots": [
+        "repo-boards-desktop",
+        "repo-boards-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 26
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 1556,
+        "loadComplete": 4270.0999999940395,
+        "domInteractive": 1549.1999999955297,
+        "responseEnd": 204.79999999701977,
+        "resourceCount": 17,
+        "totalTransferSize": 5595717
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/boards"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "admin/axum"
+        }
+      ]
+    },
+    {
+      "name": "repo-environments",
+      "path": "/repos/admin/axum/environments",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/environments",
+      "status": "passed",
+      "loadTimeMs": 2636,
+      "screenshots": [
+        "repo-environments-desktop",
+        "repo-environments-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 14
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 947.8000000044703,
+        "loadComplete": 2412.7000000029802,
+        "domInteractive": 944.7000000029802,
+        "responseEnd": 17.80000000447035,
+        "resourceCount": 10,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/environments"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/environments#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "Go Home"
+        }
+      ]
+    },
+    {
+      "name": "repo-deployments",
+      "path": "/repos/admin/axum/deployments",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/deployments",
+      "status": "passed",
+      "loadTimeMs": 2765,
+      "screenshots": [
+        "repo-deployments-desktop",
+        "repo-deployments-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 14
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 966.5,
+        "loadComplete": 1362.3000000044703,
+        "domInteractive": 965.6000000014901,
+        "responseEnd": 17.700000002980232,
+        "resourceCount": 11,
+        "totalTransferSize": 5594362
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/deployments"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/deployments#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "Go Home"
+        }
+      ]
+    },
+    {
+      "name": "repo-settings",
+      "path": "/repos/admin/axum/settings",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/settings",
+      "status": "passed",
+      "loadTimeMs": 4340,
+      "screenshots": [
+        "repo-settings-desktop",
+        "repo-settings-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "repo-settings-name",
+          "name": "repo-settings-name"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "visibility-public",
+          "name": "visibility"
+        },
+        {
+          "type": "radio",
+          "tag": "INPUT",
+          "id": "visibility-public",
+          "name": "visibility"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "visibility-internal",
+          "name": "visibility"
+        },
+        {
+          "type": "radio",
+          "tag": "INPUT",
+          "id": "visibility-internal",
+          "name": "visibility"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "visibility-private",
+          "name": "visibility"
+        },
+        {
+          "type": "radio",
+          "tag": "INPUT",
+          "id": "visibility-private",
+          "name": "visibility"
+        },
+        {
+          "type": "missing-aria-label",
+          "tag": "INPUT",
+          "id": "repo-settings-branch",
+          "name": "repo-settings-branch"
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "heading-skip",
+          "from": "h1",
+          "to": "h3",
+          "text": "General"
+        },
+        {
+          "type": "focusable-count",
+          "count": 36
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 2,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 974.8999999985099,
+        "loadComplete": 1491.7000000029802,
+        "domInteractive": 972.6000000014901,
+        "responseEnd": 46.600000001490116,
+        "resourceCount": 16,
+        "totalTransferSize": 5596168
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/settings"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        }
+      ]
+    },
+    {
+      "name": "repo-branch-protection",
+      "path": "/repos/admin/axum/branch-protection",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/branch-protection",
+      "status": "passed",
+      "loadTimeMs": 8608,
+      "screenshots": [
+        "repo-branch-protection-desktop",
+        "repo-branch-protection-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 25
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 2227.7000000029802,
+        "loadComplete": 5107.5,
+        "domInteractive": 2226.7999999970198,
+        "responseEnd": 175.70000000298023,
+        "resourceCount": 20,
+        "totalTransferSize": 5595777
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/branch-protection"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "url": "http://192.168.1.191:9200/repos/admin/axum/branch-protection"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/branch-protection",
+          "status": 401,
+          "statusText": "Unauthorized"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        },
+        {
+          "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/branch-protection",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/branch-protection#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum",
+          "text": "{ }Code"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/issues",
+          "text": "!Issues"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+          "text": "><Pull Requests"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/boards",
+          "text": "KBoards"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+          "text": ">Pipelines"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+          "text": "WWiki"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos/admin/axum/settings",
+          "text": "SSettings"
+        }
+      ]
+    },
+    {
+      "name": "not-found",
+      "path": "/this-does-not-exist",
+      "url": "http://192.168.1.191:9200/this-does-not-exist",
+      "status": "passed",
+      "loadTimeMs": 4427,
+      "screenshots": [
+        "not-found-desktop",
+        "not-found-mobile"
+      ],
+      "domIssues": [
+        {
+          "type": "select-one",
+          "tag": "SELECT",
+          "id": "",
+          "name": ""
+        }
+      ],
+      "a11yIssues": [
+        {
+          "type": "focusable-count",
+          "count": 14
+        },
+        {
+          "type": "landmarks",
+          "banner": 0,
+          "nav": 1,
+          "main": 1,
+          "contentinfo": 0
+        }
+      ],
+      "perfMetrics": {
+        "domContentLoaded": 2380.1999999955297,
+        "loadComplete": 3149,
+        "domInteractive": 2379.39999999851,
+        "responseEnd": 326.3999999985099,
+        "resourceCount": 13,
+        "totalTransferSize": 5594662
+      },
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+          "url": "http://192.168.1.191:9200/this-does-not-exist"
+        }
+      ],
+      "networkErrors": [
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "status": 405,
+          "statusText": "Method Not Allowed"
+        },
+        {
+          "url": "http://192.168.1.191:9200/__capture__",
+          "failure": "net::ERR_ABORTED"
+        }
+      ],
+      "links": [
+        {
+          "href": "http://192.168.1.191:9200/this-does-not-exist#main-content",
+          "text": "Skip to main content"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "CivitForge"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "🏠️Home"
+        },
+        {
+          "href": "http://192.168.1.191:9200/repos",
+          "text": "📁Repositories"
+        },
+        {
+          "href": "http://192.168.1.191:9200/activity",
+          "text": "Activity"
+        },
+        {
+          "href": "http://192.168.1.191:9200/explore",
+          "text": "🔍Explore"
+        },
+        {
+          "href": "http://192.168.1.191:9200/orgs",
+          "text": "🏫Organizations"
+        },
+        {
+          "href": "http://192.168.1.191:9200/search",
+          "text": "Search"
+        },
+        {
+          "href": "http://192.168.1.191:9200/login",
+          "text": "Sign In"
+        },
+        {
+          "href": "http://192.168.1.191:9200/",
+          "text": "Go Home"
+        }
+      ]
+    }
+  ],
+  "networkErrors": [
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "home"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "home"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "login"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "login"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "register"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "register"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "explore"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "explore"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "search"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "search"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repos-list"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repos-list"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "new-repo"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "new-repo"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "activity"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "activity"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/auth/me",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "page": "settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/auth/me",
+      "failure": "net::ERR_ABORTED",
+      "page": "settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "profile"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "profile"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "orgs"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "orgs"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/audit-log?per_page=50",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "page": "admin"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/audit-log?per_page=50",
+      "failure": "net::ERR_ABORTED",
+      "page": "admin"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "admin"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "admin"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "admin-site-settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "admin-site-settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+      "status": 404,
+      "statusText": "Not Found",
+      "page": "repo-detail"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-detail"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-detail"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-detail"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+      "status": 404,
+      "statusText": "Not Found",
+      "page": "repo-code"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/readme",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-code"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-code"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-code"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/blob?path=README.md",
+      "status": 404,
+      "statusText": "Not Found",
+      "page": "repo-code-file"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/blob?path=README.md",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-code-file"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-code-file"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-code-file"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-blame"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-blame"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-commits"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-commits"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-issues"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/pulls?per_page=20&page=1",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "page": "repo-pulls"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/pulls?per_page=20&page=1",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-pulls"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-pulls"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-pulls"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-wiki"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-wiki"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-pipelines"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-pipelines"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-graph"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-graph"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-releases"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/releases",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "page": "repo-releases"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-releases"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/releases",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-releases"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-boards"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-boards"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-environments"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-environments"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-deployments"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-deployments"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-settings"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "repo-branch-protection"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/branch-protection",
+      "status": 401,
+      "statusText": "Unauthorized",
+      "page": "repo-branch-protection"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-branch-protection"
+    },
+    {
+      "url": "http://192.168.1.191:9200/api/v1/repos/admin/axum/branch-protection",
+      "failure": "net::ERR_ABORTED",
+      "page": "repo-branch-protection"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "status": 405,
+      "statusText": "Method Not Allowed",
+      "page": "not-found"
+    },
+    {
+      "url": "http://192.168.1.191:9200/__capture__",
+      "failure": "net::ERR_ABORTED",
+      "page": "not-found"
+    }
+  ],
+  "consoleErrors": [
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/",
+      "page": "home"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/login",
+      "page": "login"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/register",
+      "page": "register"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/explore",
+      "page": "explore"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/search",
+      "page": "search"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos",
+      "page": "repos-list"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/new-repo",
+      "page": "new-repo"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/activity",
+      "page": "activity"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://192.168.1.191:9200/settings",
+      "page": "settings"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/settings",
+      "page": "settings"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/profile",
+      "page": "profile"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/orgs",
+      "page": "orgs"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://192.168.1.191:9200/admin",
+      "page": "admin"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/admin",
+      "page": "admin"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/admin/site-settings",
+      "page": "admin-site-settings"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum",
+      "page": "repo-detail"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum",
+      "page": "repo-detail"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code",
+      "page": "repo-code"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code",
+      "page": "repo-code"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code/README.md",
+      "page": "repo-code-file"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/code/README.md",
+      "page": "repo-code-file"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/blame",
+      "page": "repo-blame"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/commits",
+      "page": "repo-commits"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/issues",
+      "page": "repo-issues"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+      "page": "repo-pulls"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pulls",
+      "page": "repo-pulls"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/wiki",
+      "page": "repo-wiki"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/pipelines",
+      "page": "repo-pipelines"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/graph",
+      "page": "repo-graph"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/releases",
+      "page": "repo-releases"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/releases",
+      "page": "repo-releases"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/boards",
+      "page": "repo-boards"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/environments",
+      "page": "repo-environments"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/deployments",
+      "page": "repo-deployments"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/settings",
+      "page": "repo-settings"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/branch-protection",
+      "page": "repo-branch-protection"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+      "url": "http://192.168.1.191:9200/repos/admin/axum/branch-protection",
+      "page": "repo-branch-protection"
+    },
+    {
+      "text": "Failed to load resource: the server responded with a status of 405 (Method Not Allowed)",
+      "url": "http://192.168.1.191:9200/this-does-not-exist",
+      "page": "not-found"
+    }
+  ],
+  "accessibilityIssues": [
+    {
+      "type": "focusable-count",
+      "count": 16,
+      "page": "home"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "home"
+    },
+    {
+      "type": "focusable-count",
+      "count": 16,
+      "page": "login"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "login"
+    },
+    {
+      "type": "focusable-count",
+      "count": 16,
+      "page": "register"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "register"
+    },
+    {
+      "type": "heading-skip",
+      "from": "h1",
+      "to": "h3",
+      "text": "axum",
+      "page": "explore"
+    },
+    {
+      "type": "focusable-count",
+      "count": 21,
+      "page": "explore"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 2,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "explore"
+    },
+    {
+      "type": "focusable-count",
+      "count": 14,
+      "page": "search"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "search"
+    },
+    {
+      "type": "focusable-count",
+      "count": 18,
+      "page": "repos-list"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repos-list"
+    },
+    {
+      "type": "focusable-count",
+      "count": 20,
+      "page": "new-repo"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "new-repo"
+    },
+    {
+      "type": "heading-skip",
+      "from": "h1",
+      "to": "h3",
+      "text": "No recent activity",
+      "page": "activity"
+    },
+    {
+      "type": "focusable-count",
+      "count": 17,
+      "page": "activity"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "activity"
+    },
+    {
+      "type": "heading-skip",
+      "from": "h1",
+      "to": "h3",
+      "text": "Profile",
+      "page": "settings"
+    },
+    {
+      "type": "focusable-count",
+      "count": 19,
+      "page": "settings"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "settings"
+    },
+    {
+      "type": "focusable-count",
+      "count": 14,
+      "page": "profile"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "profile"
+    },
+    {
+      "type": "focusable-count",
+      "count": 13,
+      "page": "orgs"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "orgs"
+    },
+    {
+      "type": "focusable-count",
+      "count": 23,
+      "page": "admin"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 2,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "admin"
+    },
+    {
+      "type": "focusable-count",
+      "count": 14,
+      "page": "admin-site-settings"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "admin-site-settings"
+    },
+    {
+      "type": "focusable-count",
+      "count": 27,
+      "page": "repo-detail"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-detail"
+    },
+    {
+      "type": "focusable-count",
+      "count": 27,
+      "page": "repo-code"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-code"
+    },
+    {
+      "type": "focusable-count",
+      "count": 27,
+      "page": "repo-code-file"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-code-file"
+    },
+    {
+      "type": "focusable-count",
+      "count": 28,
+      "page": "repo-blame"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-blame"
+    },
+    {
+      "type": "focusable-count",
+      "count": 28,
+      "page": "repo-commits"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-commits"
+    },
+    {
+      "type": "focusable-count",
+      "count": 34,
+      "page": "repo-issues"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 3,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-issues"
+    },
+    {
+      "type": "focusable-count",
+      "count": 31,
+      "page": "repo-pulls"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 2,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-pulls"
+    },
+    {
+      "type": "heading-skip",
+      "from": "h1",
+      "to": "h3",
+      "text": "Pages",
+      "page": "repo-wiki"
+    },
+    {
+      "type": "focusable-count",
+      "count": 29,
+      "page": "repo-wiki"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-wiki"
+    },
+    {
+      "type": "focusable-count",
+      "count": 31,
+      "page": "repo-pipelines"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-pipelines"
+    },
+    {
+      "type": "heading-skip",
+      "from": "h1",
+      "to": "h3",
+      "text": "Legend",
+      "page": "repo-graph"
+    },
+    {
+      "type": "focusable-count",
+      "count": 27,
+      "page": "repo-graph"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-graph"
+    },
+    {
+      "type": "focusable-count",
+      "count": 26,
+      "page": "repo-releases"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-releases"
+    },
+    {
+      "type": "focusable-count",
+      "count": 26,
+      "page": "repo-boards"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-boards"
+    },
+    {
+      "type": "focusable-count",
+      "count": 14,
+      "page": "repo-environments"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-environments"
+    },
+    {
+      "type": "focusable-count",
+      "count": 14,
+      "page": "repo-deployments"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-deployments"
+    },
+    {
+      "type": "heading-skip",
+      "from": "h1",
+      "to": "h3",
+      "text": "General",
+      "page": "repo-settings"
+    },
+    {
+      "type": "focusable-count",
+      "count": 36,
+      "page": "repo-settings"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 2,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-settings"
+    },
+    {
+      "type": "focusable-count",
+      "count": 25,
+      "page": "repo-branch-protection"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "repo-branch-protection"
+    },
+    {
+      "type": "focusable-count",
+      "count": 14,
+      "page": "not-found"
+    },
+    {
+      "type": "landmarks",
+      "banner": 0,
+      "nav": 1,
+      "main": 1,
+      "contentinfo": 0,
+      "page": "not-found"
+    }
+  ],
+  "brokenLinks": [],
+  "missingImages": [],
+  "performanceMetrics": [],
+  "domIssues": [
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "home"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "login"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "username",
+      "name": "username",
+      "page": "login"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "password",
+      "name": "password",
+      "page": "login"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "register"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "username",
+      "name": "username",
+      "page": "register"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "password",
+      "name": "password",
+      "page": "register"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "explore"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "q",
+      "name": "q",
+      "page": "explore"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "search"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repos-list"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "new-repo"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "repo-name",
+      "name": "repo-name",
+      "page": "new-repo"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "TEXTAREA",
+      "id": "repo-description",
+      "name": "repo-description",
+      "page": "new-repo"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "visibility-public",
+      "name": "visibility",
+      "page": "new-repo"
+    },
+    {
+      "type": "radio",
+      "tag": "INPUT",
+      "id": "visibility-public",
+      "name": "visibility",
+      "page": "new-repo"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "visibility-internal",
+      "name": "visibility",
+      "page": "new-repo"
+    },
+    {
+      "type": "radio",
+      "tag": "INPUT",
+      "id": "visibility-internal",
+      "name": "visibility",
+      "page": "new-repo"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "visibility-private",
+      "name": "visibility",
+      "page": "new-repo"
+    },
+    {
+      "type": "radio",
+      "tag": "INPUT",
+      "id": "visibility-private",
+      "name": "visibility",
+      "page": "new-repo"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "activity"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "pw-current",
+      "name": "pw-current",
+      "page": "settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "pw-new",
+      "name": "pw-new",
+      "page": "settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "pw-confirm",
+      "name": "pw-confirm",
+      "page": "settings"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "profile"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "orgs"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "text",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "text",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "text",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "date",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "date",
+      "tag": "INPUT",
+      "id": "",
+      "name": "",
+      "page": "admin"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "admin-site-settings"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-detail"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-code"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-code-file"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-blame"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "A",
+      "id": "",
+      "name": "",
+      "page": "repo-blame"
+    },
+    {
+      "type": "empty-link",
+      "href": "http://192.168.1.191:9200/repos/admin/axum/code/",
+      "page": "repo-blame"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-commits"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "A",
+      "id": "",
+      "name": "",
+      "page": "repo-commits"
+    },
+    {
+      "type": "empty-link",
+      "href": "http://192.168.1.191:9200/repos/admin/axum/code/",
+      "page": "repo-commits"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-issues"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-pulls"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-wiki"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "wiki-search",
+      "name": "",
+      "page": "repo-wiki"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-pipelines"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-graph"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-releases"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-boards"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-environments"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-deployments"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "repo-settings-name",
+      "name": "repo-settings-name",
+      "page": "repo-settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "visibility-public",
+      "name": "visibility",
+      "page": "repo-settings"
+    },
+    {
+      "type": "radio",
+      "tag": "INPUT",
+      "id": "visibility-public",
+      "name": "visibility",
+      "page": "repo-settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "visibility-internal",
+      "name": "visibility",
+      "page": "repo-settings"
+    },
+    {
+      "type": "radio",
+      "tag": "INPUT",
+      "id": "visibility-internal",
+      "name": "visibility",
+      "page": "repo-settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "visibility-private",
+      "name": "visibility",
+      "page": "repo-settings"
+    },
+    {
+      "type": "radio",
+      "tag": "INPUT",
+      "id": "visibility-private",
+      "name": "visibility",
+      "page": "repo-settings"
+    },
+    {
+      "type": "missing-aria-label",
+      "tag": "INPUT",
+      "id": "repo-settings-branch",
+      "name": "repo-settings-branch",
+      "page": "repo-settings"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "repo-branch-protection"
+    },
+    {
+      "type": "select-one",
+      "tag": "SELECT",
+      "id": "",
+      "name": "",
+      "page": "not-found"
+    }
+  ],
+  "summary": {
+    "routes": 30,
+    "passed": 30,
+    "failed": 0,
+    "totalConsoleErrors": 38,
+    "totalNetworkErrors": 75,
+    "totalDomIssues": 69,
+    "totalA11yIssues": 66,
+    "domIssueTypes": {
+      "select-one": 30,
+      "missing-aria-label": 26,
+      "radio": 6,
+      "text": 3,
+      "date": 2,
+      "empty-link": 2
+    },
+    "a11yIssueTypes": {
+      "focusable-count": 30,
+      "landmarks": 30,
+      "heading-skip": 6
+    },
+    "performance": {
+      "avgLoadTimeMs": 3767,
+      "maxLoadTimeMs": 8608,
+      "minLoadTimeMs": 2116
+    },
+    "durationMs": 204852
+  }
+}
