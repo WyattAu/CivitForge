@@ -76,11 +76,11 @@ clean:
 	$(CARGO) clean
 	rm -rf /tmp/civit-repos /tmp/civit-server.log /tmp/civit-smoke-body
 
-# ── Pre-commit hooks (requires npx from Node.js) ──────────────
+# ── Pre-commit hooks ───────────────────────────────────────────
 hooks:
-	npx husky init
-	@printf '#!/bin/sh\ncargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace\n' > .husky/pre-commit
-	chmod +x .husky/pre-commit
+	git config core.hooksPath .githooks
+	@echo "Pre-commit hooks activated (.githooks/pre-commit)"
+	@echo "Bypass: SKIP_PRE_COMMIT=1 git commit ..."
 
 # ── Full cycle: compose → build → test → lint → smoke ─────────
 ci-local: compose-up build test lint smoke

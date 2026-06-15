@@ -7,7 +7,7 @@ Federated, Rust-native software forge for large-scale monorepos. Provides Git ho
 
 ## Architecture
 
-12-workspace Cargo crate, Rust edition 2024, `#![forbid(unsafe_code)]` enforced, 3,659 tests:
+12-workspace Cargo crate, Rust edition 2024, `#![forbid(unsafe_code)]` enforced, 3,707 tests passing (118 integration tests require PostgreSQL):
 
 | Crate | Role |
 |-------|------|
@@ -122,16 +122,18 @@ Key endpoint groups: auth, users, organizations, repositories, branches, tags, p
 
 ## Contributing
 
-1. Install Rust 1.88+ with clippy and rustfmt components
-2. Run `docker compose up -d postgres redis` for local dependencies
-3. Pre-commit hooks enforce: `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`
-4. All Rust files require `#![forbid(unsafe_code)]` at the crate level (ADR-001)
-5. Conventional Commits: `type(scope): description`
-6. See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines
+1. Install Rust 1.88+ with clippy and rustfmt components, plus `protoc` (protobuf compiler)
+2. Activate pre-commit hooks: `git config core.hooksPath .githooks`
+3. Run `docker compose up -d postgres redis` for local dependencies
+4. Pre-commit hooks enforce: emoji scan, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`
+5. All Rust files require `#![forbid(unsafe_code)]` at the crate level (ADR-001)
+6. No emoji in source, documentation, or rendered UI text (enforced by pre-commit scanner)
+7. Conventional Commits: `type(scope): description`
+8. See [CONTRIBUTING.md](CONTRIBUTING.md) for full guidelines
 
 ## CI
 
-GitHub Actions runs on push/PR to `main`: fmt, clippy, test, build (all with `--locked`).
+GitHub Actions runs on push/PR to `main`: fmt, clippy, test, security audit (cargo-audit), WASM build (all with `--locked`). Docker images build and push to `ghcr.io/wyattau/civitforge` on `main` and version tags.
 
 ## License
 

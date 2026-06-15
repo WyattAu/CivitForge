@@ -2,11 +2,12 @@
 
 ## Prerequisites
 
-- Rust 1.88+ (edition 2024)
-- PostgreSQL 17+
-- Redis 7+ (optional, for sessions/edge cache)
+- Rust 1.88+ (edition 2024) with `clippy` and `rustfmt` components
+- Protobuf compiler (`protoc`) for gRPC code generation
+- PostgreSQL 17+ (integration tests only)
+- Redis 7+ (optional, for sessions and edge cache)
 - Podman or Docker (optional, for CI runner)
-- Node.js (optional, for husky pre-commit hooks)
+- Node.js 20+ (optional, for Playwright GUI/E2E test harnesses)
 
 ## Development Setup
 
@@ -14,8 +15,11 @@
 git clone https://github.com/WyattAu/CivitForge.git
 cd CivitForge
 
-# Install toolchain
+# Install toolchain components
 rustup component add clippy rustfmt
+
+# Activate pre-commit hooks (one-time per clone)
+git config core.hooksPath .githooks
 
 # Build
 cargo build --workspace
@@ -32,32 +36,33 @@ export JWT_SECRET="dev-secret-key-32bytes-minimum"
 make run
 ```
 
-## Pre-Commit Hooks
+## Pre-Commit Hook
 
-Husky enforces three checks on every commit:
+The canonical pre-commit hook lives at `.githooks/pre-commit`. It enforces:
+
+1. **Emoji prohibition** -- scans staged files for Unicode pictographs and escape
+   sequences that produce emoji. The project standard mandates zero emoji in
+   source, documentation, and rendered UI text.
+2. **Format check** -- `cargo fmt --check --all`
+3. **Clippy** -- `cargo clippy --workspace --all-targets -- -D warnings`
+4. **Tests** -- `cargo test --workspace`
+5. **Conventional Commit hint** -- non-blocking advisory for commit subjects
+
+Activation (one command per clone):
 
 ```bash
-# Format
-cargo fmt --all -- --check
-
-# Lint
-cargo clippy --workspace --all-targets -- -D warnings
-
-# Test
-cargo test --workspace
+git config core.hooksPath .githooks
 ```
 
-To install hooks:
+Bypass options (use sparingly):
+
 ```bash
-npm install   # triggers husky via package.json prepare script
+SKIP_PRE_COMMIT=1 git commit ...           # skip all checks
+SKIP_PRE_COMMIT_TESTS=1 git commit ...     # skip slow test suite only
 ```
 
-Or manually:
-```bash
-make hooks
-```
-
-CI (GitHub Actions) runs the same three checks plus a release build on every push/PR to `main`.
+CI (GitHub Actions) runs the same fmt, clippy, test, and audit checks plus a
+release build on every push to `main`.
 
 ## Coding Standards
 
