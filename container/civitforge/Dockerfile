@@ -49,8 +49,17 @@ RUN cargo build --release --locked \
     -p civit-core -p civit-brain -p civit-runner -p civit-vfs
 
 # Build WASM UI (trunk + wasm32 target)
+# Install trunk from pre-built binary to avoid source compilation overhead/OOM.
+ARG TARGETARCH
 RUN rustup target add wasm32-unknown-unknown
-RUN cargo install trunk --locked
+RUN case "$TARGETARCH" in \
+        amd64) TRUNK_ARCH="x86_64-unknown-linux-gnu" ;; \
+        arm64) TRUNK_ARCH="aarch64-unknown-linux-gnu" ;; \
+        *) echo "Unsupported arch: $TARGETARCH"; exit 1 ;; \
+    esac && \
+    curl -sL "https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-${TRUNK_ARCH}.tar.gz" | tar xz -C /tmp && \
+    mv /tmp/trunk /usr/local/bin/trunk && \
+    chmod +x /usr/local/bin/trunk
 WORKDIR /src/crates/civit-ui
 RUN trunk build --release
 WORKDIR /src
