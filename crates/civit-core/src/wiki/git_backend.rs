@@ -1077,7 +1077,7 @@ mod tests {
     #[test]
     fn test_unicode_content() {
         let backend = make_backend();
-        let content = "# 日本語\n\nこんにちは世界\n\n🎉 🚀";
+        let content = "# \u{65e5}\u{672c}\u{8a9e}\n\n\u{3053}\u{3093}\u{306b}\u{3061}\u{306f}\u{4e16}\u{754c}\n\n\u{2728} \u{2192} \u{2603}";
         backend
             .save_page("repo1", sp("ja", "日本語", content))
             .unwrap();

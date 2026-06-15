@@ -142,9 +142,9 @@ h1, h2, h3, h4, h5, h6 {
             var isDark = document.documentElement.classList.contains('dark');
             document.documentElement.classList.toggle('dark');
             localStorage.setItem('civit-theme', isDark ? 'light' : 'dark');
-            // Update all toggle buttons
+            // Update all toggle buttons with text labels (no emoji per design standard)
             document.querySelectorAll('[data-theme-toggle-icon]').forEach(function(el) {
-                el.textContent = isDark ? '\u2600\uFE0F' : '\uD83C\uDF19';
+                el.textContent = isDark ? 'Light' : 'Dark';
             });
         };
         // Syntax highlighting: call after Leptos renders content

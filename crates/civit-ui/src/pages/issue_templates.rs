@@ -39,9 +39,9 @@ fn field_type_icon(field_type: &str) -> &'static str {
         "text" => "T",
         "textarea" => "¶",
         "select" => "▾",
-        "checkbox" => "☑",
+        "checkbox" => "X",
         "number" => "#",
-        "date" => "📅",
+        "date" => "D",
         _ => "?",
     }
 }

@@ -45,12 +45,12 @@ pub fn Sidebar() -> impl IntoView {
         NavItem {
             href: "/".into(),
             label: "nav.home".to_string(),
-            icon: "\u{1f3e0}\u{fe0f}",
+            icon: "[H]",
         },
         NavItem {
             href: "/repos".into(),
             label: "nav.repos".to_string(),
-            icon: "\u{1f4c1}",
+            icon: "[R]",
         },
         NavItem {
             href: "/activity".into(),
@@ -60,12 +60,12 @@ pub fn Sidebar() -> impl IntoView {
         NavItem {
             href: "/explore".into(),
             label: "nav.explore".to_string(),
-            icon: "\u{1f50d}",
+            icon: "[Q]",
         },
         NavItem {
             href: "/orgs".into(),
             label: "nav.orgs".to_string(),
-            icon: "\u{1f3eb}",
+            icon: "[O]",
         },
         NavItem {
             href: "/search".into(),
@@ -159,7 +159,7 @@ pub fn Sidebar() -> impl IntoView {
                             "Admin Panel"
                         </A>
                         <A href="/admin/site-settings" attr:class=link_class>
-                            <span class="mr-2">"\u{1f527}"</span>
+                            <span class="mr-2 font-mono text-xs">"[S]"</span>
                             "Site Settings"
                         </A>
                     </div>
@@ -199,7 +199,7 @@ pub fn Sidebar() -> impl IntoView {
                     tabindex="0"
                     aria-label="Toggle dark mode"
                 >
-                    <span data-theme-toggle-icon="">"\u{1f319}"</span>
+                    <span data-theme-toggle-icon="" class="font-mono text-xs">"Dark"</span>
                     " Toggle Theme"
                 </div>
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
@@ -217,11 +217,11 @@ pub fn Sidebar() -> impl IntoView {
                             </span>
                         </div>
                         <A href="/profile" attr:class=link_class>
-                            <span class="mr-2">"\u{1f464}"</span>
+                            <span class="mr-2 font-mono text-xs">"[U]"</span>
                             "Profile"
                         </A>
                         <A href="/settings" attr:class=link_class>
-                            <span class="mr-2">"\u{2699}\u{fe0f}"</span>
+                            <span class="mr-2 font-mono text-xs">"[*]"</span>
                             {move || t("settings.title")}
                         </A>
                         // Sign out uses <a href> instead of <button on:click> to
@@ -233,7 +233,8 @@ pub fn Sidebar() -> impl IntoView {
                             role="button"
                             aria-label="Sign out of CivitForge"
                         >
-                            "\u{1f6aa} "
+                            <span class="font-mono text-xs">"[X]"</span>
+                            " "
                             {move || t("auth.sign_out")}
                         </a>
                     </div>

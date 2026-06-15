@@ -81,7 +81,7 @@ pub fn Footer() -> impl IntoView {
                             tabindex="0"
                             aria-label="Toggle dark mode"
                         >
-                            <span data-theme-toggle-icon="">"\u{1f319}"</span>
+                            <span data-theme-toggle-icon="" class="font-mono">"Dark"</span>
                         </div>
                     </div>
                 </div>

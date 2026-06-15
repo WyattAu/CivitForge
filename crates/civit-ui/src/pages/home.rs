@@ -113,7 +113,7 @@ fn HomeLoggedIn() -> impl IntoView {
                 <A href="/new-repo">
                     <Card class="hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer".to_string()>
                         <div class="text-center">
-                            <div class="text-3xl mb-2">"➕"</div>
+                            <div class="text-3xl mb-2 font-mono text-blue-600 dark:text-blue-400">"[+]"</div>
                             <div class="font-semibold text-gray-900 dark:text-gray-100">"New Repository"</div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">"Create a new project"</p>
                         </div>
@@ -122,7 +122,7 @@ fn HomeLoggedIn() -> impl IntoView {
                 <A href="/explore">
                     <Card class="hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer".to_string()>
                         <div class="text-center">
-                            <div class="text-3xl mb-2">"🔍"</div>
+                            <div class="text-3xl mb-2 font-mono text-blue-600 dark:text-blue-400">"[Q]"</div>
                             <div class="font-semibold text-gray-900 dark:text-gray-100">"Explore"</div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">"Discover repositories"</p>
                         </div>
@@ -131,7 +131,7 @@ fn HomeLoggedIn() -> impl IntoView {
                 <A href="/repos">
                     <Card class="hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer".to_string()>
                         <div class="text-center">
-                            <div class="text-3xl mb-2">"📁"</div>
+                            <div class="text-3xl mb-2 font-mono text-blue-600 dark:text-blue-400">"[/]"</div>
                             <div class="font-semibold text-gray-900 dark:text-gray-100">"All Repos"</div>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">"Browse your repositories"</p>
                         </div>

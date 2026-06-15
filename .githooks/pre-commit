@@ -45,14 +45,27 @@ EMOJI_FOUND=0
 # Unicode emoji property blocks (inclusive hex ranges). Catches pictographs,
 # dingbats, symbols, and variation selectors without matching CJK used by i18n.
 EMOJI_RANGE='[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2190}-\x{21FF}\x{2B00}-\x{2BFF}\x{FE00}-\x{FE0F}\x{1F1E6}-\x{1F1FF}\x{2300}-\x{23FF}\x{2A00}-\x{2AFF}]'
+# Rust/JS/Python escape sequences that produce emoji (e.g. \u{1F319}, \uD83C\uDF19).
+EMOJI_ESCAPE='\\u\{?1[Ff][0-9A-Fa-f]{3}\}?|\\uD83[CDd][0-9A-Fa-f]{2}'
+# Files that legitimately reference emoji code points for detection or documentation.
+EMOJI_EXEMPT='(\.githooks/pre-commit|tests/gui/snapshot-traverse\.mjs|tests/gui/comprehensive-audit\.mjs|tests/gui/full-traverse\.mjs)'
 for f in "${STAGED_FILES[@]}"; do
     [[ -f "$f" ]] || continue
     # Skip binary/asset files.
     case "$f" in
         *.png|*.jpg|*.jpeg|*.gif|*.ico|*.svg|*.woff|*.woff2|*.ttf|*.webp|*.icns) continue ;;
     esac
+    # Skip files that reference emoji code points for detection (e.g. regex scanners).
+    if [[ "$f" =~ $EMOJI_EXEMPT ]]; then
+        continue
+    fi
     if matches=$(LC_ALL=C grep -nP "$EMOJI_RANGE" "$f" 2>/dev/null); then
         echo -e "${RED}==> [FAIL]${NC} Emoji detected in $f:"
+        echo "$matches" | head -5
+        EMOJI_FOUND=1
+    fi
+    if matches=$(LC_ALL=C grep -nP "$EMOJI_ESCAPE" "$f" 2>/dev/null); then
+        echo -e "${RED}==> [FAIL]${NC} Emoji escape sequence detected in $f:"
         echo "$matches" | head -5
         EMOJI_FOUND=1
     fi
