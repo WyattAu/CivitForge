@@ -21,7 +21,11 @@ env:
   RUSTFLAGS: "-D warnings"
   # Limit parallel compilation jobs to avoid OOM on 7GB GitHub runners.
   # The workspace has 12 crates; unrestricted parallelism exhausts memory.
-  CARGO_BUILD_JOBS: "3"
+  CARGO_BUILD_JOBS: "2"
+  # Reduce debug info to line-tables-only to cut memory usage during
+  # compilation (full debuginfo doubles memory per rustc process).
+  CARGO_PROFILE_DEV_DEBUG: "line-tables-only"
+  CARGO_PROFILE_TEST_DEBUG: "line-tables-only"
 
 jobs:
   fmt:
