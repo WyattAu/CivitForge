@@ -107,6 +107,10 @@ jobs:
           workspaces: crates/civit-ui
       - name: Install protobuf compiler
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install Tailwind CSS CLI
+        run: |
+          npm install -g pnpm
+          cd crates/civit-ui && pnpm install --frozen-lockfile || pnpm install
       - uses: taiki-e/install-action@v2
         with:
           tool: trunk

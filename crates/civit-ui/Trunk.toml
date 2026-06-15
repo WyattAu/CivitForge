@@ -4,7 +4,7 @@ release = true
 public-url = "/"
 
 [watch]
-watch = ["src/", "assets/"]
+watch = ["src/", "assets/", "input.css"]
 
 [serve]
 address = "127.0.0.1"
@@ -12,3 +12,10 @@ port = 9092
 
 [clean]
 dist = "dist"
+
+# Pre-build hook: compile Tailwind CSS from input.css.
+# Requires @tailwindcss/cli (pnpm install in crates/civit-ui).
+[[hooks]]
+stage = "pre_build"
+command = "sh"
+args = ["-c", "test -f node_modules/.bin/tailwindcss && node_modules/.bin/tailwindcss -i input.css -o assets/tailwind.css --minify || echo 'tailwindcss not installed, using pre-built assets/tailwind.css'"]

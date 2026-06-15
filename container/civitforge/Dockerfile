@@ -60,7 +60,12 @@ RUN case "$TARGETARCH" in \
     curl -sL "https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-${TRUNK_ARCH}.tar.gz" | tar xz -C /tmp && \
     mv /tmp/trunk /usr/local/bin/trunk && \
     chmod +x /usr/local/bin/trunk
+# Install Node.js + pnpm for Tailwind CSS v4 build-time compilation
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm
 WORKDIR /src/crates/civit-ui
+RUN pnpm install --frozen-lockfile || pnpm install
 RUN trunk build --release
 WORKDIR /src
 
