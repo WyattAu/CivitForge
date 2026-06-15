@@ -1,6 +1,6 @@
 # CivitForge API Reference
 
-REST API for CivitForge v1.1.0. Base URL: `http://localhost:9091/api/v1`
+REST API for CivitForge v2.2.0. Base URL: `http://localhost:9091/api/v1`
 
 ## Authentication
 
