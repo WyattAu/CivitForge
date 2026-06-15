@@ -19,6 +19,9 @@ env:
   CARGO_TERM_COLOR: always
   # Deny warnings in all compiler invocations for consistent quality gating.
   RUSTFLAGS: "-D warnings"
+  # Limit parallel compilation jobs to avoid OOM on 7GB GitHub runners.
+  # The workspace has 12 crates; unrestricted parallelism exhausts memory.
+  CARGO_BUILD_JOBS: "3"
 
 jobs:
   fmt:
