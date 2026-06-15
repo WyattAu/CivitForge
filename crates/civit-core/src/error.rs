@@ -65,6 +65,17 @@ impl From<civit_auth::error::AuthError> for CoreError {
     }
 }
 
+/// Automatic conversion from civit-db errors to core errors.
+/// This allows civit-core to use civit-db's DbRepository transparently.
+impl From<civit_db::error::DbError> for CoreError {
+    fn from(e: civit_db::error::DbError) -> Self {
+        match e {
+            civit_db::error::DbError::Database(msg) => CoreError::Database(msg),
+            civit_db::error::DbError::Auth(msg) => CoreError::Auth(msg),
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct ErrorResponse {
     error: String,

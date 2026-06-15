@@ -118,7 +118,10 @@ pub async fn list_activity(
             )
                 .into_response()
         }
-        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+        Err(e) => {
+            let e: CoreError = e.into();
+            (e.status_code(), Json(e.error_response())).into_response()
+        }
     }
 }
 

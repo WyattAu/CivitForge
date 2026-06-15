@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use anyhow::Result;
-use civit_core::{api::create_router, config::AppConfig, db::DatabasePool};
+use civit_core::{api::create_router, config::AppConfig};
 use std::net::SocketAddr;
 use tokio::signal;
 use tracing::info;
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
     }
 
     info!("connecting to database");
-    let db_pool = DatabasePool::from_config(&config).await?;
+    let db_pool = civit_core::db::pool_from_config(&config).await?;
     let pool = db_pool.pool().clone();
 
     let migration_mgr = civit_core::db::migrations::MigrationManager::new();

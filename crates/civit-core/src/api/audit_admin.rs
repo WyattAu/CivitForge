@@ -2,6 +2,7 @@
 
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
+use crate::error::CoreError;
 use axum::{
     Router,
     extract::{Query, State},
@@ -163,7 +164,10 @@ pub async fn list_audit_log(
             )
                 .into_response()
         }
-        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+        Err(e) => {
+            let e: CoreError = e.into();
+            (e.status_code(), Json(e.error_response())).into_response()
+        }
     }
 }
 
@@ -197,7 +201,10 @@ pub async fn audit_stats(State(state): State<AppState>, auth: AuthUser) -> impl 
             };
             (StatusCode::OK, Json(stats)).into_response()
         }
-        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+        Err(e) => {
+            let e: CoreError = e.into();
+            (e.status_code(), Json(e.error_response())).into_response()
+        }
     }
 }
 
@@ -277,7 +284,10 @@ pub async fn export_audit_log(
             )
                 .into_response()
         }
-        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+        Err(e) => {
+            let e: CoreError = e.into();
+            (e.status_code(), Json(e.error_response())).into_response()
+        }
     }
 }
 

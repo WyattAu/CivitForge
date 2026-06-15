@@ -40,7 +40,8 @@ pub struct BranchProtectionResponse {
 
 // --- Helpers ---
 
-fn err_response(e: CoreError) -> axum::response::Response {
+fn err_response<E: Into<CoreError>>(e: E) -> axum::response::Response {
+    let e: CoreError = e.into();
     let status = e.status_code();
     let body = e.error_response();
     (status, Json(body)).into_response()

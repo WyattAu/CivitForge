@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -90,12 +90,7 @@ impl ReplicaRouter {
 
             let lag = Self::check_lag(&replica.pool).await;
             *replica.lag_ms.write().await = lag;
-
-            if lag > self.config.max_replica_lag_ms {
-                *replica.healthy.write().await = false;
-            } else {
-                *replica.healthy.write().await = true;
-            }
+            *replica.healthy.write().await = lag <= self.config.max_replica_lag_ms;
         }
     }
 

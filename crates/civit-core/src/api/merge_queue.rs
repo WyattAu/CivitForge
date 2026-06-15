@@ -13,7 +13,8 @@ use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
 use crate::error::{CoreError, Result};
 
-fn err_response(e: CoreError) -> axum::response::Response {
+fn err_response<E: Into<CoreError>>(e: E) -> axum::response::Response {
+    let e: CoreError = e.into();
     let status = e.status_code();
     let body = e.error_response();
     (status, Json(body)).into_response()
@@ -472,7 +473,7 @@ pub async fn process_merge_queue(state: &AppState, owner: &str, name: &str) -> R
         Ok(pr) => pr,
         Err(e) => {
             mark_queue_failed(pool, entry.id).await;
-            return Err(e);
+            return Err(e.into());
         }
     };
 

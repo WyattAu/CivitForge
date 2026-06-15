@@ -96,7 +96,10 @@ pub async fn change_password(
             )
                 .into_response();
         }
-        Err(e) => return (e.status_code(), Json(e.error_response())).into_response(),
+        Err(e) => {
+            let e: CoreError = e.into();
+            return (e.status_code(), Json(e.error_response())).into_response();
+        }
     };
 
     let mut current_hasher = Sha256::new();
@@ -119,7 +122,10 @@ pub async fn change_password(
             }),
         )
             .into_response(),
-        Err(e) => (e.status_code(), Json(e.error_response())).into_response(),
+        Err(e) => {
+            let e: CoreError = e.into();
+            (e.status_code(), Json(e.error_response())).into_response()
+        }
     }
 }
 
