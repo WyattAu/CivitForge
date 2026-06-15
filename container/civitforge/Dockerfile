@@ -39,17 +39,10 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN mkdir -p /out/usr/local/bin
 RUN touch /out/usr/local/bin/civitforge
 
-# Copy source
+# Copy source (entire workspace — all inter-crate deps must be present)
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY crates/civit-shared/ crates/civit-shared/
-COPY crates/civit-pipeline/ crates/civit-pipeline/
-COPY crates/civit-core/ crates/civit-core/
-COPY crates/civit-brain/ crates/civit-brain/
-COPY crates/civit-crypto/ crates/civit-crypto/
-COPY crates/civit-runner/ crates/civit-runner/
-COPY crates/civit-vfs/ crates/civit-vfs/
-COPY crates/civit-ui/ crates/civit-ui/
+COPY crates/ crates/
 
 # Build release binaries
 RUN cargo build --release --locked \
