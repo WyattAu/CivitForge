@@ -7,13 +7,13 @@
 
 [advisories]
 ignore = [
-    # RUSTSEC-2025-0140 (gix-date non-UTF8 string): transitive via gix 0.70.
-    # Remediation: upgrade gix 0.70 -> 0.84 (breaking API, ROADMAP).
-    "RUSTSEC-2025-0140",
-    # RUSTSEC-2025-0021 (gix-features SHA-1 collision): transitive via gix 0.70.
-    # SHA-1 is inherent to Git's protocol; newer gix adds collision detection.
-    # Remediation: upgrade gix 0.70 -> 0.84 (breaking API, ROADMAP).
-    "RUSTSEC-2025-0021",
+    # RUSTSEC-2023-0071 (rsa Marvin Attack): affects RSA *decryption* timing.
+    # Transitive dependency via russh (SSH daemon), ssh-key (key handling),
+    # and sqlx-mysql (unused MySQL backend in sqlx default features).
+    # CivitForge's own code migrated from rsa to ring (TD-002 complete).
+    # Remediation: wait for russh/sqlx to drop rsa dependency or use sqlx
+    # with default-features=false once macro compatibility is resolved.
+    "RUSTSEC-2023-0071",
 ]
 
 # Reporting: warn on unmaintained crates, deny medium+ severity.
