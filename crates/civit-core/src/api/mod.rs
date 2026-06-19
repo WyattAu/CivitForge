@@ -49,6 +49,8 @@ pub mod ssh_keys;
 pub mod teams;
 pub mod tokens;
 pub mod users;
+#[cfg(feature = "webauthn")]
+pub mod webauthn;
 pub mod webhooks;
 pub mod wiki;
 
@@ -235,6 +237,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             delete(ssh_keys::delete_ssh_key),
         );
 
+    #[cfg(feature = "webauthn")]
+    {
+        api = api.merge(webauthn::webauthn_routes());
+    }
+
     // Git smart HTTP routes — large body limit for pack data (up to 10 GB)
     let git_routes = Router::new()
         .route("/{owner}/{name}/info/refs", get(git_http::info_refs))
@@ -356,6 +363,8 @@ pub struct AppState {
     pub forgefed_processor: Arc<ForgeFedProcessor>,
     pub code_search_index: Arc<RwLock<CodeSearchIndex>>,
     pub wiki_git: Arc<WikiGitBackend>,
+    #[cfg(feature = "webauthn")]
+    pub webauthn_service: Option<Arc<civit_auth::webauthn::WebAuthnService>>,
 }
 
 impl AppState {
@@ -421,6 +430,28 @@ impl AppState {
             forgefed_processor,
             code_search_index,
             wiki_git,
+            #[cfg(feature = "webauthn")]
+            webauthn_service: {
+                let rp_name =
+                    std::env::var("WEBAUTHN_RP_NAME").unwrap_or_else(|_| "CivitForge".into());
+                let rp_id = std::env::var("WEBAUTHN_RP_ID").unwrap_or_else(|_| "localhost".into());
+                let origin = std::env::var("WEBAUTHN_ORIGIN")
+                    .unwrap_or_else(|_| "http://localhost:8080".into());
+
+                match civit_auth::webauthn::WebAuthnService::new(
+                    civit_auth::webauthn::WebAuthnConfig {
+                        relying_party_name: rp_name,
+                        relying_party_id: rp_id,
+                        origin,
+                    },
+                ) {
+                    Ok(service) => Some(Arc::new(service)),
+                    Err(e) => {
+                        tracing::warn!("failed to initialize WebAuthn: {e}");
+                        None
+                    }
+                }
+            },
         }
     }
 }

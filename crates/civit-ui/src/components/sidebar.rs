@@ -2,6 +2,7 @@
 
 use leptos::prelude::*;
 use leptos_router::components::A;
+use leptos_router::hooks::use_location;
 
 use crate::api::client::ApiClient;
 use crate::components::Avatar;
@@ -26,6 +27,7 @@ struct SiteSettingsCache {
 pub fn Sidebar() -> impl IntoView {
     let (mobile_open, set_mobile_open) = signal(false);
     let auth = use_auth();
+    let location = use_location();
     let (current_locale, set_current_locale) = signal(i18n::get_locale());
     let (site_settings, set_site_settings) = signal(None::<SiteSettingsCache>);
 
@@ -116,8 +118,17 @@ pub fn Sidebar() -> impl IntoView {
                     {
                         let label_key = item.label.clone();
                         let href = item.href.clone();
+                        let href_for_current = item.href.clone();
+                        let is_current = move || {
+                            let pathname = location.pathname.with(|p| p.clone());
+                            if href_for_current == "/" {
+                                pathname == "/"
+                            } else {
+                                pathname == href_for_current || pathname.starts_with(&format!("{href_for_current}/"))
+                            }
+                        };
                         view! {
-                            <A href=href attr:class=link_class>
+                            <A href=href attr:class=link_class attr:aria-current=move || if is_current() { "page" } else { "" }>
                                 <Show when=move || item.icon == "svg" fallback=move || view! {
                                     <Show when=move || item.icon == "activity" fallback=move || view! {
                                         <span class="mr-2">{item.icon}</span>

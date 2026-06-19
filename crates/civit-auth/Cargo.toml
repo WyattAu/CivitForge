@@ -23,3 +23,10 @@ rand = "0.10"
 chrono = { workspace = true }
 uuid = { workspace = true }
 base64 = { workspace = true }
+webauthn-rs = { version = "0.5", optional = true, features = ["danger-credential-internals"] }
+url = { version = "2", optional = true }
+dashmap = { workspace = true, optional = true }
+
+[features]
+default = []
+webauthn = ["dep:webauthn-rs", "dep:url", "dep:dashmap"]

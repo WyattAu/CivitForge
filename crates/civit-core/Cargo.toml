@@ -62,7 +62,8 @@ tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 
 [features]
-default = []
+default = ["webauthn"]
+webauthn = ["civit-auth/webauthn"]
 ssh-server = ["dep:russh"]
 
 [[bin]]

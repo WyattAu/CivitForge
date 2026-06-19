@@ -291,6 +291,7 @@ fn BlameRow(line: BlameLineData, owner: String, repo: String) -> impl IntoView {
                 <button
                     class="opacity-0 group-hover/line:opacity-100 absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-medium rounded transition-all bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
                     on:click=copy_line
+                    aria-label="Copy to clipboard"
                 >
                     {move || if copied.get() { "Copied!" } else { "Copy" }}
                 </button>

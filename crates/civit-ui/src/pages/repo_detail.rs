@@ -319,45 +319,45 @@ fn RepoTabs(
     };
 
     view! {
-        <div class="flex gap-1 text-sm font-medium border-b border-gray-200 dark:border-gray-700 -mb-px">
+        <div class="flex gap-1 text-sm font-medium border-b border-gray-200 dark:border-gray-700 -mb-px" role="tablist">
             <A href=format!("/repos/{}/{}", owner(), name())>
-                <span class=move || if active_tab() == "code" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "code" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "code" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">{icon_code}</span>
                     <span>"Code"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/issues", owner(), name())>
-                <span class=move || if active_tab() == "issues" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "issues" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "issues" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">{icon_issues}</span>
                     <span>"Issues"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/pulls", owner(), name())>
-                <span class=move || if active_tab() == "pulls" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "pulls" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "pulls" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">{icon_prs}</span>
                     <span>"Pull Requests"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/boards", owner(), name())>
-                <span class=move || if active_tab() == "boards" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "boards" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "boards" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">"K"</span>
                     <span>"Boards"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/pipelines", owner(), name())>
-                <span class=move || if active_tab() == "pipelines" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "pipelines" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "pipelines" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">{icon_pipelines}</span>
                     <span>"Pipelines"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/wiki", owner(), name())>
-                <span class=move || if active_tab() == "wiki" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "wiki" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "wiki" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">{icon_wiki}</span>
                     <span>"Wiki"</span>
                 </span>
             </A>
             <A href=format!("/repos/{}/{}/settings", owner(), name())>
-                <span class=move || if active_tab() == "settings" { tab_active } else { tab_inactive }>
+                <span class=move || if active_tab() == "settings" { tab_active } else { tab_inactive } role="tab" aria-selected=move || if active_tab() == "settings" { "true" } else { "false" }>
                     <span class="text-xs opacity-60">{icon_settings}</span>
                     <span>"Settings"</span>
                 </span>

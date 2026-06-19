@@ -16,6 +16,38 @@ export default defineConfig({
         { icon: 'github', label: 'GitHub', href: 'https://github.com/WyattAu/CivitForge' },
       ],
       customCss: ['./src/styles/custom.css'],
+      sidebar: [
+        {
+          label: 'Getting Started',
+          items: [
+            { label: 'Overview', slug: 'overview' },
+            { label: 'Quick Start', slug: 'quick-start' },
+            { label: 'Configuration', slug: 'configuration' },
+          ],
+        },
+        {
+          label: 'Architecture',
+          items: [
+            { label: 'Architecture', slug: 'architecture' },
+            { label: 'Database', slug: 'database' },
+            { label: 'Federation', slug: 'federation' },
+          ],
+        },
+        {
+          label: 'Features',
+          items: [
+            { label: 'CI/CD Pipeline', slug: 'ci-cd' },
+            { label: 'API Reference', slug: 'api-reference' },
+          ],
+        },
+        {
+          label: 'Operations',
+          items: [
+            { label: 'Operator Guide', slug: 'operator-guide' },
+            { label: 'Security', slug: 'security' },
+          ],
+        },
+      ],
     }),
     solid(),
   ],

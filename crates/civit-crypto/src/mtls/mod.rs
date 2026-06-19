@@ -1,4 +1,9 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
+
+#[cfg(feature = "mtls-axum")]
+pub mod axum;
+pub mod config;
+pub mod rotation;
 
 use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa,

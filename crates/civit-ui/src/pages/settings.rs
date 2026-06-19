@@ -230,24 +230,32 @@ pub fn RepoSettingsPage() -> impl IntoView {
                             <button
                                 class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::General { sidebar_item_active } else { sidebar_item_inactive })
                                 on:click=move |_| set_active_section.set(SettingsSection::General)
+                                aria-selected=move || if active_section.get() == SettingsSection::General { "true" } else { "false" }
+                                role="tab"
                             >
                                 "General"
                             </button>
                             <button
                                 class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::Collaborators { sidebar_item_active } else { sidebar_item_inactive })
                                 on:click=move |_| set_active_section.set(SettingsSection::Collaborators)
+                                aria-selected=move || if active_section.get() == SettingsSection::Collaborators { "true" } else { "false" }
+                                role="tab"
                             >
                                 "Collaborators"
                             </button>
                             <button
                                 class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::Branches { sidebar_item_active } else { sidebar_item_inactive })
                                 on:click=move |_| set_active_section.set(SettingsSection::Branches)
+                                aria-selected=move || if active_section.get() == SettingsSection::Branches { "true" } else { "false" }
+                                role="tab"
                             >
                                 "Branches"
                             </button>
                             <button
                                 class=format!("{sidebar_item_class} {}", if active_section.get() == SettingsSection::Labels { sidebar_item_active } else { sidebar_item_inactive })
                                 on:click=move |_| set_active_section.set(SettingsSection::Labels)
+                                aria-selected=move || if active_section.get() == SettingsSection::Labels { "true" } else { "false" }
+                                role="tab"
                             >
                                 "Labels"
                             </button>
@@ -258,6 +266,8 @@ pub fn RepoSettingsPage() -> impl IntoView {
                             <button
                                 class=format!("{sidebar_item_class} text-red-600 dark:text-red-400 {}", if active_section.get() == SettingsSection::Danger { sidebar_item_active } else { sidebar_item_inactive })
                                 on:click=move |_| set_active_section.set(SettingsSection::Danger)
+                                aria-selected=move || if active_section.get() == SettingsSection::Danger { "true" } else { "false" }
+                                role="tab"
                             >
                                 "Danger Zone"
                             </button>

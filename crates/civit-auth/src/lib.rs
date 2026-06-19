@@ -7,3 +7,5 @@ pub mod middleware;
 pub mod password;
 pub mod pat;
 pub mod ssh;
+#[cfg(feature = "webauthn")]
+pub mod webauthn;

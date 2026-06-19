@@ -6,6 +6,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+default = []
+mtls-axum = ["dep:axum", "dep:tower", "dep:rustls", "dep:rustls-pemfile"]
+
 [dependencies]
 sha2 = { workspace = true }
 hmac = { workspace = true }
@@ -26,6 +30,10 @@ hex = { workspace = true }
 tempfile = { workspace = true }
 dashmap = { workspace = true }
 regex = { workspace = true }
+axum = { workspace = true, optional = true }
+tower = { workspace = true, optional = true }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"], optional = true }
+rustls-pemfile = { version = "2", optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

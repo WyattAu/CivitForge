@@ -42,6 +42,7 @@ pub fn Pagination(
                 disabled=!has_prev
                 on:click=prev
                 aria-disabled=move || !has_prev
+                aria-label="Go to previous page"
             >
                 "Previous"
             </button>
@@ -65,6 +66,8 @@ pub fn Pagination(
                                         cb.run(page);
                                     }
                                 }
+                                aria-label=move || format!("Page {page}")
+                                aria-current=move || if is_current { "page" } else { "" }
                             >
                                 {page}
                             </button>
@@ -79,6 +82,7 @@ pub fn Pagination(
                 disabled=!has_next
                 on:click=next
                 aria-disabled=move || !has_next
+                aria-label="Go to next page"
             >
                 "Next"
             </button>
