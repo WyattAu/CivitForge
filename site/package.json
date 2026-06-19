@@ -15,5 +15,11 @@
   },
   "devDependencies": {
     "@astrojs/solid-js": "^5.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
   }
 }
