@@ -116,7 +116,6 @@ mod tests {
     }
 }
 
-
 #[component]
 fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl IntoView {
     let total_sig = Memo::new(move |_| analytics.get().map(|a| a.total).unwrap_or(0));

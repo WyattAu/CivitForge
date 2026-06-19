@@ -26,7 +26,6 @@ struct LanguageStatsData {
     total_bytes: u64,
 }
 
-
 #[component]
 pub fn RepoDetailPage() -> impl IntoView {
     let params = use_params_map();

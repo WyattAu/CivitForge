@@ -142,7 +142,6 @@ fn format_pipeline_duration(started: Option<&str>, finished: Option<&str>) -> St
     }
 }
 
-
 #[component]
 pub fn PipelinesPage() -> impl IntoView {
     let params = use_params_map();

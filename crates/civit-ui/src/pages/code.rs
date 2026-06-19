@@ -96,7 +96,6 @@ fn file_icon(entry_type: &str) -> &'static str {
     }
 }
 
-
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = 1024 * KB;

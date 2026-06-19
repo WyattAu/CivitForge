@@ -10,7 +10,6 @@ use crate::components::{Badge, Button, ButtonVariant, Card, ErrorBanner, Spinner
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
-
 fn pr_badge_color(status: &str) -> crate::components::badge::BadgeColor {
     match status {
         "open" => crate::components::badge::BadgeColor::Success,
