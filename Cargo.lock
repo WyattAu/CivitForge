@@ -942,7 +942,6 @@ dependencies = [
  "regex",
  "reqwest",
  "ring",
- "rsa 0.9.10",
  "russh",
  "schemars",
  "serde",

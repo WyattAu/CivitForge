@@ -297,12 +297,19 @@ impl SignatureVerifier {
                 mac.finalize().into_bytes().to_vec()
             }
             SignatureAlgorithm::RsaSha256 => {
-                use pkcs8::DecodePrivateKey;
-                let priv_key = rsa::RsaPrivateKey::from_pkcs8_der(private_key_bytes)
+                let rng = ring::rand::SystemRandom::new();
+                let key_pair = ring::signature::RsaKeyPair::from_pkcs8(private_key_bytes)
                     .map_err(|e| format!("failed to parse RSA private key: {e}"))?;
-                priv_key
-                    .sign(rsa::Pkcs1v15Sign::new::<sha2::Sha256>(), &payload)
-                    .map_err(|e| format!("RSA signing failed: {e}"))?
+                let mut signature = vec![0u8; key_pair.public().modulus_len()];
+                key_pair
+                    .sign(
+                        &ring::signature::RSA_PKCS1_SHA256,
+                        &rng,
+                        &payload,
+                        &mut signature,
+                    )
+                    .map_err(|e| format!("RSA signing failed: {e}"))?;
+                signature
             }
             SignatureAlgorithm::EcdsaP256 => {
                 let rng = ring::rand::SystemRandom::new();
