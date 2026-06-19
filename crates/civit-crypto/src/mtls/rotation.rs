@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -55,6 +56,7 @@ pub struct CertificateRotation {
     expiry_threshold_days: u32,
     rotation_log: Arc<RwLock<Vec<RotationEntry>>>,
     persist_dir: Option<PathBuf>,
+    rotation_started: Arc<RwLock<Option<Instant>>>,
 }
 
 impl CertificateRotation {
@@ -65,6 +67,7 @@ impl CertificateRotation {
             expiry_threshold_days: 30,
             rotation_log: Arc::new(RwLock::new(Vec::new())),
             persist_dir: None,
+            rotation_started: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -79,7 +82,22 @@ impl CertificateRotation {
     }
 
     pub async fn current_state(&self) -> RotationState {
+        self.check_stuck_rotation().await;
         self.state.read().await.clone()
+    }
+
+    async fn check_stuck_rotation(&self) {
+        let started = self.rotation_started.read().await;
+        if let Some(start_time) = *started {
+            if start_time.elapsed() > std::time::Duration::from_secs(300) {
+                drop(started);
+                warn!("rotation stuck in Rotating state for >5 minutes, resetting to Active");
+                let mut state = self.state.write().await;
+                *state = RotationState::Active;
+                let mut started = self.rotation_started.write().await;
+                *started = None;
+            }
+        }
     }
 
     pub fn expiry_threshold(&self) -> u32 {
@@ -112,14 +130,27 @@ impl CertificateRotation {
                 return Err(RotationError::AlreadyRotating);
             }
             *state = RotationState::Rotating;
+            let mut started = self.rotation_started.write().await;
+            *started = Some(Instant::now());
         }
 
         let old_fingerprint = self.ca.ca_certificate().fingerprint_sha256();
 
-        let new_cert = self
+        let result = self
             .ca
             .issue_certificate(common_name, sans, days_valid)
-            .map_err(|e| RotationError::IssuanceFailed(e.to_string()))?;
+            .map_err(|e| RotationError::IssuanceFailed(e.to_string()));
+
+        let new_cert = match result {
+            Ok(cert) => cert,
+            Err(e) => {
+                let mut state = self.state.write().await;
+                *state = RotationState::Active;
+                let mut started = self.rotation_started.write().await;
+                *started = None;
+                return Err(e);
+            }
+        };
 
         let new_fingerprint = new_cert.fingerprint_sha256();
 
@@ -143,6 +174,8 @@ impl CertificateRotation {
         {
             let mut state = self.state.write().await;
             *state = RotationState::Active;
+            let mut started = self.rotation_started.write().await;
+            *started = None;
         }
 
         info!(
@@ -349,5 +382,21 @@ mod tests {
         let ca = CertificateAuthority::new("Threshold CA").unwrap();
         let rotation = CertificateRotation::new(ca).with_expiry_threshold(60);
         assert_eq!(rotation.expiry_threshold(), 60);
+    }
+
+    #[tokio::test]
+    async fn test_stuck_rotation_resets_after_timeout() {
+        let ca = CertificateAuthority::new("Stuck CA").unwrap();
+        let rotation = CertificateRotation::new(ca);
+
+        {
+            let mut state = rotation.state.write().await;
+            *state = RotationState::Rotating;
+            let mut started = rotation.rotation_started.write().await;
+            *started = Some(Instant::now() - std::time::Duration::from_secs(301));
+        }
+
+        let state = rotation.current_state().await;
+        assert_eq!(state, RotationState::Active);
     }
 }

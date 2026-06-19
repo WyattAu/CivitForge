@@ -258,4 +258,79 @@ mod tests {
         assert!(json.contains("daily"));
         assert!(json.contains("2025-06-01T00:00:00Z"));
     }
+
+    #[test]
+    fn test_create_schedule_request_empty_cron() {
+        let json = r#"{"cron": ""}"#;
+        let req: CreateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert!(req.cron.is_empty());
+    }
+
+    #[test]
+    fn test_update_schedule_request_all_fields() {
+        let json = r#"{"cron": "0 12 * * *", "name": "new-name", "ref_name": "develop", "yaml_path": ".civit/new.yaml", "enabled": false}"#;
+        let req: UpdateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.cron.as_deref(), Some("0 12 * * *"));
+        assert_eq!(req.name, Some(Some("new-name".into())));
+        assert_eq!(req.ref_name, Some(Some("develop".into())));
+        assert_eq!(req.yaml_path.as_deref(), Some(".civit/new.yaml"));
+        assert_eq!(req.enabled, Some(false));
+    }
+
+    #[test]
+    fn test_manual_run_response_empty_strings() {
+        let resp = ManualRunResponse {
+            schedule_id: "".into(),
+            run_id: "".into(),
+            status: "".into(),
+            triggered_at: "".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"schedule_id\":\"\""));
+    }
+
+    #[test]
+    fn test_schedule_response_special_cron_chars() {
+        let resp = ScheduleResponse {
+            id: "s1".into(),
+            repo_id: "r1".into(),
+            cron: "0 0 1,15 * *".into(),
+            name: None,
+            ref_name: None,
+            yaml_path: ".civit/pipeline.yaml".into(),
+            enabled: true,
+            last_run_at: None,
+            next_run_at: None,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            updated_at: "2025-01-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("0 0 1,15 * *"));
+    }
+
+    #[test]
+    fn test_update_schedule_request_name_to_some() {
+        let json = r#"{"name": "renamed"}"#;
+        let req: UpdateScheduleRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.name, Some(Some("renamed".into())));
+    }
+
+    #[test]
+    fn test_schedule_response_long_name() {
+        let resp = ScheduleResponse {
+            id: "s1".into(),
+            repo_id: "r1".into(),
+            cron: "0 0 * * *".into(),
+            name: Some("a".repeat(256)),
+            ref_name: None,
+            yaml_path: ".civit/pipeline.yaml".into(),
+            enabled: true,
+            last_run_at: None,
+            next_run_at: None,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            updated_at: "2025-01-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains(&"a".repeat(256)));
+    }
 }

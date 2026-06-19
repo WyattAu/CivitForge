@@ -289,4 +289,102 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("git not found"));
     }
+
+    #[test]
+    fn test_validate_mirror_url_with_port() {
+        assert!(validate_mirror_url("https://example.com:8080/repo.git").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_with_path_params() {
+        assert!(validate_mirror_url("https://example.com/repo.git?token=abc").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_git_at_with_port() {
+        // git@ URLs don't have the dot check
+        assert!(validate_mirror_url("git@server:repo.git").is_ok());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_http_no_dot() {
+        // http without dot and not localhost should fail
+        assert!(validate_mirror_url("http://server").is_err());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_ftp_protocol() {
+        assert!(validate_mirror_url("ftp://example.com/repo.git").is_err());
+    }
+
+    #[test]
+    fn test_validate_mirror_url_ssh_protocol() {
+        assert!(validate_mirror_url("ssh://git@example.com/repo.git").is_err());
+    }
+
+    #[test]
+    fn test_compute_next_sync_large_interval() {
+        let last = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let next = compute_next_sync(Some(last), i32::MAX);
+        assert!(next > last);
+    }
+
+    #[test]
+    fn test_compute_next_sync_zero_interval() {
+        let last = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let next = compute_next_sync(Some(last), 0);
+        assert_eq!(next, last);
+    }
+
+    #[test]
+    fn test_compute_next_sync_negative_interval() {
+        let last = chrono::DateTime::parse_from_rfc3339("2024-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let next = compute_next_sync(Some(last), -30);
+        assert!(next < last);
+    }
+
+    #[test]
+    fn test_create_mirror_request_long_url() {
+        let url = format!("https://{}.com/repo.git", "a".repeat(1000));
+        let json = format!(r#"{{"url":"{url}","direction":"push"}}"#);
+        let req: CreateMirrorRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(req.url.len(), url.len());
+    }
+
+    #[test]
+    fn test_update_mirror_request_disable() {
+        let json = r#"{"enabled": false}"#;
+        let req: UpdateMirrorRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.enabled, Some(false));
+    }
+
+    #[test]
+    fn test_update_mirror_request_change_interval() {
+        let json = r#"{"sync_interval_minutes": 30}"#;
+        let req: UpdateMirrorRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.sync_interval_minutes, Some(30));
+    }
+
+    #[test]
+    fn test_create_mirror_request_zero_interval() {
+        let json = r#"{"url":"https://example.com/repo.git","direction":"push","sync_interval_minutes":0}"#;
+        let req: CreateMirrorRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.sync_interval_minutes, 0);
+    }
+
+    #[test]
+    fn test_valid_directions_all_checked() {
+        for dir in &["push", "pull", "both"] {
+            assert!(validate_direction(dir));
+        }
+        for dir in &["Push", "PUSH", "pull ", " both"] {
+            assert!(!validate_direction(dir));
+        }
+    }
 }

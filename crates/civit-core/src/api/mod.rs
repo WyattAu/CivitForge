@@ -369,10 +369,10 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(config: AppConfig, db: PgPool) -> Self {
-        let jwt_service = Arc::new(crate::auth::jwt::JwtService::new(
-            &config.jwt_secret,
-            config.jwt_expiry_hours,
-        ));
+        let jwt_service = Arc::new(
+            crate::auth::jwt::JwtService::new(&config.jwt_secret, config.jwt_expiry_hours)
+                .expect("JWT secret must be at least 32 bytes"),
+        );
         let event_bus = Arc::new(crate::events::EventBus::new(1000));
         let ws_manager = Arc::new(tokio::sync::RwLock::new(
             crate::events::WebSocketManager::new(event_bus.clone()),

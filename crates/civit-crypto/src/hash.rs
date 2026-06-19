@@ -82,11 +82,26 @@ impl HashService {
         Ok(Self::hash(algorithm, &data))
     }
 
+    fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+        if a.len() != b.len() {
+            return false;
+        }
+        let mut diff: u8 = 0;
+        for (x, y) in a.iter().zip(b.iter()) {
+            diff |= x ^ y;
+        }
+        diff == 0
+    }
+
     pub fn verify(data: &[u8], expected_hex: &str) -> bool {
+        let expected_bytes = match hex::decode(expected_hex) {
+            Ok(b) => b,
+            Err(_) => return false,
+        };
         let algorithms = [HashAlgorithm::Sha256, HashAlgorithm::Sha512];
         for algo in algorithms {
             let result = Self::hash(algo, data);
-            if result.hex == expected_hex {
+            if Self::constant_time_eq(&result.bytes, &expected_bytes) {
                 return true;
             }
         }
@@ -98,8 +113,12 @@ impl HashService {
         data: &[u8],
         expected_hex: &str,
     ) -> bool {
+        let expected_bytes = match hex::decode(expected_hex) {
+            Ok(b) => b,
+            Err(_) => return false,
+        };
         let result = Self::hash(algorithm, data);
-        result.hex == expected_hex
+        Self::constant_time_eq(&result.bytes, &expected_bytes)
     }
 
     pub fn merkle_root(hashes: &[&str]) -> Option<String> {

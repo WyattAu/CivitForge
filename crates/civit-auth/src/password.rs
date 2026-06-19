@@ -66,8 +66,10 @@ pub fn validate_password_policy(password: &str, policy: &PasswordPolicy) -> Vec<
     violations
 }
 
+const BCRYPT_COST: u32 = 12;
+
 pub fn hash_password(password: &str) -> Result<String> {
-    bcrypt::hash(password, bcrypt::DEFAULT_COST)
+    bcrypt::hash(password, BCRYPT_COST)
         .map_err(|e| AuthError::Internal(format!("Failed to hash password: {e}")))
 }
 
@@ -303,5 +305,122 @@ mod tests {
     #[test]
     fn test_verify_invalid_hash() {
         assert!(!verify_password("anything", "not-a-valid-hash"));
+    }
+
+    #[test]
+    fn test_validate_password_unicode() {
+        let policy = lenient_policy();
+        let violations = validate_password_policy("日本語パスワード", &policy);
+        assert!(violations.is_empty(), "got: {violations:?}");
+    }
+
+    #[test]
+    fn test_validate_password_only_special() {
+        let policy = PasswordPolicy {
+            min_length: 4,
+            max_length: 128,
+            require_uppercase: false,
+            require_lowercase: false,
+            require_digit: false,
+            require_special: true,
+        };
+        let violations = validate_password_policy("!@#$", &policy);
+        assert!(violations.is_empty(), "got: {violations:?}");
+    }
+
+    #[test]
+    fn test_validate_password_tab_char() {
+        let policy = lenient_policy();
+        let violations = validate_password_policy("abc\tdef", &policy);
+        assert!(violations.iter().any(|v| v.contains("invalid characters")));
+    }
+
+    #[test]
+    fn test_validate_password_carriage_return() {
+        let policy = lenient_policy();
+        let violations = validate_password_policy("abc\rdef", &policy);
+        assert!(violations.iter().any(|v| v.contains("invalid characters")));
+    }
+
+    #[test]
+    fn test_validate_password_null_char() {
+        let policy = lenient_policy();
+        let violations = validate_password_policy("abc\0def", &policy);
+        assert!(violations.iter().any(|v| v.contains("invalid characters")));
+    }
+
+    #[test]
+    fn test_hash_password_empty_string() {
+        let hash = hash_password("").unwrap();
+        assert!(hash.starts_with("$2b$"));
+        assert!(verify_password("", &hash));
+    }
+
+    #[test]
+    fn test_hash_password_long_password() {
+        let long_pw = "a".repeat(10000);
+        let hash = hash_password(&long_pw).unwrap();
+        assert!(verify_password(&long_pw, &hash));
+    }
+
+    #[test]
+    fn test_hash_password_unicode() {
+        let pw = "日本語パスワード1!";
+        let hash = hash_password(pw).unwrap();
+        assert!(verify_password(pw, &hash));
+    }
+
+    #[test]
+    fn test_password_policy_min_equals_max() {
+        let policy = PasswordPolicy {
+            min_length: 8,
+            max_length: 8,
+            require_uppercase: false,
+            require_lowercase: false,
+            require_digit: false,
+            require_special: false,
+        };
+        assert!(validate_password_policy("12345678", &policy).is_empty());
+        assert!(!validate_password_policy("1234567", &policy).is_empty());
+        assert!(!validate_password_policy("123456789", &policy).is_empty());
+    }
+
+    #[test]
+    fn test_validate_password_only_uppercase() {
+        let policy = strict_policy();
+        let violations = validate_password_policy("ABCDEF1!", &policy);
+        assert!(violations.iter().any(|v| v.contains("lowercase")));
+    }
+
+    #[test]
+    fn test_verify_password_empty_hash() {
+        assert!(!verify_password("test", ""));
+    }
+
+    #[test]
+    fn test_validate_password_at_exact_min() {
+        let policy = PasswordPolicy {
+            min_length: 5,
+            max_length: 100,
+            require_uppercase: false,
+            require_lowercase: false,
+            require_digit: false,
+            require_special: false,
+        };
+        assert!(validate_password_policy("12345", &policy).is_empty());
+    }
+
+    #[test]
+    fn test_validate_password_at_exact_max() {
+        let policy = PasswordPolicy {
+            min_length: 1,
+            max_length: 5,
+            require_uppercase: false,
+            require_lowercase: false,
+            require_digit: false,
+            require_special: false,
+        };
+        assert!(validate_password_policy("12345", &policy).is_empty());
+        assert!(!validate_password_policy("123456", &policy).is_empty());
     }
 }

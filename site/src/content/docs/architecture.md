@@ -5,7 +5,7 @@ description: System architecture, workspace structure, crate responsibilities, d
 
 ## Workspace Structure
 
-CivitForge is a 12-crate Cargo workspace (plus `civit-desktop`, excluded from
+CivitForge is a 13-crate Cargo workspace (plus `civit-desktop`, excluded from
 the default build), using Rust edition 2024 with `#![forbid(unsafe_code)]`
 enforced across all crates.
 
@@ -29,6 +29,7 @@ CivitForge/
 │   ├── civit-runner/       # CI execution, K8s operator, Podman
 │   ├── civit-brain/        # AI/ML, RAG, AST parsing
 │   ├── civit-crypto/       # Crypto primitives, CEL, enterprise auth
+│   ├── civit-shard/        # Database sharding with consistent hashing
 │   ├── civit-vfs/          # gRPC filesystem
 │   ├── civit-ui/           # Leptos web frontend (WASM + SSR)
 │   └── civit-desktop/      # Tauri desktop app (excluded)
@@ -84,10 +85,11 @@ CivitForge/
   │ mTLS, HSM    │    └──────────────┘
   └──────────────┘
 
-  ┌──────────────┐
-  │  civit-vfs    │
-  │gRPC filesystem│
-  └──────────────┘
+  ┌──────────────┐    ┌──────────────┐
+  │  civit-vfs    │    │  civit-shard  │
+  │gRPC filesystem│    │Consistent hash│
+  └──────────────┘    │ring, migration│
+                      └──────────────┘
 ```
 
 ## Crate Responsibilities
@@ -118,7 +120,7 @@ Database abstraction layer. Standalone, no internal dependencies.
 
 | Module | Responsibility |
 |--------|---------------|
-| `migrations/` | 32+ numbered SQL migrations (001-058) with rollback scripts in `down/` |
+| `migrations/` | 41 numbered SQL migrations (001-058) with rollback scripts in `down/` |
 | `models/` | Data structs: User, Org, Repository, Pipeline, Issue, PullRequest, Wiki, etc. |
 | `pool/` | sqlx `PgPool` connection pool wrapper |
 | `repository/` | Database access methods, org usage tracking |
@@ -226,7 +228,7 @@ Cryptographic primitives and enterprise auth protocols.
 
 | Module | Responsibility |
 |--------|---------------|
-| `cel/` | CEL evaluator: arithmetic, 15 functions, parenthesized sub-expressions |
+| `cel/` | CEL evaluator: arithmetic, 20+ built-in functions, parenthesized sub-expressions |
 | `hmac.rs` | SHA-256/512, HMAC-SHA256 via sha2/hmac crates |
 | `oidc.rs` | JWKS fetch, RS256 signature verification via ring |
 | `saml.rs` | SHA-256 digest integrity verification |
@@ -236,6 +238,27 @@ Cryptographic primitives and enterprise auth protocols.
 | `provenance.rs` | SLSA provenance signer + PEM codec |
 | `mtls.rs` | rcgen X.509 CA creation, cert issuance, SHA-256 fingerprints |
 | `policy.rs` | CAS-style policy engine (Subject/Action/Resource/Condition/Effect) |
+| `abac/` | ABAC engine with conditions and policy evaluation |
+| `fips/` | FIPS self-test module |
+| `compliance/` | ISO 27001 and risk assessment |
+| `sbom.rs` | Software Bill of Materials |
+| `cosign.rs` | Container image signature verification |
+| `cmdb.rs` | Configuration Management Database integration |
+| `hash.rs` | Hashing utilities |
+| `repo_keys.rs` | Repository key management |
+| `audit/` | Audit trail module |
+| `policy_versioning.rs` | Policy version management |
+
+### civit-shard (library)
+
+Database sharding with consistent hashing. Standalone, no internal dependencies.
+
+| Module | Responsibility |
+|--------|---------------|
+| `ring.rs` | `ConsistentRing<T>`: SHA-256 consistent hash ring with virtual nodes |
+| `router.rs` | `ShardRouter`: health-aware key routing with fallback replicas |
+| `coordination.rs` | `ShardAssignment`, `ShardMetadata`, `AssignmentTracker`: shard state tracking |
+| `migration.rs` | `MigrationState`: four-phase migration (dual-write, read-from-shards, cutover, decommission) |
 
 ### civit-vfs (binary, lib)
 

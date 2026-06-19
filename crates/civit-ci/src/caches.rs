@@ -183,4 +183,92 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("empty"));
     }
+
+    #[test]
+    fn test_cache_list_params_negative_offset() {
+        let json = r#"{"limit": 10, "offset": -5}"#;
+        let params: CacheListParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.offset, -5);
+    }
+
+    #[test]
+    fn test_cache_list_params_zero_limit() {
+        let json = r#"{"limit": 0}"#;
+        let params: CacheListParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.limit, 0);
+    }
+
+    #[test]
+    fn test_create_cache_request_negative_size() {
+        let json = r#"{"key": "k", "path": "p", "size_bytes": -100}"#;
+        let req: CreateCacheRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.size_bytes, -100);
+    }
+
+    #[test]
+    fn test_create_cache_request_zero_ttl() {
+        let json = r#"{"key": "k", "path": "p", "ttl_secs": 0}"#;
+        let req: CreateCacheRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.ttl_secs, Some(0));
+    }
+
+    #[test]
+    fn test_cache_entry_special_chars_in_key() {
+        let resp = CacheEntryResponse {
+            key: "key/with/slashes&special=chars".into(),
+            path: "/tmp/".into(),
+            size_bytes: 100,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("key/with/slashes&special=chars"));
+    }
+
+    #[test]
+    fn test_cache_entry_empty_path() {
+        let resp = CacheEntryResponse {
+            key: "k".into(),
+            path: "".into(),
+            size_bytes: 0,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"path\":\"\""));
+    }
+
+    #[test]
+    fn test_create_cache_request_special_chars() {
+        let json = r#"{"key": "key with spaces!@#", "path": "/path/with spaces"}"#;
+        let req: CreateCacheRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.key, "key with spaces!@#");
+        assert_eq!(req.path, "/path/with spaces");
+    }
+
+    #[test]
+    fn test_cache_entry_expires_at_format() {
+        let resp = CacheEntryResponse {
+            key: "k".into(),
+            path: "p".into(),
+            size_bytes: 0,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: Some("2025-12-31T23:59:59Z".into()),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("2025-12-31T23:59:59Z"));
+    }
+
+    #[test]
+    fn test_cache_entry_negative_size() {
+        let resp = CacheEntryResponse {
+            key: "k".into(),
+            path: "p".into(),
+            size_bytes: -1,
+            created_at: "2025-01-01T00:00:00Z".into(),
+            expires_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"size_bytes\":-1"));
+    }
 }

@@ -13,6 +13,7 @@ members = [
     "crates/civit-vfs",
     "crates/civit-crypto",
     "crates/civit-auth",
+    "crates/civit-shard",
     "crates/civit-ui",
     # NOTE: civit-desktop requires system deps (webkit2gtk).
     # Build separately: cd crates/civit-desktop && cargo tauri build
@@ -50,7 +51,7 @@ hmac = "0.12"
 sha1 = "0.10"
 ring = "0.17"
 rcgen = "0.13"
-x509-parser = "0.17"
+x509-parser = { version = "0.17", features = ["verify"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"

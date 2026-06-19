@@ -19,13 +19,26 @@ pub struct JwtService {
     expiry_hours: u64,
 }
 
+impl std::fmt::Debug for JwtService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JwtService")
+            .field("expiry_hours", &self.expiry_hours)
+            .finish()
+    }
+}
+
 impl JwtService {
-    pub fn new(secret: &str, expiry_hours: u64) -> Self {
-        Self {
+    pub fn new(secret: &str, expiry_hours: u64) -> Result<Self> {
+        if secret.len() < 32 {
+            return Err(crate::error::AuthError::Config(
+                "JWT secret must be at least 32 bytes".into(),
+            ));
+        }
+        Ok(Self {
             encoding_key: EncodingKey::from_secret(secret.as_bytes()),
             decoding_key: DecodingKey::from_secret(secret.as_bytes()),
             expiry_hours,
-        }
+        })
     }
 
     pub fn generate_token(
@@ -69,7 +82,7 @@ mod tests {
     use super::*;
 
     fn make_service() -> JwtService {
-        JwtService::new("test-secret-key-32bytes-minimums", 24)
+        JwtService::new("test-secret-key-32bytes-minimums", 24).unwrap()
     }
 
     #[test]
@@ -94,8 +107,8 @@ mod tests {
 
     #[test]
     fn test_wrong_secret_rejected() {
-        let svc1 = JwtService::new("secret-one-32bytes-minimum-padding", 24);
-        let svc2 = JwtService::new("secret-two-32bytes-minimum-padding", 24);
+        let svc1 = JwtService::new("secret-one-32bytes-minimum-padding", 24).unwrap();
+        let svc2 = JwtService::new("secret-two-32bytes-minimum-padding", 24).unwrap();
         let token = svc1.generate_token("u1", "bob", "member", None).unwrap();
         assert!(svc2.validate_token(&token).is_err());
     }
@@ -113,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_token_expiry_set() {
-        let svc = JwtService::new("test-secret-key-32bytes-minimums", 48);
+        let svc = JwtService::new("test-secret-key-32bytes-minimums", 48).unwrap();
         let token = svc.generate_token("u1", "charlie", "guest", None).unwrap();
         let claims = svc.validate_token(&token).unwrap();
         let now = chrono::Utc::now().timestamp() as u64;
@@ -123,7 +136,7 @@ mod tests {
 
     #[test]
     fn test_token_expiry_short_lived() {
-        let svc = JwtService::new("test-secret-key-32bytes-minimums", 1);
+        let svc = JwtService::new("test-secret-key-32bytes-minimums", 1).unwrap();
         let token = svc.generate_token("u1", "charlie", "guest", None).unwrap();
         let claims = svc.validate_token(&token).unwrap();
         let now = chrono::Utc::now().timestamp() as u64;
@@ -191,10 +204,106 @@ mod tests {
 
     #[test]
     fn test_token_uses_correct_secret() {
-        let svc_a = JwtService::new("secret-a-32-bytes-padding-pad", 24);
-        let svc_b = JwtService::new("secret-b-32-bytes-padding-pad", 24);
+        let svc_a = JwtService::new("secret-a-32-bytes-padding-pad!!!", 24).unwrap();
+        let svc_b = JwtService::new("secret-b-32-bytes-padding-pad!!!", 24).unwrap();
         let token = svc_a.generate_token("u1", "alice", "admin", None).unwrap();
         assert!(svc_a.validate_token(&token).is_ok());
         assert!(svc_b.validate_token(&token).is_err());
+    }
+
+    #[test]
+    fn test_generate_token_empty_sub() {
+        let svc = make_service();
+        let token = svc.generate_token("", "alice", "admin", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.sub, "");
+    }
+
+    #[test]
+    fn test_generate_token_empty_username() {
+        let svc = make_service();
+        let token = svc.generate_token("u1", "", "admin", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.username, "");
+    }
+
+    #[test]
+    fn test_generate_token_empty_role() {
+        let svc = make_service();
+        let token = svc.generate_token("u1", "alice", "", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.role, "");
+    }
+
+    #[test]
+    fn test_generate_token_long_strings() {
+        let svc = make_service();
+        let long_str = "x".repeat(10000);
+        let token = svc
+            .generate_token(&long_str, &long_str, &long_str, None)
+            .unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.sub.len(), 10000);
+    }
+
+    #[test]
+    fn test_extract_bearer_only_bearer() {
+        assert_eq!(JwtService::extract_bearer("Bearer"), None);
+    }
+
+    #[test]
+    fn test_extract_bearer_multiple_spaces() {
+        assert_eq!(JwtService::extract_bearer("Bearer   token"), Some("token"));
+    }
+
+    #[test]
+    fn test_token_expiry_zero_hours() {
+        let svc = JwtService::new("test-secret-key-32bytes-minimums", 0).unwrap();
+        let token = svc.generate_token("u1", "alice", "admin", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.exp, claims.iat);
+    }
+
+    #[test]
+    fn test_different_users_same_secret() {
+        let svc = make_service();
+        let token1 = svc.generate_token("u1", "alice", "admin", None).unwrap();
+        let token2 = svc.generate_token("u2", "bob", "member", None).unwrap();
+        let claims1 = svc.validate_token(&token1).unwrap();
+        let claims2 = svc.validate_token(&token2).unwrap();
+        assert_eq!(claims1.sub, "u1");
+        assert_eq!(claims2.sub, "u2");
+    }
+
+    #[test]
+    fn test_token_with_org_id() {
+        let svc = make_service();
+        let token = svc
+            .generate_token("u1", "alice", "admin", Some("org-123"))
+            .unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert_eq!(claims.org_id.as_deref(), Some("org-123"));
+    }
+
+    #[test]
+    fn test_token_without_org_id() {
+        let svc = make_service();
+        let token = svc.generate_token("u1", "alice", "admin", None).unwrap();
+        let claims = svc.validate_token(&token).unwrap();
+        assert!(claims.org_id.is_none());
+    }
+
+    #[test]
+    fn test_short_secret_rejected() {
+        let result = JwtService::new("short", 24);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(err_msg.contains("at least 32 bytes"));
+    }
+
+    #[test]
+    fn test_exactly_32_byte_secret_accepted() {
+        let result = JwtService::new("12345678901234567890123456789012", 24);
+        assert!(result.is_ok());
     }
 }

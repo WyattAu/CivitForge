@@ -14,7 +14,7 @@ subsystem.
 
 **Rust-Native**
 
-12-workspace Cargo crate, edition 2024, `#![forbid(unsafe_code)]` enforced.
+13-workspace Cargo crate, edition 2024, `#![forbid(unsafe_code)]` enforced.
 Zero C FFI dependencies in the default build.
 
 **Federated**
@@ -54,6 +54,7 @@ Services exposed on host ports: 9091 (API), 2222 (Git SSH), 9090 (VFS gRPC).
 | `civit-brain` | AI agent workflows, AST parsing, RAG pipeline, vector DB |
 | `civit-vfs` | gRPC filesystem server (tonic/prost) |
 | `civit-crypto` | CEL evaluator, HMAC/SHA, OIDC, SAML, WebAuthn, SLSA |
+| `civit-shard` | Database sharding with consistent hashing |
 | `civit-pipeline` | YAML pipeline spec parsing and validation |
 | `civit-shared` | Shared API types for backend-frontend type sharing |
 

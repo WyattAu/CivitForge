@@ -192,4 +192,75 @@ mod tests {
     fn test_parse_user_id_random_string() {
         assert!(parse_user_id("hello-world").is_err());
     }
+
+    #[test]
+    fn test_hash_token_unicode() {
+        let h = hash_token("日本語トークン");
+        assert_eq!(h.len(), 64);
+    }
+
+    #[test]
+    fn test_hash_token_binary() {
+        let h = hash_token("\x00\x01\x02\x03");
+        assert_eq!(h.len(), 64);
+    }
+
+    #[test]
+    fn test_generate_token_hex_chars() {
+        let token = generate_token();
+        let hex_part = &token[PAT_PREFIX.len()..];
+        assert!(hex_part.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_validate_scopes_duplicate_valid() {
+        let scopes = vec!["read".to_string(), "read".to_string()];
+        assert!(validate_scopes(&scopes).is_ok());
+    }
+
+    #[test]
+    fn test_validate_scopes_case_sensitive() {
+        let scopes = vec!["Read".to_string()];
+        assert!(validate_scopes(&scopes).is_err());
+    }
+
+    #[test]
+    fn test_validate_scopes_partial_match() {
+        let scopes = vec!["readwrite".to_string()];
+        assert!(validate_scopes(&scopes).is_err());
+    }
+
+    #[test]
+    fn test_is_pat_token_exact_prefix() {
+        assert!(is_pat_token("cf_pat_abc123"));
+        assert!(is_pat_token("cf_pat_"));
+        assert!(is_pat_token("cf_pat_ ")); // starts_with doesn't check trailing
+        assert!(!is_pat_token("cf_pat"));
+        assert!(!is_pat_token("CF_PAT_abc"));
+    }
+
+    #[test]
+    fn test_parse_user_id_special_chars() {
+        assert!(parse_user_id("550e8400-e29b-41d4-a716-446655440000!").is_err());
+    }
+
+    #[test]
+    fn test_hash_token_consistency() {
+        let token = "cf_pat_consistent_test";
+        let h1 = hash_token(token);
+        let h2 = hash_token(token);
+        let h3 = hash_token(token);
+        assert_eq!(h1, h2);
+        assert_eq!(h2, h3);
+    }
+
+    #[test]
+    fn test_validate_scopes_all_invalid() {
+        let scopes = vec![
+            "invalid1".to_string(),
+            "invalid2".to_string(),
+            "invalid3".to_string(),
+        ];
+        assert!(validate_scopes(&scopes).is_err());
+    }
 }

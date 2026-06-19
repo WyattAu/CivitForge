@@ -43,12 +43,21 @@ axiom jwt_wrong_secret_fails :
 
 -- Axiom: JWT validation fails for expired tokens.
 -- Source: RFC 7519 Section 4.1.5, "exp" claim
+-- Note: claims.exp is Option Nat. If exp is some e and now > e, validation fails.
 axiom jwt_expired_rejection :
-  ∀ (claims : JWTClaims) (secret : String) (now : Nat),
-    claims.exp ≠ none →
-    claims.exp.get ≠ none →
-    now > claims.exp.get →
+  ∀ (claims : JWTClaims) (secret : String) (now : Nat) (e : Nat),
+    claims.exp = some e →
+    now > e →
     jwt_validate_with_time secret (jwt_sign claims secret) now = none
+
+-- Axiom: jwt_validate_with_time delegates to jwt_validate for the common case.
+-- When the token has no exp claim, time check is skipped.
+-- Source: RFC 7519 Section 4.1.5
+axiom jwt_validate_with_time_no_exp :
+  ∀ (claims : JWTClaims) (secret : String) (now : Nat),
+    claims.exp = none →
+    jwt_validate_with_time secret (jwt_sign claims secret) now =
+    jwt_validate secret (jwt_sign claims secret)
 
 -- ============================================================
 -- Definitions
@@ -76,10 +85,14 @@ theorem jwt_roundtrip_correctness (claims : JWTClaims) (secret : String) :
 
 -- PROP-002: Expired token rejection
 -- Tokens with exp in the past are rejected.
+-- Proof strategy: Direct application of jwt_expired_rejection axiom.
+-- The hypothesis h_exp : claims.exp = some e witnesses that exp is set.
+-- The hypothesis h_past : now > e witnesses that the current time exceeds expiry.
+-- Reference: RFC 7519 Section 4.1.5 ("exp" claim), Time-Based Validation
 theorem jwt_expired_rejects (claims : JWTClaims) (secret : String)
-    (now : Nat) (h_exp : claims.exp = some e) (h_past : now > e) :
+    (now : Nat) (e : Nat) (h_exp : claims.exp = some e) (h_past : now > e) :
     jwt_validate_with_time secret (jwt_sign claims secret) now = none := by
-  sorry -- Requires formalization of time-dependent validation
+  exact jwt_expired_rejection claims secret now e h_exp h_past
 
 -- PROP-003: Wrong secret rejection
 -- Tokens signed with secret s1 are rejected when validated with secret s2.

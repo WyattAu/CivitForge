@@ -1,0 +1,95 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: 'Update baseline with these results'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_VERSION: "1.88"
+  CARGO_TERM_COLOR: always
+  CARGO_BUILD_JOBS: "2"
+  CARGO_PROFILE_DEV_DEBUG: "line-tables-only"
+  CARGO_PROFILE_TEST_DEBUG: "line-tables-only"
+
+jobs:
+  bench:
+    name: Run Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Run benchmarks
+        run: cargo bench --workspace --locked -- --output-format bencher | tee bench-results.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-${{ github.sha }}
+          path: bench-results.txt
+          retention-days: 90
+
+      - name: Save baseline locally
+        if: inputs.update_baseline
+        run: |
+          mkdir -p .benchmarks
+          cp bench-results.txt .benchmarks/baseline.txt
+
+      - name: Create PR with updated baseline
+        if: inputs.update_baseline
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="chore/update-benchmark-baseline"
+
+          # Check if branch already exists
+          if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+            echo "Branch $BRANCH already exists, updating..."
+          fi
+
+          git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
+          mkdir -p .benchmarks
+          cp bench-results.txt .benchmarks/baseline.txt
+          git add .benchmarks/baseline.txt
+
+          if git diff --cached --quiet; then
+            echo "No changes to baseline — skipping PR."
+            exit 0
+          fi
+
+          git commit -m "chore: update benchmark baseline"
+          git push origin "$BRANCH" --force-with-lease
+
+          # Create PR if one doesn't exist
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' || true)
+          if [ -z "$EXISTING_PR" ]; then
+            gh pr create \
+              --title "chore: update benchmark baseline" \
+              --body "Automated benchmark baseline update from CI run \`${{ github.sha }}\`." \
+              --head "$BRANCH" \
+              --base main
+          else
+            echo "PR #$EXISTING_PR already open for baseline update."
+          fi

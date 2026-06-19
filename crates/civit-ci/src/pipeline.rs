@@ -810,4 +810,145 @@ mod tests {
         assert!(json.contains("r1"));
         assert!(json.contains("jobs"));
     }
+
+    #[test]
+    fn test_graph_response_empty_nodes() {
+        let graph = GraphResponse {
+            nodes: vec![],
+            edges: vec![],
+            layout: GraphLayout {
+                rank_direction: "TB".into(),
+                node_spacing: 50,
+                rank_spacing: 80,
+            },
+        };
+        let json = serde_json::to_string(&graph).unwrap();
+        assert!(json.contains("\"nodes\":[]"));
+        assert!(json.contains("\"edges\":[]"));
+    }
+
+    #[test]
+    fn test_graph_node_all_optionals_none() {
+        let node = GraphNode {
+            id: "n1".into(),
+            name: "build".into(),
+            status: "pending".into(),
+            job_index: 0,
+            runner_id: None,
+            started_at: None,
+            finished_at: None,
+        };
+        let json = serde_json::to_string(&node).unwrap();
+        assert!(json.contains("build"));
+        assert!(json.contains("null"));
+    }
+
+    #[test]
+    fn test_graph_node_all_optionals_some() {
+        let node = GraphNode {
+            id: "n1".into(),
+            name: "test".into(),
+            status: "running".into(),
+            job_index: 1,
+            runner_id: Some("runner-1".into()),
+            started_at: Some("2025-01-01T00:00:00Z".into()),
+            finished_at: Some("2025-01-01T00:01:00Z".into()),
+        };
+        let json = serde_json::to_string(&node).unwrap();
+        assert!(json.contains("runner-1"));
+        assert!(json.contains("2025-01-01T00:00:00Z"));
+    }
+
+    #[test]
+    fn test_graph_layout_custom() {
+        let layout = GraphLayout {
+            rank_direction: "BT".into(),
+            node_spacing: 100,
+            rank_spacing: 200,
+        };
+        let json = serde_json::to_string(&layout).unwrap();
+        assert!(json.contains("BT"));
+        assert!(json.contains("100"));
+        assert!(json.contains("200"));
+    }
+
+    #[test]
+    fn test_step_response_negative_exit_code() {
+        let step = RunStepResponse {
+            id: "s1".into(),
+            name: "fail".into(),
+            step_index: 0,
+            status: "failed".into(),
+            image: None,
+            exit_code: Some(-1),
+            output: Some("signal killed".into()),
+            started_at: None,
+            finished_at: None,
+        };
+        let json = serde_json::to_string(&step).unwrap();
+        assert!(json.contains("-1"));
+    }
+
+    #[test]
+    fn test_run_job_response_multiple_steps() {
+        let job = RunJobResponse {
+            id: "j1".into(),
+            name: "build".into(),
+            status: "success".into(),
+            runner_id: None,
+            started_at: None,
+            finished_at: None,
+            steps: vec![
+                RunStepResponse {
+                    id: "s1".into(),
+                    name: "compile".into(),
+                    step_index: 0,
+                    status: "success".into(),
+                    image: None,
+                    exit_code: Some(0),
+                    output: None,
+                    started_at: None,
+                    finished_at: None,
+                },
+                RunStepResponse {
+                    id: "s2".into(),
+                    name: "test".into(),
+                    step_index: 1,
+                    status: "success".into(),
+                    image: None,
+                    exit_code: Some(0),
+                    output: None,
+                    started_at: None,
+                    finished_at: None,
+                },
+            ],
+        };
+        let json = serde_json::to_string(&job).unwrap();
+        assert!(json.contains("compile"));
+        assert!(json.contains("test"));
+    }
+
+    #[test]
+    fn test_trigger_request_with_empty_changed_files() {
+        let json = r#"{"ref_name": "main", "commit_sha": "abc", "changed_files": []}"#;
+        let req: TriggerPipelineRequest = serde_json::from_str(json).unwrap();
+        assert!(req.changed_files.is_empty());
+    }
+
+    #[test]
+    fn test_pipeline_run_response_long_strings() {
+        let resp = PipelineRunResponse {
+            id: "a".repeat(1000),
+            repo_id: "b".repeat(1000),
+            trigger: "c".repeat(1000),
+            ref_name: Some("d".repeat(1000)),
+            commit_sha: "e".repeat(1000),
+            status: "f".repeat(1000),
+            created_at: "2025-01-01T00:00:00Z".into(),
+            started_at: None,
+            finished_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains(&"a".repeat(1000)));
+    }
 }

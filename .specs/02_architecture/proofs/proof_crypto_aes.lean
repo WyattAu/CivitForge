@@ -52,6 +52,16 @@ axiom aes_gcm_nonce_sensitivity :
     (aes_gcm_encrypt key nonce1 plaintext).1 ≠
     (aes_gcm_encrypt key nonce2 plaintext).1
 
+-- Axiom: Tag verification is equivalent to successful decryption.
+-- Source: NIST SP 800-38D Section 5.12.3
+-- The authentication tag T is computed as:
+--   T = GCTR_k(J0, GHASH_k(H, A, C))
+-- Verification succeeds iff T matches the expected tag.
+axiom aes_gcm_verify_tag_def :
+  ∀ (key nonce ciphertext tag : ByteArray),
+    aes_gcm_verify_tag key nonce ciphertext tag = true ↔
+    aes_gcm_decrypt key nonce ciphertext tag ≠ none
+
 -- ============================================================
 -- Definitions
 -- ============================================================
@@ -80,10 +90,24 @@ theorem aes_gcm_different_nonces (key : ByteArray) (nonce1 nonce2 plaintext : By
 
 -- PROP-003: Authentication tag verification
 -- Valid tag allows decryption.
+-- Proof strategy: The roundtrip axiom guarantees decryption succeeds for the
+-- authentic tag. The verify_tag axiom states verification succeeds iff decryption
+-- succeeds. Compose the two to derive the result.
+-- Reference: NIST SP 800-38D Section 5.12.3, GCM authentication check
 theorem aes_gcm_tag_valid (key nonce plaintext : ByteArray) :
     let (ciphertext, tag) := aes_gcm_encrypt key nonce plaintext
     aes_gcm_verify_tag key nonce ciphertext tag = true := by
-  sorry -- Requires formalization of tag verification
+  -- From aes_gcm_roundtrip, decryption with the authentic tag yields some plaintext.
+  -- Therefore aes_gcm_decrypt key nonce ciphertext tag ≠ none.
+  have h_decrypt_ok : aes_gcm_decrypt key nonce ciphertext tag ≠ none := by
+    have h := aes_gcm_roundtrip key nonce plaintext
+    intro h_none
+    -- h_none : aes_gcm_decrypt ... = none
+    -- h : aes_gcm_decrypt ... = some plaintext
+    -- Contradiction: none ≠ some plaintext
+    simp [h_none] at h
+  -- From aes_gcm_verify_tag_def, verification succeeds iff decryption succeeds.
+  exact (aes_gcm_verify_tag_def key nonce ciphertext tag).mp h_decrypt_ok
 
 -- PROP-004: Tampered ciphertext detection
 -- Tampered ciphertext or tag is rejected.

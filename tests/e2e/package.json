@@ -6,6 +6,9 @@
   "scripts": {
     "test": "node traverse.mjs",
     "test:headed": "node traverse.mjs --headed",
+    "test:full": "node full-stack.mjs",
+    "test:full:headed": "node full-stack.mjs --headed",
+    "test:full:keep": "node full-stack.mjs --keep-testdata",
     "benchmark": "node benchmark.mjs",
     "benchmark:headed": "node benchmark.mjs --headed",
     "traverse-and-benchmark": "node traverse.mjs && node benchmark.mjs"

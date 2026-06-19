@@ -204,4 +204,83 @@ mod tests {
         let q: ArtifactDownloadQuery = serde_json::from_str(r#"{}"#).unwrap();
         assert!(q.token.is_none());
     }
+
+    #[test]
+    fn test_mime_from_extension_xls() {
+        assert_eq!(mime_from_extension("data.xls"), "application/octet-stream");
+        assert_eq!(mime_from_extension("data.xlsx"), "application/octet-stream");
+    }
+
+    #[test]
+    fn test_mime_from_extension_image_types() {
+        assert_eq!(mime_from_extension("photo.bmp"), "application/octet-stream");
+        assert_eq!(mime_from_extension("icon.ico"), "application/octet-stream");
+        assert_eq!(
+            mime_from_extension("photo.tiff"),
+            "application/octet-stream"
+        );
+        assert_eq!(
+            mime_from_extension("photo.webp"),
+            "application/octet-stream"
+        );
+    }
+
+    #[test]
+    fn test_mime_from_extension_audio_video() {
+        assert_eq!(mime_from_extension("audio.mp3"), "application/octet-stream");
+        assert_eq!(mime_from_extension("video.mp4"), "application/octet-stream");
+        assert_eq!(mime_from_extension("audio.wav"), "application/octet-stream");
+    }
+
+    #[test]
+    fn test_mime_from_extension_double_dot() {
+        assert_eq!(mime_from_extension("..json"), "application/json");
+        assert_eq!(mime_from_extension("file.."), "application/octet-stream");
+    }
+
+    #[test]
+    fn test_mime_from_extension_only_dots() {
+        assert_eq!(mime_from_extension("..."), "application/octet-stream");
+        assert_eq!(mime_from_extension("."), "application/octet-stream");
+    }
+
+    #[test]
+    fn test_artifact_storage_path_special_chars() {
+        let path = artifact_storage_path("/data", "org name", "repo name", "id 123");
+        assert_eq!(
+            path,
+            PathBuf::from("/data/artifacts/org name/repo name/id 123")
+        );
+    }
+
+    #[test]
+    fn test_artifact_storage_path_deeply_nested_base() {
+        let path = artifact_storage_path("/a/b/c/d", "o", "r", "a");
+        assert_eq!(path, PathBuf::from("/a/b/c/d/artifacts/o/r/a"));
+    }
+
+    #[test]
+    fn test_generate_presigned_url_already_has_expires() {
+        let url = generate_presigned_url(
+            "https://example.com?token=abc&expires=999",
+            "file.zip",
+            3600,
+        );
+        assert!(url.contains("expires=999"));
+        assert!(url.contains("expires=3600"));
+    }
+
+    #[test]
+    fn test_validate_presigned_url_only_expires_at_end() {
+        let url = "https://example.com/file?token=abc&expires=456";
+        assert_eq!(validate_presigned_url(url), Ok(456));
+    }
+
+    #[test]
+    fn test_artifact_download_query_with_long_token() {
+        let token = "a".repeat(10000);
+        let q: ArtifactDownloadQuery =
+            serde_json::from_str(&format!(r#"{{"token":"{token}"}}"#)).unwrap();
+        assert_eq!(q.token.as_deref(), Some(token.as_str()));
+    }
 }

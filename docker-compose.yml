@@ -57,12 +57,12 @@ services:
       start_period: 5s
 
   # ---------------------------------------------------------------------------
-  # CivitForge - Main server
+  # CivitForge Core - API server + SSH gateway + WASM UI
   # ---------------------------------------------------------------------------
   civitforge:
     build:
       context: .
-      dockerfile: container/civitforge/Dockerfile
+      dockerfile: container/civit-core/Dockerfile
     container_name: civit-server
     restart: unless-stopped
     depends_on:
@@ -87,12 +87,39 @@ services:
     ports:
       - "9091:8080"   # API (host:9091 → container:8080)
       - "2222:2222"   # SSH (git)
-      - "9090:9090"   # gRPC/VFS
     volumes:
       - civit-data:/var/lib/civit/repos
       - civit-logs:/var/log/civit
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # CivitForge Brain - Search indexing and code intelligence daemon
+  # ---------------------------------------------------------------------------
+  brain:
+    build:
+      context: .
+      dockerfile: container/civit-brain/Dockerfile
+    container_name: civit-brain
+    restart: unless-stopped
+    depends_on:
+      civitforge:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://civit:civit-dev-secure-pw-2026@postgres:5432/civit
+      REDIS_URL: redis://:civit-redis-dev-2026@redis:6379
+      CIVIT_STORAGE_PATH: /var/lib/civit/repos
+      RUST_LOG: civit_brain=info
+    ports:
+      - "8082:8082"   # Brain HTTP API
+    volumes:
+      - civit-data:/var/lib/civit/repos
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -129,6 +156,34 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # CivitForge VFS - Virtual filesystem gateway
+  # ---------------------------------------------------------------------------
+  vfs:
+    build:
+      context: .
+      dockerfile: container/civit-vfs/Dockerfile
+    container_name: civit-vfs
+    restart: unless-stopped
+    depends_on:
+      civitforge:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://civit:civit-dev-secure-pw-2026@postgres:5432/civit
+      REDIS_URL: redis://:civit-redis-dev-2026@redis:6379
+      CIVIT_STORAGE_PATH: /var/lib/civit/repos
+      RUST_LOG: civit_vfs=info
+    ports:
+      - "9090:9090"   # gRPC/VFS
+    volumes:
+      - civit-data:/var/lib/civit/repos
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
 volumes:
   postgres-data:

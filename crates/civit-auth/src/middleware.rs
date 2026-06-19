@@ -15,6 +15,7 @@ pub struct AuthUser {
     pub org_id: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct OptionalAuthUser(pub Option<AuthUser>);
 
 /// Hash a token for comparison (SHA-256)
@@ -100,7 +101,7 @@ mod tests {
     use crate::jwt::JwtService;
 
     fn make_jwt_service() -> JwtService {
-        JwtService::new("test-secret-key-32bytes-minimums", 24)
+        JwtService::new("test-secret-key-32bytes-minimums", 24).unwrap()
     }
 
     #[test]
@@ -226,5 +227,152 @@ mod tests {
         assert_eq!(user.username, "alice");
         assert_eq!(user.role, "admin");
         assert_eq!(user.org_id.as_deref(), Some("org-1"));
+    }
+
+    #[test]
+    fn test_basic_auth_invalid_base64() {
+        let svc = make_jwt_service();
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
+        let result = extract_auth_user("Basic not-valid-base64!@#", &svc, &noop_validator);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_basic_auth_no_colon() {
+        let svc = make_jwt_service();
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
+        use base64::Engine;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(b"nocolon");
+        let result = extract_auth_user(&format!("Basic {encoded}"), &svc, &noop_validator);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_basic_auth_with_pat_token() {
+        use base64::Engine;
+        let svc = make_jwt_service();
+        let pat_token = "cf_pat_abc123def456";
+        let encoded = base64::engine::general_purpose::STANDARD.encode(format!("user:{pat_token}"));
+        let validator =
+            |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
+                Ok(("user-1".into(), vec!["read".into()], uuid::Uuid::nil()))
+            };
+        let result = extract_auth_user(&format!("Basic {encoded}"), &svc, &validator);
+        assert!(result.is_ok());
+        let user = result.unwrap();
+        assert_eq!(user.user_id, "user-1");
+    }
+
+    #[test]
+    fn test_basic_auth_pat_token_lacks_scope() {
+        use base64::Engine;
+        let svc = make_jwt_service();
+        let pat_token = "cf_pat_abc123def456";
+        let encoded = base64::engine::general_purpose::STANDARD.encode(format!("user:{pat_token}"));
+        let validator =
+            |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
+                Ok(("user-1".into(), vec!["write".into()], uuid::Uuid::nil()))
+            };
+        let result = extract_auth_user(&format!("Basic {encoded}"), &svc, &validator);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bearer_pat_token_succeeds() {
+        let svc = make_jwt_service();
+        let pat_token = "cf_pat_abc123def456";
+        let validator =
+            |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
+                Ok(("user-1".into(), vec!["read".into()], uuid::Uuid::nil()))
+            };
+        let result = extract_auth_user(&format!("Bearer {pat_token}"), &svc, &validator);
+        assert!(result.is_ok());
+        let user = result.unwrap();
+        assert_eq!(user.user_id, "user-1");
+        assert!(user.username.is_empty());
+    }
+
+    #[test]
+    fn test_bearer_pat_token_lacks_scope() {
+        let svc = make_jwt_service();
+        let pat_token = "cf_pat_abc123def456";
+        let validator =
+            |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
+                Ok(("user-1".into(), vec!["write".into()], uuid::Uuid::nil()))
+            };
+        let result = extract_auth_user(&format!("Bearer {pat_token}"), &svc, &validator);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bearer_pat_token_admin_scope() {
+        let svc = make_jwt_service();
+        let pat_token = "cf_pat_abc123def456";
+        let validator =
+            |_token: &str| -> std::result::Result<(String, Vec<String>, uuid::Uuid), AuthError> {
+                Ok(("user-1".into(), vec!["admin".into()], uuid::Uuid::nil()))
+            };
+        let result = extract_auth_user(&format!("Bearer {pat_token}"), &svc, &validator);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_basic_auth_invalid_jwt_password() {
+        use base64::Engine;
+        let svc = make_jwt_service();
+        let encoded = base64::engine::general_purpose::STANDARD.encode(b"user:invalid-jwt-token");
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
+        let result = extract_auth_user(&format!("Basic {encoded}"), &svc, &noop_validator);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_authorization() {
+        let svc = make_jwt_service();
+        let noop_validator = |_token: &str| -> std::result::Result<
+            (String, Vec<String>, uuid::Uuid),
+            AuthError,
+        > { Err(AuthError::Auth("not implemented".into())) };
+        let result = extract_auth_user("", &svc, &noop_validator);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_auth_user_all_roles() {
+        for role in &["admin", "member", "guest", "viewer", "owner"] {
+            let user = AuthUser {
+                user_id: "u1".into(),
+                username: "user".into(),
+                role: role.to_string(),
+                org_id: None,
+            };
+            assert_eq!(user.role, *role);
+        }
+    }
+
+    #[test]
+    fn test_optional_auth_user_debug() {
+        let opt = OptionalAuthUser(None);
+        let debug_str = format!("{opt:?}");
+        assert!(debug_str.contains("None"));
+
+        let user = AuthUser {
+            user_id: "u1".into(),
+            username: "alice".into(),
+            role: "admin".into(),
+            org_id: None,
+        };
+        let opt = OptionalAuthUser(Some(user));
+        let debug_str = format!("{opt:?}");
+        assert!(debug_str.contains("alice"));
     }
 }

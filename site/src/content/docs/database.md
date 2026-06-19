@@ -63,7 +63,9 @@ DATABASE_URL=postgres://civit:password@localhost:5432/civit \
 | 017 | Code search tables |
 | 019 | Wiki content snapshots |
 | 021 | Full-text search indexes |
+| 023 | Drop wiki created_by FK |
 | 025 | Activity federation tables |
+| 027 | Wiki Git integration |
 | 029 | Password hash column |
 | 031 | Pull request tracking |
 | 033 | Star/watch counts |
@@ -81,6 +83,7 @@ DATABASE_URL=postgres://civit:password@localhost:5432/civit \
 | 046 | Notifications |
 | 047 | User banned status |
 | 048 | Repository archived status and topics |
+| 049 | Fix type mismatches |
 | 050 | Issue and PR feature enhancements |
 | 051 | Environments and deployments |
 | 052 | User profiles |

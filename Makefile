@@ -1,7 +1,7 @@
 # CivitForge — Local Development Makefile
 # Usage: make [target]
 
-.PHONY: build run test fmt clippy smoke clean compose-up compose-down migrate hooks
+.PHONY: build run test fmt clippy smoke clean compose-up compose-down migrate hooks build-images bench bench-baseline
 
 CARGO  ?= cargo
 DATABASE_URL ?= postgres://civit:civit-dev-secure-pw-2026@localhost:5432/civit
@@ -64,6 +64,13 @@ lint: fmt clippy
 smoke:
 	bash smoke-test.sh
 
+# ── Docker Images ──────────────────────────────────────────────
+build-images:
+	docker build -t civitforge-core:latest   -f container/civit-core/Dockerfile   .
+	docker build -t civitforge-brain:latest  -f container/civit-brain/Dockerfile  .
+	docker build -t civitforge-runner:latest -f container/runner/Dockerfile       .
+	docker build -t civitforge-vfs:latest    -f container/civit-vfs/Dockerfile    .
+
 # ── Docker Compose ────────────────────────────────────────────
 compose-up:
 	docker compose up -d
@@ -75,6 +82,14 @@ compose-down:
 clean:
 	$(CARGO) clean
 	rm -rf /tmp/civit-repos /tmp/civit-server.log /tmp/civit-smoke-body
+
+# ── Benchmarks ────────────────────────────────────────────────
+bench:
+	$(CARGO) bench --workspace --locked
+
+bench-baseline:
+	$(CARGO) bench --workspace --locked -- --output-format bencher > .benchmarks/baseline.txt
+	@echo "Baseline saved to .benchmarks/baseline.txt"
 
 # ── Pre-commit hooks ───────────────────────────────────────────
 hooks:

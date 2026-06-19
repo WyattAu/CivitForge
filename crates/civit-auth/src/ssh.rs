@@ -237,4 +237,107 @@ mod tests {
         let id2 = parse_user_id("ffffffff-ffff-ffff-ffff-ffffffffffff").unwrap();
         assert_eq!(id2.to_string(), "ffffffff-ffff-ffff-ffff-ffffffffffff");
     }
+
+    #[test]
+    fn test_validate_ssh_key_type_empty() {
+        assert!(validate_ssh_key_type("").is_err());
+    }
+
+    #[test]
+    fn test_validate_ssh_key_type_whitespace() {
+        assert!(validate_ssh_key_type("ssh-ed25519 ").is_err());
+        assert!(validate_ssh_key_type(" ssh-ed25519").is_err());
+    }
+
+    #[test]
+    fn test_validate_public_key_with_newlines() {
+        let key = "AAAAC3\nzaC1l\nZDI1NTE5AAAAI...";
+        assert!(validate_public_key(key).is_ok());
+    }
+
+    #[test]
+    fn test_validate_public_key_special_chars() {
+        let key = "AAAAC3zaC1lZDI1NTE5AAAAI!@#$%^&*()";
+        assert!(validate_public_key(key).is_ok());
+    }
+
+    #[test]
+    fn test_validate_fingerprint_hex_format() {
+        assert!(validate_fingerprint("ab:cd:ef:12:34:56").is_ok());
+    }
+
+    #[test]
+    fn test_validate_fingerprint_sha256_format() {
+        assert!(validate_fingerprint("SHA256:base64hash").is_ok());
+    }
+
+    #[test]
+    fn test_validate_label_exact_max() {
+        let label = "a".repeat(255);
+        assert!(validate_label(&label).is_ok());
+    }
+
+    #[test]
+    fn test_validate_label_one_over_max() {
+        let label = "a".repeat(256);
+        assert!(validate_label(&label).is_err());
+    }
+
+    #[test]
+    fn test_parse_user_id_with_dashes() {
+        let id = parse_user_id("12345678-1234-1234-1234-123456789012").unwrap();
+        assert_eq!(id.to_string(), "12345678-1234-1234-1234-123456789012");
+    }
+
+    #[test]
+    fn test_parse_user_id_uppercase_hex() {
+        let id = parse_user_id("550E8400-E29B-41D4-A716-446655440000").unwrap();
+        assert_eq!(id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn test_parse_user_id_with_braces() {
+        // uuid crate actually accepts braced UUIDs
+        let id = parse_user_id("{550e8400-e29b-41d4-a716-446655440000}").unwrap();
+        assert_eq!(id.to_string(), "550e8400-e29b-41d4-a716-446655440000");
+    }
+
+    #[test]
+    fn test_add_ssh_key_request_deserialize() {
+        let json = r#"{
+            "key_type": "ssh-ed25519",
+            "public_key": "AAAAC3NzaC1lZDI1NTE5AAAAI...",
+            "fingerprint": "SHA256:abc123def456",
+            "label": "my-key"
+        }"#;
+        let req: AddSshKeyRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.key_type, "ssh-ed25519");
+        assert_eq!(req.label, Some("my-key".into()));
+    }
+
+    #[test]
+    fn test_add_ssh_key_request_no_label() {
+        let json = r#"{
+            "key_type": "ssh-rsa",
+            "public_key": "AAAAB3NzaC1yc2E...",
+            "fingerprint": "MD5:ab:cd:ef"
+        }"#;
+        let req: AddSshKeyRequest = serde_json::from_str(json).unwrap();
+        assert!(req.label.is_none());
+    }
+
+    #[test]
+    fn test_ssh_key_info_serialize() {
+        let info = SshKeyInfo {
+            id: uuid::Uuid::nil(),
+            user_id: uuid::Uuid::nil(),
+            key_type: "ssh-ed25519".into(),
+            public_key: "key".into(),
+            fingerprint: "fp".into(),
+            label: "label".into(),
+            created_at: chrono::Utc::now(),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+        assert!(json.contains("ssh-ed25519"));
+    }
 }

@@ -130,6 +130,61 @@ jobs:
           path: crates/civit-ui/dist/
           retention-days: 30
 
+  bench:
+    name: Benchmark Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Run benchmarks
+        run: cargo bench --workspace --locked -- --output-format bencher | tee bench-results.txt
+      - name: Check for regression
+        run: |
+          if [ ! -f .benchmarks/baseline.txt ]; then
+            echo "No baseline found — skipping regression check."
+            exit 0
+          fi
+          echo "Comparing against baseline..."
+          failed=0
+          while IFS='|' read -r name time unit; do
+            # Skip header lines
+            [[ "$name" == "name" ]] && continue
+            # Find matching baseline entry
+            baseline_time=$(grep "^${name}|" .benchmarks/baseline.txt | cut -d'|' -f2 || true)
+            if [ -z "$baseline_time" ]; then
+              echo "NEW: $name = $time $unit (no baseline)"
+              continue
+            fi
+            # Compare using awk for floating point
+            threshold=$(awk "BEGIN { printf \"%.2f\", $baseline_time * 1.10 }")
+            regressed=$(awk "BEGIN { print ($time > $threshold) ? 1 : 0 }")
+            if [ "$regressed" -eq 1 ]; then
+              echo "REGRESSION: $name = $time $unit (baseline: $baseline_time, threshold: $threshold)"
+              failed=1
+            else
+              echo "OK: $name = $time $unit (baseline: $baseline_time)"
+            fi
+          done < <(tail -n +2 bench-results.txt)
+          if [ "$failed" -eq 1 ]; then
+            echo "::error::Benchmark regression detected (>10% slower than baseline)"
+            exit 1
+          fi
+          echo "No regressions detected."
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results-${{ github.sha }}
+          path: bench-results.txt
+          retention-days: 30
+
   build:
     name: Build (release)
     runs-on: ubuntu-latest

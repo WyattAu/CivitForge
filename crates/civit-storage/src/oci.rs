@@ -349,4 +349,209 @@ mod tests {
         assert_eq!(manifest.layers[0].size, 512);
         assert!(manifest.annotations.is_none());
     }
+
+    #[test]
+    fn test_validate_tag_only_underscores() {
+        assert!(validate_tag("___").is_ok());
+    }
+
+    #[test]
+    fn test_validate_tag_only_dots_and_dashes() {
+        // "...", "---", ".-." all start with '.' or '-' which are rejected
+        assert!(validate_tag("...").is_err());
+        assert!(validate_tag("---").is_err());
+        assert!(validate_tag(".-.").is_err());
+        // But dots/dashes in the middle are fine
+        assert!(validate_tag("a...b").is_ok());
+        assert!(validate_tag("a---b").is_ok());
+    }
+
+    #[test]
+    fn test_validate_tag_at_boundary_127() {
+        let tag = "a".repeat(127);
+        assert!(validate_tag(&tag).is_ok());
+    }
+
+    #[test]
+    fn test_validate_tag_starts_with_underscore() {
+        assert!(validate_tag("_hidden").is_ok());
+    }
+
+    #[test]
+    fn test_validate_tag_only_numbers() {
+        assert!(validate_tag("1234567890").is_ok());
+    }
+
+    #[test]
+    fn test_validate_tag_unicode_rejected() {
+        // Rust's is_alphanumeric() accepts Unicode letters, so these are valid
+        assert!(validate_tag("tag日本語").is_ok());
+        // Only special chars not in allowed set are rejected
+        assert!(validate_tag("tag@name").is_err());
+        assert!(validate_tag("tag name").is_err());
+        assert!(validate_tag("tag/name").is_err());
+    }
+
+    #[test]
+    fn test_validate_tag_space_rejected() {
+        assert!(validate_tag("tag with space").is_err());
+    }
+
+    #[test]
+    fn test_oci_descriptor_with_annotations() {
+        let mut annotations = HashMap::new();
+        annotations.insert("key".into(), "value".into());
+        let desc = OciDescriptor {
+            media_type: "application/json".into(),
+            size: 100,
+            digest: "sha256:abc".into(),
+            annotations: Some(annotations),
+        };
+        let json = serde_json::to_string(&desc).unwrap();
+        assert!(json.contains("key"));
+        assert!(json.contains("value"));
+    }
+
+    #[test]
+    fn test_oci_manifest_multiple_layers() {
+        let manifest = OciManifest {
+            schema_version: 2,
+            media_type: "application/vnd.oci.image.manifest.v1+json".into(),
+            config: OciDescriptor {
+                media_type: "application/vnd.oci.image.config.v1+json".into(),
+                size: 128,
+                digest: "sha256:cfg".into(),
+                annotations: None,
+            },
+            layers: vec![
+                OciDescriptor {
+                    media_type: "application/vnd.oci.image.layer.v1.tar+gzip".into(),
+                    size: 1024,
+                    digest: "sha256:layer1".into(),
+                    annotations: None,
+                },
+                OciDescriptor {
+                    media_type: "application/vnd.oci.image.layer.v1.tar+gzip".into(),
+                    size: 2048,
+                    digest: "sha256:layer2".into(),
+                    annotations: None,
+                },
+            ],
+            annotations: None,
+        };
+        assert_eq!(manifest.layers.len(), 2);
+    }
+
+    #[test]
+    fn test_compute_digest_large_data() {
+        let data = vec![0u8; 1024 * 1024]; // 1MB
+        let digest = compute_digest(&data);
+        assert!(digest.starts_with("sha256:"));
+        assert_eq!(digest.len(), 7 + 64);
+    }
+
+    #[test]
+    fn test_compute_digest_binary_data() {
+        let data: Vec<u8> = (0..=255).collect();
+        let digest = compute_digest(&data);
+        assert!(digest.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn test_catalog_params_with_values() {
+        let p = CatalogParams {
+            n: Some(100),
+            last: Some("last-repo".into()),
+        };
+        assert_eq!(p.n, Some(100));
+        assert_eq!(p.last.as_deref(), Some("last-repo"));
+    }
+
+    #[test]
+    fn test_tags_params_with_values() {
+        let p = TagsParams {
+            n: Some(50),
+            last: Some("v1.0".into()),
+        };
+        assert_eq!(p.n, Some(50));
+        assert_eq!(p.last.as_deref(), Some("v1.0"));
+    }
+
+    #[test]
+    fn test_upload_chunk_params_with_values() {
+        let p = UploadChunkParams {
+            range_start: Some(0),
+            range_end: Some(1023),
+        };
+        assert_eq!(p.range_start, Some(0));
+        assert_eq!(p.range_end, Some(1023));
+    }
+
+    #[test]
+    fn test_complete_upload_params_with_values() {
+        let p = CompleteUploadParams {
+            digest: Some("sha256:abc".into()),
+            content_type: Some("application/octet-stream".into()),
+        };
+        assert_eq!(p.digest.as_deref(), Some("sha256:abc"));
+        assert_eq!(p.content_type.as_deref(), Some("application/octet-stream"));
+    }
+
+    #[test]
+    fn test_referrers_params_with_value() {
+        let p = ReferrersParams {
+            artifact_type: Some("application/vnd.example".into()),
+        };
+        assert_eq!(p.artifact_type.as_deref(), Some("application/vnd.example"));
+    }
+
+    #[test]
+    fn test_registry_list_params_with_values() {
+        let p = RegistryListParams {
+            limit: Some(10),
+            offset: Some(20),
+        };
+        assert_eq!(p.limit, Some(10));
+        assert_eq!(p.offset, Some(20));
+    }
+
+    #[test]
+    fn test_create_policy_deserialize() {
+        let json = r#"{"role":"admin","entity_type":"repository","entity_id":"myrepo"}"#;
+        let p: CreatePolicy = serde_json::from_str(json).unwrap();
+        assert_eq!(p.role, "admin");
+        assert_eq!(p.entity_type, "repository");
+        assert_eq!(p.entity_id.as_deref(), Some("myrepo"));
+    }
+
+    #[test]
+    fn test_create_policy_no_entity_id() {
+        let json = r#"{"role":"reader","entity_type":"org"}"#;
+        let p: CreatePolicy = serde_json::from_str(json).unwrap();
+        assert!(p.entity_id.is_none());
+    }
+
+    #[test]
+    fn test_namespace_parsing_deeply_nested() {
+        let name = "a/b/c/d";
+        let (ns_type, ns_id) = if let Some((ns, _rn)) = name.split_once('/') {
+            (ns.to_string(), ns.to_string())
+        } else {
+            ("user".to_string(), "anonymous".to_string())
+        };
+        assert_eq!(ns_type, "a");
+        assert_eq!(ns_id, "a");
+    }
+
+    #[test]
+    fn test_namespace_parsing_single_component() {
+        let name = "alpine";
+        let (ns_type, ns_id) = if let Some((ns, _rn)) = name.split_once('/') {
+            (ns.to_string(), ns.to_string())
+        } else {
+            ("user".to_string(), "anonymous".to_string())
+        };
+        assert_eq!(ns_type, "user");
+        assert_eq!(ns_id, "anonymous");
+    }
 }

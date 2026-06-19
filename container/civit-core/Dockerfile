@@ -1,0 +1,179 @@
+# =============================================================================
+# CivitForge Core - API server + SSH gateway + WASM UI
+# EvergreenImageRegistry-compliant container image
+# =============================================================================
+# Tier: critical
+# Base: wolfi (cgr.dev/chainguard/wolfi-base)
+# Multi-arch: linux/amd64, linux/arm64
+# =============================================================================
+
+ARG TARGETARCH
+
+# ---------------------------------------------------------------------------
+# Stage 1: Rust builder (debian:bookworm as permitted downloader/builder)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm AS builder
+
+ARG TARGETARCH
+ARG RUST_VERSION=1.88
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        ca-certificates \
+        pkg-config \
+        libssl-dev \
+        protobuf-compiler \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust toolchain
+# Map Docker TARGETARCH to Rust target triple
+RUN case "$TARGETARCH" in \
+        amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;; \
+        arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;; \
+        *) echo "Unsupported arch: $TARGETARCH"; exit 1 ;; \
+    esac && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+        --default-toolchain ${RUST_VERSION} \
+        --profile minimal \
+        --target ${RUST_TARGET}
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Create placeholder to satisfy BuildKit COPY eval (Evergreen P3)
+RUN mkdir -p /out/usr/local/bin
+RUN touch /out/usr/local/bin/civitforge
+
+# Copy source (entire workspace — all inter-crate deps must be present)
+WORKDIR /src
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates/ crates/
+
+# Build only civit-core
+RUN cargo build --release --locked -p civit-core
+
+# Build WASM UI (trunk + wasm32 target)
+# Install trunk from pre-built binary to avoid source compilation overhead/OOM.
+ARG TARGETARCH
+RUN rustup target add wasm32-unknown-unknown
+RUN case "$TARGETARCH" in \
+        amd64) TRUNK_ARCH="x86_64-unknown-linux-gnu" ;; \
+        arm64) TRUNK_ARCH="aarch64-unknown-linux-gnu" ;; \
+        *) echo "Unsupported arch: $TARGETARCH"; exit 1 ;; \
+    esac && \
+    curl -sL "https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-${TRUNK_ARCH}.tar.gz" | tar xz -C /tmp && \
+    mv /tmp/trunk /usr/local/bin/trunk && \
+    chmod +x /usr/local/bin/trunk
+# Install Node.js + pnpm for Tailwind CSS v4 build-time compilation
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm
+WORKDIR /src/crates/civit-ui
+RUN pnpm install --frozen-lockfile || pnpm install
+RUN trunk build --release
+WORKDIR /src
+
+# Strip debug symbols and copy to /out
+RUN strip /src/target/release/civit-core 2>/dev/null || true && \
+    cp /src/target/release/civit-core /out/usr/local/bin/civit-core && \
+    test -f /out/usr/local/bin/civit-core
+
+# ---------------------------------------------------------------------------
+# Stage 2: Entrypoint script builder (debian for shell script creation)
+# ---------------------------------------------------------------------------
+FROM debian:bookworm AS entrypoint-builder
+
+ARG APP_UID=65532
+ARG APP_GID=65532
+
+RUN mkdir -p /out/etc && touch /out/etc/entrypoint.sh
+RUN printf '#!/bin/sh\n\
+set -e\n\
+\n\
+# Configurable runtime UID override (Evergreen C028)\n\
+CURRENT_UID=$(id -u)\n\
+DESIRED_UID=${APP_UID:-65532}\n\
+\n\
+if [ "$CURRENT_UID" != "$DESIRED_UID" ]; then\n\
+    echo "Switching from UID $CURRENT_UID to UID $DESIRED_UID"\n\
+    addgroup -g ${APP_GID:-65532} civit 2>/dev/null || true\n\
+    adduser -D -u "$DESIRED_UID" -G civit -h /data civit 2>/dev/null || true\n\
+    chown -R "$DESIRED_UID:${APP_GID:-65532}" /data /var/log/civit 2>/dev/null || true\n\
+    exec su-exec "$DESIRED_UID" /usr/local/bin/civit-core "$@"\n\
+else\n\
+    exec /usr/local/bin/civit-core "$@"\n\
+fi\n' > /out/etc/entrypoint.sh && \
+    chmod +x /out/etc/entrypoint.sh && \
+    test -f /out/etc/entrypoint.sh
+
+# ---------------------------------------------------------------------------
+# Stage 3: Final image (wolfi-base per Evergreen ADR-007)
+# ---------------------------------------------------------------------------
+FROM cgr.dev/chainguard/wolfi-base:latest
+
+ARG APP_UID=65532
+ARG APP_GID=65532
+ARG VERSION=2.2.0
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    git \
+    su-exec \
+    wget
+
+# Use existing nonroot user (Evergreen: wolfi-base ships 65532:65532)
+# Set home to /data for our application
+RUN mkdir -p /data /var/log/civit /var/lib/civit/repos /srv/civit-ui && \
+    chown -R 65532:65532 /data /var/log/civit /var/lib/civit /srv/civit-ui
+
+# Copy civit-core binary from builder
+COPY --from=builder /out/usr/local/bin/civit-core /usr/local/bin/civit-core
+
+# Copy entrypoint script
+COPY --from=entrypoint-builder /out/etc/entrypoint.sh /etc/entrypoint.sh
+
+# Copy pre-built Web UI assets (WASM + JS)
+COPY --from=builder /src/crates/civit-ui/dist/ /srv/civit-ui/
+
+WORKDIR /data
+ENV CIVIT_STORAGE_PATH=/var/lib/civit/repos
+ENV CIVIT_UI_DIR=/srv/civit-ui
+ENV RUST_LOG=civit_core=info,tower_http=debug
+
+# Ports: 8080=API, 2222=SSH, 9101=metrics health-shim
+EXPOSE 8080 2222
+
+# Health check (Evergreen: wolfi has wget, NOT curl)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -qO- http://localhost:8080/healthz || exit 1
+
+USER 65532:65532
+
+ENTRYPOINT ["/etc/entrypoint.sh"]
+CMD []
+
+# --- OCI Standard Labels ---
+LABEL org.opencontainers.image.title="civit-core" \
+      org.opencontainers.image.description="CivitForge Core - API server + SSH gateway + WASM UI" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.vendor="CivitForge" \
+      org.opencontainers.image.source="https://github.com/WyattAu/CivitForge" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+
+# --- Evergreen Metadata Labels ---
+LABEL evergreen.image.tier="critical" \
+      evergreen.base.image="wolfi" \
+      evergreen.constraint.nonroot="true" \
+      evergreen.constraint.wolfi="true" \
+      evergreen.health.type="http" \
+      evergreen.image.category="source-control"
+
+# --- Security Hardening Labels ---
+LABEL evergreen.security.cap-drop="ALL" \
+      evergreen.security.no-new-privileges="true" \
+      evergreen.security.read-only-rootfs="true" \
+      evergreen.security.seccomp="runtime-default"
+
+STOPSIGNAL SIGTERM

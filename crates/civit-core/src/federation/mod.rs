@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod activitypub;
+pub mod crdt;
 pub mod delivery;
 pub mod forgefed;
 pub mod http_signatures;

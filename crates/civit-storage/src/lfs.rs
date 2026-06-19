@@ -333,4 +333,140 @@ mod tests {
     fn test_large_file_threshold_value() {
         assert_eq!(LARGE_FILE_THRESHOLD, 100 * 1024 * 1024);
     }
+
+    #[test]
+    fn test_parse_lfs_pointer_extra_lines() {
+        let content = "version https://git-lfs.github.com/spec/v1\noid sha256:abc123\nsize 1024\nextra line\nanother line\n";
+        let result = parse_lfs_pointer(content);
+        assert_eq!(result, Some(("abc123".into(), 1024)));
+    }
+
+    #[test]
+    fn test_parse_lfs_pointer_wrong_order() {
+        let content = "size 1024\noid sha256:abc123\nversion https://git-lfs.github.com/spec/v1\n";
+        let result = parse_lfs_pointer(content);
+        assert_eq!(result, Some(("abc123".into(), 1024)));
+    }
+
+    #[test]
+    fn test_parse_lfs_pointer_negative_size() {
+        let content = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize -1\n";
+        let result = parse_lfs_pointer(content);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_lfs_pointer_overflow_size() {
+        let content = "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 99999999999999999999999999999999\n";
+        let result = parse_lfs_pointer(content);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_parse_lfs_pointer_multiple_oid_lines() {
+        let content = "version https://git-lfs.github.com/spec/v1\noid sha256:first\noid sha256:second\nsize 100\n";
+        let result = parse_lfs_pointer(content);
+        // Should use the last oid
+        assert_eq!(result, Some(("second".into(), 100)));
+    }
+
+    #[test]
+    fn test_compute_oid_large_data() {
+        let data = vec![0u8; 1024 * 1024]; // 1MB
+        let oid = compute_oid(&data);
+        assert_eq!(oid.len(), 64);
+    }
+
+    #[test]
+    fn test_compute_oid_binary_data() {
+        let data: Vec<u8> = (0..=255).collect();
+        let oid = compute_oid(&data);
+        assert_eq!(oid.len(), 64);
+        assert!(oid.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_lfs_batch_request_many_objects() {
+        let objects: Vec<LfsObjectRef> = (0..100)
+            .map(|i| LfsObjectRef {
+                oid: format!("oid-{i}"),
+                size: (i as u64) * 1024,
+            })
+            .collect();
+        let req = LfsBatchRequest {
+            operation: "upload".into(),
+            objects,
+            transfers: None,
+            ref_: None,
+        };
+        assert_eq!(req.objects.len(), 100);
+    }
+
+    #[test]
+    fn test_lfs_batch_response_multiple_objects() {
+        let resp = LfsBatchResponse {
+            transfer: "basic".into(),
+            objects: vec![
+                LfsObjectResponse {
+                    oid: "oid1".into(),
+                    size: 100,
+                    actions: None,
+                    error: None,
+                },
+                LfsObjectResponse {
+                    oid: "oid2".into(),
+                    size: 200,
+                    actions: None,
+                    error: Some(LfsError {
+                        code: 500,
+                        message: "internal error".into(),
+                    }),
+                },
+            ],
+            hash_algo: "sha256".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("oid1"));
+        assert!(json.contains("oid2"));
+        assert!(json.contains("internal error"));
+    }
+
+    #[test]
+    fn test_lfs_action_with_header() {
+        let action = LfsAction {
+            href: "https://example.com/upload".into(),
+            header: Some(serde_json::json!({"Authorization": "Bearer token"})),
+            expires_in: Some(3600),
+        };
+        let json = serde_json::to_string(&action).unwrap();
+        assert!(json.contains("Bearer token"));
+        assert!(json.contains("3600"));
+    }
+
+    #[test]
+    fn test_lfs_verify_response_with_error_string() {
+        let resp = LfsVerifyResponse {
+            oid: "abc".into(),
+            size: 0,
+            error: Some("verification failed".into()),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("verification failed"));
+    }
+
+    #[test]
+    fn test_is_large_file_at_boundary() {
+        assert!(!is_large_file(LARGE_FILE_THRESHOLD - 1));
+        assert!(is_large_file(LARGE_FILE_THRESHOLD));
+    }
+
+    #[test]
+    fn test_lfs_object_ref_large_size() {
+        let obj = LfsObjectRef {
+            oid: "abc".into(),
+            size: u64::MAX,
+        };
+        let json = serde_json::to_string(&obj).unwrap();
+        assert!(json.contains(&u64::MAX.to_string()));
+    }
 }

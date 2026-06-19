@@ -174,4 +174,67 @@ mod tests {
         };
         assert_eq!(req.value, "p@$$w0rd!#%^&*()_+");
     }
+
+    #[test]
+    fn test_secret_name_response_unicode() {
+        let resp = SecretNameResponse {
+            name: "SECRET_日本語".into(),
+            created_at: "2025-01-01T00:00:00Z".into(),
+            updated_at: "2025-01-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("SECRET_日本語"));
+    }
+
+    #[test]
+    fn test_create_secret_request_long_value() {
+        let value = "x".repeat(100_000);
+        let req = CreateSecretRequest {
+            name: "LONG".into(),
+            value: value.clone(),
+        };
+        assert_eq!(req.value.len(), 100_000);
+    }
+
+    #[test]
+    fn test_secret_detail_response_empty_value() {
+        let resp = SecretDetailResponse {
+            name: "EMPTY".into(),
+            value: "".into(),
+            created_at: "2025-01-01T00:00:00Z".into(),
+            updated_at: "2025-01-01T00:00:00Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"value\":\"\""));
+    }
+
+    #[test]
+    fn test_create_secret_request_newlines() {
+        let req = CreateSecretRequest {
+            name: "MULTILINE".into(),
+            value: "line1\nline2\nline3".into(),
+        };
+        assert!(req.value.contains('\n'));
+    }
+
+    #[test]
+    fn test_secret_name_response_special_timestamps() {
+        let resp = SecretNameResponse {
+            name: "T".into(),
+            created_at: "2025-12-31T23:59:59.999999Z".into(),
+            updated_at: "2025-01-01T00:00:00.000000Z".into(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("23:59:59"));
+        assert!(json.contains("00:00:00"));
+    }
+
+    #[test]
+    fn test_create_secret_request_unicode_value() {
+        let req = CreateSecretRequest {
+            name: "UNICODE".into(),
+            value: "🔐 secret key".into(),
+        };
+        assert_eq!(req.value, "🔐 secret key");
+    }
 }
