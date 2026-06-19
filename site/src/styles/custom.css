@@ -1,0 +1,41 @@
+/* CivitForge documentation site custom styles.
+   Extends Starlight's default theme with Spatial Materialism tokens:
+   monospace display fonts, brutal borders, dark palette.
+*/
+
+:root {
+  --sl-font: 'Courier New', 'Consolas', 'Liberation Mono', monospace;
+  --sl-color-bg: #0a0a0a;
+  --sl-color-bg-secondary: #111;
+  --sl-color-bg-tertiary: #1a1a1a;
+  --sl-color-text: #e8e8e8;
+  --sl-color-text-muted: #555;
+  --sl-color-accent: #e8e8e8;
+  --sl-color-border: #2a2a2a;
+}
+
+/* Headings use the monospace display font (Spatial Materialism) */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--sl-font);
+  letter-spacing: -0.02em;
+}
+
+/* Code blocks: darker background, monospace inherited */
+pre, code {
+  font-family: var(--sl-font);
+}
+
+/* Links: inverted hover (brutalist) */
+a {
+  border-bottom: 2px solid currentColor;
+  transition: background 0.15s, color 0.15s;
+}
+a:hover {
+  background: var(--sl-color-text);
+  color: var(--sl-color-bg);
+}
+
+/* Sidebar: hard right border */
+.sidebar {
+  border-right: 2px solid var(--sl-color-border);
+}
