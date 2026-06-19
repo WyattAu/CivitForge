@@ -143,7 +143,7 @@ pub fn Sidebar() -> impl IntoView {
                             {move || t("nav.create")}
                         </div>
                         <A href="/new-repo" attr:class=link_class>
-                            <span class="mr-2">"\u{2795}"</span>
+                            <span class="mr-2 font-mono text-xs">"[+]"</span>
                             {move || t("nav.new_repo")}
                         </A>
                     </div>
@@ -155,7 +155,7 @@ pub fn Sidebar() -> impl IntoView {
                             "Admin"
                         </div>
                         <A href="/admin" attr:class=link_class>
-                            <span class="mr-2">"\u{2699}\u{fe0f}"</span>
+                            <span class="mr-2 font-mono text-xs">"[A]"</span>
                             "Admin Panel"
                         </A>
                         <A href="/admin/site-settings" attr:class=link_class>

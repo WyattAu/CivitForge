@@ -27,7 +27,7 @@ pub fn Tabs(
     view! {
         <div>
             <div class="border-b border-gray-200 dark:border-gray-700">
-                <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <nav class="-mb-px flex space-x-8" role="tablist" aria-label="Tabs">
                     <For each=move || tabs.clone() key=|t| t.id.clone() let:tab>
                         {
                             let active_tab_sig = active_tab_sig;
@@ -41,9 +41,15 @@ pub fn Tabs(
                                     btn_class,
                                     if active { active_class } else { inactive_class }
                                 );
+                                let panel_id = format!("tabpanel-{}", tab_id_sig.get());
                                 view! {
                                     <button
                                         class=tab_class
+                                        role="tab"
+                                        id=tab_id_sig.get()
+                                        aria-selected=active.to_string()
+                                        aria-controls=panel_id
+                                        tabindex=if active { "0" } else { "-1" }
                                         on:click=move |_| {
                                             if let Some(cb) = on_change_sig.get() {
                                                 cb.run(tab_id_sig.get());
@@ -58,7 +64,7 @@ pub fn Tabs(
                     </For>
                 </nav>
             </div>
-            <div class="mt-4">
+            <div class="mt-4" role="tabpanel" aria-label="Tab content">
                 {children()}
             </div>
         </div>

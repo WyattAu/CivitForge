@@ -37,7 +37,7 @@ pub fn ToastContainer(
     let (on_dismiss_sig, _) = signal(on_dismiss);
 
     view! {
-        <div class="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm">
+        <div class="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm" role="log" aria-live="polite" aria-label="Notifications">
             <For
                 each=move || toasts_sig.get()
                 key=|t| t.id
@@ -47,10 +47,13 @@ pub fn ToastContainer(
                     let on_dismiss_sig = on_dismiss_sig;
                     let (toast_id_sig, _) = signal(toast.id);
                     move || view! {
-                        <div class=format!(
-                            "rounded-lg px-4 py-3 text-white text-sm shadow-lg flex items-center justify-between {}",
-                            toast.level.class()
-                        )>
+                        <div
+                            class=format!(
+                                "rounded-none px-4 py-3 text-white text-sm shadow-lg flex items-center justify-between {}",
+                                toast.level.class()
+                            )
+                            role="status"
+                        >
                             <span>{toast.message.clone()}</span>
                             <button
                                 class="ml-2 text-white/80 hover:text-white"

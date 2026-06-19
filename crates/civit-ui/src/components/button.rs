@@ -46,7 +46,7 @@ pub fn Button(
     #[prop(optional)] extra_class: &'static str,
     children: ChildrenFn,
 ) -> impl IntoView {
-    let base = "inline-flex items-center justify-center px-4 py-2 rounded-md \
+    let base = "inline-flex items-center justify-center px-4 py-2 rounded-none \
                 text-sm font-medium transition-colors focus:outline-none \
                 focus-visible:ring-2 focus-visible:ring-offset-2 \
                 dark:focus-visible:ring-offset-gray-900 \
