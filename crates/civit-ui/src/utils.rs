@@ -100,7 +100,7 @@ pub fn sanitize_error(raw: &str) -> String {
 /// Format byte count into human-readable string (KB, MB, GB, TB).
 pub fn format_bytes(bytes: u64) -> String {
     if bytes < 1024 {
-        format!("{} B", bytes)
+        format!("{bytes} B")
     } else if bytes < 1024 * 1024 {
         format!("{:.1} KB", bytes as f64 / 1024.0)
     } else if bytes < 1024 * 1024 * 1024 {
