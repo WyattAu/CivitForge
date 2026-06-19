@@ -1,6 +1,6 @@
 [metadata]
 name = "civitforge-runner"
-version = "0.8.0-alpha"
+version = "2.2.0"
 description = "CivitForge CI/CD pipeline daemon. Polls for jobs and executes step containers via Podman."
 vendor = "CivitForge"
 source = "https://github.com/WyattAu/CivitForge"

@@ -1,6 +1,6 @@
 [metadata]
 name = "civitforge"
-version = "2.1.3"
+version = "2.2.0"
 description = "CivitForge - federated Rust-native software forge for extreme-scale monorepos"
 vendor = "CivitForge"
 source = "https://github.com/WyattAu/CivitForge"
