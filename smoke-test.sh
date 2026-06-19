@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# CivitForge v1.1.0 Smoke Test
+# CivitForge Smoke Test
 # =============================================================================
 # Prerequisites:
 #   docker compose up -d   (wait for all services healthy)
 #   cargo run --release -p civit-core   (server on 127.0.0.1:9091)
+#   jq (JSON parsing)
 #
 # Tests:
 #   1. Server health/readiness endpoints
-#   2. Auth: login (auto-register) → token
-#   3. Repos: create → get → list → delete
+#   2. Auth: login (auto-register) -> token
+#   3. Repos: create -> get -> list -> delete
 #   4. Search
 #   5. Wiki (404 on missing)
 #   6. Pipelines (empty list)
@@ -81,7 +82,7 @@ smoke_delete() {
 }
 
 echo "========================================="
-echo " CivitForge v1.1.0 Smoke Test"
+echo " CivitForge Smoke Test"
 echo " Target: $BASE_URL"
 echo "========================================="
 echo ""
@@ -103,12 +104,7 @@ REPO_NAME="smoke-${TS}"
 smoke_post "login" "$BASE_URL/api/v1/auth/login" \
     "{\"username\":\"$SMOKE_USER\",\"email\":\"$SMOKE_EMAIL\",\"display_name\":\"Smoke Tester\"}" 200
 
-TOKEN=$(python3 -c "
-import json,sys
-try:
-    d=json.load(open('/tmp/civit-smoke-body'))
-    print(d.get('token',''))
-except: print('')" 2>/dev/null)
+TOKEN=$(jq -r '.token // empty' /tmp/civit-smoke-body 2>/dev/null)
 
 if [ -n "$TOKEN" ]; then
     echo "  [auth] Token acquired ✓"

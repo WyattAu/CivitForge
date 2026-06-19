@@ -29,10 +29,16 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust toolchain
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+# Map Docker TARGETARCH to Rust target triple
+RUN case "$TARGETARCH" in \
+        amd64) RUST_TARGET="x86_64-unknown-linux-gnu" ;; \
+        arm64) RUST_TARGET="aarch64-unknown-linux-gnu" ;; \
+        *) echo "Unsupported arch: $TARGETARCH"; exit 1 ;; \
+    esac && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
         --default-toolchain ${RUST_VERSION} \
         --profile minimal \
-        --target x86_64-unknown-linux-gnu
+        --target ${RUST_TARGET}
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Create placeholder to satisfy BuildKit COPY eval (Evergreen P3)
@@ -114,7 +120,7 @@ FROM cgr.dev/chainguard/wolfi-base:latest
 
 ARG APP_UID=65532
 ARG APP_GID=65532
-ARG VERSION=1.1.0
+ARG VERSION=2.2.0
 
 # Install runtime dependencies
 RUN apk add --no-cache \

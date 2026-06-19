@@ -4,7 +4,7 @@
 .PHONY: build run test fmt clippy smoke clean compose-up compose-down migrate hooks
 
 CARGO  ?= cargo
-DATABASE_URL ?= postgres://civit:civit@localhost:5432/civit
+DATABASE_URL ?= postgres://civit:civit-dev-secure-pw-2026@localhost:5432/civit
 REDIS_URL    ?= redis://localhost:6379
 JWT_SECRET   ?= change-me-change-me-dev-secret
 HOST         ?= 127.0.0.1
@@ -56,7 +56,7 @@ fmt-fix:
 	$(CARGO) fmt --all
 
 clippy:
-	$(CARGO) clippy --workspace --all-targets -- -D warnings
+	$(CARGO) clippy --workspace --all-targets --locked -- -D warnings
 
 lint: fmt clippy
 
