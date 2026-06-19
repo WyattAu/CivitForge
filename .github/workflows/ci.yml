@@ -115,6 +115,8 @@ jobs:
           version: 11
       - name: Install Tailwind CSS CLI
         run: cd crates/civit-ui && pnpm install --frozen-lockfile --ignore-scripts
+      - name: Build Tailwind CSS
+        run: cd crates/civit-ui && npx tailwindcss -i input.css -o assets/tailwind.css --minify
       - uses: taiki-e/install-action@v2
         with:
           tool: trunk
