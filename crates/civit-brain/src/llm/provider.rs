@@ -38,6 +38,131 @@ pub trait LlmProvider: Send + Sync {
     fn supported_models(&self) -> Vec<ModelConfig>;
 }
 
+/// Production LLM provider that bridges to the async `InferenceService`.
+///
+/// This adapter implements the sync `LlmProvider` trait by blocking on the
+/// async inference service. It must be called from within a multi-threaded
+/// Tokio runtime (uses `block_in_place` to avoid reentrant runtime panics).
+///
+/// This unifies the two previously parallel LLM abstractions:
+/// - `LlmProvider` trait (this file) -- the canonical interface
+/// - `InferenceService` (inference.rs) -- the async HTTP client
+///
+/// Production code should construct `RemoteLlmProvider` and pass it to
+/// `LlmCodeReviewer`. Tests use `StubLlmProvider`.
+pub struct RemoteLlmProvider {
+    config: super::inference::InferenceConfig,
+    client: reqwest::Client,
+}
+
+impl RemoteLlmProvider {
+    /// Create a new remote provider targeting an OpenAI-compatible inference
+    /// endpoint (e.g. vLLM, Ollama, llama.cpp server).
+    pub fn new(config: super::inference::InferenceConfig) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(120))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+        Self { config, client }
+    }
+
+    /// Build the inference endpoint URL.
+    fn endpoint(&self) -> String {
+        format!(
+            "http://{}:{}/v1/chat/completions",
+            self.config.host, self.config.port
+        )
+    }
+}
+
+impl LlmProvider for RemoteLlmProvider {
+    fn infer(
+        &self,
+        messages: &[ChatMessage],
+        config: &ModelConfig,
+        max_tokens: u32,
+    ) -> Result<InferenceResult, String> {
+        let start = std::time::Instant::now();
+
+        // Build OpenAI-compatible request body
+        let body = serde_json::json!({
+            "model": config.name,
+            "messages": messages.iter().map(|m| {
+                serde_json::json!({"role": m.role, "content": m.content})
+            }).collect::<Vec<_>>(),
+            "max_tokens": max_tokens,
+            "temperature": self.config.temperature,
+        });
+
+        // Block on the async HTTP call using block_in_place.
+        // This requires a multi-threaded Tokio runtime.
+        let response = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(self.client.post(self.endpoint()).json(&body).send())
+        })
+        .map_err(|e| format!("inference HTTP request failed: {e}"))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current()
+                    .block_on(response.text())
+                    .unwrap_or_default()
+            });
+            return Err(format!("inference returned {status}: {text}"));
+        }
+
+        let json: serde_json::Value = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(response.json())
+        })
+        .map_err(|e| format!("failed to parse inference response: {e}"))?;
+
+        let content = json["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+        let tokens_used = json["usage"]["total_tokens"].as_u64().unwrap_or(0) as u32;
+        let finish_reason = json["choices"][0]["finish_reason"]
+            .as_str()
+            .unwrap_or("stop")
+            .to_string();
+
+        Ok(InferenceResult {
+            content,
+            tokens_used,
+            model: config.name.clone(),
+            duration_ms: start.elapsed().as_millis() as u64,
+            finish_reason,
+        })
+    }
+
+    fn is_available(&self) -> bool {
+        // Check if the inference endpoint is reachable.
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let url = format!("http://{}:{}/health", self.config.host, self.config.port);
+                self.client
+                    .get(&url)
+                    .send()
+                    .await
+                    .map(|r| r.status().is_success())
+                    .unwrap_or(false)
+            })
+        })
+    }
+
+    fn supported_models(&self) -> Vec<ModelConfig> {
+        vec![ModelConfig {
+            name: self.config.model_id.clone(),
+            parameter_count: 0,
+            context_window: 32768,
+            max_tokens: self.config.max_tokens,
+            endpoint: Some(self.endpoint()),
+            quantization: None,
+        }]
+    }
+}
+
 #[cfg(test)]
 pub struct StubLlmProvider;
 
