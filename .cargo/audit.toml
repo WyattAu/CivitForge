@@ -2,9 +2,8 @@
 # Triaging unmaintained/yanked crates explicitly rather than silencing the whole job.
 
 [advisories]
-# Severity threshold: vulnerabilities at or above "medium" fail the build.
-# Unmaintained crates are informational warnings that do NOT fail the build.
-unmaintained = "warn"
+# Informational warnings (unmaintained/yanked) do NOT fail the build.
+informational_warnings = true
 
 # Ignore specific advisories (document rationale for each)
 # ignore = [
