@@ -21,24 +21,6 @@ export default defineConfig({
           items: [
             { label: 'Overview', slug: 'overview' },
             { label: 'Quick Start', slug: 'quick-start' },
-            { label: 'Configuration', slug: 'configuration' },
-          ],
-        },
-        {
-          label: 'Architecture',
-          items: [
-            { label: 'System Design', slug: 'architecture' },
-            { label: 'Database Layer', slug: 'database' },
-            { label: 'CI/CD Pipeline', slug: 'ci-cd' },
-            { label: 'Federation', slug: 'federation' },
-          ],
-        },
-        {
-          label: 'Reference',
-          items: [
-            { label: 'API Reference', slug: 'api-reference' },
-            { label: 'Operator Guide', slug: 'operator-guide' },
-            { label: 'Security', slug: 'security' },
           ],
         },
       ],
