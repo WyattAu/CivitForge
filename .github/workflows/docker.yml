@@ -80,7 +80,7 @@ jobs:
           file: ./container/runner/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository }}/runner:${{ steps.meta.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -95,4 +95,12 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ github.repository }}
           subject-digest: ${{ steps.build-server.outputs.digest }}
+          push-to-registry: true
+
+      - name: Generate artifact attestation (runner)
+        uses: actions/attest-build-provenance@v1
+        continue-on-error: true
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ github.repository }}/runner
+          subject-digest: ${{ steps.build-runner.outputs.digest }}
           push-to-registry: true

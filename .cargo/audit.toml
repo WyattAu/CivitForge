@@ -1,21 +1,16 @@
-# cargo-audit configuration.
-# Controls how `cargo audit` reports vulnerabilities.
-# CI fails on any unfixed medium/high/critical advisory NOT listed here.
-#
-# Each ignored advisory is documented here and tracked in ROADMAP.md for
-# remediation. They MUST be removed once a fix ships.
+# CivitForge cargo-audit configuration
+# Triaging unmaintained/yanked crates explicitly rather than silencing the whole job.
 
-[advisories]
+[audit]
+# Severity threshold: vulnerabilities at or above "medium" fail the build.
+severity_threshold = "medium"
+
+# Ignore specific advisories (document rationale for each)
 ignore = [
-    # RUSTSEC-2023-0071 (rsa Marvin Attack): affects RSA *decryption* timing.
-    # Transitive dependency via russh (SSH daemon), ssh-key (key handling),
-    # and sqlx-mysql (unused MySQL backend in sqlx default features).
-    # CivitForge's own code migrated from rsa to ring (TD-002 complete).
-    # Remediation: wait for russh/sqlx to drop rsa dependency or use sqlx
-    # with default-features=false once macro compatibility is resolved.
-    "RUSTSEC-2023-0071",
+    # Example: RUSTSEC-20XX-NNNN — informational only, no exploit path in our usage.
+    # "RUSTSEC-20XX-NNNN",
 ]
 
-# Reporting: warn on unmaintained crates, deny medium+ severity.
-informational_warnings = ["unmaintained"]
-severity_threshold = "medium"
+# Unmaintained crate policy: warn but do not fail.
+# Unmaintained crates are flagged for awareness; they are replaced when possible.
+unmaintained = "warn"
