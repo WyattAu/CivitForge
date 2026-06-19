@@ -51,3 +51,8 @@ container/
 *.tmp
 *.bak
 *.log
+
+# Node.js dependencies (not needed in Docker context)
+node_modules/
+**/node_modules/
+site/node_modules/

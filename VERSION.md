@@ -1,7 +1,7 @@
 # CivitForge Version Tracker
 
 Version: 2.2.0
-Last Updated: 2026-06-14
+Last Updated: 2026-06-19
 Tests: 3,707 passing (118 ignored, require PostgreSQL)
 Clippy: 0 warnings
 Format: 0 violations
@@ -30,7 +30,8 @@ Format: 0 violations
 - Desktop: Tauri 2 (buildable, system deps required)
 - Code search: Tantivy 0.22 (full-text with fuzzy, code-aware tokenization)
 - Wiki: Git-backed via gix (bare repos with commit history)
-- Pre-commit hook: `.githooks/pre-commit` (fmt + clippy + test + emoji scan)
+- Pre-commit hook: `.githooks/pre-commit` (emoji + conflict + large file + secret scan + fmt + clippy + test)
+- Formal verification scaffolding: `.specs/02_architecture/proofs/` (Lean4 proof sketches for hash, pipeline expr, CDC)
 
 ## v2.2.0 Changes
 
@@ -41,6 +42,32 @@ Format: 0 violations
 - Consolidated pre-commit hooks: removed husky, canonicalized .githooks/
 - Pre-commit hook now enforces: no emoji, fmt, clippy (-D warnings), tests
 - Added conventional-commit subject hint and SKIP_PRE_COMMIT bypass
+- Removed duplicated root Dockerfile (superseded by container/civitforge/Dockerfile)
+- Fixed ARM64 build targets in production Dockerfiles (was hardcoded to x86_64)
+- Fixed Docker Compose runner DATABASE_URL mismatch (wrong password and database name)
+- Aligned all version numbers to 2.2.0 (container manifests, Helm chart, Dockerfiles)
+- Fixed Helm chart UID mismatch (1000 -> 65532 to match container images)
+- Fixed Helm chart PostgreSQL version (16-alpine -> 17-alpine to match docker-compose)
+- Fixed release workflow (added protobuf-compiler, removed unused llvm-tools, added checksums)
+- Fixed Docker workflow (added runner attestation, consistent tag generation)
+- Fixed CI workflow (added Node.js/pnpm setup, removed lockfile fallback)
+- Fixed docs-site.yml (removed lockfile fallback)
+- Fixed docs/index.html license claim (MIT -> AGPL-3.0-or-later)
+- Created .cargo/audit.toml for cargo-audit configuration
+- Enhanced pre-commit hook (merge conflict detection, large file detection, secret scanning)
+- Added ARM64 target to rust-toolchain.toml
+- Added node_modules to .dockerignore
+- Fixed Makefile DATABASE_URL and --locked flag consistency
+- Fixed smoke-test.sh (replaced Python JSON parsing with jq, removed hardcoded version)
+- Fixed sidebar emoji violations (replaced unicode emoji with monospace bracket icons)
+- Added ARIA tab pattern to Tabs component (role=tablist/tab/tabpanel)
+- Added Escape key handler to Modal component
+- Added role="alert" to ErrorBanner and ToastContainer
+- Added aria-live="polite" to toast notifications
+- Standardized border radius to rounded-none across Button, Input, Modal, Toast
+- Added font-mono to Input component for brutalist consistency
+- Added formal verification scaffolding (Lean4 proof sketches for crypto hash, pipeline expr, CDC)
+- Created .specs/02_architecture/proofs/ directory with 3 proof files
 
 ## v2.1.2 Changes
 

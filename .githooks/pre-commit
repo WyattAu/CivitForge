@@ -1,7 +1,8 @@
 #!/bin/bash
 # CivitForge pre-commit hook.
 # Enforces: formatting, clippy (zero warnings), workspace tests, no emojis in
-# committed source/documentation, and Conventional Commit subject lines.
+# committed source/documentation, Conventional Commit subject lines, no
+# merge conflict markers, no large binary files, and no hardcoded secrets.
 #
 # Activation (run once per clone):
 #   git config core.hooksPath .githooks
@@ -77,7 +78,92 @@ fi
 ok "No emoji in staged files."
 
 # ---------------------------------------------------------------------------
-# 2. cargo fmt --check
+# 2. Merge conflict marker detection
+#    Prevents committing files with unresolved merge conflicts.
+# ---------------------------------------------------------------------------
+info "Checking for merge conflict markers..."
+CONFLICT_FOUND=0
+CONFLICT_PATTERN='^(<{7}|={7}|>{7}) '
+for f in "${STAGED_FILES[@]}"; do
+    [[ -f "$f" ]] || continue
+    case "$f" in
+        *.png|*.jpg|*.jpeg|*.gif|*.ico|*.svg|*.woff|*.woff2|*.ttf|*.webp|*.icns|*.bin|*.exe) continue ;;
+    esac
+    if matches=$(LC_ALL=C grep -nP "$CONFLICT_PATTERN" "$f" 2>/dev/null); then
+        echo -e "${RED}==> [FAIL]${NC} Merge conflict markers in $f:"
+        echo "$matches" | head -5
+        CONFLICT_FOUND=1
+    fi
+done
+if [[ $CONFLICT_FOUND -ne 0 ]]; then
+    fail "Resolve all merge conflicts before committing."
+    exit 1
+fi
+ok "No merge conflict markers."
+
+# ---------------------------------------------------------------------------
+# 3. Large file detection
+#    Prevents accidentally committing large binaries or generated files.
+# ---------------------------------------------------------------------------
+info "Checking for large files (>1MB)..."
+LARGE_FOUND=0
+for f in "${STAGED_FILES[@]}"; do
+    [[ -f "$f" ]] || continue
+    SIZE=$(wc -c < "$f" 2>/dev/null || echo 0)
+    if [[ $SIZE -gt 1048576 ]]; then
+        echo -e "${RED}==> [FAIL]${NC} Large file detected: $f ($(($SIZE / 1048576))MB)"
+        LARGE_FOUND=1
+    fi
+done
+if [[ $LARGE_FOUND -ne 0 ]]; then
+    fail "Large files should be stored via Git LFS or excluded. Use SKIP_PRE_COMMIT=1 to bypass."
+    exit 1
+fi
+ok "No large files in staged files."
+
+# ---------------------------------------------------------------------------
+# 4. Hardcoded secret detection
+#    Scans for common secret patterns (API keys, passwords, tokens).
+# ---------------------------------------------------------------------------
+info "Scanning for hardcoded secrets..."
+SECRET_FOUND=0
+# Common secret patterns (case-insensitive)
+SECRET_PATTERNS='(password|secret|api_key|apikey|api[-_]?secret|private_key|access_token|auth_token)\s*[:=]\s*["\x27][^\s"'\'']{8,}'
+AWS_KEY='(AKIA[0-9A-Z]{16})'
+JWT_PATTERN='eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+'
+for f in "${STAGED_FILES[@]}"; do
+    [[ -f "$f" ]] || continue
+    # Skip test files (they contain test secrets by design).
+    case "$f" in
+        *test*|*spec*|*.test.*|tests/*) continue ;;
+    esac
+    case "$f" in
+        *.png|*.jpg|*.jpeg|*.gif|*.ico|*.svg|*.woff|*.woff2|*.ttf|*.webp|*.icns|*.lock) continue ;;
+    esac
+    if matches=$(LC_ALL=C grep -niP "$SECRET_PATTERNS" "$f" 2>/dev/null | grep -vi 'example\|placeholder\|change.me\|TODO\|FIXME\|dummy\|test\|mock\|fake'); then
+        echo -e "${RED}==> [FAIL]${NC} Possible hardcoded secret in $f:"
+        echo "$matches" | head -5
+        SECRET_FOUND=1
+    fi
+    if matches=$(LC_ALL=C grep -nP "$AWS_KEY" "$f" 2>/dev/null); then
+        echo -e "${RED}==> [FAIL]${NC} Possible AWS key in $f:"
+        echo "$matches" | head -3
+        SECRET_FOUND=1
+    fi
+    if matches=$(LC_ALL=C grep -nP "$JWT_PATTERN" "$f" 2>/dev/null | grep -v 'test\|mock\|example\|fixture'); then
+        echo -e "${RED}==> [FAIL]${NC} Possible JWT token in $f:"
+        echo "$matches" | head -3
+        SECRET_FOUND=1
+    fi
+done
+if [[ $SECRET_FOUND -ne 0 ]]; then
+    fail "Remove hardcoded secrets. Use environment variables or a secrets manager."
+    exit 1
+fi
+ok "No hardcoded secrets detected."
+
+# ---------------------------------------------------------------------------
+# 5. cargo fmt --check
 # ---------------------------------------------------------------------------
 info "Running cargo fmt --check --all"
 if cargo fmt --check --all; then
@@ -88,10 +174,10 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 3. cargo clippy (workspace, all targets, zero warnings)
+# 6. cargo clippy (workspace, all targets, zero warnings)
 # ---------------------------------------------------------------------------
-info "Running cargo clippy --workspace --all-targets -- -D warnings"
-if cargo clippy --workspace --all-targets -- -D warnings; then
+info "Running cargo clippy --workspace --all-targets --locked -- -D warnings"
+if cargo clippy --workspace --all-targets --locked -- -D warnings; then
     ok "Clippy lint passed (0 warnings)"
 else
     fail "Clippy lint failed"
@@ -99,13 +185,13 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. cargo test --workspace (skip with SKIP_PRE_COMMIT_TESTS=1)
+# 7. cargo test --workspace (skip with SKIP_PRE_COMMIT_TESTS=1)
 # ---------------------------------------------------------------------------
 if [[ "${SKIP_PRE_COMMIT_TESTS:-0}" == "1" ]]; then
     echo -e "${YELLOW}==> [SKIP]${NC} Test suite skipped (SKIP_PRE_COMMIT_TESTS=1)"
 else
-    info "Running cargo test --workspace"
-    if cargo test --workspace; then
+    info "Running cargo test --workspace --locked"
+    if cargo test --workspace --locked; then
         ok "All tests passed"
     else
         fail "Tests failed"
@@ -114,7 +200,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Conventional Commit subject lint (informational; non-blocking)
+# 8. Conventional Commit subject lint (informational; non-blocking)
 # ---------------------------------------------------------------------------
 COMMIT_MSG_FILE=$(git rev-parse --git-dir)/COMMIT_EDITMSG
 if [[ -f "$COMMIT_MSG_FILE" ]]; then
