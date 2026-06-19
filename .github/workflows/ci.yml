@@ -112,7 +112,7 @@ jobs:
           node-version: 22
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
       - name: Install Tailwind CSS CLI
         run: cd crates/civit-ui && pnpm install --frozen-lockfile
       - uses: taiki-e/install-action@v2

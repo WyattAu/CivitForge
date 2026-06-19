@@ -1,16 +1,13 @@
 # CivitForge cargo-audit configuration
 # Triaging unmaintained/yanked crates explicitly rather than silencing the whole job.
 
-[audit]
+[advisories]
 # Severity threshold: vulnerabilities at or above "medium" fail the build.
-severity_threshold = "medium"
+# Unmaintained crates are informational warnings that do NOT fail the build.
+unmaintained = "warn"
 
 # Ignore specific advisories (document rationale for each)
-ignore = [
-    # Example: RUSTSEC-20XX-NNNN — informational only, no exploit path in our usage.
-    # "RUSTSEC-20XX-NNNN",
-]
-
-# Unmaintained crate policy: warn but do not fail.
-# Unmaintained crates are flagged for awareness; they are replaced when possible.
-unmaintained = "warn"
+# ignore = [
+#     # Example: RUSTSEC-20XX-NNNN -- informational only, no exploit path in our usage.
+#     # "RUSTSEC-20XX-NNNN",
+# ]
