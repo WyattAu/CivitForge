@@ -29,9 +29,9 @@ jobs:
         with:
           version: 11
       - name: Install dependencies
-        run: cd site && pnpm install
+        run: cd site && pnpm install --ignore-scripts
       - name: Build with Astro
-        run: cd site && pnpm build
+        run: cd site && pnpm exec astro build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
