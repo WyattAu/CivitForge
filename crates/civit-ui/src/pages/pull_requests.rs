@@ -10,13 +10,6 @@ use crate::components::{Badge, Button, ButtonVariant, Card, ErrorBanner, Spinner
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
-fn truncate_title(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len])
-    } else {
-        s.to_string()
-    }
-}
 
 fn pr_badge_color(status: &str) -> crate::components::badge::BadgeColor {
     match status {

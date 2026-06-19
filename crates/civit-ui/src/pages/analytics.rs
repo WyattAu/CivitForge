@@ -38,28 +38,6 @@ struct LanguageStat {
     percentage: f64,
 }
 
-const LANGUAGE_COLORS: &[(&str, &str)] = &[
-    ("Rust", "#dea584"),
-    ("TypeScript", "#3178c6"),
-    ("JavaScript", "#f1e05a"),
-    ("Python", "#3572A5"),
-    ("Go", "#00ADD8"),
-    ("Java", "#b07219"),
-    ("C", "#555555"),
-    ("C++", "#f34b7d"),
-    ("Ruby", "#701516"),
-    ("PHP", "#4F5D95"),
-    ("Shell", "#89e051"),
-    ("Other", "#8b8b8b"),
-];
-
-fn language_color(name: &str) -> &'static str {
-    LANGUAGE_COLORS
-        .iter()
-        .find(|(n, _)| n.eq_ignore_ascii_case(name))
-        .map(|(_, c)| *c)
-        .unwrap_or("#8b8b8b")
-}
 
 fn bar_height(value: i64, max: i64) -> String {
     if max == 0 {

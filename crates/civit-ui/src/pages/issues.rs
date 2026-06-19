@@ -116,13 +116,6 @@ mod tests {
     }
 }
 
-fn truncate_title(s: &str, max_len: usize) -> String {
-    if s.len() > max_len {
-        format!("{}...", &s[..max_len])
-    } else {
-        s.to_string()
-    }
-}
 
 #[component]
 fn AnalyticsSection(analytics: Signal<Option<IssueAnalyticsResponse>>) -> impl IntoView {

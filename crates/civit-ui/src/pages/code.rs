@@ -96,39 +96,6 @@ fn file_icon(entry_type: &str) -> &'static str {
     }
 }
 
-fn language_color(name: &str) -> &'static str {
-    match name {
-        "Rust" => "#dea584",
-        "Python" => "#3572A5",
-        "JavaScript" => "#f1e05a",
-        "TypeScript" => "#3178c6",
-        "Go" => "#00ADD8",
-        "Java" => "#b07219",
-        "Kotlin" => "#A97BFF",
-        "C" => "#555555",
-        "C++" => "#f34b7d",
-        "C#" => "#178600",
-        "Ruby" => "#701516",
-        "PHP" => "#4F5D95",
-        "Swift" => "#F05138",
-        "Scala" => "#c22d40",
-        "Shell" => "#89e051",
-        "HTML" => "#e34c26",
-        "CSS" => "#563d7c",
-        "SCSS" => "#c6538c",
-        "Markdown" => "#083fa1",
-        "JSON" => "#292929",
-        "YAML" | "YML" => "#cb171e",
-        "TOML" => "#9c4221",
-        "Dart" => "#00B4AB",
-        "Zig" => "#ec915c",
-        "Lua" => "#000080",
-        "SQL" => "#e38c00",
-        "Dockerfile" => "#384d54",
-        "Makefile" => "#427819",
-        _ => "#8b8b8b",
-    }
-}
 
 fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;

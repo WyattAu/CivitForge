@@ -7,6 +7,7 @@ use leptos_router::hooks::{use_location, use_params_map};
 use crate::api::client::ApiClient;
 use crate::components::{Badge, BadgeColor, ErrorBanner, Modal, Spinner};
 use crate::state::auth::use_auth;
+use crate::utils::{format_bytes, language_color};
 use civit_shared::repo::RepoResponse;
 
 #[derive(Clone, serde::Deserialize)]
@@ -25,51 +26,6 @@ struct LanguageStatsData {
     total_bytes: u64,
 }
 
-fn language_color(name: &str) -> &'static str {
-    match name {
-        "Rust" => "#dea584",
-        "Python" => "#3572A5",
-        "JavaScript" => "#f1e05a",
-        "TypeScript" => "#3178c6",
-        "Go" => "#00ADD8",
-        "Java" => "#b07219",
-        "Kotlin" => "#A97BFF",
-        "C" => "#555555",
-        "C++" => "#f34b7d",
-        "C#" => "#178600",
-        "Ruby" => "#701516",
-        "PHP" => "#4F5D95",
-        "Swift" => "#F05138",
-        "Scala" => "#c22d40",
-        "Shell" => "#89e051",
-        "HTML" => "#e34c26",
-        "CSS" => "#563d7c",
-        "SCSS" => "#c6538c",
-        "Markdown" => "#083fa1",
-        "JSON" => "#292929",
-        "YAML" | "YML" => "#cb171e",
-        "TOML" => "#9c4221",
-        "Dart" => "#00B4AB",
-        "Zig" => "#ec915c",
-        "Lua" => "#000080",
-        "SQL" => "#e38c00",
-        "Dockerfile" => "#384d54",
-        "Makefile" => "#427819",
-        _ => "#8b8b8b",
-    }
-}
-
-fn format_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = 1024 * KB;
-    if bytes < KB {
-        format!("{bytes} B")
-    } else if bytes < MB {
-        format!("{:.1} KB", bytes as f64 / KB as f64)
-    } else {
-        format!("{:.1} MB", bytes as f64 / MB as f64)
-    }
-}
 
 #[component]
 pub fn RepoDetailPage() -> impl IntoView {

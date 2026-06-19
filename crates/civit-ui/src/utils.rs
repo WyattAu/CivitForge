@@ -97,6 +97,56 @@ pub fn sanitize_error(raw: &str) -> String {
         .to_string()
 }
 
+/// Format byte count into human-readable string (KB, MB, GB, TB).
+pub fn format_bytes(bytes: u64) -> String {
+    if bytes < 1024 {
+        format!("{} B", bytes)
+    } else if bytes < 1024 * 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else if bytes < 1024 * 1024 * 1024 {
+        format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
+    } else {
+        format!("{:.1} GB", bytes as f64 / (1024.0 * 1024.0 * 1024.0))
+    }
+}
+
+/// Truncate a string to max_len characters, appending "..." if truncated.
+pub fn truncate_title(s: &str, max_len: usize) -> String {
+    if s.len() > max_len {
+        format!("{}...", &s[..max_len])
+    } else {
+        s.to_string()
+    }
+}
+
+/// Return a CSS hex color for a programming language name.
+pub fn language_color(name: &str) -> &'static str {
+    match name {
+        "rust" => "#dea584",
+        "python" => "#3572A5",
+        "javascript" => "#f1e05a",
+        "typescript" => "#3178c6",
+        "go" => "#00ADD8",
+        "java" => "#b07219",
+        "c" => "#555555",
+        "cpp" => "#f34b7d",
+        "csharp" => "#178600",
+        "ruby" => "#701516",
+        "php" => "#4F5D95",
+        "swift" => "#F05138",
+        "kotlin" => "#A97BFF",
+        "scala" => "#c22d40",
+        "html" => "#e34c26",
+        "css" => "#563d7c",
+        "shell" => "#89e051",
+        "bash" => "#89e051",
+        "sql" => "#e38c00",
+        "dockerfile" => "#384d54",
+        "markdown" => "#083fa1",
+        _ => "#6e7681",
+    }
+}
+
 pub fn detect_language(path: &str) -> &'static str {
     let ext = path.rsplit('.').next().unwrap_or("").to_lowercase();
     match ext.as_str() {
