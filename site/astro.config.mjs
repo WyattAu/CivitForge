@@ -15,15 +15,6 @@ export default defineConfig({
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/WyattAu/CivitForge' },
       ],
-      sidebar: [
-        {
-          label: 'Getting Started',
-          items: [
-            { label: 'Overview', slug: 'overview' },
-            { label: 'Quick Start', slug: 'quick-start' },
-          ],
-        },
-      ],
       customCss: ['./src/styles/custom.css'],
     }),
     solid(),

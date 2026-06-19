@@ -29,7 +29,7 @@ jobs:
         with:
           version: 11
       - name: Install dependencies
-        run: cd site && pnpm install --frozen-lockfile --ignore-scripts
+        run: cd site && pnpm install --frozen-lockfile
       - name: Build with Astro
         run: cd site && pnpm build
       - name: Upload artifact
