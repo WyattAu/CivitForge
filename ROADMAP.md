@@ -83,7 +83,7 @@ production readiness, scaling, and future feature integrations.
 | v2.2.0 | Audit cycle: quality, CI/CD, UI/UX, docs, proofs | **Complete** |
 | v2.3.0 | Debt resolution: DB consolidation, Tailwind, gix, RSA, LLM | **Complete** |
 | v2.4.0 | Security hardening: WebAuthn, mTLS, accessibility | **Complete** |
-| v2.5.0 | Dependency upgrades: SQLx, Leptos | Blocked on upstream |
+| v2.5.0 | Dependency upgrades: Leptos 0.8, SQLx pending | **Partial** (Leptos done, SQLx blocked) |
 | v3.0.0 | Scale: sharding, multi-region federation, docs, formal verification | **Complete** |
 
 ---
@@ -142,15 +142,17 @@ production readiness, scaling, and future feature integrations.
 
 ---
 
-## v2.5.0 -- Dependency Upgrades
+## v2.5.0 -- Dependency Upgrades (Partial)
 
-### Blocked Items
+### Completed
+
+1. **Leptos 0.7 to 0.8** -- Upgraded from 0.7 to 0.8.19. Backward-compatible;
+   no code changes required. Leptos 0.8.18 was released April 2025.
+
+### Blocked
 
 1. **SQLx 0.8 to 0.9** -- Blocked: SQLx 0.9 requires Rust 1.94.0.
    Project MSRV is 1.88. Requires coordinated Rust toolchain upgrade.
-
-2. **Leptos 0.7 to 0.8+** -- Blocked: Leptos 0.8 is not yet released.
-   Only 0.7 (stable) and 0.9.0-alpha are available.
 
 ---
 
@@ -199,15 +201,17 @@ production readiness, scaling, and future feature integrations.
 
 ## Success Metrics
 
-| Metric | Current (v2.2.0) | Target (v3.0.0) |
+| Metric | Current | Target (v3.0.0) |
 |---|---|---|
-| Tests passing | 3,707 | 5,000+ |
-| Branch coverage (critical paths) | Not measured | >95% |
+| Tests passing | 3,883 | 5,000+ |
+| Branch coverage (critical paths) | 30.8% (overall) | >95% |
 | API p99 latency | Not measured | <50ms |
 | WASM bundle size | ~2.8MB | <2.0MB |
-| Docker image size | ~150MB | <100MB |
+| Docker image size | ~150MB (combined) | <100MB (per-binary) |
 | Cold start time | Not measured | <2s |
 | Concurrent users | Not measured | 10,000+ |
 | Open security advisories | 1 (transitive, triaged) | 0 |
-| Database migration sources | 1 (was 2 divergent) | 1 |
+| Database migration sources | 1 | 1 |
 | Duplicate code lines eliminated | 5,660 + 74 (UI utils) | -- |
+| Leptos version | 0.8.19 | 0.8+ |
+| Formal proofs (no sorry) | 20/30 | 30/30 |
