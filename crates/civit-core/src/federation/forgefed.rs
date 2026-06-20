@@ -87,16 +87,11 @@ pub struct FederatedIssue {
     pub author: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum IssueState {
+    #[default]
     Open,
     Closed,
-}
-
-impl Default for IssueState {
-    fn default() -> Self {
-        Self::Open
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -110,17 +105,12 @@ pub struct FederatedPR {
     pub author: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum PRState {
+    #[default]
     Open,
     Closed,
     Merged,
-}
-
-impl Default for PRState {
-    fn default() -> Self {
-        Self::Open
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

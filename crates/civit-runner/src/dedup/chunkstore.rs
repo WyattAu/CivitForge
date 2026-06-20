@@ -141,13 +141,13 @@ impl ChunkStore {
         let all_keys: Vec<String> = self.chunks.iter().map(|e| e.key().clone()).collect();
         let mut removed = 0;
         for key in all_keys {
-            if !referenced_ids.contains(&key) {
-                if let Some((_, data)) = self.chunks.remove(&key) {
-                    self.total_bytes
-                        .fetch_sub(data.len() as u64, Ordering::Relaxed);
-                    self.references.remove(&key);
-                    removed += 1;
-                }
+            if !referenced_ids.contains(&key)
+                && let Some((_, data)) = self.chunks.remove(&key)
+            {
+                self.total_bytes
+                    .fetch_sub(data.len() as u64, Ordering::Relaxed);
+                self.references.remove(&key);
+                removed += 1;
             }
         }
         removed

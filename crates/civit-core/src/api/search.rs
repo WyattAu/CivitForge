@@ -196,13 +196,13 @@ pub async fn global_search(
 
     let mut bind_idx = 2i32;
 
-    if let Some(ref lang) = params.language {
-        if !lang.is_empty() {
-            let clause = format!(" AND i.language = ${bind_idx}");
-            query_str.push_str(&clause);
-            count_str.push_str(&clause);
-            bind_idx += 1;
-        }
+    if let Some(ref lang) = params.language
+        && !lang.is_empty()
+    {
+        let clause = format!(" AND i.language = ${bind_idx}");
+        query_str.push_str(&clause);
+        count_str.push_str(&clause);
+        bind_idx += 1;
     }
 
     if let Some(ref repo) = params.repo {
@@ -225,14 +225,14 @@ pub async fn global_search(
         idx2 = bind_idx + 1,
     ));
 
-    let mut query = sqlx::query_as::<_, SearchHitRow>(&query_str).bind(&q);
-    let mut count_query = sqlx::query_scalar::<_, i64>(&count_str).bind(&q);
+    let mut query = sqlx::query_as::<_, SearchHitRow>(sqlx::AssertSqlSafe(query_str)).bind(&q);
+    let mut count_query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_str)).bind(&q);
 
-    if let Some(ref lang) = params.language {
-        if !lang.is_empty() {
-            query = query.bind(lang);
-            count_query = count_query.bind(lang);
-        }
+    if let Some(ref lang) = params.language
+        && !lang.is_empty()
+    {
+        query = query.bind(lang);
+        count_query = count_query.bind(lang);
     }
 
     if let Some(ref repo) = params.repo {
@@ -330,22 +330,22 @@ pub async fn repo_search(
 
     let mut bind_idx = 3i32;
 
-    if let Some(ref lang) = params.language {
-        if !lang.is_empty() {
-            let clause = format!(" AND i.language = ${bind_idx}");
-            query_str.push_str(&clause);
-            count_str.push_str(&clause);
-            bind_idx += 1;
-        }
+    if let Some(ref lang) = params.language
+        && !lang.is_empty()
+    {
+        let clause = format!(" AND i.language = ${bind_idx}");
+        query_str.push_str(&clause);
+        count_str.push_str(&clause);
+        bind_idx += 1;
     }
 
-    if let Some(ref path_glob) = params.path {
-        if !path_glob.is_empty() {
-            let clause = format!(" AND i.file_path ILIKE ${bind_idx}");
-            query_str.push_str(&clause);
-            count_str.push_str(&clause);
-            bind_idx += 1;
-        }
+    if let Some(ref path_glob) = params.path
+        && !path_glob.is_empty()
+    {
+        let clause = format!(" AND i.file_path ILIKE ${bind_idx}");
+        query_str.push_str(&clause);
+        count_str.push_str(&clause);
+        bind_idx += 1;
     }
 
     query_str.push_str(&format!(
@@ -354,25 +354,25 @@ pub async fn repo_search(
         idx2 = bind_idx + 1,
     ));
 
-    let mut query = sqlx::query_as::<_, SearchHitRow>(&query_str)
+    let mut query = sqlx::query_as::<_, SearchHitRow>(sqlx::AssertSqlSafe(query_str))
         .bind(repo_id)
         .bind(&q);
-    let mut count_query = sqlx::query_scalar::<_, i64>(&count_str)
+    let mut count_query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_str))
         .bind(repo_id)
         .bind(&q);
 
-    if let Some(ref lang) = params.language {
-        if !lang.is_empty() {
-            query = query.bind(lang);
-            count_query = count_query.bind(lang);
-        }
+    if let Some(ref lang) = params.language
+        && !lang.is_empty()
+    {
+        query = query.bind(lang);
+        count_query = count_query.bind(lang);
     }
 
     let mut path_pattern: Option<String> = None;
-    if let Some(ref path_glob) = params.path {
-        if !path_glob.is_empty() {
-            path_pattern = Some(format!("%{path_glob}%"));
-        }
+    if let Some(ref path_glob) = params.path
+        && !path_glob.is_empty()
+    {
+        path_pattern = Some(format!("%{path_glob}%"));
     }
     if let Some(ref pp) = path_pattern {
         query = query.bind(pp.as_str());
@@ -1053,14 +1053,12 @@ fn collect_diff_data(repo_path: &std::path::Path) -> Result<DiffIndexData, CoreE
     let new_root = new_tree_id.detach();
 
     let mut old_tree_id = None;
-    if let Some(parent_id) = commit.parent_ids().next() {
-        if let Ok(parent_obj) = parent_id.object() {
-            if let Ok(parent_commit) = parent_obj.try_into_commit() {
-                if let Ok(parent_tree_id) = parent_commit.tree_id() {
-                    old_tree_id = Some(parent_tree_id.detach());
-                }
-            }
-        }
+    if let Some(parent_id) = commit.parent_ids().next()
+        && let Ok(parent_obj) = parent_id.object()
+        && let Ok(parent_commit) = parent_obj.try_into_commit()
+        && let Ok(parent_tree_id) = parent_commit.tree_id()
+    {
+        old_tree_id = Some(parent_tree_id.detach());
     }
 
     let (added_modified, deleted) = diff_trees(&repo, old_tree_id, new_root)?;

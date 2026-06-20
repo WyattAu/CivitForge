@@ -54,10 +54,10 @@ impl ConversationHistory {
     }
 
     pub fn add_turn(&mut self, turn: ConversationTurn) {
-        if self.turns.len() >= self.max_turns {
-            if let Some(evicted) = self.turns.pop_front() {
-                self.total_tokens -= evicted.token_count;
-            }
+        if self.turns.len() >= self.max_turns
+            && let Some(evicted) = self.turns.pop_front()
+        {
+            self.total_tokens -= evicted.token_count;
         }
         self.total_tokens += turn.token_count;
         self.turns.push_back(turn);
@@ -118,7 +118,10 @@ impl ConversationHistory {
     pub fn should_summarize(&self) -> bool {
         self.auto_summarize
             && !self.turns.is_empty()
-            && self.turns.len() % self.summarize_every_n_turns == 0
+            && self
+                .turns
+                .len()
+                .is_multiple_of(self.summarize_every_n_turns)
     }
 
     /// Compresses older turns into a single summary turn, freeing token budget.

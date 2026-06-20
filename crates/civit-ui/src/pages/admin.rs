@@ -691,10 +691,10 @@ pub fn AdminPage() -> impl IntoView {
             let client = ApiClient::new(token);
             match client.get("/admin/oidc-providers/users-count").await {
                 Ok(resp) if resp.status().is_success() => {
-                    if let Ok(data) = resp.json::<serde_json::Value>().await {
-                        if let Some(count) = data.get("count").and_then(|v| v.as_i64()) {
-                            set_oidc_connected_users.set(count);
-                        }
+                    if let Ok(data) = resp.json::<serde_json::Value>().await
+                        && let Some(count) = data.get("count").and_then(|v| v.as_i64())
+                    {
+                        set_oidc_connected_users.set(count);
                     }
                 }
                 _ => {}

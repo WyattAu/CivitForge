@@ -36,11 +36,11 @@ impl PipelineOperator {
 
     pub fn reconcile(&self, spec: &PipelineSpec) -> anyhow::Result<ReconcileAction> {
         let key = spec.name.clone();
-        if let Some(current) = self.running_pipelines.get(&key) {
-            if current.status == "running" {
-                info!(pipeline = %spec.name, "pipeline already running, skipping");
-                return Ok(ReconcileAction::Requeue { after_secs: 5 });
-            }
+        if let Some(current) = self.running_pipelines.get(&key)
+            && current.status == "running"
+        {
+            info!(pipeline = %spec.name, "pipeline already running, skipping");
+            return Ok(ReconcileAction::Requeue { after_secs: 5 });
         }
         info!(pipeline = %spec.name, steps = spec.steps.len(), "reconciling pipeline");
         Ok(ReconcileAction::Run)

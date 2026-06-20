@@ -26,10 +26,10 @@ pub fn parse_lfs_pointer(content: &str) -> Option<(String, u64)> {
         }
     }
 
-    if version.as_deref() == Some("https://git-lfs.github.com/spec/v1") {
-        if let (Some(o), Some(s)) = (oid, size) {
-            return Some((o, s));
-        }
+    if version.as_deref() == Some("https://git-lfs.github.com/spec/v1")
+        && let (Some(o), Some(s)) = (oid, size)
+    {
+        return Some((o, s));
     }
     None
 }

@@ -101,12 +101,11 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                 let mc_path = format!(
                                     "/repos/{owner_mc}/{name_mc}/pulls/{number_mc}/mergecheck"
                                 );
-                                if let Ok(r) = client.get(&mc_path).await {
-                                    if r.status().is_success() {
-                                        if let Ok(m) = r.json::<MergeabilityResponse>().await {
-                                            set_mergeability.set(Some(m));
-                                        }
-                                    }
+                                if let Ok(r) = client.get(&mc_path).await
+                                    && r.status().is_success()
+                                    && let Ok(m) = r.json::<MergeabilityResponse>().await
+                                {
+                                    set_mergeability.set(Some(m));
                                 }
                             });
                             let token3 = auth.0.with(|a| a.token.clone());
@@ -117,12 +116,11 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                 let client = ApiClient::new(token3);
                                 let dc_path =
                                     format!("/repos/{owner_dc}/{name_dc}/pulls/{number_dc}/diff");
-                                if let Ok(r) = client.get(&dc_path).await {
-                                    if r.status().is_success() {
-                                        if let Ok(d) = r.json::<PrDiffResponse>().await {
-                                            set_diff_data.set(Some(d));
-                                        }
-                                    }
+                                if let Ok(r) = client.get(&dc_path).await
+                                    && r.status().is_success()
+                                    && let Ok(d) = r.json::<PrDiffResponse>().await
+                                {
+                                    set_diff_data.set(Some(d));
                                 }
                             });
 
@@ -136,12 +134,11 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                 let ic_path = format!(
                                     "/repos/{owner_ic}/{name_ic}/pulls/{number_ic}/diff/inline"
                                 );
-                                if let Ok(r) = client.get(&ic_path).await {
-                                    if r.status().is_success() {
-                                        if let Ok(d) = r.json::<InlineDiffResponse>().await {
-                                            set_inline_diff.set(Some(d));
-                                        }
-                                    }
+                                if let Ok(r) = client.get(&ic_path).await
+                                    && r.status().is_success()
+                                    && let Ok(d) = r.json::<InlineDiffResponse>().await
+                                {
+                                    set_inline_diff.set(Some(d));
                                 }
                             });
                         }
@@ -178,12 +175,11 @@ pub fn PullRequestDetailPage() -> impl IntoView {
             };
             if client.patch(&path, &body).await.is_ok() {
                 let client2 = ApiClient::new(auth.0.with(|a| a.token.clone()));
-                if let Ok(r) = client2.get(&path).await {
-                    if r.status().is_success() {
-                        if let Ok(data) = r.json::<PullRequestResponse>().await {
-                            set_pr.set(Some(data));
-                        }
-                    }
+                if let Ok(r) = client2.get(&path).await
+                    && r.status().is_success()
+                    && let Ok(data) = r.json::<PullRequestResponse>().await
+                {
+                    set_pr.set(Some(data));
                 }
             }
             set_action_loading.set(false);
@@ -209,12 +205,11 @@ pub fn PullRequestDetailPage() -> impl IntoView {
             };
             if client.patch(&path, &body).await.is_ok() {
                 let client2 = ApiClient::new(auth.0.with(|a| a.token.clone()));
-                if let Ok(r) = client2.get(&path).await {
-                    if r.status().is_success() {
-                        if let Ok(data) = r.json::<PullRequestResponse>().await {
-                            set_pr.set(Some(data));
-                        }
-                    }
+                if let Ok(r) = client2.get(&path).await
+                    && r.status().is_success()
+                    && let Ok(data) = r.json::<PullRequestResponse>().await
+                {
+                    set_pr.set(Some(data));
                 }
             }
             set_action_loading.set(false);

@@ -79,21 +79,21 @@ impl Scheduler {
     pub fn schedule(&self, spec: &PipelineRunSpec) -> ScheduleDecision {
         if let Some(ref gpu) = spec.resources.gpu {
             let gpu_pool_name = self.find_gpu_pool();
-            if let Some(pool_name) = gpu_pool_name {
-                if let Some(pool) = self.node_pools.get(&pool_name) {
-                    if pool.acquire() {
-                        return ScheduleDecision {
-                            pool: pool_name.clone(),
-                            node: None,
-                            reason: format!("gpu requirement matched pool '{pool_name}'"),
-                        };
-                    }
+            if let Some(pool_name) = gpu_pool_name
+                && let Some(pool) = self.node_pools.get(&pool_name)
+            {
+                if pool.acquire() {
                     return ScheduleDecision {
                         pool: pool_name.clone(),
                         node: None,
-                        reason: format!("gpu pool '{pool_name}' full"),
+                        reason: format!("gpu requirement matched pool '{pool_name}'"),
                     };
                 }
+                return ScheduleDecision {
+                    pool: pool_name.clone(),
+                    node: None,
+                    reason: format!("gpu pool '{pool_name}' full"),
+                };
             }
             return ScheduleDecision {
                 pool: String::new(),
@@ -103,26 +103,25 @@ impl Scheduler {
         }
 
         let preferred = self.find_matching_pool(spec);
-        if let Some(pool_name) = preferred {
-            if let Some(pool) = self.node_pools.get(&pool_name) {
-                if pool.acquire() {
-                    return ScheduleDecision {
-                        pool: pool_name.clone(),
-                        node: None,
-                        reason: format!("matched pool '{pool_name}'"),
-                    };
-                }
-            }
+        if let Some(pool_name) = preferred
+            && let Some(pool) = self.node_pools.get(&pool_name)
+            && pool.acquire()
+        {
+            return ScheduleDecision {
+                pool: pool_name.clone(),
+                node: None,
+                reason: format!("matched pool '{pool_name}'"),
+            };
         }
 
-        if let Some(pool) = self.node_pools.get(&self.default_pool) {
-            if pool.acquire() {
-                return ScheduleDecision {
-                    pool: self.default_pool.clone(),
-                    node: None,
-                    reason: "fallback to default pool".into(),
-                };
-            }
+        if let Some(pool) = self.node_pools.get(&self.default_pool)
+            && pool.acquire()
+        {
+            return ScheduleDecision {
+                pool: self.default_pool.clone(),
+                node: None,
+                reason: "fallback to default pool".into(),
+            };
         }
 
         ScheduleDecision {

@@ -65,12 +65,11 @@ pub fn RepoDetailPage() -> impl IntoView {
         let owner_val = owner();
         let name_val = name();
         let url = format!("/repos/{owner_val}/{name_val}/languages");
-        if let Ok(resp) = client.get(&url).await {
-            if resp.status().is_success() {
-                if let Ok(data) = resp.json::<LanguageStatsData>().await {
-                    set_lang_stats.set(Some(data));
-                }
-            }
+        if let Ok(resp) = client.get(&url).await
+            && resp.status().is_success()
+            && let Ok(data) = resp.json::<LanguageStatsData>().await
+        {
+            set_lang_stats.set(Some(data));
         }
     });
 

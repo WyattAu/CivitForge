@@ -343,39 +343,39 @@ fn tokenize(
         let rest = &source[i..];
         let mut found_comment = false;
         for style in &lang.comment_styles {
-            if let Some(ref lp) = style.line {
-                if rest.starts_with(lp.as_str()) {
-                    if opts.track_comments {
-                        let end = rest.find('\n').unwrap_or(rest.len());
-                        let comment_text = rest[..end].trim_end().to_string();
-                        tokens.push(Token {
-                            kind: TokenKind::Comment,
-                            text: comment_text,
-                            offset: i,
-                            line: current_line,
-                        });
-                    }
-                    i += rest.find('\n').map_or(rest.len(), |n| n + 1);
-                    found_comment = true;
-                    break;
+            if let Some(ref lp) = style.line
+                && rest.starts_with(lp.as_str())
+            {
+                if opts.track_comments {
+                    let end = rest.find('\n').unwrap_or(rest.len());
+                    let comment_text = rest[..end].trim_end().to_string();
+                    tokens.push(Token {
+                        kind: TokenKind::Comment,
+                        text: comment_text,
+                        offset: i,
+                        line: current_line,
+                    });
                 }
+                i += rest.find('\n').map_or(rest.len(), |n| n + 1);
+                found_comment = true;
+                break;
             }
-            if let (Some(bs), Some(be)) = (&style.block_start, &style.block_end) {
-                if rest.starts_with(bs.as_str()) {
-                    block_comment_start = Some(i);
-                    block_end_marker = Some(be.clone());
-                    if opts.track_comments {
-                        tokens.push(Token {
-                            kind: TokenKind::Comment,
-                            text: bs.clone(),
-                            offset: i,
-                            line: current_line,
-                        });
-                    }
-                    i += bs.len();
-                    found_comment = true;
-                    break;
+            if let (Some(bs), Some(be)) = (&style.block_start, &style.block_end)
+                && rest.starts_with(bs.as_str())
+            {
+                block_comment_start = Some(i);
+                block_end_marker = Some(be.clone());
+                if opts.track_comments {
+                    tokens.push(Token {
+                        kind: TokenKind::Comment,
+                        text: bs.clone(),
+                        offset: i,
+                        line: current_line,
+                    });
                 }
+                i += bs.len();
+                found_comment = true;
+                break;
             }
         }
         if found_comment {
@@ -683,32 +683,32 @@ fn annotate_semantics(
     }
 
     for (i, token) in tokens.iter().enumerate() {
-        if let TokenKind::Keyword = &token.kind {
-            if let Some((kind, name)) = try_parse_import(token.text.as_str(), lang) {
-                let end_offset = token.offset + token.text.len();
-                let mut node =
-                    TsNode::new(kind, name, token.text.clone(), token.offset, token.line + 1);
-                node.end_byte = end_offset;
-                node.end_line = token.line + 1;
-                let rest_tokens: Vec<&Token> = tokens[i + 1..]
-                    .iter()
-                    .take_while(|t| !matches!(t.kind, TokenKind::DelimiterOpen(_)))
-                    .filter(|t| {
-                        matches!(
-                            t.kind,
-                            TokenKind::Identifier
-                                | TokenKind::Keyword
-                                | TokenKind::Punctuation
-                                | TokenKind::Operator
-                        )
-                    })
-                    .collect();
-                if let Some(last) = rest_tokens.last() {
-                    node.text = source[node.start_byte..last.offset + last.text.len()].to_string();
-                    node.end_byte = last.offset + last.text.len();
-                }
-                nodes.push(node);
+        if let TokenKind::Keyword = &token.kind
+            && let Some((kind, name)) = try_parse_import(token.text.as_str(), lang)
+        {
+            let end_offset = token.offset + token.text.len();
+            let mut node =
+                TsNode::new(kind, name, token.text.clone(), token.offset, token.line + 1);
+            node.end_byte = end_offset;
+            node.end_line = token.line + 1;
+            let rest_tokens: Vec<&Token> = tokens[i + 1..]
+                .iter()
+                .take_while(|t| !matches!(t.kind, TokenKind::DelimiterOpen(_)))
+                .filter(|t| {
+                    matches!(
+                        t.kind,
+                        TokenKind::Identifier
+                            | TokenKind::Keyword
+                            | TokenKind::Punctuation
+                            | TokenKind::Operator
+                    )
+                })
+                .collect();
+            if let Some(last) = rest_tokens.last() {
+                node.text = source[node.start_byte..last.offset + last.text.len()].to_string();
+                node.end_byte = last.offset + last.text.len();
             }
+            nodes.push(node);
         }
     }
 
@@ -881,11 +881,10 @@ fn try_parse_type_def(
         .skip(kw_idx + 1)
         .find(|t| matches!(t.kind, TokenKind::Identifier))
         .map(|t| t.text.clone())
+        && !name.is_empty()
     {
-        if !name.is_empty() {
-            let _ = lang;
-            return Some((resolved_kind, name));
-        }
+        let _ = lang;
+        return Some((resolved_kind, name));
     }
 
     None
@@ -942,11 +941,11 @@ fn try_parse_function(
     let mut is_method = false;
 
     for (i, tok) in tokens.iter().enumerate() {
-        if let TokenKind::Operator = &tok.kind {
-            if tok.text == "." {
-                is_method = true;
-                continue;
-            }
+        if let TokenKind::Operator = &tok.kind
+            && tok.text == "."
+        {
+            is_method = true;
+            continue;
         }
         if let TokenKind::Identifier = &tok.kind {
             if func_keywords.contains(tok.text.as_str()) {
@@ -1017,15 +1016,13 @@ fn try_parse_control_flow(
             if modifiers.contains(tok.text.as_str()) {
                 continue;
             }
-            if control_keywords.contains(tok.text.as_str())
-                || lang.keywords.iter().any(|k| k == &tok.text)
+            if (control_keywords.contains(tok.text.as_str())
+                || lang.keywords.iter().any(|k| k == &tok.text))
+                && let "if" | "else" | "elif" | "for" | "while" | "loop" | "do" | "match" | "switch"
+                | "case" | "select" | "try" | "catch" | "finally" | "guard" | "when" =
+                    tok.text.as_str()
             {
-                if let "if" | "else" | "elif" | "for" | "while" | "loop" | "do" | "match"
-                | "switch" | "case" | "select" | "try" | "catch" | "finally" | "guard"
-                | "when" = tok.text.as_str()
-                {
-                    return Some(tok.text.clone());
-                }
+                return Some(tok.text.clone());
             }
         }
         if matches!(

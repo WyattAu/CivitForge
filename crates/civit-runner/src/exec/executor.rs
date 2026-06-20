@@ -61,12 +61,12 @@ impl StepExecutor {
         let start = std::time::Instant::now();
 
         // Handle built-in actions without spawning containers
-        if let Some(ref action) = step.action {
-            if action != "run" {
-                return self
-                    .execute_action(step, workspace, env, secrets, client, step_id, action)
-                    .await;
-            }
+        if let Some(ref action) = step.action
+            && action != "run"
+        {
+            return self
+                .execute_action(step, workspace, env, secrets, client, step_id, action)
+                .await;
         }
 
         // Determine the image (step-level overrides job-level)
@@ -111,7 +111,7 @@ impl StepExecutor {
             network_disabled: true, // Isolated by default
             read_only_fs: false,    // Need writable workspace
             workdir,
-            timeout_secs: timeout.as_secs() as u64,
+            timeout_secs: timeout.as_secs(),
             labels: HashMap::from([
                 ("civit.step".to_string(), step.name.clone()),
                 ("civit.type".to_string(), "pipeline".to_string()),

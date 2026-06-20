@@ -310,10 +310,10 @@ pub fn BoardsPage() -> impl IntoView {
                 assignee: None,
             };
             set_boards.update(|bs| {
-                if let Some(b) = bs.iter_mut().find(|b| b.id == board_id) {
-                    if let Some(c) = b.columns.iter_mut().find(|c| c.id == col_id) {
-                        c.cards.push(new_card);
-                    }
+                if let Some(b) = bs.iter_mut().find(|b| b.id == board_id)
+                    && let Some(c) = b.columns.iter_mut().find(|c| c.id == col_id)
+                {
+                    c.cards.push(new_card);
                 }
             });
         }

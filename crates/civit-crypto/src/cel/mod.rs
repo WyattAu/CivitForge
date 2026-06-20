@@ -1016,18 +1016,18 @@ impl CelEvaluator {
 
     fn eval_ternary(&self, expr: &str) -> CelResult {
         // Simple ternary: condition ? true_val : false_val
-        if let Some(q_pos) = expr.find('?') {
-            if let Some(c_pos) = expr[q_pos..].find(':') {
-                let condition = expr[..q_pos].trim();
-                let true_val = expr[q_pos + 1..q_pos + c_pos].trim();
-                let false_val = expr[q_pos + c_pos + 1..].trim();
-                // Try to evaluate as a CEL expression first; fall back to direct value resolution
-                let cond_val = self.resolve_value(condition);
-                if cond_val.is_truthy() {
-                    return CelResult::ok(self.resolve_value(true_val), expr);
-                }
-                return CelResult::ok(self.resolve_value(false_val), expr);
+        if let Some(q_pos) = expr.find('?')
+            && let Some(c_pos) = expr[q_pos..].find(':')
+        {
+            let condition = expr[..q_pos].trim();
+            let true_val = expr[q_pos + 1..q_pos + c_pos].trim();
+            let false_val = expr[q_pos + c_pos + 1..].trim();
+            // Try to evaluate as a CEL expression first; fall back to direct value resolution
+            let cond_val = self.resolve_value(condition);
+            if cond_val.is_truthy() {
+                return CelResult::ok(self.resolve_value(true_val), expr);
             }
+            return CelResult::ok(self.resolve_value(false_val), expr);
         }
         CelResult::err("Invalid ternary expression", expr)
     }
@@ -1122,14 +1122,14 @@ impl CelPolicyEvaluator {
             }
         }
         // Deny takes precedence at same priority
-        if let Some(deny) = deny_match {
-            if highest_deny_priority >= highest_allow_priority {
-                return CelPolicyDecision {
-                    effect: PolicyEffect::Deny,
-                    rule_id: deny.0.id.clone(),
-                    reason: format!("Matched deny rule: {}", deny.0.description),
-                };
-            }
+        if let Some(deny) = deny_match
+            && highest_deny_priority >= highest_allow_priority
+        {
+            return CelPolicyDecision {
+                effect: PolicyEffect::Deny,
+                rule_id: deny.0.id.clone(),
+                reason: format!("Matched deny rule: {}", deny.0.description),
+            };
         }
         if let Some(allow) = allow_match {
             return CelPolicyDecision {

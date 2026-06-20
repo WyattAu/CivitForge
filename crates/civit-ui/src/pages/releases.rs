@@ -248,10 +248,10 @@ pub fn ReleasesPage() -> impl IntoView {
                     let client2 = ApiClient::new(token2);
                     let assets_path =
                         format!("/repos/{owner_val}/{name_val}/releases/{release_id}/assets");
-                    if let Ok(r) = client2.get(&assets_path).await {
-                        if let Ok(data) = r.json::<Vec<ReleaseAssetResponse>>().await {
-                            set_assets.set(data);
-                        }
+                    if let Ok(r) = client2.get(&assets_path).await
+                        && let Ok(data) = r.json::<Vec<ReleaseAssetResponse>>().await
+                    {
+                        set_assets.set(data);
                     }
                 }
                 Ok(_) => {

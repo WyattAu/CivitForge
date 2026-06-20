@@ -76,10 +76,11 @@ impl FeatureFlagService {
         {
             return false;
         }
-        if let Some(ref org_id) = context.org_id {
-            if !flag.target_orgs.is_empty() && !flag.target_orgs.iter().any(|o| o == org_id) {
-                return false;
-            }
+        if let Some(ref org_id) = context.org_id
+            && !flag.target_orgs.is_empty()
+            && !flag.target_orgs.iter().any(|o| o == org_id)
+        {
+            return false;
         }
         if flag.rollout_percentage < 100 {
             let hash = simple_hash(&context.user_id);

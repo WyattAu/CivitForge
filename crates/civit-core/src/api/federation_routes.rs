@@ -611,10 +611,10 @@ pub async fn outbox(
                 },
                 "published": event.created_at.to_rfc3339(),
             });
-            if let Some(obj) = activity.get_mut("object") {
-                if let Some(m) = obj.as_object_mut() {
-                    m.insert("attachment".into(), event.metadata.clone());
-                }
+            if let Some(obj) = activity.get_mut("object")
+                && let Some(m) = obj.as_object_mut()
+            {
+                m.insert("attachment".into(), event.metadata.clone());
             }
             activity
         })

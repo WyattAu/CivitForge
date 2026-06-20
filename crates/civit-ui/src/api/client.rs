@@ -10,12 +10,13 @@ fn get_base_url() -> String {
             let api_url = js_sys::eval(
                 "typeof window !== 'undefined' && window.__CIVIT_API_URL ? window.__CIVIT_API_URL : ''",
             );
-            if let Ok(val) = api_url {
-                if !val.is_undefined() && val.is_string() {
-                    let url: String = val.as_string().unwrap_or_default();
-                    if !url.is_empty() {
-                        return url;
-                    }
+            if let Ok(val) = api_url
+                && !val.is_undefined()
+                && val.is_string()
+            {
+                let url: String = val.as_string().unwrap_or_default();
+                if !url.is_empty() {
+                    return url;
                 }
             }
 

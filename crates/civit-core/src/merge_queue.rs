@@ -63,11 +63,11 @@ impl MergeQueue {
 
     pub fn cancel(&self, pr_number: u32) -> bool {
         let mut queue = self.queue.lock().unwrap();
-        if let Some(entry) = queue.iter_mut().find(|e| e.pr_number == pr_number) {
-            if entry.status == MergeStatus::Queued || entry.status == MergeStatus::Testing {
-                entry.status = MergeStatus::Cancelled;
-                return true;
-            }
+        if let Some(entry) = queue.iter_mut().find(|e| e.pr_number == pr_number)
+            && (entry.status == MergeStatus::Queued || entry.status == MergeStatus::Testing)
+        {
+            entry.status = MergeStatus::Cancelled;
+            return true;
         }
         false
     }

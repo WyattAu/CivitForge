@@ -280,10 +280,10 @@ impl Autoscaler {
     pub fn evaluate(&mut self, metrics: &ScalingMetrics) -> ScalingDecision {
         let current = metrics.current_replicas;
 
-        if let Some(last) = self.last_scale_action {
-            if last.elapsed().as_secs() < self.policy.cooldown_secs {
-                return ScalingDecision::NoOp;
-            }
+        if let Some(last) = self.last_scale_action
+            && last.elapsed().as_secs() < self.policy.cooldown_secs
+        {
+            return ScalingDecision::NoOp;
         }
 
         if metrics.cpu_percent > self.policy.scale_up_threshold

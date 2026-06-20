@@ -206,10 +206,10 @@ impl RuleEngine {
             if !rule.enabled {
                 continue;
             }
-            if let Some(ref rule_lang) = rule.language {
-                if rule_lang != &lang {
-                    continue;
-                }
+            if let Some(ref rule_lang) = rule.language
+                && rule_lang != &lang
+            {
+                continue;
             }
             if matches_rule(rule, line) {
                 let suggestion = match rule.id.as_str() {

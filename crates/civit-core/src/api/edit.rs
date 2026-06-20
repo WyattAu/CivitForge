@@ -70,15 +70,11 @@ pub struct CreateOrUpdateFileRequest {
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum CommitChoice {
+    #[default]
     Direct,
     NewBranch,
-}
-
-impl Default for CommitChoice {
-    fn default() -> Self {
-        Self::Direct
-    }
 }
 
 fn default_branch() -> String {
@@ -233,11 +229,11 @@ pub async fn create_or_update_file(
 
     // Write file content
     let full_path = worktree.join(&file_path);
-    if let Some(parent) = full_path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            remove_worktree(&storage_root, &owner, &name, &target_branch);
-            return internal_err(&format!("failed to create directories: {e}"));
-        }
+    if let Some(parent) = full_path.parent()
+        && let Err(e) = std::fs::create_dir_all(parent)
+    {
+        remove_worktree(&storage_root, &owner, &name, &target_branch);
+        return internal_err(&format!("failed to create directories: {e}"));
     }
 
     if let Err(e) = std::fs::write(&full_path, &req.content) {

@@ -426,23 +426,23 @@ pub async fn list_issues(
     let mut count_base = String::from("SELECT COUNT(*) FROM issues WHERE repo_id = $1");
     let mut bind_idx = 2i32;
 
-    if let Some(ref s) = params.state {
-        if !s.is_empty() {
-            let clause = format!(" AND status = ${bind_idx}");
-            base.push_str(&clause);
-            count_base.push_str(&clause);
-            bind_idx += 1;
-        }
+    if let Some(ref s) = params.state
+        && !s.is_empty()
+    {
+        let clause = format!(" AND status = ${bind_idx}");
+        base.push_str(&clause);
+        count_base.push_str(&clause);
+        bind_idx += 1;
     }
-    if let Some(ref label_name) = params.label {
-        if !label_name.is_empty() {
-            let clause = format!(
-                " AND id IN (SELECT issue_id FROM issue_labels WHERE label_id IN (SELECT id FROM labels WHERE repo_id = $1 AND name = ${bind_idx}))"
-            );
-            base.push_str(&clause);
-            count_base.push_str(&clause);
-            bind_idx += 1;
-        }
+    if let Some(ref label_name) = params.label
+        && !label_name.is_empty()
+    {
+        let clause = format!(
+            " AND id IN (SELECT issue_id FROM issue_labels WHERE label_id IN (SELECT id FROM labels WHERE repo_id = $1 AND name = ${bind_idx}))"
+        );
+        base.push_str(&clause);
+        count_base.push_str(&clause);
+        bind_idx += 1;
     }
     if let Some(_assignee_id) = params.assignee {
         let clause = format!(
@@ -461,20 +461,21 @@ pub async fn list_issues(
         bind_idx_plus = bind_idx + 1,
     );
 
-    let mut query = sqlx::query_as::<_, IssueRow>(&query_str).bind(repo_id);
-    let mut count_query = sqlx::query_scalar::<_, i64>(&count_base).bind(repo_id);
+    let mut query = sqlx::query_as::<_, IssueRow>(sqlx::AssertSqlSafe(query_str)).bind(repo_id);
+    let mut count_query =
+        sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_base)).bind(repo_id);
 
-    if let Some(ref s) = params.state {
-        if !s.is_empty() {
-            query = query.bind(s.clone());
-            count_query = count_query.bind(s.clone());
-        }
+    if let Some(ref s) = params.state
+        && !s.is_empty()
+    {
+        query = query.bind(s.clone());
+        count_query = count_query.bind(s.clone());
     }
-    if let Some(ref label_name) = params.label {
-        if !label_name.is_empty() {
-            query = query.bind(label_name.clone());
-            count_query = count_query.bind(label_name.clone());
-        }
+    if let Some(ref label_name) = params.label
+        && !label_name.is_empty()
+    {
+        query = query.bind(label_name.clone());
+        count_query = count_query.bind(label_name.clone());
     }
     if let Some(assignee_id) = params.assignee {
         query = query.bind(assignee_id);
@@ -760,17 +761,17 @@ pub async fn update_issue(
         Err(e) => return internal_err(&e.to_string()),
     };
 
-    if let Some(ref new_state) = req.state {
-        if !validate_state_transition(&existing.status, new_state) {
-            return err_response(
-                StatusCode::CONFLICT,
-                &format!(
-                    "invalid state transition: {old} -> {new}",
-                    old = existing.status,
-                    new = new_state,
-                ),
-            );
-        }
+    if let Some(ref new_state) = req.state
+        && !validate_state_transition(&existing.status, new_state)
+    {
+        return err_response(
+            StatusCode::CONFLICT,
+            &format!(
+                "invalid state transition: {old} -> {new}",
+                old = existing.status,
+                new = new_state,
+            ),
+        );
     }
 
     let title = req.title.as_deref().unwrap_or(&existing.title);
@@ -1453,10 +1454,10 @@ pub async fn list_milestones(
         "SELECT id, repo_id, title, description, state, due_on, created_at, updated_at FROM milestones WHERE repo_id = $1",
     );
 
-    if let Some(ref s) = params.state {
-        if !s.is_empty() {
-            query_str.push_str(" AND state = $2");
-        }
+    if let Some(ref s) = params.state
+        && !s.is_empty()
+    {
+        query_str.push_str(" AND state = $2");
     }
     query_str.push_str(" ORDER BY created_at DESC");
 
@@ -1468,12 +1469,13 @@ pub async fn list_milestones(
         idx2 = limit_offset_idx + 1
     ));
 
-    let mut query = sqlx::query_as::<_, MilestoneResponse>(&query_str).bind(repo_id);
+    let mut query =
+        sqlx::query_as::<_, MilestoneResponse>(sqlx::AssertSqlSafe(query_str)).bind(repo_id);
 
-    if let Some(ref s) = params.state {
-        if !s.is_empty() {
-            query = query.bind(s.as_str());
-        }
+    if let Some(ref s) = params.state
+        && !s.is_empty()
+    {
+        query = query.bind(s.as_str());
     }
     query = query.bind(params.per_page).bind(offset);
 

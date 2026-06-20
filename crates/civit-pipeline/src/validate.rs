@@ -26,12 +26,12 @@ pub fn validate_pipeline(pipeline: &Pipeline) -> Result<()> {
     detect_circular_deps(&pipeline.jobs)?;
 
     // Validate schedule triggers
-    if let Some(triggers) = &pipeline.on {
-        if let Some(schedules) = &triggers.schedule {
-            for sched in schedules {
-                if !crate::trigger::validate_cron(&sched.cron) {
-                    return Err(PipelineError::InvalidCron(sched.cron.clone()));
-                }
+    if let Some(triggers) = &pipeline.on
+        && let Some(schedules) = &triggers.schedule
+    {
+        for sched in schedules {
+            if !crate::trigger::validate_cron(&sched.cron) {
+                return Err(PipelineError::InvalidCron(sched.cron.clone()));
             }
         }
     }
@@ -65,18 +65,18 @@ fn validate_job(job: &Job, all_names: &std::collections::HashSet<String>) -> Res
     }
 
     // Validate timeout
-    if let Some(timeout) = &job.timeout {
-        if timeout.to_duration().is_none() {
-            return Err(PipelineError::InvalidTimeout(timeout.to_string()));
-        }
+    if let Some(timeout) = &job.timeout
+        && timeout.to_duration().is_none()
+    {
+        return Err(PipelineError::InvalidTimeout(timeout.to_string()));
     }
 
     // Validate step-level timeouts
     for step in &job.steps {
-        if let Some(timeout) = &step.timeout {
-            if timeout.to_duration().is_none() {
-                return Err(PipelineError::InvalidTimeout(timeout.to_string()));
-            }
+        if let Some(timeout) = &step.timeout
+            && timeout.to_duration().is_none()
+        {
+            return Err(PipelineError::InvalidTimeout(timeout.to_string()));
         }
     }
 
@@ -135,11 +135,11 @@ fn dfs(
     visiting.insert(current.to_string());
     in_stack.insert(current.to_string());
 
-    if let Some(job) = jobs.iter().find(|j| j.name == current) {
-        if let Some(needs) = &job.needs {
-            for dep in needs {
-                dfs(dep, jobs, visiting, in_stack)?;
-            }
+    if let Some(job) = jobs.iter().find(|j| j.name == current)
+        && let Some(needs) = &job.needs
+    {
+        for dep in needs {
+            dfs(dep, jobs, visiting, in_stack)?;
         }
     }
 

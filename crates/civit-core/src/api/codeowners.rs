@@ -273,18 +273,18 @@ pub async fn update_codeowners(
         .arg("CODEOWNERS")
         .output();
 
-    if let Ok(output) = commit_result {
-        if output.status.success() {
-            let _ = std::process::Command::new("git")
-                .arg("-C")
-                .arg(&repo_path)
-                .arg("commit")
-                .arg("-m")
-                .arg(&message)
-                .arg("--author")
-                .arg(format!("{owner} <civitforge@localhost>"))
-                .output();
-        }
+    if let Ok(output) = commit_result
+        && output.status.success()
+    {
+        let _ = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&repo_path)
+            .arg("commit")
+            .arg("-m")
+            .arg(&message)
+            .arg("--author")
+            .arg(format!("{owner} <civitforge@localhost>"))
+            .output();
     }
 
     (

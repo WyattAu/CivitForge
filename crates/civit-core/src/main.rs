@@ -63,7 +63,9 @@ async fn main() -> Result<()> {
             for stmt in migration.up_sql.split(';') {
                 let s = stmt.trim();
                 if !s.is_empty() {
-                    sqlx::query(s).execute(&pool).await?;
+                    sqlx::query(sqlx::AssertSqlSafe(s.to_string()))
+                        .execute(&pool)
+                        .await?;
                 }
             }
             sqlx::query(

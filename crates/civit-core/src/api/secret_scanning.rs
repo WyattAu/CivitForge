@@ -213,12 +213,12 @@ async fn scan_repo_files(
                     continue;
                 }
 
-                if let Some(blob) = entry.object().ok().and_then(|o| o.try_into_blob().ok()) {
-                    if let Ok(content) = std::str::from_utf8(blob.data.as_ref()) {
-                        *count += 1;
-                        let found = scan_content(content, &full_path, patterns);
-                        secrets.extend(found);
-                    }
+                if let Some(blob) = entry.object().ok().and_then(|o| o.try_into_blob().ok())
+                    && let Ok(content) = std::str::from_utf8(blob.data.as_ref())
+                {
+                    *count += 1;
+                    let found = scan_content(content, &full_path, patterns);
+                    secrets.extend(found);
                 }
             }
         }

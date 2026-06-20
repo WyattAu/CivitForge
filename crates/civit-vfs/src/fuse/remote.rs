@@ -41,10 +41,10 @@ impl OnDemandFetcher {
     }
 
     pub fn store_cached(&self, block_id: &str, data: &[u8]) {
-        if let Ok(mut cache) = self.cache.lock() {
-            if cache.len() < self.max_cache_size {
-                cache.insert(block_id.to_string(), data.to_vec());
-            }
+        if let Ok(mut cache) = self.cache.lock()
+            && cache.len() < self.max_cache_size
+        {
+            cache.insert(block_id.to_string(), data.to_vec());
         }
     }
 

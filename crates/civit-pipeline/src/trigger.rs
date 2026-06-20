@@ -92,17 +92,17 @@ fn matches_push(triggers: &TriggerConfig, ctx: &TriggerContext) -> bool {
     };
 
     // Branch filter
-    if let Some(branches) = &push.branches {
-        if !branches.iter().any(|b| glob_matches(b, ref_name)) {
-            return false;
-        }
+    if let Some(branches) = &push.branches
+        && !branches.iter().any(|b| glob_matches(b, ref_name))
+    {
+        return false;
     }
 
     // Tag filter — check if the ref looks like a tag (starts with refs/tags/ or we check both)
-    if let Some(tags) = &push.tags {
-        if !tags.iter().any(|t| glob_matches(t, ref_name)) {
-            return false;
-        }
+    if let Some(tags) = &push.tags
+        && !tags.iter().any(|t| glob_matches(t, ref_name))
+    {
+        return false;
     }
 
     // Path include filter
@@ -117,14 +117,13 @@ fn matches_push(triggers: &TriggerConfig, ctx: &TriggerContext) -> bool {
     }
 
     // Path ignore filter
-    if let Some(ignore) = &push.paths_ignore {
-        if ctx
+    if let Some(ignore) = &push.paths_ignore
+        && ctx
             .changed_files
             .iter()
             .any(|f| ignore.iter().any(|p| glob_matches(p, f)))
-        {
-            return false;
-        }
+    {
+        return false;
     }
 
     true

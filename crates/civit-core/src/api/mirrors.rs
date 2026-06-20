@@ -189,17 +189,17 @@ pub async fn update_mirror(
         }
     };
 
-    if let Some(ref dir) = req.direction {
-        if !matches!(dir.as_str(), "push" | "pull" | "both") {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(
-                    CoreError::BadRequest("direction must be 'push', 'pull', or 'both'".into())
-                        .error_response(),
-                ),
-            )
-                .into_response();
-        }
+    if let Some(ref dir) = req.direction
+        && !matches!(dir.as_str(), "push" | "pull" | "both")
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                CoreError::BadRequest("direction must be 'push', 'pull', or 'both'".into())
+                    .error_response(),
+            ),
+        )
+            .into_response();
     }
 
     let pool = state.db.pool();

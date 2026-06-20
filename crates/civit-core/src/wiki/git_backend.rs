@@ -70,17 +70,17 @@ impl WikiGitBackend {
         let filename = format!("{slug}.md");
 
         let mut entries: Vec<gix::objs::tree::Entry> = Vec::new();
-        if let Some(tree_id) = existing_tree_id {
-            if let Ok(tree) = repo.find_tree(tree_id) {
-                for e in tree.iter().flatten() {
-                    let name = e.filename().to_string();
-                    if name != filename {
-                        entries.push(gix::objs::tree::Entry {
-                            mode: e.mode(),
-                            filename: e.filename().to_owned(),
-                            oid: e.oid().to_owned(),
-                        });
-                    }
+        if let Some(tree_id) = existing_tree_id
+            && let Ok(tree) = repo.find_tree(tree_id)
+        {
+            for e in tree.iter().flatten() {
+                let name = e.filename().to_string();
+                if name != filename {
+                    entries.push(gix::objs::tree::Entry {
+                        mode: e.mode(),
+                        filename: e.filename().to_owned(),
+                        oid: e.oid().to_owned(),
+                    });
                 }
             }
         }
@@ -546,10 +546,10 @@ impl WikiGitBackend {
         let pages = self.list_pages(repo_id)?;
         let mut results = Vec::new();
         for page in &pages {
-            if let Ok(Some((content, _))) = self.get_page(repo_id, &page.slug) {
-                if content.contains(query) || page.title.contains(query) {
-                    results.push((page.slug.clone(), page.title.clone()));
-                }
+            if let Ok(Some((content, _))) = self.get_page(repo_id, &page.slug)
+                && (content.contains(query) || page.title.contains(query))
+            {
+                results.push((page.slug.clone(), page.title.clone()));
             }
         }
         Ok(results)

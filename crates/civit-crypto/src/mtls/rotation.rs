@@ -88,15 +88,15 @@ impl CertificateRotation {
 
     async fn check_stuck_rotation(&self) {
         let started = self.rotation_started.read().await;
-        if let Some(start_time) = *started {
-            if start_time.elapsed() > std::time::Duration::from_secs(300) {
-                drop(started);
-                warn!("rotation stuck in Rotating state for >5 minutes, resetting to Active");
-                let mut state = self.state.write().await;
-                *state = RotationState::Active;
-                let mut started = self.rotation_started.write().await;
-                *started = None;
-            }
+        if let Some(start_time) = *started
+            && start_time.elapsed() > std::time::Duration::from_secs(300)
+        {
+            drop(started);
+            warn!("rotation stuck in Rotating state for >5 minutes, resetting to Active");
+            let mut state = self.state.write().await;
+            *state = RotationState::Active;
+            let mut started = self.rotation_started.write().await;
+            *started = None;
         }
     }
 

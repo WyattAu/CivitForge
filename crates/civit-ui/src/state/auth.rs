@@ -31,10 +31,10 @@ fn local_storage_get(key: &str) -> Option<String> {
 fn local_storage_set(key: &str, value: &str) {
     #[cfg(feature = "csr")]
     {
-        if let Some(window) = web_sys::window() {
-            if let Ok(Some(storage)) = window.local_storage() {
-                let _ = storage.set_item(key, value);
-            }
+        if let Some(window) = web_sys::window()
+            && let Ok(Some(storage)) = window.local_storage()
+        {
+            let _ = storage.set_item(key, value);
         }
     }
     #[cfg(not(feature = "csr"))]
@@ -47,10 +47,10 @@ fn local_storage_set(key: &str, value: &str) {
 fn local_storage_remove(key: &str) {
     #[cfg(feature = "csr")]
     {
-        if let Some(window) = web_sys::window() {
-            if let Ok(Some(storage)) = window.local_storage() {
-                let _ = storage.remove_item(key);
-            }
+        if let Some(window) = web_sys::window()
+            && let Ok(Some(storage)) = window.local_storage()
+        {
+            let _ = storage.remove_item(key);
         }
     }
     #[cfg(not(feature = "csr"))]
@@ -67,18 +67,17 @@ pub fn provide_auth_context() {
     leptos::task::spawn_local(async move {
         if let Some(token) = local_storage_get(STORAGE_KEY) {
             let client = crate::api::client::ApiClient::new(Some(token.clone()));
-            if let Ok(resp) = client.get("/auth/me").await {
-                if resp.status().is_success() {
-                    if let Ok(user) = resp.json::<crate::api::types::AuthUser>().await {
-                        auth.1.update(|state| {
-                            state.is_authenticated = true;
-                            state.is_admin = user.is_admin;
-                            state.user_id = Some(user.id);
-                            state.username = Some(user.username);
-                            state.token = Some(token);
-                        });
-                    }
-                }
+            if let Ok(resp) = client.get("/auth/me").await
+                && resp.status().is_success()
+                && let Ok(user) = resp.json::<crate::api::types::AuthUser>().await
+            {
+                auth.1.update(|state| {
+                    state.is_authenticated = true;
+                    state.is_admin = user.is_admin;
+                    state.user_id = Some(user.id);
+                    state.username = Some(user.username);
+                    state.token = Some(token);
+                });
             }
         }
     });

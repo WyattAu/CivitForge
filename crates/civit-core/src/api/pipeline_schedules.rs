@@ -178,14 +178,14 @@ pub async fn update_schedule(
         }
     };
 
-    if let Some(ref cron) = req.cron {
-        if !civit_pipeline::validate_cron(cron) {
-            return (
-                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-                Json(CoreError::BadRequest("invalid cron expression".into()).error_response()),
-            )
-                .into_response();
-        }
+    if let Some(ref cron) = req.cron
+        && !civit_pipeline::validate_cron(cron)
+    {
+        return (
+            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+            Json(CoreError::BadRequest("invalid cron expression".into()).error_response()),
+        )
+            .into_response();
     }
 
     let now = Utc::now();
@@ -245,7 +245,7 @@ pub async fn update_schedule(
         idx
     );
 
-    let mut query = sqlx::query_as::<_, schedules::ScheduleRow>(&sql);
+    let mut query = sqlx::query_as::<_, schedules::ScheduleRow>(sqlx::AssertSqlSafe(sql));
 
     if let Some(ref cron) = req.cron {
         query = query.bind(cron);

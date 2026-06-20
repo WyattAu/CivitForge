@@ -124,32 +124,31 @@ impl EdgeCacheManager {
         let original_size = data.len();
 
         // Attempt compression only for large payloads.
-        if data.len() >= Self::COMPRESSION_THRESHOLD {
-            if let Ok(encoded) = zstd::encode_all(std::io::Cursor::new(&data), 3) {
-                if encoded.len() < original_size {
-                    // Compression saved space -- use it.
-                    let encoded_len = encoded.len();
-                    let node_id = self.pick_node_id();
-                    let node = self.nodes.get(&node_id);
-                    if let Some(ref n) = node {
-                        n.add_usage(encoded_len as u64);
-                    }
-                    drop(node);
-                    let entry = CacheEntry {
-                        data: encoded,
-                        compressed: true,
-                        compressed_size: encoded_len,
-                        original_size,
-                        created_at: Utc::now(),
-                        access_count: Arc::new(AtomicU64::new(0)),
-                        node_id,
-                    };
-                    self.cache.insert(key, entry);
-                    return;
-                }
-                // Compression didn't help -- fall through to uncompressed.
+        if data.len() >= Self::COMPRESSION_THRESHOLD
+            && let Ok(encoded) = zstd::encode_all(std::io::Cursor::new(&data), 3)
+            && encoded.len() < original_size
+        {
+            // Compression saved space -- use it.
+            let encoded_len = encoded.len();
+            let node_id = self.pick_node_id();
+            let node = self.nodes.get(&node_id);
+            if let Some(ref n) = node {
+                n.add_usage(encoded_len as u64);
             }
+            drop(node);
+            let entry = CacheEntry {
+                data: encoded,
+                compressed: true,
+                compressed_size: encoded_len,
+                original_size,
+                created_at: Utc::now(),
+                access_count: Arc::new(AtomicU64::new(0)),
+                node_id,
+            };
+            self.cache.insert(key, entry);
+            return;
         }
+        // Compression didn't help -- fall through to uncompressed.
 
         // No compression or compression didn't reduce size.
         let node_id = self.pick_node_id();

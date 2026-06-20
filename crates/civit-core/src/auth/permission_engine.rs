@@ -36,12 +36,12 @@ use ring::rand::SecureRandom;
 /// Production deployments **MUST** set `CIVIT_ENCRYPTION_KEY` — a warning is logged at init.
 pub fn get_encryption_key() -> Vec<u8> {
     // Try environment variable first
-    if let Ok(key_hex) = std::env::var("CIVIT_ENCRYPTION_KEY") {
-        if key_hex.len() == 64 {
-            // 32 bytes = 256 bits, hex-encoded
-            if let Ok(key_bytes) = hex_decode(&key_hex) {
-                return key_bytes;
-            }
+    if let Ok(key_hex) = std::env::var("CIVIT_ENCRYPTION_KEY")
+        && key_hex.len() == 64
+    {
+        // 32 bytes = 256 bits, hex-encoded
+        if let Ok(key_bytes) = hex_decode(&key_hex) {
+            return key_bytes;
         }
     }
 
@@ -54,7 +54,7 @@ pub fn get_encryption_key() -> Vec<u8> {
 }
 
 fn hex_decode(hex: &str) -> Result<Vec<u8>, &'static str> {
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err("hex string must have even length");
     }
     (0..hex.len())
@@ -194,54 +194,49 @@ impl PermissionEngine {
         }
 
         // 1. Check explicit repo-level denies
-        if let Some(rid) = repo_id {
-            if let Some(deny) =
+        if let Some(rid) = repo_id
+            && let Some(deny) =
                 Self::check_repo_deny(pool, rid.get(), &resource, &action, user_uuid).await?
-            {
-                return Ok(PermissionCheck::denied(resource, action, deny));
-            }
+        {
+            return Ok(PermissionCheck::denied(resource, action, deny));
         }
 
         // 2. Check explicit repo-level grants
-        if let Some(rid) = repo_id {
-            if let Some(_grant) =
+        if let Some(rid) = repo_id
+            && let Some(_grant) =
                 Self::check_repo_grant(pool, rid.get(), &resource, &action, user_uuid).await?
-            {
-                return Ok(PermissionCheck::allowed(resource, action));
-            }
+        {
+            return Ok(PermissionCheck::allowed(resource, action));
         }
 
         // 3. Branch protection
-        if resource == Resource::Branch && action == Action::Push {
-            if let Some((rid, branch)) = repo_id.zip(branch_name) {
-                if let Some(deny) =
-                    Self::check_branch_protection(pool, rid.get(), branch, user_uuid).await?
-                {
-                    return Ok(PermissionCheck::denied(
-                        Resource::Branch,
-                        Action::Push,
-                        deny,
-                    ));
-                }
-            }
+        if resource == Resource::Branch
+            && action == Action::Push
+            && let Some((rid, branch)) = repo_id.zip(branch_name)
+            && let Some(deny) =
+                Self::check_branch_protection(pool, rid.get(), branch, user_uuid).await?
+        {
+            return Ok(PermissionCheck::denied(
+                Resource::Branch,
+                Action::Push,
+                deny,
+            ));
         }
 
         // 4. Check org-level role
-        if let Some(oid) = org_id {
-            if let Some(_grant) =
+        if let Some(oid) = org_id
+            && let Some(_grant) =
                 Self::check_org_role(pool, oid, &resource, &action, user_uuid).await?
-            {
-                return Ok(PermissionCheck::allowed(resource, action));
-            }
+        {
+            return Ok(PermissionCheck::allowed(resource, action));
         }
 
         // 5. Fallback: check repo role (from member_roles if user is a direct member)
-        if let Some(rid) = repo_id {
-            if let Some(_grant) =
+        if let Some(rid) = repo_id
+            && let Some(_grant) =
                 Self::check_repo_role(pool, rid.get(), &resource, &action, user_uuid).await?
-            {
-                return Ok(PermissionCheck::allowed(resource, action));
-            }
+        {
+            return Ok(PermissionCheck::allowed(resource, action));
         }
 
         // 6. Default deny
@@ -458,12 +453,11 @@ impl PermissionEngine {
         }
 
         // Check org-level role if indirect
-        if indirect {
-            if let Some(org_id) = Self::get_repo_org_id(pool, repo_id).await? {
-                if let Some(org_role) = Self::get_org_role(pool, org_id, user_id).await? {
-                    return Ok(org_role);
-                }
-            }
+        if indirect
+            && let Some(org_id) = Self::get_repo_org_id(pool, repo_id).await?
+            && let Some(org_role) = Self::get_org_role(pool, org_id, user_id).await?
+        {
+            return Ok(org_role);
         }
 
         // Default: Guest

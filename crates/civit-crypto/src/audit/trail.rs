@@ -163,25 +163,25 @@ impl AuditTrail {
         self.entries
             .iter()
             .filter(|e| {
-                if let Some(a) = actor {
-                    if e.actor_id != a {
-                        return false;
-                    }
+                if let Some(a) = actor
+                    && e.actor_id != a
+                {
+                    return false;
                 }
-                if let Some(a) = action {
-                    if e.action != a {
-                        return false;
-                    }
+                if let Some(a) = action
+                    && e.action != a
+                {
+                    return false;
                 }
-                if let Some(f) = from {
-                    if e.timestamp < f {
-                        return false;
-                    }
+                if let Some(f) = from
+                    && e.timestamp < f
+                {
+                    return false;
                 }
-                if let Some(t) = to {
-                    if e.timestamp > t {
-                        return false;
-                    }
+                if let Some(t) = to
+                    && e.timestamp > t
+                {
+                    return false;
                 }
                 true
             })

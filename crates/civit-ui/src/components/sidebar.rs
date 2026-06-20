@@ -34,12 +34,11 @@ pub fn Sidebar() -> impl IntoView {
     // Fetch site settings for sidebar display
     leptos::task::spawn_local(async move {
         let client = ApiClient::new(None);
-        if let Ok(resp) = client.get("/admin/settings").await {
-            if resp.status().is_success() {
-                if let Ok(data) = resp.json::<SiteSettingsCache>().await {
-                    set_site_settings.set(Some(data));
-                }
-            }
+        if let Ok(resp) = client.get("/admin/settings").await
+            && resp.status().is_success()
+            && let Ok(data) = resp.json::<SiteSettingsCache>().await
+        {
+            set_site_settings.set(Some(data));
         }
     });
 

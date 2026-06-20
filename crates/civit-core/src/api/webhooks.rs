@@ -379,14 +379,14 @@ pub async fn update_webhook(
         }
     };
 
-    if let Some(ref events) = req.events {
-        if let Err(e) = validate_events(events) {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(CoreError::BadRequest(e).error_response()),
-            )
-                .into_response();
-        }
+    if let Some(ref events) = req.events
+        && let Err(e) = validate_events(events)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest(e).error_response()),
+        )
+            .into_response();
     }
 
     let result = sqlx::query_as::<_, (Uuid, Uuid, String, Vec<String>, bool, DateTime<Utc>)>(

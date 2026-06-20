@@ -45,13 +45,12 @@ fn tokenize(input: &str) -> Vec<QueryToken> {
             tokens.push(QueryToken::Phrase(phrase));
             continue;
         }
-        if ch == '-' {
-            if let Some(next) = chars.clone().nth(1) {
-                if next.is_alphanumeric() {
-                    chars.next();
-                    continue;
-                }
-            }
+        if ch == '-'
+            && let Some(next) = chars.clone().nth(1)
+            && next.is_alphanumeric()
+        {
+            chars.next();
+            continue;
         }
         if ch == '+' {
             chars.next();
@@ -207,13 +206,13 @@ impl SearchQueryBuilder {
             };
 
             for sub_term in &sub_terms {
-                if let Some((field_name, value)) = sub_term.split_once(':') {
-                    if let Ok(f) = schema.get_field(field_name) {
-                        let term = Term::from_field_text(f, value);
-                        let tq = TermQuery::new(term, Default::default());
-                        content_clauses.push((Occur::Should, Box::new(tq)));
-                        continue;
-                    }
+                if let Some((field_name, value)) = sub_term.split_once(':')
+                    && let Ok(f) = schema.get_field(field_name)
+                {
+                    let term = Term::from_field_text(f, value);
+                    let tq = TermQuery::new(term, Default::default());
+                    content_clauses.push((Occur::Should, Box::new(tq)));
+                    continue;
                 }
                 let term = Term::from_field_text(content_field, sub_term);
                 if self.fuzzy && sub_term.len() > 3 {

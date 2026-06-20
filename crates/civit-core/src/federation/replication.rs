@@ -289,8 +289,8 @@ impl ReplicationTransport {
                     let peers = self.peers.read().await;
                     for peer in &*peers {
                         let last = peer.last_seen.read().await;
-                        if let Some(ts) = *last {
-                            if now - ts > chrono::Duration::from_std(timeout).unwrap_or_default() {
+                        if let Some(ts) = *last
+                            && now - ts > chrono::Duration::from_std(timeout).unwrap_or_default() {
                                 warn!(
                                     peer = %peer.region_id.0,
                                     "peer marked unhealthy: heartbeat timeout"
@@ -298,7 +298,6 @@ impl ReplicationTransport {
                                 drop(last);
                                 peer.mark_unhealthy().await;
                             }
-                        }
                     }
                 }
                 _ = cancel.changed() => {

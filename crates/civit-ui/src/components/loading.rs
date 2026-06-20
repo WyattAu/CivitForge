@@ -2,17 +2,12 @@
 
 use leptos::prelude::*;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Default)]
 pub enum SpinnerSize {
     Small,
+    #[default]
     Medium,
     Large,
-}
-
-impl Default for SpinnerSize {
-    fn default() -> Self {
-        Self::Medium
-    }
 }
 
 impl SpinnerSize {

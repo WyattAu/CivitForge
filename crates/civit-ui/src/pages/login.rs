@@ -129,100 +129,99 @@ pub fn LoginPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let window = web_sys::window().unwrap();
             let hash = window.location().hash().unwrap_or_default();
-            if let Some(auto_data) = hash.strip_prefix("#auto=") {
-                if let Ok(decoded) = base64_decode(auto_data) {
-                    // Clear the hash fragment from URL
-                    let _ = window.location().set_hash("");
-                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(&decoded) {
-                        let username = data
-                            .get("username")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let password = data
-                            .get("password")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let email = data
-                            .get("email")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let display_name = data
-                            .get("display_name")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        if !username.is_empty() && !password.is_empty() {
-                            set_loading.set(true);
-                            let client = ApiClient::new(None);
-                            let login_body = LoginRequest {
-                                username: username.clone(),
-                                password: password.clone(),
-                            };
-                            match client.post("/auth/login", &login_body).await {
-                                Ok(resp) if resp.status().is_success() => {
-                                    let text = resp.text().await.unwrap_or_default();
-                                    if let Ok(data) = serde_json::from_str::<AuthResponse>(&text) {
-                                        login(
-                                            &auth,
-                                            data.user.id,
-                                            data.user.username,
-                                            data.token,
-                                            data.user.is_admin,
-                                        );
-                                        nav_sig.get()("/repos", Default::default());
-                                    }
+            if let Some(auto_data) = hash.strip_prefix("#auto=")
+                && let Ok(decoded) = base64_decode(auto_data)
+            {
+                // Clear the hash fragment from URL
+                let _ = window.location().set_hash("");
+                if let Ok(data) = serde_json::from_str::<serde_json::Value>(&decoded) {
+                    let username = data
+                        .get("username")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let password = data
+                        .get("password")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let email = data
+                        .get("email")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let display_name = data
+                        .get("display_name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if !username.is_empty() && !password.is_empty() {
+                        set_loading.set(true);
+                        let client = ApiClient::new(None);
+                        let login_body = LoginRequest {
+                            username: username.clone(),
+                            password: password.clone(),
+                        };
+                        match client.post("/auth/login", &login_body).await {
+                            Ok(resp) if resp.status().is_success() => {
+                                let text = resp.text().await.unwrap_or_default();
+                                if let Ok(data) = serde_json::from_str::<AuthResponse>(&text) {
+                                    login(
+                                        &auth,
+                                        data.user.id,
+                                        data.user.username,
+                                        data.token,
+                                        data.user.is_admin,
+                                    );
+                                    nav_sig.get()("/repos", Default::default());
                                 }
-                                _ => {
-                                    let reg_body = RegisterRequest {
-                                        username: username.clone(),
-                                        email: if email.is_empty() {
-                                            format!("{username}@localhost")
-                                        } else {
-                                            email
-                                        },
-                                        display_name: if display_name.is_empty() {
-                                            username.clone()
-                                        } else {
-                                            display_name
-                                        },
-                                        password,
-                                    };
-                                    match client.post("/auth/register", &reg_body).await {
-                                        Ok(resp) if resp.status().is_success() => {
-                                            let text = resp.text().await.unwrap_or_default();
-                                            if let Ok(data) =
-                                                serde_json::from_str::<AuthResponse>(&text)
-                                            {
-                                                login(
-                                                    &auth,
-                                                    data.user.id,
-                                                    data.user.username,
-                                                    data.token,
-                                                    data.user.is_admin,
-                                                );
-                                                nav_sig.get()("/repos", Default::default());
-                                            }
+                            }
+                            _ => {
+                                let reg_body = RegisterRequest {
+                                    username: username.clone(),
+                                    email: if email.is_empty() {
+                                        format!("{username}@localhost")
+                                    } else {
+                                        email
+                                    },
+                                    display_name: if display_name.is_empty() {
+                                        username.clone()
+                                    } else {
+                                        display_name
+                                    },
+                                    password,
+                                };
+                                match client.post("/auth/register", &reg_body).await {
+                                    Ok(resp) if resp.status().is_success() => {
+                                        let text = resp.text().await.unwrap_or_default();
+                                        if let Ok(data) =
+                                            serde_json::from_str::<AuthResponse>(&text)
+                                        {
+                                            login(
+                                                &auth,
+                                                data.user.id,
+                                                data.user.username,
+                                                data.token,
+                                                data.user.is_admin,
+                                            );
+                                            nav_sig.get()("/repos", Default::default());
                                         }
-                                        Ok(resp) => {
-                                            let status = resp.status();
-                                            let text = resp.text().await.unwrap_or_default();
-                                            set_error.set(Some(format!(
-                                                "Auto-login failed ({status}): {text}"
-                                            )));
-                                        }
-                                        Err(e) => {
-                                            set_error.set(Some(format!(
-                                                "Auto-login network error: {e}"
-                                            )));
-                                        }
+                                    }
+                                    Ok(resp) => {
+                                        let status = resp.status();
+                                        let text = resp.text().await.unwrap_or_default();
+                                        set_error.set(Some(format!(
+                                            "Auto-login failed ({status}): {text}"
+                                        )));
+                                    }
+                                    Err(e) => {
+                                        set_error
+                                            .set(Some(format!("Auto-login network error: {e}")));
                                     }
                                 }
                             }
-                            set_loading.set(false);
                         }
+                        set_loading.set(false);
                     }
                 }
             }

@@ -3,19 +3,14 @@
 use either_of::Either;
 use leptos::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub enum InputType {
+    #[default]
     Text,
     Email,
     Password,
     Textarea,
     Select,
-}
-
-impl Default for InputType {
-    fn default() -> Self {
-        Self::Text
-    }
 }
 
 #[component]

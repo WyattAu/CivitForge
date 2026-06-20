@@ -161,13 +161,12 @@ impl PolicyEngine {
                 continue;
             }
 
-            if let Some(ref conditions) = stmt.conditions {
-                if !conditions
+            if let Some(ref conditions) = stmt.conditions
+                && !conditions
                     .iter()
                     .all(|cond| self.evaluate_condition(cond, subject, resource_attrs))
-                {
-                    continue;
-                }
+            {
+                continue;
             }
 
             match stmt.effect {

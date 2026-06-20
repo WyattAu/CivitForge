@@ -165,18 +165,18 @@ fn find_tag_start(xml: &str, from: usize, tag_name: &str) -> Option<usize> {
                 return Some(from + abs);
             }
         }
-        if after_lt.contains(&ns_prefixed) {
-            if let Some(ns_pos) = after_lt.find(&ns_prefixed) {
-                let after_ns = &after_lt[ns_pos + ns_prefixed.len()..];
-                let next = after_ns.as_bytes().first().copied();
-                if next == Some(b' ')
-                    || next == Some(b'>')
-                    || next == Some(b'/')
-                    || next == Some(b'\n')
-                    || next == Some(b'\r')
-                {
-                    return Some(from + abs + ns_pos);
-                }
+        if after_lt.contains(&ns_prefixed)
+            && let Some(ns_pos) = after_lt.find(&ns_prefixed)
+        {
+            let after_ns = &after_lt[ns_pos + ns_prefixed.len()..];
+            let next = after_ns.as_bytes().first().copied();
+            if next == Some(b' ')
+                || next == Some(b'>')
+                || next == Some(b'/')
+                || next == Some(b'\n')
+                || next == Some(b'\r')
+            {
+                return Some(from + abs + ns_pos);
             }
         }
         pos = abs + 1;

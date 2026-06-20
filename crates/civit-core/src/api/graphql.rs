@@ -388,18 +388,18 @@ pub async fn graphql_subscribe(
 
             if let Ok(pipelines) = rows {
                 for (id, status) in &pipelines {
-                    if let Some(prev) = last_status.get(id) {
-                        if prev != status {
-                            let payload = json!({
-                                "id": id.to_string(),
-                                "status": status,
-                                "changedFrom": prev,
-                            });
-                            if let Ok(data) = serde_json::to_string(&payload) {
-                                let event = Event::default().event("pipeline_status").data(data);
-                                if tx.send(Ok(event)).await.is_err() {
-                                    return;
-                                }
+                    if let Some(prev) = last_status.get(id)
+                        && prev != status
+                    {
+                        let payload = json!({
+                            "id": id.to_string(),
+                            "status": status,
+                            "changedFrom": prev,
+                        });
+                        if let Ok(data) = serde_json::to_string(&payload) {
+                            let event = Event::default().event("pipeline_status").data(data);
+                            if tx.send(Ok(event)).await.is_err() {
+                                return;
                             }
                         }
                     }

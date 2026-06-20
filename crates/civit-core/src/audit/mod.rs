@@ -123,40 +123,40 @@ impl AuditQueryBuilder {
     }
 
     pub fn matches(&self, event: &AuditEvent) -> bool {
-        if let Some(ref actor) = self.actor_id {
-            if event.actor_id != *actor {
-                return false;
-            }
+        if let Some(ref actor) = self.actor_id
+            && event.actor_id != *actor
+        {
+            return false;
         }
-        if let Some(action) = self.action {
-            if event.action != action {
-                return false;
-            }
+        if let Some(action) = self.action
+            && event.action != action
+        {
+            return false;
         }
-        if let Some(ref rt) = self.resource_type {
-            if event.resource_type != *rt {
-                return false;
-            }
+        if let Some(ref rt) = self.resource_type
+            && event.resource_type != *rt
+        {
+            return false;
         }
-        if let Some(ref rid) = self.resource_id {
-            if event.resource_id != *rid {
-                return false;
-            }
+        if let Some(ref rid) = self.resource_id
+            && event.resource_id != *rid
+        {
+            return false;
         }
-        if let Some(outcome) = self.outcome {
-            if event.outcome != outcome {
-                return false;
-            }
+        if let Some(outcome) = self.outcome
+            && event.outcome != outcome
+        {
+            return false;
         }
-        if let Some(since) = self.since {
-            if event.timestamp < since {
-                return false;
-            }
+        if let Some(since) = self.since
+            && event.timestamp < since
+        {
+            return false;
         }
-        if let Some(until) = self.until {
-            if event.timestamp > until {
-                return false;
-            }
+        if let Some(until) = self.until
+            && event.timestamp > until
+        {
+            return false;
         }
         true
     }

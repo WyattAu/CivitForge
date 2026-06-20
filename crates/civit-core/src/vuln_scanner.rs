@@ -174,10 +174,10 @@ impl OsvVulnScanner {
         let score_str = score_str.trim();
         if score_str.starts_with("CVSS:") {
             let parts: Vec<&str> = score_str.split('/').collect();
-            if let Some(last) = parts.last() {
-                if let Some((_, val)) = last.split_once(':') {
-                    return val.parse().ok();
-                }
+            if let Some(last) = parts.last()
+                && let Some((_, val)) = last.split_once(':')
+            {
+                return val.parse().ok();
             }
             None
         } else {
@@ -198,12 +198,11 @@ impl OsvVulnScanner {
     fn extract_max_severity(entries: &[OsvSeverityEntry]) -> VulnSeverity {
         let mut max_score: Option<f64> = None;
         for entry in entries {
-            if entry.severity_type.as_deref() == Some("CVSS_V3") {
-                if let Some(score_str) = &entry.score {
-                    if let Some(score) = Self::parse_cvss_score(score_str) {
-                        max_score = Some(max_score.map_or(score, |m| m.max(score)));
-                    }
-                }
+            if entry.severity_type.as_deref() == Some("CVSS_V3")
+                && let Some(score_str) = &entry.score
+                && let Some(score) = Self::parse_cvss_score(score_str)
+            {
+                max_score = Some(max_score.map_or(score, |m| m.max(score)));
             }
         }
         Self::classify_severity(max_score)

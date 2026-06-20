@@ -439,15 +439,15 @@ pub async fn get_pipeline_graph_db(
             finished_at: rj.finished_at.map(|t| t.to_rfc3339()),
         });
 
-        if let Some(ref needs) = rj.needs {
-            if let Ok(deps) = serde_json::from_value::<Vec<String>>(needs.clone()) {
-                for dep_name in deps {
-                    if let Some(source) = run_jobs.iter().find(|j| j.name == dep_name) {
-                        edges.push(GraphEdge {
-                            source: source.id.to_string(),
-                            target: rj.id.to_string(),
-                        });
-                    }
+        if let Some(ref needs) = rj.needs
+            && let Ok(deps) = serde_json::from_value::<Vec<String>>(needs.clone())
+        {
+            for dep_name in deps {
+                if let Some(source) = run_jobs.iter().find(|j| j.name == dep_name) {
+                    edges.push(GraphEdge {
+                        source: source.id.to_string(),
+                        target: rj.id.to_string(),
+                    });
                 }
             }
         }

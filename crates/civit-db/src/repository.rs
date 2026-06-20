@@ -919,10 +919,10 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("validate_access_token: {e}")))?;
 
-        if let Some(exp) = row.1 {
-            if Utc::now() > exp {
-                return Err(DbError::Auth("access token expired".into()));
-            }
+        if let Some(exp) = row.1
+            && Utc::now() > exp
+        {
+            return Err(DbError::Auth("access token expired".into()));
         }
 
         Ok(row.0)
@@ -947,10 +947,10 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("validate_pat_token: {e}")))?;
 
-        if let Some(exp) = row.3 {
-            if Utc::now() > exp {
-                return Err(DbError::Auth("access token expired".into()));
-            }
+        if let Some(exp) = row.3
+            && Utc::now() > exp
+        {
+            return Err(DbError::Auth("access token expired".into()));
         }
 
         let scopes: Vec<String> = serde_json::from_value(row.1).unwrap_or_default();

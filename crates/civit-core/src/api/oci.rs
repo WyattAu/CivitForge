@@ -357,10 +357,9 @@ pub async fn put_manifest(
         .fetch_optional(pool)
         .await
         .unwrap_or(None)
+            && immutable
         {
-            if immutable {
-                return (StatusCode::FORBIDDEN, Json(serde_json::json!({"errors": [{"code": "TAG_IMMUTABLE", "message": "tag is immutable"}]}))).into_response();
-            }
+            return (StatusCode::FORBIDDEN, Json(serde_json::json!({"errors": [{"code": "TAG_IMMUTABLE", "message": "tag is immutable"}]}))).into_response();
         }
 
         let _ = sqlx::query(

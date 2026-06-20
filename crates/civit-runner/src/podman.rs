@@ -254,10 +254,11 @@ impl PodmanService {
 
                 let start_url = format!("{}/containers/{container_id}/start", self.base_url());
                 let start_resp = client.post(&start_url).send().await;
-                if let Ok(sr) = start_resp {
-                    if !sr.status().is_success() && sr.status().as_u16() != 304 {
-                        warn!(status = %sr.status(), "container start returned non-success");
-                    }
+                if let Ok(sr) = start_resp
+                    && !sr.status().is_success()
+                    && sr.status().as_u16() != 304
+                {
+                    warn!(status = %sr.status(), "container start returned non-success");
                 }
 
                 Ok(PodmanContainer {
@@ -828,16 +829,15 @@ impl PodmanService {
         );
         let resp = client.get(&url).send().await;
         let mut removed = 0usize;
-        if let Ok(r) = resp {
-            if r.status().is_success() {
-                if let Ok(arr) = r.json::<Vec<serde_json::Value>>().await {
-                    for container in arr {
-                        if let Some(id) = container.get("Id").and_then(|v| v.as_str()) {
-                            if self.rm(id).await.is_ok() {
-                                removed += 1;
-                            }
-                        }
-                    }
+        if let Ok(r) = resp
+            && r.status().is_success()
+            && let Ok(arr) = r.json::<Vec<serde_json::Value>>().await
+        {
+            for container in arr {
+                if let Some(id) = container.get("Id").and_then(|v| v.as_str())
+                    && self.rm(id).await.is_ok()
+                {
+                    removed += 1;
                 }
             }
         }

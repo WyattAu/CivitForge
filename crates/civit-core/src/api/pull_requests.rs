@@ -502,13 +502,13 @@ pub async fn update_pull_request(
         Err(e) => return err_response(e),
     };
 
-    if let Some(ref state_val) = req.state {
-        if !validate_pr_state_transition(&pr.status, state_val) {
-            return err_response(CoreError::BadRequest(format!(
-                "invalid transition: {} -> {}",
-                pr.status, state_val
-            )));
-        }
+    if let Some(ref state_val) = req.state
+        && !validate_pr_state_transition(&pr.status, state_val)
+    {
+        return err_response(CoreError::BadRequest(format!(
+            "invalid transition: {} -> {}",
+            pr.status, state_val
+        )));
     }
 
     let updated = match state
@@ -727,10 +727,10 @@ pub async fn request_review(
         for username in &owner_usernames {
             // Strip leading @ if present
             let uname = username.trim_start_matches('@');
-            if let Ok(user) = state.db.get_user_by_username(uname).await {
-                if !reviewer_ids.contains(&user.id) {
-                    reviewer_ids.push(user.id);
-                }
+            if let Ok(user) = state.db.get_user_by_username(uname).await
+                && !reviewer_ids.contains(&user.id)
+            {
+                reviewer_ids.push(user.id);
             }
         }
     }
@@ -1114,10 +1114,10 @@ fn walk_tree_recursive(tree: &gix::Tree, prefix: String, files: &mut HashMap<Str
             format!("{prefix}/{entry_name}")
         };
         if entry.mode().is_tree() {
-            if let Ok(obj) = entry.object() {
-                if let Ok(subtree) = obj.try_into_tree() {
-                    walk_tree_recursive(&subtree, full_path, files);
-                }
+            if let Ok(obj) = entry.object()
+                && let Ok(subtree) = obj.try_into_tree()
+            {
+                walk_tree_recursive(&subtree, full_path, files);
             }
         } else if entry.mode().is_blob() {
             files.insert(full_path, entry.oid().to_hex().to_string());
@@ -1803,10 +1803,10 @@ fn parse_unified_diff(diff_output: &str) -> Vec<InlineDiffFile> {
             current_hunk = None;
         } else if let Some(header) = line.strip_prefix("@@ ") {
             // Save previous hunk
-            if let Some(f) = current_file.as_mut() {
-                if let Some(h) = current_hunk.take() {
-                    f.hunks.push(h);
-                }
+            if let Some(f) = current_file.as_mut()
+                && let Some(h) = current_hunk.take()
+            {
+                f.hunks.push(h);
             }
             // Parse "@@ -old_start,old_count +new_start,new_count @@"
             if let Some(plus_pos) = header.find('+') {
@@ -2072,10 +2072,11 @@ pub async fn create_inline_comment(
     let author_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
 
     // Validate side if provided
-    if let Some(ref side) = req.side {
-        if side != "LEFT" && side != "RIGHT" {
-            return err_response(CoreError::BadRequest("side must be LEFT or RIGHT".into()));
-        }
+    if let Some(ref side) = req.side
+        && side != "LEFT"
+        && side != "RIGHT"
+    {
+        return err_response(CoreError::BadRequest("side must be LEFT or RIGHT".into()));
     }
 
     let comment = match state

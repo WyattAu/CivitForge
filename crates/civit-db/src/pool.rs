@@ -108,11 +108,11 @@ impl DatabasePool {
     pub fn is_circuit_open(&self) -> bool {
         let state = self.circuit_state();
         if state == CIRCUIT_OPEN {
-            if let Some(opened) = *self.opened_at.lock().unwrap() {
-                if opened.elapsed() >= self.reset_timeout {
-                    self.set_circuit_state(CIRCUIT_HALF_OPEN);
-                    return false;
-                }
+            if let Some(opened) = *self.opened_at.lock().unwrap()
+                && opened.elapsed() >= self.reset_timeout
+            {
+                self.set_circuit_state(CIRCUIT_HALF_OPEN);
+                return false;
             }
             true
         } else {
@@ -125,13 +125,19 @@ impl DatabasePool {
             return Err(DbError::Database("circuit breaker is open".into()));
         }
 
-        let result = sqlx::query(query).execute(&self.pool).await.map_err(|e| {
-            self.record_failure();
-            DbError::Database(format!("query execution failed: {e}"))
-        })?;
-
-        self.record_success();
-        Ok(result.rows_affected())
+        let result = sqlx::query(sqlx::AssertSqlSafe(query.to_string()))
+            .execute(&self.pool)
+            .await;
+        match result {
+            Ok(r) => {
+                self.record_success();
+                Ok(r.rows_affected())
+            }
+            Err(e) => {
+                self.record_failure();
+                Err(DbError::Database(format!("query execution failed: {e}")))
+            }
+        }
     }
 }
 

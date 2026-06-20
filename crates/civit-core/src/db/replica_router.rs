@@ -71,10 +71,10 @@ impl ReplicaRouter {
 
     pub fn read_pool(&self) -> &PgPool {
         for replica in &self.replicas {
-            if let Ok(healthy) = replica.healthy.try_read() {
-                if *healthy {
-                    return &replica.pool;
-                }
+            if let Ok(healthy) = replica.healthy.try_read()
+                && *healthy
+            {
+                return &replica.pool;
             }
         }
         &self.primary
@@ -112,10 +112,10 @@ impl ReplicaRouter {
         let replica_count = self.replicas.len();
         let mut healthy_replicas = 0usize;
         for replica in &self.replicas {
-            if let Ok(healthy) = replica.healthy.try_read() {
-                if *healthy {
-                    healthy_replicas += 1;
-                }
+            if let Ok(healthy) = replica.healthy.try_read()
+                && *healthy
+            {
+                healthy_replicas += 1;
             }
         }
         RouterStats {

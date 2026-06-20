@@ -104,18 +104,13 @@ pub struct Concurrency {
 // Workspace
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum WorkspaceSharing {
     #[serde(rename = "shared")]
     Shared,
     #[serde(rename = "isolated")]
+    #[default]
     Isolated,
-}
-
-impl Default for WorkspaceSharing {
-    fn default() -> Self {
-        Self::Isolated
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -410,19 +405,15 @@ pub struct MatrixConfig {
 /// Variable scope — determines when a variable is available.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum VariableScope {
     /// Available to all jobs in the repository.
+    #[default]
     Repo,
     /// Available only on matching branches.
     Branch,
     /// Available only on matching pull requests.
     Pr,
-}
-
-impl Default for VariableScope {
-    fn default() -> Self {
-        Self::Repo
-    }
 }
 
 // ---------------------------------------------------------------------------

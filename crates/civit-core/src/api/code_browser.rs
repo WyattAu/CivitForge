@@ -981,16 +981,16 @@ pub async fn read_readme(
     let mut found_path = None;
 
     for candidate in &candidates {
-        if let Ok(Some(entry)) = tree.lookup_entry_by_path(candidate) {
-            if let Some(blob) = entry.object().ok().and_then(|o| o.try_into_blob().ok()) {
-                let (content, encoding) = match String::from_utf8(blob.data.to_vec()) {
-                    Ok(s) => (s, "utf-8".to_string()),
-                    Err(_) => (base64_encode(&blob.data), "base64".to_string()),
-                };
-                found_content = Some((content, encoding));
-                found_path = Some(candidate.to_string());
-                break;
-            }
+        if let Ok(Some(entry)) = tree.lookup_entry_by_path(candidate)
+            && let Some(blob) = entry.object().ok().and_then(|o| o.try_into_blob().ok())
+        {
+            let (content, encoding) = match String::from_utf8(blob.data.to_vec()) {
+                Ok(s) => (s, "utf-8".to_string()),
+                Err(_) => (base64_encode(&blob.data), "base64".to_string()),
+            };
+            found_content = Some((content, encoding));
+            found_path = Some(candidate.to_string());
+            break;
         }
     }
 

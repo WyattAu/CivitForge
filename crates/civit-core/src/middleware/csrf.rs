@@ -38,27 +38,27 @@ pub async fn csrf_middleware(req: Request, next: Next) -> Response {
     }
 
     // If Origin is present, validate it
-    if let Some(origin) = req.headers().get(header::ORIGIN) {
-        if let Ok(origin_str) = origin.to_str() {
-            let allowed = origin_str.starts_with("http://127.0.0.1")
-                || origin_str.starts_with("http://localhost")
-                || origin_str.starts_with("http://[::1]")
-                || origin_str.starts_with("https://");
+    if let Some(origin) = req.headers().get(header::ORIGIN)
+        && let Ok(origin_str) = origin.to_str()
+    {
+        let allowed = origin_str.starts_with("http://127.0.0.1")
+            || origin_str.starts_with("http://localhost")
+            || origin_str.starts_with("http://[::1]")
+            || origin_str.starts_with("https://");
 
-            if allowed {
-                return next.run(req).await;
-            }
-
-            warn!(origin = %origin_str, method = %method, "CSRF: blocked request from unknown origin");
-            return (
-                StatusCode::FORBIDDEN,
-                axum::Json(serde_json::json!({
-                    "error": "csrf_rejected",
-                    "message": "Request origin not allowed."
-                })),
-            )
-                .into_response();
+        if allowed {
+            return next.run(req).await;
         }
+
+        warn!(origin = %origin_str, method = %method, "CSRF: blocked request from unknown origin");
+        return (
+            StatusCode::FORBIDDEN,
+            axum::Json(serde_json::json!({
+                "error": "csrf_rejected",
+                "message": "Request origin not allowed."
+            })),
+        )
+            .into_response();
     }
 
     // Has Referer but no Origin → allow (legitimate API client)

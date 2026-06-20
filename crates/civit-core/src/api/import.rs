@@ -631,13 +631,13 @@ fn parse_git_url(url: &str) -> Option<String> {
         }
     }
     // SSH: git@host:owner/repo
-    if let Some(rest) = url.strip_prefix("git@") {
-        if let Some(colon_pos) = rest.find(':') {
-            let path_part = &rest[colon_pos + 1..];
-            let parts: Vec<&str> = path_part.split('/').collect();
-            if parts.len() >= 2 {
-                return parts.last().map(|s| s.to_string());
-            }
+    if let Some(rest) = url.strip_prefix("git@")
+        && let Some(colon_pos) = rest.find(':')
+    {
+        let path_part = &rest[colon_pos + 1..];
+        let parts: Vec<&str> = path_part.split('/').collect();
+        if parts.len() >= 2 {
+            return parts.last().map(|s| s.to_string());
         }
     }
     None

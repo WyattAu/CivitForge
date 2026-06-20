@@ -150,10 +150,8 @@ impl WebSocketManager {
 
         for mut conn in self.connections.iter_mut() {
             let mut should_send = conn.subscriptions.contains("global");
-            if !should_send {
-                if let Some(repo_id) = self.extract_repo_id(event) {
-                    should_send = conn.subscriptions.contains(&format!("repo:{repo_id}"));
-                }
+            if !should_send && let Some(repo_id) = self.extract_repo_id(event) {
+                should_send = conn.subscriptions.contains(&format!("repo:{repo_id}"));
             }
             if should_send {
                 if !conn.send(&msg) {
@@ -416,36 +414,36 @@ async fn handle_socket(socket: WebSocket, manager: Arc<RwLock<WebSocketManager>>
     let mgr_read = manager.clone();
     let cid = conn_id;
     while let Some(Ok(msg)) = ws_receiver.next().await {
-        if let Ok(text) = msg.to_text() {
-            if let Ok(cmd) = serde_json::from_str::<WsCommand>(text) {
-                let mgr = mgr_read.read().await;
-                match cmd {
-                    WsCommand::Subscribe { topic } => {
-                        mgr.subscribe(cid, &topic);
-                    }
-                    WsCommand::Unsubscribe { topic } => {
-                        mgr.unsubscribe(cid, &topic);
-                    }
-                    WsCommand::SubscribePipeline { pipeline_id } => {
-                        let topic = format!("pipeline:{pipeline_id}");
-                        mgr.subscribe(cid, &topic);
-                    }
-                    WsCommand::Ping => {
-                        mgr.subscribe(cid, "global");
-                    }
-                    WsCommand::Presence {
-                        resource_type,
-                        resource_id,
-                        action,
-                    } => match action {
-                        PresenceAction::Enter => {
-                            mgr.enter_presence(cid, &resource_type, &resource_id);
-                        }
-                        PresenceAction::Leave => {
-                            mgr.leave_presence(cid);
-                        }
-                    },
+        if let Ok(text) = msg.to_text()
+            && let Ok(cmd) = serde_json::from_str::<WsCommand>(text)
+        {
+            let mgr = mgr_read.read().await;
+            match cmd {
+                WsCommand::Subscribe { topic } => {
+                    mgr.subscribe(cid, &topic);
                 }
+                WsCommand::Unsubscribe { topic } => {
+                    mgr.unsubscribe(cid, &topic);
+                }
+                WsCommand::SubscribePipeline { pipeline_id } => {
+                    let topic = format!("pipeline:{pipeline_id}");
+                    mgr.subscribe(cid, &topic);
+                }
+                WsCommand::Ping => {
+                    mgr.subscribe(cid, "global");
+                }
+                WsCommand::Presence {
+                    resource_type,
+                    resource_id,
+                    action,
+                } => match action {
+                    PresenceAction::Enter => {
+                        mgr.enter_presence(cid, &resource_type, &resource_id);
+                    }
+                    PresenceAction::Leave => {
+                        mgr.leave_presence(cid);
+                    }
+                },
             }
         }
     }

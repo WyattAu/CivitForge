@@ -237,22 +237,22 @@ impl TokenBudgetManager {
 
         let estimated = estimated_tokens as u64;
 
-        if let Some(entry) = self.current_usage.get(&user_key) {
-            if entry.user_tokens + estimated > self.per_user_budget {
-                return false;
-            }
+        if let Some(entry) = self.current_usage.get(&user_key)
+            && entry.user_tokens + estimated > self.per_user_budget
+        {
+            return false;
         }
 
-        if let Some(entry) = self.current_usage.get(&repo_key) {
-            if entry.repo_tokens + estimated > self.per_repo_budget {
-                return false;
-            }
+        if let Some(entry) = self.current_usage.get(&repo_key)
+            && entry.repo_tokens + estimated > self.per_repo_budget
+        {
+            return false;
         }
 
-        if let Some(entry) = self.current_usage.get(&daily_key) {
-            if entry.daily_tokens + estimated > self.daily_budget {
-                return false;
-            }
+        if let Some(entry) = self.current_usage.get(&daily_key)
+            && entry.daily_tokens + estimated > self.daily_budget
+        {
+            return false;
         }
 
         true

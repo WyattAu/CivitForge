@@ -329,16 +329,15 @@ pub async fn token_exchange(
     };
 
     // Validate audience restriction if provided
-    if let Some(ref audience) = req.audience {
-        if let Some(token_audience) = decode_id_token_aud(&req.token) {
-            if token_audience != *audience {
-                return (
-                    StatusCode::UNAUTHORIZED,
-                    Json(CoreError::Auth("audience mismatch".into()).error_response()),
-                )
-                    .into_response();
-            }
-        }
+    if let Some(ref audience) = req.audience
+        && let Some(token_audience) = decode_id_token_aud(&req.token)
+        && token_audience != *audience
+    {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(CoreError::Auth("audience mismatch".into()).error_response()),
+        )
+            .into_response();
     }
 
     let pool = state.db.pool();

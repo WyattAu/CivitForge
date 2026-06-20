@@ -325,12 +325,12 @@ fn ip_in_cidr(ip: IpAddr, cidr: &str) -> bool {
 }
 
 fn is_time_in_range(time: &str, _range_type: &str, range_value: &serde_json::Value) -> bool {
-    if let Some(arr) = range_value.as_array() {
-        if arr.len() >= 2 {
-            let start = arr[0].as_str().unwrap_or("");
-            let end = arr[1].as_str().unwrap_or("");
-            return time >= start && time <= end;
-        }
+    if let Some(arr) = range_value.as_array()
+        && arr.len() >= 2
+    {
+        let start = arr[0].as_str().unwrap_or("");
+        let end = arr[1].as_str().unwrap_or("");
+        return time >= start && time <= end;
     }
     false
 }

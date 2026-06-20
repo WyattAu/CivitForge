@@ -30,14 +30,12 @@ pub fn t(key: &str) -> String {
 pub fn init_locale_from_storage() {
     #[cfg(feature = "csr")]
     {
-        if let Some(window) = web_sys::window() {
-            if let Ok(Some(storage)) = window.local_storage() {
-                if let Ok(Some(locale)) = storage.get_item("civitforge_locale") {
-                    if !locale.is_empty() {
-                        set_locale(&locale);
-                    }
-                }
-            }
+        if let Some(window) = web_sys::window()
+            && let Ok(Some(storage)) = window.local_storage()
+            && let Ok(Some(locale)) = storage.get_item("civitforge_locale")
+            && !locale.is_empty()
+        {
+            set_locale(&locale);
         }
     }
 }
@@ -45,10 +43,10 @@ pub fn init_locale_from_storage() {
 pub fn save_locale_to_storage(locale: &str) {
     #[cfg(feature = "csr")]
     {
-        if let Some(window) = web_sys::window() {
-            if let Ok(Some(storage)) = window.local_storage() {
-                let _ = storage.set_item("civitforge_locale", locale);
-            }
+        if let Some(window) = web_sys::window()
+            && let Ok(Some(storage)) = window.local_storage()
+        {
+            let _ = storage.set_item("civitforge_locale", locale);
         }
     }
     set_locale(locale);

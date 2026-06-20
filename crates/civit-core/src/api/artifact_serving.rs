@@ -251,12 +251,12 @@ async fn head_artifact(
             hasher.update(&bytes);
             total_size += bytes.len() as u64;
         }
-        if let Ok(meta) = std::fs::metadata(file_path) {
-            if let Ok(modified) = meta.modified() {
-                let dt: chrono::DateTime<chrono::Utc> = modified.into();
-                if dt > last_modified {
-                    last_modified = dt;
-                }
+        if let Ok(meta) = std::fs::metadata(file_path)
+            && let Ok(modified) = meta.modified()
+        {
+            let dt: chrono::DateTime<chrono::Utc> = modified.into();
+            if dt > last_modified {
+                last_modified = dt;
             }
         }
     }
@@ -286,16 +286,16 @@ async fn invalidate_cache(
         artifacts::artifact_storage_path(&state.config.storage_path, &owner, &repo, &artifact_id);
     let mut cleared = 0u64;
 
-    if dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_file()
-                    && path.extension().is_some_and(|e| e == "cache" || e == "tmp")
-                    && std::fs::remove_file(&path).is_ok()
-                {
-                    cleared += 1;
-                }
+    if dir.exists()
+        && let Ok(entries) = std::fs::read_dir(&dir)
+    {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file()
+                && path.extension().is_some_and(|e| e == "cache" || e == "tmp")
+                && std::fs::remove_file(&path).is_ok()
+            {
+                cleared += 1;
             }
         }
     }

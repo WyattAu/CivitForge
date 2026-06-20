@@ -2,8 +2,9 @@
 
 use leptos::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub enum ButtonVariant {
+    #[default]
     Primary,
     Secondary,
     Danger,
@@ -30,12 +31,6 @@ impl ButtonVariant {
                  dark:hover:bg-gray-800 dark:text-gray-300"
             }
         }
-    }
-}
-
-impl Default for ButtonVariant {
-    fn default() -> Self {
-        Self::Primary
     }
 }
 

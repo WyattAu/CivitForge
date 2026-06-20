@@ -132,23 +132,23 @@ impl ShardRouter {
 
         let mut fallbacks = Vec::new();
         for &nid in &node_ids[1..] {
-            if let Some(shard) = self.shards.get(nid) {
-                if shard.is_healthy && shard.id != primary.id {
-                    fallbacks.push(shard);
-                }
+            if let Some(shard) = self.shards.get(nid)
+                && shard.is_healthy
+                && shard.id != primary.id
+            {
+                fallbacks.push(shard);
             }
         }
 
         // If we don't have enough healthy fallbacks, include unhealthy ones
         if fallbacks.len() < replicas - 1 {
             for &nid in &node_ids[1..] {
-                if let Some(shard) = self.shards.get(nid) {
-                    if !shard.is_healthy
-                        && shard.id != primary.id
-                        && !fallbacks.iter().any(|f| f.id == shard.id)
-                    {
-                        fallbacks.push(shard);
-                    }
+                if let Some(shard) = self.shards.get(nid)
+                    && !shard.is_healthy
+                    && shard.id != primary.id
+                    && !fallbacks.iter().any(|f| f.id == shard.id)
+                {
+                    fallbacks.push(shard);
                 }
             }
         }

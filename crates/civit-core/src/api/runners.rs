@@ -593,15 +593,14 @@ pub async fn complete_job(
             let completion = check_run_completion(pool, job_id, now).await;
 
             // If the run just completed successfully, check auto-merge for matching PRs
-            if let Some((_run_id, ref status, ref commit_sha, repo_id)) = completion {
-                if status == "success" {
-                    let state_clone = state.clone();
-                    let sha = commit_sha.clone();
-                    tokio::spawn(async move {
-                        crate::api::pull_requests::check_auto_merge(&state_clone, repo_id, &sha)
-                            .await;
-                    });
-                }
+            if let Some((_run_id, ref status, ref commit_sha, repo_id)) = completion
+                && status == "success"
+            {
+                let state_clone = state.clone();
+                let sha = commit_sha.clone();
+                tokio::spawn(async move {
+                    crate::api::pull_requests::check_auto_merge(&state_clone, repo_id, &sha).await;
+                });
             }
 
             (
@@ -826,43 +825,42 @@ async fn check_run_completion(
         .await
         .ok();
 
-        if let Some((count,)) = pending {
-            if count == 0 {
-                // All jobs done — check for any failures
-                let failed: Option<(i64,)> = sqlx::query_as(
-                    "SELECT COUNT(*) FROM pipeline_run_jobs WHERE run_id = $1 AND status = 'failure'",
-                )
-                .bind(run_id)
-                .fetch_one(pool)
-                .await
-                .ok();
+        if let Some((count,)) = pending
+            && count == 0
+        {
+            // All jobs done — check for any failures
+            let failed: Option<(i64,)> = sqlx::query_as(
+                "SELECT COUNT(*) FROM pipeline_run_jobs WHERE run_id = $1 AND status = 'failure'",
+            )
+            .bind(run_id)
+            .fetch_one(pool)
+            .await
+            .ok();
 
-                let final_status = match failed {
-                    Some((f,)) if f > 0 => "failure",
-                    _ => "success",
-                };
+            let final_status = match failed {
+                Some((f,)) if f > 0 => "failure",
+                _ => "success",
+            };
 
-                let _ = sqlx::query(
-                    "UPDATE pipeline_runs SET status = $1, finished_at = $2 WHERE id = $3",
-                )
-                .bind(final_status)
-                .bind(now)
-                .bind(run_id)
-                .execute(pool)
-                .await;
+            let _ =
+                sqlx::query("UPDATE pipeline_runs SET status = $1, finished_at = $2 WHERE id = $3")
+                    .bind(final_status)
+                    .bind(now)
+                    .bind(run_id)
+                    .execute(pool)
+                    .await;
 
-                // Fetch commit_sha and repo_id for auto-merge check
-                let run_info: Option<(String, Uuid)> =
-                    sqlx::query_as("SELECT commit_sha, repo_id FROM pipeline_runs WHERE id = $1")
-                        .bind(run_id)
-                        .fetch_optional(pool)
-                        .await
-                        .ok()
-                        .flatten();
+            // Fetch commit_sha and repo_id for auto-merge check
+            let run_info: Option<(String, Uuid)> =
+                sqlx::query_as("SELECT commit_sha, repo_id FROM pipeline_runs WHERE id = $1")
+                    .bind(run_id)
+                    .fetch_optional(pool)
+                    .await
+                    .ok()
+                    .flatten();
 
-                if let Some((commit_sha, repo_id)) = run_info {
-                    return Some((run_id, final_status.to_string(), commit_sha, repo_id));
-                }
+            if let Some((commit_sha, repo_id)) = run_info {
+                return Some((run_id, final_status.to_string(), commit_sha, repo_id));
             }
         }
     }

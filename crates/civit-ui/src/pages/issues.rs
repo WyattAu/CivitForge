@@ -312,12 +312,11 @@ pub fn IssuesPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
             let path = format!("/repos/{owner_val}/{name_val}/issues/analytics");
-            if let Ok(resp) = client.get(&path).await {
-                if resp.status().is_success() {
-                    if let Ok(data) = resp.json::<IssueAnalyticsResponse>().await {
-                        set_analytics.set(Some(data));
-                    }
-                }
+            if let Ok(resp) = client.get(&path).await
+                && resp.status().is_success()
+                && let Ok(data) = resp.json::<IssueAnalyticsResponse>().await
+            {
+                set_analytics.set(Some(data));
             }
             set_analytics_loading.set(false);
         });

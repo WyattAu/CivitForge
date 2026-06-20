@@ -40,14 +40,14 @@ impl IncrementalParser {
     ) -> ParseResult {
         let hash = hash_content(source);
 
-        if let Some(cached) = self.caches.get(file_path) {
-            if cached.source_hash == hash {
-                return ParseResult {
-                    root: cached.root.clone(),
-                    error_count: 0,
-                    parse_time: std::time::Duration::ZERO,
-                };
-            }
+        if let Some(cached) = self.caches.get(file_path)
+            && cached.source_hash == hash
+        {
+            return ParseResult {
+                root: cached.root.clone(),
+                error_count: 0,
+                parse_time: std::time::Duration::ZERO,
+            };
         }
 
         let result = self.parser.parse(source, language);
@@ -72,14 +72,14 @@ impl IncrementalParser {
     ) -> ParseResult {
         let hash = hash_content(source);
 
-        if let Some(cached) = self.caches.get(file_path) {
-            if cached.source_hash == hash {
-                return ParseResult {
-                    root: cached.root.clone(),
-                    error_count: 0,
-                    parse_time: std::time::Duration::ZERO,
-                };
-            }
+        if let Some(cached) = self.caches.get(file_path)
+            && cached.source_hash == hash
+        {
+            return ParseResult {
+                root: cached.root.clone(),
+                error_count: 0,
+                parse_time: std::time::Duration::ZERO,
+            };
         }
 
         let result = self.parser.parse_with_options(source, language, opts);

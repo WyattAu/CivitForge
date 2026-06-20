@@ -165,11 +165,11 @@ impl PipelineEngine {
         step: &PipelineStep,
         prior_results: &[StepStatus],
     ) -> anyhow::Result<String> {
-        if let Some(ref condition) = step.condition {
-            if !self.evaluate_condition(condition, prior_results) {
-                info!(step = %step.name, "step skipped due to condition");
-                return Ok(String::new());
-            }
+        if let Some(ref condition) = step.condition
+            && !self.evaluate_condition(condition, prior_results)
+        {
+            info!(step = %step.name, "step skipped due to condition");
+            return Ok(String::new());
         }
 
         debug!(

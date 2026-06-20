@@ -76,7 +76,7 @@ pub async fn list_notifications(
             bool,
             String,
         ),
-    >(&query_str)
+    >(sqlx::AssertSqlSafe(query_str))
     .bind(user_id);
     if bind_count >= 2 {
         q = q.bind(params.per_page as i64);

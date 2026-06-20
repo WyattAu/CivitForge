@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  RUST_VERSION: "1.88"
+  RUST_VERSION: "1.96"
   CARGO_TERM_COLOR: always
   # Deny warnings in all compiler invocations for consistent quality gating.
   RUSTFLAGS: "-D warnings"

@@ -74,15 +74,16 @@ async fn read_pipeline_yaml(
         .output()
         .await;
 
-    if let Ok(out) = output {
-        if out.status.success() && !out.stdout.is_empty() {
-            let cursor = std::io::Cursor::new(&out.stdout);
-            if let Ok(mut archive) = tar::Archive::new(cursor).entries() {
-                while let Some(Ok(mut entry)) = archive.next() {
-                    let mut content = String::new();
-                    if std::io::Read::read_to_string(&mut entry, &mut content).is_ok() {
-                        return Ok(Some(content));
-                    }
+    if let Ok(out) = output
+        && out.status.success()
+        && !out.stdout.is_empty()
+    {
+        let cursor = std::io::Cursor::new(&out.stdout);
+        if let Ok(mut archive) = tar::Archive::new(cursor).entries() {
+            while let Some(Ok(mut entry)) = archive.next() {
+                let mut content = String::new();
+                if std::io::Read::read_to_string(&mut entry, &mut content).is_ok() {
+                    return Ok(Some(content));
                 }
             }
         }

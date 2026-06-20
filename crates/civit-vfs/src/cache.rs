@@ -50,11 +50,11 @@ impl LruCache {
         }
 
         while self.current_size + size > self.max_size && !self.order.is_empty() {
-            if let Some(evicted) = self.order.pop_front() {
-                if let Some(entry) = self.entries.remove(&evicted) {
-                    self.current_size -= entry.size;
-                    debug!(key = %evicted, size = entry.size, "evicted cache entry");
-                }
+            if let Some(evicted) = self.order.pop_front()
+                && let Some(entry) = self.entries.remove(&evicted)
+            {
+                self.current_size -= entry.size;
+                debug!(key = %evicted, size = entry.size, "evicted cache entry");
             }
         }
 

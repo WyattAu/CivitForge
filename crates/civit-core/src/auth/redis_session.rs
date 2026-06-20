@@ -237,16 +237,16 @@ impl RedisTokenRotationService {
             .query_async::<Option<String>>(&mut conn)
             .await
             .map(|opt| {
-                if let Some(json) = opt {
-                    if let Ok(mut session) = serde_json::from_str::<AuthSession>(&json) {
-                        session.revoked = true;
-                        let updated = serde_json::to_string(&session).unwrap_or_default();
-                        #[allow(clippy::let_underscore_future)]
-                        let _ = redis::cmd("SET")
-                            .arg(format!("{SESSION_PREFIX}{session_id}"))
-                            .arg(&updated)
-                            .query_async::<()>(&mut conn);
-                    }
+                if let Some(json) = opt
+                    && let Ok(mut session) = serde_json::from_str::<AuthSession>(&json)
+                {
+                    session.revoked = true;
+                    let updated = serde_json::to_string(&session).unwrap_or_default();
+                    #[allow(clippy::let_underscore_future)]
+                    let _ = redis::cmd("SET")
+                        .arg(format!("{SESSION_PREFIX}{session_id}"))
+                        .arg(&updated)
+                        .query_async::<()>(&mut conn);
                 }
             });
     }
@@ -271,18 +271,17 @@ impl RedisTokenRotationService {
                 .await
                 .unwrap_or_default();
 
-            if let Some(json) = val {
-                if let Ok(mut session) = serde_json::from_str::<AuthSession>(&json) {
-                    if session.user_id == *user_id {
-                        session.revoked = true;
-                        let updated = serde_json::to_string(&session).unwrap_or_default();
-                        #[allow(clippy::let_underscore_future)]
-                        let _ = redis::cmd("SET")
-                            .arg(&key)
-                            .arg(&updated)
-                            .query_async::<()>(&mut conn);
-                    }
-                }
+            if let Some(json) = val
+                && let Ok(mut session) = serde_json::from_str::<AuthSession>(&json)
+                && session.user_id == *user_id
+            {
+                session.revoked = true;
+                let updated = serde_json::to_string(&session).unwrap_or_default();
+                #[allow(clippy::let_underscore_future)]
+                let _ = redis::cmd("SET")
+                    .arg(&key)
+                    .arg(&updated)
+                    .query_async::<()>(&mut conn);
             }
         }
     }

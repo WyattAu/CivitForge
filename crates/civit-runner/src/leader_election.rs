@@ -116,10 +116,11 @@ impl LeaderElector {
     pub fn start_campaign(&self) -> bool {
         let lock_key = self.lock_key();
         {
-            if let Some(existing) = self.leases.get(&lock_key) {
-                if !existing.is_expired() && existing.holder_identity != self.config.identity {
-                    return false;
-                }
+            if let Some(existing) = self.leases.get(&lock_key)
+                && !existing.is_expired()
+                && existing.holder_identity != self.config.identity
+            {
+                return false;
             }
         }
 
@@ -131,10 +132,10 @@ impl LeaderElector {
 
     pub fn step_down(&self) {
         let lock_key = self.lock_key();
-        if let Some(mut lease) = self.leases.get_mut(&lock_key) {
-            if lease.holder_identity == self.config.identity {
-                lease.expires_at = Utc::now();
-            }
+        if let Some(mut lease) = self.leases.get_mut(&lock_key)
+            && lease.holder_identity == self.config.identity
+        {
+            lease.expires_at = Utc::now();
         }
         self.state.store(false, Ordering::SeqCst);
     }
@@ -166,11 +167,12 @@ impl LeaderElector {
 
     pub fn renew_lease(&self) -> bool {
         let lock_key = self.lock_key();
-        if let Some(mut lease) = self.leases.get_mut(&lock_key) {
-            if lease.holder_identity == self.config.identity && !lease.is_expired() {
-                lease.renew(self.config.lease_duration);
-                return true;
-            }
+        if let Some(mut lease) = self.leases.get_mut(&lock_key)
+            && lease.holder_identity == self.config.identity
+            && !lease.is_expired()
+        {
+            lease.renew(self.config.lease_duration);
+            return true;
         }
         false
     }

@@ -188,13 +188,12 @@ impl Reconciler {
     }
 
     pub fn cancel(&self, name: &str) -> bool {
-        if self.queue.contains_key(name) {
-            if let Some(mut status) = self.running.get_mut(name) {
-                if !status.value().is_terminal() {
-                    status.value_mut().phase = RunPhase::Cancelled;
-                    return true;
-                }
-            }
+        if self.queue.contains_key(name)
+            && let Some(mut status) = self.running.get_mut(name)
+            && !status.value().is_terminal()
+        {
+            status.value_mut().phase = RunPhase::Cancelled;
+            return true;
         }
         false
     }

@@ -92,22 +92,19 @@ impl RateLimiter {
 /// Extract client IP from request. Checks `X-Forwarded-For`, `X-Real-Ip`,
 /// then falls back to loopback.
 fn extract_client_ip(req: &Request) -> IpAddr {
-    if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-        if let Ok(val) = forwarded.to_str() {
-            if let Some(first_ip) = val.split(',').next().map(|s| s.trim()) {
-                if let Ok(ip) = first_ip.parse::<IpAddr>() {
-                    return ip;
-                }
-            }
-        }
+    if let Some(forwarded) = req.headers().get("x-forwarded-for")
+        && let Ok(val) = forwarded.to_str()
+        && let Some(first_ip) = val.split(',').next().map(|s| s.trim())
+        && let Ok(ip) = first_ip.parse::<IpAddr>()
+    {
+        return ip;
     }
 
-    if let Some(real_ip) = req.headers().get("x-real-ip") {
-        if let Ok(val) = real_ip.to_str() {
-            if let Ok(ip) = val.parse::<IpAddr>() {
-                return ip;
-            }
-        }
+    if let Some(real_ip) = req.headers().get("x-real-ip")
+        && let Ok(val) = real_ip.to_str()
+        && let Ok(ip) = val.parse::<IpAddr>()
+    {
+        return ip;
     }
 
     IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)

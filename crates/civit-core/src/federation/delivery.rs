@@ -353,10 +353,10 @@ impl FederationDeliveryService {
         // Check cache first
         {
             let cache = self.actor_cache.lock().await;
-            if let Some(cached) = cache.get(&cache_key) {
-                if !cached.is_expired() {
-                    return Ok(cached.inbox_url.clone());
-                }
+            if let Some(cached) = cache.get(&cache_key)
+                && !cached.is_expired()
+            {
+                return Ok(cached.inbox_url.clone());
             }
         }
 

@@ -55,11 +55,11 @@ impl EventBus {
             }
         }
 
-        if topic != "global" {
-            if let Some(global_subs) = self.subscribers.get("global") {
-                for sub in global_subs.iter() {
-                    sub.on_event(&event);
-                }
+        if topic != "global"
+            && let Some(global_subs) = self.subscribers.get("global")
+        {
+            for sub in global_subs.iter() {
+                sub.on_event(&event);
             }
         }
     }
@@ -88,10 +88,10 @@ impl EventBus {
         if topic == "global" {
             return true;
         }
-        if let Some(repo_id) = self.extract_repo_id(event) {
-            if topic == format!("repo:{repo_id}") {
-                return true;
-            }
+        if let Some(repo_id) = self.extract_repo_id(event)
+            && topic == format!("repo:{repo_id}")
+        {
+            return true;
         }
         false
     }
