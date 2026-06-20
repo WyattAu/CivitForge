@@ -13,5 +13,9 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
-ring = { workspace = true }
-hex = { workspace = true }
+ring = { workspace = true, optional = true }
+hex = { workspace = true, optional = true }
+
+[features]
+default = []
+crypto = ["ring", "hex"]

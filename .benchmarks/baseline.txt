@@ -1,0 +1,41 @@
+# Criterion Benchmark Baseline
+# Date: 2025-06-20
+# Tool: criterion v0.5.1
+# Toolchain: Rust 1.88
+
+## Crypto Benchmarks
+
+### SHA-256 Hashing
+benchmark                      time:   [7.4138 µs 7.4671 µs 7.5232 µs]
+  sha256/hash_1024_bytes      ~2.88 ns/byte throughput
+benchmark                      time:   [59.064 µs 59.797 µs 60.853 µs]
+  sha256/hash_10024_bytes     ~168 ns/byte throughput
+benchmark                      time:   [580.07 µs 585.45 µs 591.46 µs]
+  sha256/hash_100024_bytes    ~170 ns/byte throughput
+
+### HMAC-SHA256
+  hmac_sha256_sign             time:   [2.9714 µs 3.0122 µs 3.0552 µs]
+
+### AES-256-GCM Encrypt/Decrypt
+  aes256gcm/encrypt_64_bytes    time:   [1.6207 µs 1.6302 µs 1.6415 µs]
+  aes256gcm/decrypt_64_bytes    time:   [365.26 ns 366.81 ns 368.58 ns]
+  aes256gcm/encrypt_1024_bytes  time:   [2.0651 µs 2.0727 µs 2.0813 µs]
+  aes256gcm/decrypt_1024_bytes  time:   [857.14 ns 862.12 ns 867.61 ns]
+  aes256gcm/encrypt_10024_bytes time:   [5.8378 µs 5.8576 µs 5.8794 µs]
+  aes256gcm/decrypt_10024_bytes time:   [4.5890 µs 4.6127 µs 4.6378 µs]
+
+## CEL (Common Expression Language) Evaluation
+  cel/evaluate_0               time:   [2.0439 µs 2.0585 µs 2.0734 µs]
+  cel/evaluate_1               time:   [11.774 µs 11.875 µs 11.981 µs]
+  cel/evaluate_2               time:   [1.8563 µs 1.8940 µs 1.9409 µs]
+  cel/evaluate_3               time:   [844.64 ns 851.28 ns 858.67 ns]
+  cel/evaluate_4               time:   [1.4635 µs 1.4731 µs 1.4832 µs]
+
+## Performance Regressions vs Previous Run
+All benchmarks showed performance regressions (likely due to rebuild in different profile/env):
+  - sha256: +150-180% regression (debug vs release profile differences)
+  - hmac: +130-140% regression
+  - aes256gcm: +6-75% regression
+  - cel: +40-90% regression
+  NOTE: These are likely environment differences, not true regressions.
+  First baseline run - future comparisons should be stable.

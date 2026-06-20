@@ -8,13 +8,13 @@ description = "CivitForge Web UI — Leptos SSR + Tailwind CSS"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-leptos = { version = "0.7" }
-leptos_router = { version = "0.7" }
+leptos = { version = "0.8" }
+leptos_router = { version = "0.8" }
 either_of = { version = "0.1" }
-leptos_axum = { version = "0.7", optional = true }
+leptos_axum = { version = "0.8", optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-chrono = { workspace = true }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "wasmbind", "serde"] }
 uuid = { workspace = true, features = ["js"] }
 getrandom = { version = "0.2", features = ["js"], optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
