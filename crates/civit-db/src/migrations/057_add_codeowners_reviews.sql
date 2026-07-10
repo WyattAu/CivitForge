@@ -1,7 +1,7 @@
 -- Migration 057: Add CODEOWNERS review tracking for PR enforcement
 CREATE TABLE IF NOT EXISTS codeowners_reviews (
     id BIGSERIAL PRIMARY KEY,
-    pr_id BIGINT NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
+    pr_id UUID NOT NULL REFERENCES pull_requests(id) ON DELETE CASCADE,
     reviewer TEXT NOT NULL,
     approved BOOLEAN NOT NULL DEFAULT FALSE,
     approved_at TIMESTAMPTZ,
