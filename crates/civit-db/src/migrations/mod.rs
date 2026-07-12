@@ -47,6 +47,16 @@ pub const M_043_PIPELINE_SCHEDULES_UP: &str = include_str!("043_add_pipeline_sch
 pub const M_044_REPO_COLLABORATORS_UP: &str = include_str!("044_add_repo_collaborators.sql");
 pub const M_045_DEPLOY_KEYS_UP: &str = include_str!("045_add_deploy_keys.sql");
 pub const M_046_NOTIFICATIONS_UP: &str = include_str!("046_add_notifications.sql");
+pub const M_047_ADD_USER_BANNED_UP: &str = include_str!("047_add_user_banned.sql");
+pub const M_048_ADD_REPO_ARCHIVED_TOPICS_UP: &str =
+    include_str!("048_add_repo_archived_topics.sql");
+pub const M_049_FIX_TYPE_MISMATCHES_UP: &str = include_str!("049_fix_type_mismatches.sql");
+pub const M_050_ADD_ISSUE_PR_FEATURES_UP: &str = include_str!("050_add_issue_pr_features.sql");
+pub const M_052_ADD_PROFILE_UP: &str = include_str!("052_add_profile.sql");
+pub const M_053_ADD_OIDC_UP: &str = include_str!("053_add_oidc.sql");
+pub const M_055_ADD_SITE_SETTINGS_UP: &str = include_str!("055_add_site_settings.sql");
+pub const M_056_ADD_OIDC_ADMIN_UP: &str = include_str!("056_add_oidc_admin.sql");
+pub const M_058_WEBAUTHN_UP: &str = include_str!("058_webauthn.sql");
 pub const M_051_ENVIRONMENTS_DEPLOYMENTS_UP: &str =
     include_str!("051_add_environments_deployments.sql");
 pub const M_054_MERGE_QUEUE_UP: &str = include_str!("054_add_merge_queue.sql");
@@ -261,10 +271,46 @@ impl MigrationManager {
             down_sql: "DROP TABLE IF EXISTS notifications;".into(),
         });
         self.add_migration(Migration {
+            version: 47,
+            name: "add_user_banned".into(),
+            up_sql: M_047_ADD_USER_BANNED_UP.into(),
+            down_sql: "ALTER TABLE users DROP COLUMN IF EXISTS banned;".into(),
+        });
+        self.add_migration(Migration {
+            version: 48,
+            name: "add_repo_archived_topics".into(),
+            up_sql: M_048_ADD_REPO_ARCHIVED_TOPICS_UP.into(),
+            down_sql: "ALTER TABLE repositories DROP COLUMN IF EXISTS archived; ALTER TABLE repositories DROP COLUMN IF EXISTS topics;".into(),
+        });
+        self.add_migration(Migration {
+            version: 49,
+            name: "fix_type_mismatches".into(),
+            up_sql: M_049_FIX_TYPE_MISMATCHES_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
+            version: 50,
+            name: "add_issue_pr_features".into(),
+            up_sql: M_050_ADD_ISSUE_PR_FEATURES_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
             version: 51,
             name: "add_environments_deployments".into(),
             up_sql: M_051_ENVIRONMENTS_DEPLOYMENTS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS deployments; DROP TABLE IF EXISTS environments;".into(),
+        });
+        self.add_migration(Migration {
+            version: 52,
+            name: "add_profile".into(),
+            up_sql: M_052_ADD_PROFILE_UP.into(),
+            down_sql: "ALTER TABLE users DROP COLUMN IF EXISTS avatar_url; ALTER TABLE users DROP COLUMN IF EXISTS location; ALTER TABLE users DROP COLUMN IF EXISTS website;".into(),
+        });
+        self.add_migration(Migration {
+            version: 53,
+            name: "add_oidc".into(),
+            up_sql: M_053_ADD_OIDC_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS oidc_providers; DROP TABLE IF EXISTS oidc_identities;".into(),
         });
         self.add_migration(Migration {
             version: 54,
@@ -273,10 +319,28 @@ impl MigrationManager {
             down_sql: "DROP TABLE IF EXISTS merge_queue;".into(),
         });
         self.add_migration(Migration {
+            version: 55,
+            name: "add_site_settings".into(),
+            up_sql: M_055_ADD_SITE_SETTINGS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS site_settings;".into(),
+        });
+        self.add_migration(Migration {
+            version: 56,
+            name: "add_oidc_admin".into(),
+            up_sql: M_056_ADD_OIDC_ADMIN_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
             version: 57,
             name: "add_codeowners_reviews".into(),
             up_sql: M_057_CODEOWNERS_REVIEWS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS codeowners_reviews;".into(),
+        });
+        self.add_migration(Migration {
+            version: 58,
+            name: "webauthn".into(),
+            up_sql: M_058_WEBAUTHN_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS webauthn_credentials;".into(),
         });
     }
 
@@ -319,7 +383,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 32);
+        assert_eq!(mgr.all().len(), 41);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -378,25 +442,43 @@ mod tests {
         assert_eq!(mgr.all()[27].name, "add_deploy_keys");
         assert_eq!(mgr.all()[28].version, 46);
         assert_eq!(mgr.all()[28].name, "add_notifications");
-        assert_eq!(mgr.all()[29].version, 51);
-        assert_eq!(mgr.all()[29].name, "add_environments_deployments");
-        assert_eq!(mgr.all()[30].version, 54);
-        assert_eq!(mgr.all()[30].name, "add_merge_queue");
-        assert_eq!(mgr.all()[31].version, 57);
-        assert_eq!(mgr.all()[31].name, "add_codeowners_reviews");
+        assert_eq!(mgr.all()[29].version, 47);
+        assert_eq!(mgr.all()[29].name, "add_user_banned");
+        assert_eq!(mgr.all()[30].version, 48);
+        assert_eq!(mgr.all()[30].name, "add_repo_archived_topics");
+        assert_eq!(mgr.all()[31].version, 49);
+        assert_eq!(mgr.all()[31].name, "fix_type_mismatches");
+        assert_eq!(mgr.all()[32].version, 50);
+        assert_eq!(mgr.all()[32].name, "add_issue_pr_features");
+        assert_eq!(mgr.all()[33].version, 51);
+        assert_eq!(mgr.all()[33].name, "add_environments_deployments");
+        assert_eq!(mgr.all()[34].version, 52);
+        assert_eq!(mgr.all()[34].name, "add_profile");
+        assert_eq!(mgr.all()[35].version, 53);
+        assert_eq!(mgr.all()[35].name, "add_oidc");
+        assert_eq!(mgr.all()[36].version, 54);
+        assert_eq!(mgr.all()[36].name, "add_merge_queue");
+        assert_eq!(mgr.all()[37].version, 55);
+        assert_eq!(mgr.all()[37].name, "add_site_settings");
+        assert_eq!(mgr.all()[38].version, 56);
+        assert_eq!(mgr.all()[38].name, "add_oidc_admin");
+        assert_eq!(mgr.all()[39].version, 57);
+        assert_eq!(mgr.all()[39].name, "add_codeowners_reviews");
+        assert_eq!(mgr.all()[40].version, 58);
+        assert_eq!(mgr.all()[40].name, "webauthn");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 58,
+            version: 59,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 33);
-        assert_eq!(mgr.all()[32].version, 58);
+        assert_eq!(mgr.all().len(), 42);
+        assert_eq!(mgr.all()[41].version, 59);
     }
 
     #[test]
@@ -415,13 +497,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 32);
+        assert_eq!(pending.len(), 41);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(57);
+        let pending = mgr.get_pending(58);
         assert_eq!(pending.len(), 0);
     }
 
@@ -429,7 +511,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 31);
+        assert_eq!(pending.len(), 40);
     }
 
     #[test]

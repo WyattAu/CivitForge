@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS oidc_identities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     provider VARCHAR(100) NOT NULL,
-    subject VARCHAR(512) NOT NULL,
+    provider_user_id VARCHAR(512) NOT NULL,
     email VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(provider, subject)
+    UNIQUE(provider, provider_user_id)
 );
 
 -- WebAuthn passkey credentials
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 -- Indexes
 CREATE INDEX idx_oidc_user ON oidc_identities(user_id);
-CREATE INDEX idx_oidc_provider ON oidc_identities(provider, subject);
+CREATE INDEX idx_oidc_provider ON oidc_identities(provider, provider_user_id);
 CREATE INDEX idx_webauthn_user ON webauthn_credentials(user_id);
 CREATE INDEX idx_webauthn_cred_id ON webauthn_credentials(credential_id);
 CREATE INDEX idx_devices_user ON devices(user_id);

@@ -4,6 +4,9 @@ CREATE TABLE IF NOT EXISTS oidc_providers (
     name TEXT NOT NULL UNIQUE,
     issuer TEXT NOT NULL DEFAULT '',
     client_id TEXT NOT NULL DEFAULT '',
+    client_secret TEXT NOT NULL DEFAULT '',
+    jwks_uri TEXT NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

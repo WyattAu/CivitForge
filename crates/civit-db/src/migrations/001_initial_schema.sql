@@ -127,3 +127,28 @@ CREATE INDEX idx_tokens_hash ON access_tokens(token_hash);
 CREATE INDEX idx_audit_actor ON audit_events(actor_id);
 CREATE INDEX idx_audit_created ON audit_events(created_at);
 CREATE INDEX idx_audit_resource ON audit_events(resource_type, resource_id);
+
+-- OIDC providers and identities
+CREATE TABLE IF NOT EXISTS oidc_providers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    issuer TEXT NOT NULL DEFAULT '',
+    client_id TEXT NOT NULL DEFAULT '',
+    client_secret TEXT NOT NULL DEFAULT '',
+    jwks_uri TEXT NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS oidc_identities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    provider_user_id TEXT NOT NULL,
+    email TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(provider, provider_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oidc_identities_user_id ON oidc_identities(user_id);
+CREATE INDEX IF NOT EXISTS idx_oidc_identities_provider ON oidc_identities(provider, provider_user_id);
