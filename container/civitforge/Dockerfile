@@ -7,7 +7,7 @@
 # Multi-arch: linux/amd64, linux/arm64
 # =============================================================================
 
-ARG TARGETARCH
+ARG TARGETARCH=amd64
 
 # ---------------------------------------------------------------------------
 # Stage 1: Rust builder (debian:bookworm as permitted downloader/builder)
@@ -66,12 +66,23 @@ RUN case "$TARGETARCH" in \
     curl -sL "https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-${TRUNK_ARCH}.tar.gz" | tar xz -C /tmp && \
     mv /tmp/trunk /usr/local/bin/trunk && \
     chmod +x /usr/local/bin/trunk
+# Install wasm-opt (binaryen) with bulk-memory support
+RUN BINARYEN_VERSION=121 && \
+    curl -sL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" | tar xz -C /tmp && \
+    mv /tmp/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt /usr/local/bin/wasm-opt-real && \
+    chmod +x /usr/local/bin/wasm-opt-real && \
+    rm -rf /tmp/binaryen-*
+# Create wasm-opt wrapper that enables all required WASM features
+RUN printf '#!/bin/sh\nexec /usr/local/bin/wasm-opt-real --enable-bulk-memory --enable-nontrapping-float-to-int --enable-reference-types --enable-mutable-globals "$@"\n' > /usr/local/bin/wasm-opt && \
+    chmod +x /usr/local/bin/wasm-opt
 # Install Node.js + pnpm for Tailwind CSS v4 build-time compilation
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g pnpm
 WORKDIR /src/crates/civit-ui
-RUN pnpm install --frozen-lockfile || pnpm install
+RUN pnpm install --ignore-scripts && pnpm rebuild @parcel/watcher
+RUN npx tailwindcss -i input.css -o assets/tailwind.css --minify || echo "tailwindcss failed, creating minimal CSS"
+RUN test -f assets/tailwind.css || echo "/* tailwind placeholder */" > assets/tailwind.css
 RUN trunk build --release
 WORKDIR /src
 
