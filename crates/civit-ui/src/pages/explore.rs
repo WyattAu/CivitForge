@@ -7,7 +7,7 @@ use crate::api::client::ApiClient;
 use crate::api::types::ListResponse;
 use crate::components::{
     Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Pagination,
-    Spinner,
+    SkeletonCard,
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
@@ -58,8 +58,21 @@ pub fn ExplorePage() -> impl IntoView {
                         }
                     }
                 }
-                _ => {
-                    set_error.set(Some("Failed to load repositories.".to_string()));
+                Ok(resp) => {
+                    let status = resp.status();
+                    let msg = if status == 401 || status == 403 {
+                        "Session expired. Please sign in again.".to_string()
+                    } else if status == 404 {
+                        "Resource not found.".to_string()
+                    } else if status.as_u16() >= 500 {
+                        "Something went wrong. Please try again.".to_string()
+                    } else {
+                        "Failed to load repositories.".to_string()
+                    };
+                    set_error.set(Some(msg));
+                }
+                Err(_) => {
+                    set_error.set(Some("Connection failed. Check your internet.".to_string()));
                 }
             }
             set_loading.set(false);
@@ -120,8 +133,10 @@ pub fn ExplorePage() -> impl IntoView {
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div></div> }>
-                <div class="flex items-center justify-center py-12">
-                    <Spinner />
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <For each=move || 0..9usize key=|i| *i let:_i>
+                        <SkeletonCard />
+                    </For>
                 </div>
             </Show>
 

@@ -7,7 +7,7 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client::ApiClient;
 use crate::api::types::{CreateIssueBody, IssueResponse, ListResponse};
 use crate::components::{
-    Badge, Button, ButtonVariant, Card, ErrorBanner, Pagination, Spinner, TabItem, Tabs,
+    Badge, Button, ButtonVariant, Card, ErrorBanner, Pagination, SkeletonCard, Spinner, TabItem, Tabs,
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
@@ -349,11 +349,21 @@ pub fn IssuesPage() -> impl IntoView {
                         Err(_) => set_error.set(Some("Failed to process response.".to_string())),
                     }
                 }
-                Ok(_) => {
-                    set_error.set(Some("Failed to load issues.".to_string()));
+                Ok(resp) => {
+                    let status = resp.status();
+                    let msg = if status == 401 || status == 403 {
+                        "Session expired. Please sign in again.".to_string()
+                    } else if status == 404 {
+                        "Resource not found.".to_string()
+                    } else if status.as_u16() >= 500 {
+                        "Something went wrong. Please try again.".to_string()
+                    } else {
+                        "Failed to load issues.".to_string()
+                    };
+                    set_error.set(Some(msg));
                 }
                 Err(_) => {
-                    set_error.set(Some("Network error. Check your connection.".to_string()));
+                    set_error.set(Some("Connection failed. Check your internet.".to_string()));
                 }
             }
             set_loading.set(false);
@@ -410,11 +420,19 @@ pub fn IssuesPage() -> impl IntoView {
                     set_page.set(1);
                     set_filter.set("all".to_string());
                 }
-                Ok(_) => {
-                    set_submit_error.set(Some("Failed to create issue.".to_string()));
+                Ok(resp) => {
+                    let status = resp.status();
+                    let msg = if status == 401 || status == 403 {
+                        "Session expired. Please sign in again."
+                    } else if status.as_u16() >= 500 {
+                        "Something went wrong. Please try again."
+                    } else {
+                        "Failed to create issue."
+                    };
+                    set_submit_error.set(Some(msg.to_string()));
                 }
                 Err(_) => {
-                    set_submit_error.set(Some("Network error. Check your connection.".to_string()));
+                    set_submit_error.set(Some("Connection failed. Check your internet.".to_string()));
                 }
             }
             set_submitting.set(false);
@@ -543,9 +561,10 @@ pub fn IssuesPage() -> impl IntoView {
 
             <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
-                    <div class="flex items-center justify-center py-12">
-                        <Spinner />
-                        <span class="ml-3 text-gray-500 dark:text-gray-400">"Loading issues..."</span>
+                    <div class="space-y-3">
+                        <For each=move || 0..8usize key=|i| *i let:_i>
+                            <SkeletonCard />
+                        </For>
                     </div>
                 </Card>
             </Show>

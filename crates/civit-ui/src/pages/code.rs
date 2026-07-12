@@ -5,7 +5,7 @@ use leptos_router::components::A;
 use leptos_router::hooks::{use_params_map, use_query_map};
 
 use crate::api::client::ApiClient;
-use crate::components::{Card, ErrorBanner, Spinner};
+use crate::components::{Card, ErrorBanner, SkeletonBlock, SkeletonCard};
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
@@ -941,11 +941,21 @@ pub fn CodePage() -> impl IntoView {
                         set_error.set(Some(sanitize_error("Failed to parse file data.")));
                     }
                 },
-                Ok(_) => {
-                    set_error.set(Some(sanitize_error("Failed to load file content.")));
+                Ok(resp) => {
+                    let status = resp.status();
+                    let msg = if status == 401 || status == 403 {
+                        "Session expired. Please sign in again."
+                    } else if status == 404 {
+                        "Resource not found."
+                    } else if status.as_u16() >= 500 {
+                        "Something went wrong. Please try again."
+                    } else {
+                        "Failed to load file content."
+                    };
+                    set_error.set(Some(sanitize_error(msg)));
                 }
-                Err(e) => {
-                    set_error.set(Some(sanitize_error(&format!("{e}"))));
+                Err(_) => {
+                    set_error.set(Some(sanitize_error("Connection failed. Check your internet.")));
                 }
             }
         } else {
@@ -1044,11 +1054,21 @@ pub fn CodePage() -> impl IntoView {
                         Err(_) => set_error.set(Some(sanitize_error("Failed to parse tree data."))),
                     }
                 }
-                Ok(_) => {
-                    set_error.set(Some(sanitize_error("Failed to load repository tree.")));
+                Ok(resp) => {
+                    let status = resp.status();
+                    let msg = if status == 401 || status == 403 {
+                        "Session expired. Please sign in again."
+                    } else if status == 404 {
+                        "Resource not found."
+                    } else if status.as_u16() >= 500 {
+                        "Something went wrong. Please try again."
+                    } else {
+                        "Failed to load repository tree."
+                    };
+                    set_error.set(Some(sanitize_error(msg)));
                 }
-                Err(e) => {
-                    set_error.set(Some(sanitize_error(&format!("{e}"))));
+                Err(_) => {
+                    set_error.set(Some(sanitize_error("Connection failed. Check your internet.")));
                 }
             }
         }
@@ -1084,9 +1104,13 @@ pub fn CodePage() -> impl IntoView {
             </Show>
 
             <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
-                <div class="flex items-center gap-2">
-                    <Spinner />
-                    <span class="text-gray-500 dark:text-gray-400">"Loading code..."</span>
+                <div class="space-y-4">
+                    <SkeletonBlock class="h-10 w-full".to_string() />
+                    <div class="space-y-1">
+                        <For each=move || 0..10usize key=|i| *i let:_i>
+                            <SkeletonCard />
+                        </For>
+                    </div>
                 </div>
             </Show>
 

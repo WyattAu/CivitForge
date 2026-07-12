@@ -11,7 +11,7 @@ use axum::{
     routing::{delete, get, patch, post},
 };
 use civit_shared::permissions::{Action, Resource};
-use civit_shared::repo::RepoResponse;
+use civit_shared::repo::{RepoResponse, StarToggleResponse, WatchToggleResponse};
 use civit_shared::visibility::Visibility;
 use civit_shared::{ListResponse, PaginationParams};
 use serde::{Deserialize, Serialize};
@@ -50,18 +50,6 @@ pub struct BranchResponse {
 #[derive(Debug, Clone, Serialize)]
 pub struct TagResponse {
     pub name: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct StarToggleResponse {
-    pub starred: bool,
-    pub stars_count: i64,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct WatchToggleResponse {
-    pub watched: bool,
-    pub watchers_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -148,6 +136,10 @@ pub(crate) fn repo_to_response(
         parent_repo_id: r.parent_repo_id.map(|id| id.into()),
         ssh_clone_url,
         http_clone_url,
+        starred: None,
+        watched: None,
+        stars_count: Some(r.stars_count),
+        watchers_count: Some(r.watchers_count),
         created_at: r.created_at,
         updated_at: r.updated_at,
     }
@@ -206,7 +198,7 @@ pub async fn list_repos(
 pub async fn get_repo(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
-    _auth: OptionalAuthUser,
+    auth: OptionalAuthUser,
 ) -> impl IntoResponse {
     let (owner_uuid, owner_name) = match Uuid::parse_str(&owner) {
         Ok(id) => {
@@ -232,7 +224,11 @@ pub async fn get_repo(
 
     match state.db.get_repo_by_owner_name(owner_uuid, &name).await {
         Ok(repo) => {
-            let resp = repo_to_response(repo, Some(owner_name), &state);
+            let mut resp = repo_to_response(repo.clone(), Some(owner_name), &state);
+            if let Some(user_id) = auth.0.and_then(|a| Uuid::parse_str(&a.user_id).ok()) {
+                resp.starred = Some(state.db.has_user_starred(user_id, repo.id).await.unwrap_or(false));
+                resp.watched = Some(state.db.has_user_watched(user_id, repo.id).await.unwrap_or(false));
+            }
             (StatusCode::OK, Json(resp)).into_response()
         }
         Err(_) => (
@@ -959,30 +955,16 @@ pub async fn star_repo(
         }
     };
 
-    let _user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
+    let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
 
-    let current_starred = repo.stars_count > 0;
-    let (new_count, starred) = if current_starred {
-        match state.db.decrement_stars(repo.id).await {
-            Ok(c) => (c, false),
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response()),
-                )
-                    .into_response();
-            }
-        }
-    } else {
-        match state.db.increment_stars(repo.id).await {
-            Ok(c) => (c, true),
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response()),
-                )
-                    .into_response();
-            }
+    let (new_count, starred) = match state.db.toggle_star(user_id, repo.id).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
         }
     };
 
@@ -1028,7 +1010,7 @@ pub async fn star_repo(
 pub async fn starred_repo(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
-    _auth: AuthUser,
+    auth: AuthUser,
 ) -> impl IntoResponse {
     let (owner_uuid, _owner_name) = match resolve_owner(&state, &owner).await {
         Ok(r) => r,
@@ -1046,16 +1028,17 @@ pub async fn starred_repo(
         }
     };
 
-    let resp = StarredResponse {
-        starred: repo.stars_count > 0,
-    };
+    let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
+    let starred = state.db.has_user_starred(user_id, repo.id).await.unwrap_or(false);
+
+    let resp = StarredResponse { starred };
     (StatusCode::OK, Json(resp)).into_response()
 }
 
 pub async fn watch_repo(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
-    _auth: AuthUser,
+    auth: AuthUser,
 ) -> impl IntoResponse {
     let (owner_uuid, _owner_name) = match resolve_owner(&state, &owner).await {
         Ok(r) => r,
@@ -1073,28 +1056,16 @@ pub async fn watch_repo(
         }
     };
 
-    let current_watched = repo.watchers_count > 0;
-    let (new_count, watched) = if current_watched {
-        match state.db.decrement_watchers(repo.id).await {
-            Ok(c) => (c, false),
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response()),
-                )
-                    .into_response();
-            }
-        }
-    } else {
-        match state.db.increment_watchers(repo.id).await {
-            Ok(c) => (c, true),
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response()),
-                )
-                    .into_response();
-            }
+    let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
+
+    let (new_count, watched) = match state.db.toggle_watch(user_id, repo.id).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
         }
     };
 
@@ -1108,7 +1079,7 @@ pub async fn watch_repo(
 pub async fn watched_repo(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
-    _auth: AuthUser,
+    auth: AuthUser,
 ) -> impl IntoResponse {
     let (owner_uuid, _owner_name) = match resolve_owner(&state, &owner).await {
         Ok(r) => r,
@@ -1126,9 +1097,10 @@ pub async fn watched_repo(
         }
     };
 
-    let resp = WatchedResponse {
-        watched: repo.watchers_count > 0,
-    };
+    let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
+    let watched = state.db.has_user_watched(user_id, repo.id).await.unwrap_or(false);
+
+    let resp = WatchedResponse { watched };
     (StatusCode::OK, Json(resp)).into_response()
 }
 

@@ -6,7 +6,7 @@ use leptos_router::components::A;
 use crate::api::client::ApiClient;
 use crate::api::repos::list_repos;
 use crate::api::types::ListResponse;
-use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
+use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, SkeletonCard};
 use crate::state::auth::use_auth;
 use civit_shared::pagination::PaginationParams;
 use civit_shared::visibility::Visibility;
@@ -91,7 +91,20 @@ fn HomeLoggedIn() -> impl IntoView {
         };
         match list_repos(&client, params).await {
             Ok(resp) => set_repos.set(Some(resp)),
-            Err(_) => set_error.set(Some("Failed to load repositories.".to_string())),
+            Err(e) => {
+                let msg = if e.to_string().contains("NetworkError") || e.to_string().contains("network") {
+                    "Connection failed. Check your internet.".to_string()
+                } else if e.to_string().contains("401") || e.to_string().contains("Unauthorized") {
+                    "Session expired. Please sign in again.".to_string()
+                } else if e.to_string().contains("404") || e.to_string().contains("Not Found") {
+                    "Resource not found.".to_string()
+                } else if e.to_string().contains("500") || e.to_string().contains("Internal Server Error") {
+                    "Something went wrong. Please try again.".to_string()
+                } else {
+                    "Failed to load repositories.".to_string()
+                };
+                set_error.set(Some(msg));
+            }
         }
         set_loading.set(false);
     });
@@ -141,8 +154,10 @@ fn HomeLoggedIn() -> impl IntoView {
 
             <Card title="Your Repositories".to_string() description="Your latest repositories".to_string()>
                 <Show when=move || loading.get() fallback=|| view! { <div class="hidden"></div> }>
-                    <div class="flex items-center justify-center py-8">
-                        <Spinner />
+                    <div class="space-y-3">
+                        <For each=move || 0..5usize key=|i| *i let:_i>
+                            <SkeletonCard />
+                        </For>
                     </div>
                 </Show>
 

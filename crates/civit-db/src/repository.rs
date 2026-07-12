@@ -1349,6 +1349,53 @@ impl DbRepository {
 
     // --- Stars ---
 
+    pub async fn has_user_starred(&self, user_id: Uuid, repo_id: Uuid) -> Result<bool> {
+        let row: Option<(bool,)> = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM repo_stars WHERE user_id = $1 AND repo_id = $2)",
+        )
+        .bind(user_id)
+        .bind(repo_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("has_user_starred: {e}")))?;
+        Ok(row.map(|(v,)| v).unwrap_or(false))
+    }
+
+    pub async fn toggle_star(&self, user_id: Uuid, repo_id: Uuid) -> Result<(i64, bool)> {
+        let existing = self.has_user_starred(user_id, repo_id).await?;
+        if existing {
+            sqlx::query("DELETE FROM repo_stars WHERE user_id = $1 AND repo_id = $2")
+                .bind(user_id)
+                .bind(repo_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DbError::Database(format!("toggle_star delete: {e}")))?;
+            let row: (i64,) = sqlx::query_as(
+                "UPDATE repositories SET stars_count = GREATEST(stars_count - 1, 0), updated_at = NOW() WHERE id = $1 RETURNING stars_count",
+            )
+            .bind(repo_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("toggle_star dec: {e}")))?;
+            Ok((row.0, false))
+        } else {
+            sqlx::query("INSERT INTO repo_stars (user_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+                .bind(user_id)
+                .bind(repo_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DbError::Database(format!("toggle_star insert: {e}")))?;
+            let row: (i64,) = sqlx::query_as(
+                "UPDATE repositories SET stars_count = stars_count + 1, updated_at = NOW() WHERE id = $1 RETURNING stars_count",
+            )
+            .bind(repo_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("toggle_star inc: {e}")))?;
+            Ok((row.0, true))
+        }
+    }
+
     pub async fn increment_stars(&self, repo_id: Uuid) -> Result<i64> {
         let row: (i64,) = sqlx::query_as(
             "UPDATE repositories SET stars_count = stars_count + 1, updated_at = NOW() WHERE id = $1 RETURNING stars_count",
@@ -1372,6 +1419,53 @@ impl DbRepository {
     }
 
     // --- Watchers ---
+
+    pub async fn has_user_watched(&self, user_id: Uuid, repo_id: Uuid) -> Result<bool> {
+        let row: Option<(bool,)> = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM repo_watchers WHERE user_id = $1 AND repo_id = $2)",
+        )
+        .bind(user_id)
+        .bind(repo_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("has_user_watched: {e}")))?;
+        Ok(row.map(|(v,)| v).unwrap_or(false))
+    }
+
+    pub async fn toggle_watch(&self, user_id: Uuid, repo_id: Uuid) -> Result<(i64, bool)> {
+        let existing = self.has_user_watched(user_id, repo_id).await?;
+        if existing {
+            sqlx::query("DELETE FROM repo_watchers WHERE user_id = $1 AND repo_id = $2")
+                .bind(user_id)
+                .bind(repo_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DbError::Database(format!("toggle_watch delete: {e}")))?;
+            let row: (i64,) = sqlx::query_as(
+                "UPDATE repositories SET watchers_count = GREATEST(watchers_count - 1, 0), updated_at = NOW() WHERE id = $1 RETURNING watchers_count",
+            )
+            .bind(repo_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("toggle_watch dec: {e}")))?;
+            Ok((row.0, false))
+        } else {
+            sqlx::query("INSERT INTO repo_watchers (user_id, repo_id) VALUES ($1, $2) ON CONFLICT DO NOTHING")
+                .bind(user_id)
+                .bind(repo_id)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| DbError::Database(format!("toggle_watch insert: {e}")))?;
+            let row: (i64,) = sqlx::query_as(
+                "UPDATE repositories SET watchers_count = watchers_count + 1, updated_at = NOW() WHERE id = $1 RETURNING watchers_count",
+            )
+            .bind(repo_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("toggle_watch inc: {e}")))?;
+            Ok((row.0, true))
+        }
+    }
 
     pub async fn increment_watchers(&self, repo_id: Uuid) -> Result<i64> {
         let row: (i64,) = sqlx::query_as(
@@ -1447,6 +1541,8 @@ impl DbRepository {
         prerelease: bool,
         author_id: Uuid,
     ) -> Result<Release> {
+        // TECH DEBT: Inline DDL — should be moved to a proper migration.
+        // Uses IF NOT EXISTS to avoid conflicts; safe to remove once migration exists.
         let _ = sqlx::query(
             "CREATE TABLE IF NOT EXISTS releases (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1523,6 +1619,8 @@ impl DbRepository {
         size: i64,
         author_id: Uuid,
     ) -> Result<ReleaseAsset> {
+        // TECH DEBT: Inline DDL — should be moved to a proper migration.
+        // Uses IF NOT EXISTS to avoid conflicts; safe to remove once migration exists.
         let _ = sqlx::query(
             "CREATE TABLE IF NOT EXISTS release_assets (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1580,6 +1678,8 @@ impl DbRepository {
         allow_force_pushes: bool,
         allow_deletions: bool,
     ) -> Result<BranchProtectionRule> {
+        // TECH DEBT: Inline DDL — should be moved to a proper migration.
+        // Uses IF NOT EXISTS to avoid conflicts; safe to remove once migration exists.
         let _ = sqlx::query(
             "CREATE TABLE IF NOT EXISTS branch_protection_rules (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1694,6 +1794,8 @@ impl DbRepository {
         description: &str,
         privacy: &str,
     ) -> Result<Team> {
+        // TECH DEBT: Inline DDL — should be moved to a proper migration.
+        // Uses IF NOT EXISTS to avoid conflicts; safe to remove once migration exists.
         let _ = sqlx::query(
             "CREATE TABLE IF NOT EXISTS teams (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1783,6 +1885,8 @@ impl DbRepository {
         user_id: Uuid,
         role: &str,
     ) -> Result<TeamMember> {
+        // TECH DEBT: Inline DDL — should be moved to a proper migration.
+        // Uses IF NOT EXISTS to avoid conflicts; safe to remove once migration exists.
         let _ = sqlx::query(
             "CREATE TABLE IF NOT EXISTS team_members (
                 team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,

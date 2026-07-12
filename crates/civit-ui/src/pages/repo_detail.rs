@@ -5,10 +5,10 @@ use leptos_router::components::{A, Outlet};
 use leptos_router::hooks::{use_location, use_params_map};
 
 use crate::api::client::ApiClient;
-use crate::components::{Badge, BadgeColor, ErrorBanner, Modal, Spinner};
+use crate::components::{Badge, BadgeColor, ErrorBanner, Modal, SkeletonBlock};
 use crate::state::auth::use_auth;
 use crate::utils::{format_bytes, language_color};
-use civit_shared::repo::RepoResponse;
+use civit_shared::repo::{RepoResponse, StarToggleResponse, WatchToggleResponse};
 
 #[derive(Clone, serde::Deserialize)]
 struct LanguageInfo {
@@ -49,11 +49,27 @@ pub fn RepoDetailPage() -> impl IntoView {
         let path = format!("/repos/{owner_val}/{name_val}");
         match client.get(&path).await {
             Ok(resp) if resp.status().is_success() => match resp.json::<RepoResponse>().await {
-                Ok(data) => set_repo.set(Some(data)),
+                Ok(data) => {
+                    set_starred.set(data.starred.unwrap_or(false));
+                    set_watching.set(data.watched.unwrap_or(false));
+                    set_repo.set(Some(data));
+                }
                 Err(_) => set_error.set(Some("Failed to process response.".to_string())),
             },
-            Ok(_) => set_error.set(Some("Failed to load repository.".to_string())),
-            Err(_) => set_error.set(Some("Network error. Check your connection.".to_string())),
+            Ok(resp) => {
+                let status = resp.status();
+                let msg = if status == 401 || status == 403 {
+                    "Session expired. Please sign in again.".to_string()
+                } else if status == 404 {
+                    "Resource not found.".to_string()
+                } else if status.as_u16() >= 500 {
+                    "Something went wrong. Please try again.".to_string()
+                } else {
+                    "Failed to load repository.".to_string()
+                };
+                set_error.set(Some(msg));
+            }
+            Err(_) => set_error.set(Some("Connection failed. Check your internet.".to_string())),
         }
         set_loading.set(false);
     });
@@ -81,8 +97,23 @@ pub fn RepoDetailPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
             let path = format!("/repos/{owner_val}/{name_val}/star");
-            let _ = client.post(&path, &()).await;
             set_starred.set(!is_starred);
+            match client.post(&path, &()).await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<StarToggleResponse>().await {
+                        set_starred.set(data.starred);
+                        set_repo.update(|r| {
+                            if let Some(repo) = r.as_mut() {
+                                repo.stars_count = Some(data.stars_count);
+                            }
+                        });
+                    }
+                }
+                _ => {
+                    set_starred.set(is_starred);
+                    set_error.set(Some("Failed to toggle star. Please try again.".to_string()));
+                }
+            }
         });
     });
 
@@ -94,8 +125,23 @@ pub fn RepoDetailPage() -> impl IntoView {
         leptos::task::spawn_local(async move {
             let client = ApiClient::new(token);
             let path = format!("/repos/{owner_val}/{name_val}/watch");
-            let _ = client.post(&path, &()).await;
             set_watching.set(!is_watching);
+            match client.post(&path, &()).await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<WatchToggleResponse>().await {
+                        set_watching.set(data.watched);
+                        set_repo.update(|r| {
+                            if let Some(repo) = r.as_mut() {
+                                repo.watchers_count = Some(data.watchers_count);
+                            }
+                        });
+                    }
+                }
+                _ => {
+                    set_watching.set(is_watching);
+                    set_error.set(Some("Failed to toggle watch. Please try again.".to_string()));
+                }
+            }
         });
     });
 
@@ -126,11 +172,20 @@ pub fn RepoDetailPage() -> impl IntoView {
                 />
             </Show>
             <Show when=move || loading.get() fallback=|| view! { <div></div> }>
-                <div class="flex items-center gap-2">
-                    <Spinner />
-                    <span class="text-gray-500 dark:text-gray-400">
-                        "Loading repository..."
-                    </span>
+                <div class="space-y-4">
+                    <SkeletonBlock class="h-20 w-full".to_string() />
+                    <div class="flex gap-2">
+                        <SkeletonBlock class="h-8 w-20".to_string() />
+                        <SkeletonBlock class="h-8 w-20".to_string() />
+                        <SkeletonBlock class="h-8 w-16".to_string() />
+                        <SkeletonBlock class="h-8 w-16".to_string() />
+                    </div>
+                    <div class="grid grid-cols-4 gap-2">
+                        <SkeletonBlock class="h-6".to_string() />
+                        <SkeletonBlock class="h-6".to_string() />
+                        <SkeletonBlock class="h-6".to_string() />
+                        <SkeletonBlock class="h-6".to_string() />
+                    </div>
                 </div>
             </Show>
             <Show when=repo_loaded fallback=|| view! { <div></div> }>
@@ -222,11 +277,19 @@ fn RepoHeader(
                     }}
                 </p>
                 <div class="mt-3 flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
-                    <span class="font-mono">"0 stars"</span>
+                    <span class="font-mono">
+                        {move || {
+                            let count = repo_sig.get().and_then(|r| r.stars_count).unwrap_or(0);
+                            format!("{count} star{}", if count == 1 { "" } else { "s" })
+                        }}
+                    </span>
                     <span>"|"</span>
-                    <span class="font-mono">"0 forks"</span>
-                    <span>"|"</span>
-                    <span class="font-mono">"0 watchers"</span>
+                    <span class="font-mono">
+                        {move || {
+                            let count = repo_sig.get().and_then(|r| r.watchers_count).unwrap_or(0);
+                            format!("{count} watcher{}", if count == 1 { "" } else { "s" })
+                        }}
+                    </span>
                 </div>
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
