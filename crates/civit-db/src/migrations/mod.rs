@@ -77,6 +77,11 @@ pub const M_071_SEARCH_HISTORY_UP: &str = include_str!("071_add_search_history.s
 pub const M_071_SEARCH_HISTORY_DOWN: &str = "DROP TABLE IF EXISTS search_history;";
 pub const M_072_CODE_SUGGESTIONS_UP: &str = include_str!("072_add_code_suggestions.sql");
 pub const M_072_CODE_SUGGESTIONS_DOWN: &str = "DROP TABLE IF EXISTS code_suggestions;";
+pub const M_075_LICENSE_REPORTS_UP: &str = include_str!("075_add_license_reports.sql");
+pub const M_075_LICENSE_REPORTS_DOWN: &str = "DROP TABLE IF EXISTS license_reports;";
+pub const M_076_ENHANCE_AUDIT_LOG_UP: &str = include_str!("076_enhance_audit_log.sql");
+pub const M_076_ENHANCE_AUDIT_LOG_DOWN: &str =
+    "ALTER TABLE audit_events DROP COLUMN IF EXISTS request_id;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -430,6 +435,18 @@ impl MigrationManager {
             up_sql: M_072_CODE_SUGGESTIONS_UP.into(),
             down_sql: M_072_CODE_SUGGESTIONS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 75,
+            name: "add_license_reports".into(),
+            up_sql: M_075_LICENSE_REPORTS_UP.into(),
+            down_sql: M_075_LICENSE_REPORTS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 76,
+            name: "enhance_audit_log".into(),
+            up_sql: M_076_ENHANCE_AUDIT_LOG_UP.into(),
+            down_sql: M_076_ENHANCE_AUDIT_LOG_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -471,7 +488,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 53);
+        assert_eq!(mgr.all().len(), 55);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -578,13 +595,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 75,
+            version: 77,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 54);
-        assert_eq!(mgr.all()[53].version, 75);
+        assert_eq!(mgr.all().len(), 56);
+        assert_eq!(mgr.all()[55].version, 77);
     }
 
     #[test]
@@ -603,13 +620,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 53);
+        assert_eq!(pending.len(), 55);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(74);
+        let pending = mgr.get_pending(76);
         assert_eq!(pending.len(), 0);
     }
 

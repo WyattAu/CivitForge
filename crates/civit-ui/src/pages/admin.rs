@@ -7,6 +7,9 @@ use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBan
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
+#[cfg(feature = "csr")]
+use wasm_bindgen::JsCast;
+
 // ── Types ──
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -20,6 +23,7 @@ struct AuditEvent {
     #[allow(dead_code)]
     user_agent: Option<String>,
     outcome: String,
+    request_id: Option<String>,
     created_at: String,
 }
 
@@ -212,6 +216,41 @@ struct LdapTestRequest {
 #[derive(Debug, Clone, serde::Serialize)]
 struct LdapSyncGroupRequest {}
 
+#[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
+struct LicenseReportData {
+    id: String,
+    repo_id: String,
+    license: String,
+    spdx_id: String,
+    file_count: i32,
+    compliant: bool,
+    issues: Vec<LicenseIssue>,
+    scanned_at: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
+struct LicenseIssue {
+    package_name: String,
+    license_id: String,
+    reason: String,
+    severity: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[allow(dead_code)]
+struct LicenseDepEntry {
+    package_name: String,
+    version: String,
+    source: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct LicenseDepResponse {
+    dependencies: Vec<LicenseDepEntry>,
+}
+
 #[derive(Clone, PartialEq)]
 enum AdminTab {
     AuditLog,
@@ -224,6 +263,7 @@ enum AdminTab {
     MergeQueue,
     OidcProviders,
     Ldap,
+    LicenseCompliance,
 }
 
 // ── Page ──
@@ -301,6 +341,14 @@ pub fn AdminPage() -> impl IntoView {
     let (ldap_test_result, set_ldap_test_result) = signal(None::<String>);
     let (ldap_sync_loading, set_ldap_sync_loading) = signal(false);
     let (ldap_sync_result, set_ldap_sync_result) = signal(None::<LdapSyncResult>);
+
+    // License compliance state
+    let (license_repo_owner, set_license_repo_owner) = signal(String::new());
+    let (license_repo_name, set_license_repo_name) = signal(String::new());
+    let (license_report, set_license_report) = signal(None::<LicenseReportData>);
+    let (license_loading, set_license_loading) = signal(false);
+    let (license_error, set_license_error) = signal(None::<String>);
+    let (license_dependencies, set_license_dependencies) = signal(Vec::<LicenseDepEntry>::new());
 
     // Fetch audit log
     let fetch_audit = move || {
@@ -799,6 +847,84 @@ pub fn AdminPage() -> impl IntoView {
     // Initial load
     fetch_audit();
 
+    // Fetch license report
+    let fetch_license = move || {
+        let is_admin_check = auth.0.with(|a| a.is_authenticated && a.is_admin);
+        if !is_admin_check {
+            set_license_error.set(Some("Admin access required.".to_string()));
+            set_license_loading.set(false);
+            return;
+        }
+        let owner = license_repo_owner.get();
+        let name = license_repo_name.get();
+        if owner.is_empty() || name.is_empty() {
+            set_license_error.set(Some("Enter repository owner and name.".to_string()));
+            return;
+        }
+        set_license_loading.set(true);
+        set_license_error.set(None);
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token.clone());
+            let path = format!("/repos/{owner}/{name}/license");
+            match client.get(&path).await {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<LicenseReportData>().await {
+                        Ok(data) => set_license_report.set(Some(data)),
+                        Err(_) => set_license_error.set(Some("Failed to load license report.".to_string())),
+                    }
+                }
+                Ok(_) => set_license_error.set(Some("Failed to load license report.".to_string())),
+                Err(_) => set_license_error.set(Some("Network error.".to_string())),
+            }
+            let client2 = ApiClient::new(token);
+            let dep_path = format!("/repos/{owner}/{name}/license/dependencies");
+            if let Ok(resp) = client2.get(&dep_path).await {
+                if resp.status().is_success() {
+                    if let Ok(data) = resp.json::<LicenseDepResponse>().await {
+                        set_license_dependencies.set(data.dependencies);
+                    }
+                }
+            }
+            set_license_loading.set(false);
+        });
+    };
+
+    // Export audit log
+    let export_audit_log = move || {
+        let token = auth.0.with(|a| a.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            if let Ok(resp) = client.get("/audit-log/export?per_page=10000").await {
+                if resp.status().is_success() {
+                    if let Ok(text) = resp.text().await {
+                        let parts = js_sys::Array::new();
+                        parts.push(&wasm_bindgen::JsValue::from_str(&text));
+                        let blob = web_sys::Blob::new_with_str_sequence_and_options(
+                            &parts,
+                            web_sys::BlobPropertyBag::new().type_("text/csv"),
+                        )
+                        .unwrap();
+                        let url = web_sys::Url::create_object_url_with_blob(&blob).unwrap_or_default();
+                        let _ = web_sys::window()
+                            .unwrap()
+                            .document()
+                            .unwrap()
+                            .create_element("a")
+                            .unwrap()
+                            .dyn_ref::<web_sys::HtmlAnchorElement>()
+                            .map(|a| {
+                                a.set_href(&url);
+                                a.set_download("audit_log.csv");
+                                a.click();
+                                let _ = web_sys::Url::revoke_object_url(&url);
+                            });
+                    }
+                }
+            }
+        });
+    };
+
     let switch_tab = move |tab: AdminTab| {
         set_active_tab.set(tab.clone());
         match tab {
@@ -815,6 +941,7 @@ pub fn AdminPage() -> impl IntoView {
                 fetch_oidc_users_count();
             }
             AdminTab::Ldap => fetch_ldap(),
+            AdminTab::LicenseCompliance => fetch_license(),
         }
     };
 
@@ -889,6 +1016,9 @@ pub fn AdminPage() -> impl IntoView {
                     <button class=tab_class(AdminTab::Ldap, active_tab.get()) on:click=move |_| switch_tab(AdminTab::Ldap)>
                         "LDAP"
                     </button>
+                    <button class=tab_class(AdminTab::LicenseCompliance, active_tab.get()) on:click=move |_| switch_tab(AdminTab::LicenseCompliance)>
+                        "License"
+                    </button>
                 </nav>
             </div>
 
@@ -938,6 +1068,9 @@ pub fn AdminPage() -> impl IntoView {
                         />
                         <Button variant=ButtonVariant::Primary on:click=move |_| fetch_audit()>
                             "Apply"
+                        </Button>
+                        <Button variant=ButtonVariant::Secondary on:click=move |_| export_audit_log()>
+                            "Export CSV"
                         </Button>
                     </div>
 
@@ -1922,6 +2055,119 @@ pub fn AdminPage() -> impl IntoView {
                                         }
                                     }}
                                 </Show>
+                            </div>
+                        </Card>
+                    </Show>
+                </div>
+            </Show>
+
+            // -- License Compliance Tab --
+            <Show when=move || active_tab.get() == AdminTab::LicenseCompliance fallback=|| view! { <div class="hidden"></div> }>
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        <input
+                            type="text"
+                            placeholder="Repository owner..."
+                            aria-label="Repository owner"
+                            class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            prop:value=move || license_repo_owner.get()
+                            on:input=move |ev| set_license_repo_owner.set(event_target_value(&ev))
+                        />
+                        <input
+                            type="text"
+                            placeholder="Repository name..."
+                            aria-label="Repository name"
+                            class="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            prop:value=move || license_repo_name.get()
+                            on:input=move |ev| set_license_repo_name.set(event_target_value(&ev))
+                        />
+                        <Button variant=ButtonVariant::Primary on:click=move |_| fetch_license()>
+                            "Scan"
+                        </Button>
+                    </div>
+
+                    <Show when=move || license_error.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        <ErrorBanner message=move || license_error.get().unwrap_or_default() on_dismiss=Callback::new(move |_: ()| set_license_error.set(None)) />
+                    </Show>
+
+                    <Show when=move || license_loading.get() fallback=|| view! { <div class="hidden"></div> }>
+                        <div class="flex items-center justify-center py-12">
+                            <Spinner />
+                        </div>
+                    </Show>
+
+                    <Show when=move || !license_loading.get() && license_report.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
+                        {move || {
+                            let report = license_report.get().unwrap();
+                            let compliant = report.compliant;
+                            let spdx_id = report.spdx_id.clone();
+                            let file_count = report.file_count;
+                            let issues = report.issues.clone();
+                            let scanned_at = report.scanned_at.clone();
+                            view! {
+                                <Card>
+                                    <div class="space-y-4">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"License Report"</h3>
+                                            <Badge
+                                                color=if compliant { BadgeColor::Success } else { BadgeColor::Danger }
+                                                text=if compliant { "Compliant".into() } else { "Issues Found".into() }
+                                            />
+                                        </div>
+                                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">"License"</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{spdx_id}</div>
+                                            </div>
+                                            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">"Files Scanned"</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{file_count.to_string()}</div>
+                                            </div>
+                                            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">"Issues"</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{issues.len().to_string()}</div>
+                                            </div>
+                                            <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">"Scanned At"</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{scanned_at}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Card>
+                            }
+                        }}
+                    </Show>
+
+                    // Dependencies section
+                    <Show when=move || !license_dependencies.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
+                        <Card>
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">"Dependency Licenses"</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-50 dark:bg-gray-750">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Package"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Version"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Source"</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                        <For each=move || license_dependencies.get() key=|d| d.package_name.clone() let:dep>
+                                            {
+                                                let pkg = dep.package_name.clone();
+                                                let ver = dep.version.clone();
+                                                let src = dep.source.clone();
+                                                view! {
+                                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{pkg}</td>
+                                                        <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{ver}</td>
+                                                        <td class="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">{src}</td>
+                                                    </tr>
+                                                }
+                                            }
+                                        </For>
+                                    </tbody>
+                                </table>
                             </div>
                         </Card>
                     </Show>

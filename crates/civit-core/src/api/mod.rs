@@ -24,6 +24,7 @@ pub mod import;
 pub mod issues;
 pub mod issue_templates;
 pub mod lfs;
+pub mod license_compliance;
 pub mod marketplace;
 pub mod maven;
 pub mod mentions;
@@ -51,6 +52,8 @@ pub mod repos;
 pub mod runners;
 pub mod search;
 pub mod secret_scanning;
+pub mod security_dashboard;
+pub mod dependencies;
 pub mod site_settings;
 pub mod slsa_dashboard;
 pub mod ssh_keys;
@@ -180,6 +183,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(activity::activity_routes())
         .merge(code_browser::code_browser_routes())
         .merge(secret_scanning::secret_scanning_routes())
+        .merge(security_dashboard::security_dashboard_routes())
+        .merge(dependencies::dependency_routes())
         .merge(slsa_dashboard::slsa_dashboard_routes())
         .merge(federation_routes::federation_routes())
         .merge(mirrors::mirror_routes())
@@ -190,6 +195,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(marketplace::marketplace_routes())
         .merge(npm::npm_routes())
         .merge(maven::maven_routes())
+        .merge(license_compliance::license_routes())
         .merge(pages::pages_routes())
         .merge(tokens::token_routes())
         .merge(webhooks::webhook_routes())

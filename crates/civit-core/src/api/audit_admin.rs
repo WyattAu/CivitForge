@@ -24,6 +24,7 @@ pub struct AuditEventResponse {
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
     pub outcome: String,
+    pub request_id: Option<String>,
     pub created_at: String,
 }
 
@@ -129,6 +130,7 @@ pub async fn list_audit_log(
                         ip_address,
                         user_agent,
                         outcome,
+                        request_id,
                         created_at,
                     )| {
                         AuditEventResponse {
@@ -140,6 +142,7 @@ pub async fn list_audit_log(
                             ip_address,
                             user_agent,
                             outcome,
+                            request_id: request_id.map(|u| u.to_string()),
                             created_at: created_at.to_rfc3339(),
                         }
                     },
@@ -250,7 +253,7 @@ pub async fn export_audit_log(
     {
         Ok(events) => {
             let mut csv = String::from(
-                "id,actor_id,action,resource_type,resource_id,ip_address,user_agent,outcome,created_at\n",
+                "id,actor_id,action,resource_type,resource_id,ip_address,user_agent,outcome,request_id,created_at\n",
             );
             for (
                 id,
@@ -261,11 +264,12 @@ pub async fn export_audit_log(
                 ip_address,
                 user_agent,
                 outcome,
+                request_id,
                 created_at,
             ) in &events
             {
                 csv.push_str(&format!(
-                    "{},\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
+                    "{},\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\",\"{}\"\n",
                     id,
                     actor_id,
                     action,
@@ -274,6 +278,7 @@ pub async fn export_audit_log(
                     ip_address.as_deref().unwrap_or(""),
                     user_agent.as_deref().unwrap_or(""),
                     outcome,
+                    request_id.map(|u| u.to_string()).unwrap_or_default(),
                     created_at.to_rfc3339(),
                 ));
             }
@@ -306,11 +311,13 @@ mod tests {
             ip_address: Some("127.0.0.1".into()),
             user_agent: Some("curl/7.68".into()),
             outcome: "success".into(),
+            request_id: Some("00000000-0000-0000-0000-000000000001".into()),
             created_at: "2025-01-01T00:00:00+00:00".into(),
         };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"action\":\"login\""));
         assert!(json.contains("\"outcome\":\"success\""));
+        assert!(json.contains("\"request_id\""));
     }
 
     #[test]

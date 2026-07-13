@@ -1986,11 +1986,12 @@ impl DbRepository {
             Option<String>,
             Option<String>,
             String,
+            Option<Uuid>,
             DateTime<Utc>,
         )>,
     > {
         let rows = sqlx::query_as(
-            r#"SELECT id, actor_id, action, resource_type, resource_id, ip_address, user_agent, outcome, created_at
+            r#"SELECT id, actor_id, action, resource_type, resource_id, ip_address, user_agent, outcome, request_id, created_at
                FROM audit_events
                WHERE ($1::uuid IS NULL OR actor_id = $1)
                  AND ($2::varchar IS NULL OR action = $2)

@@ -43,6 +43,8 @@ web-sys = { version = "0.3", optional = true, features = [
   "History",
   "DragEvent",
   "DataTransfer",
+  "Blob",
+  "Url",
 ] }
 js-sys = { version = "0.3", optional = true }
 civit-shared = { path = "../civit-shared" }
