@@ -120,6 +120,12 @@ pub const M_089_WEBSOCKET_CONNECTIONS_UP: &str =
 pub const M_089_WEBSOCKET_CONNECTIONS_DOWN: &str = "DROP TABLE IF EXISTS websocket_connections;";
 pub const M_090_POOL_CONFIG_UP: &str = include_str!("090_add_pool_config.sql");
 pub const M_090_POOL_CONFIG_DOWN: &str = "DROP TABLE IF EXISTS pool_config;";
+pub const M_091_FEATURE_FLAGS_UP: &str = include_str!("091_add_feature_flags.sql");
+pub const M_091_FEATURE_FLAGS_DOWN: &str =
+    include_str!("down/091_feature_flags_down.sql");
+pub const M_092_ADMIN_DASHBOARD_CONFIG_UP: &str = include_str!("092_add_admin_dashboard_config.sql");
+pub const M_092_ADMIN_DASHBOARD_CONFIG_DOWN: &str =
+    include_str!("down/092_admin_dashboard_config_down.sql");
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -557,6 +563,18 @@ impl MigrationManager {
             up_sql: M_090_POOL_CONFIG_UP.into(),
             down_sql: M_090_POOL_CONFIG_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 91,
+            name: "add_feature_flags".into(),
+            up_sql: M_091_FEATURE_FLAGS_UP.into(),
+            down_sql: M_091_FEATURE_FLAGS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 92,
+            name: "add_admin_dashboard_config".into(),
+            up_sql: M_092_ADMIN_DASHBOARD_CONFIG_UP.into(),
+            down_sql: M_092_ADMIN_DASHBOARD_CONFIG_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -598,7 +616,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 67);
+        assert_eq!(mgr.all().len(), 69);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -731,19 +749,23 @@ mod tests {
         assert_eq!(mgr.all()[65].name, "add_websocket_connections");
         assert_eq!(mgr.all()[66].version, 90);
         assert_eq!(mgr.all()[66].name, "add_pool_config");
+        assert_eq!(mgr.all()[67].version, 91);
+        assert_eq!(mgr.all()[67].name, "add_feature_flags");
+        assert_eq!(mgr.all()[68].version, 92);
+        assert_eq!(mgr.all()[68].name, "add_admin_dashboard_config");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 91,
+            version: 93,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 68);
-        assert_eq!(mgr.all()[67].version, 91);
+        assert_eq!(mgr.all().len(), 70);
+        assert_eq!(mgr.all()[69].version, 93);
     }
 
     #[test]
@@ -762,13 +784,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 67);
+        assert_eq!(pending.len(), 69);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(90);
+        let pending = mgr.get_pending(92);
         assert_eq!(pending.len(), 0);
     }
 
@@ -776,7 +798,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 66);
+        assert_eq!(pending.len(), 68);
     }
 
     #[test]

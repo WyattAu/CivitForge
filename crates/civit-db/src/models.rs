@@ -423,6 +423,38 @@ pub struct DiscussionReaction {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeatureFlag {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub enabled: bool,
+    pub enabled_for_users: Vec<Uuid>,
+    pub enabled_for_percentage: i32,
+    pub enabled_for_orgs: Vec<Uuid>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FeatureFlagEvent {
+    pub id: Uuid,
+    pub flag_id: Uuid,
+    pub user_id: Option<Uuid>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AdminDashboardConfig {
+    pub id: Uuid,
+    pub widget_name: String,
+    pub widget_config: serde_json::Value,
+    pub position: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

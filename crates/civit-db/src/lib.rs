@@ -11,7 +11,7 @@ pub use error::{DbError, Result};
 pub use models::{
     ActivityEvent, BranchProtectionRule, EmailVerificationCode, Issue, Org, Pipeline, PrComment,
     PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release, ReleaseAsset, Repository, SshKey,
-    Team, TeamMember, User, WebAuthnCredential,
+    Team, TeamMember, User, WebAuthnCredential, FeatureFlag, FeatureFlagEvent, AdminDashboardConfig,
 };
 pub use pool::DatabasePool;
 pub use repository::{DbRepository, OrgUsage};

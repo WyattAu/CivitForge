@@ -3203,6 +3203,287 @@ impl DbRepository {
         .map_err(|e| DbError::Database(format!("search_discussions: {e}")))?;
         Ok(rows)
     }
+
+    // --- Feature Flags ---
+
+    pub async fn create_feature_flag(
+        &self,
+        name: &str,
+        description: &str,
+        enabled: bool,
+        enabled_for_percentage: i32,
+    ) -> Result<crate::models::FeatureFlag> {
+        let row = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            r#"INSERT INTO feature_flags (name, description, enabled, enabled_for_percentage)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(enabled)
+        .bind(enabled_for_percentage)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_feature_flag: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_feature_flag(&self, id: Uuid) -> Result<crate::models::FeatureFlag> {
+        sqlx::query_as::<_, crate::models::FeatureFlag>("SELECT * FROM feature_flags WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_feature_flag: {e}")))
+    }
+
+    pub async fn list_feature_flags(&self) -> Result<Vec<crate::models::FeatureFlag>> {
+        let rows = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            "SELECT * FROM feature_flags ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_feature_flags: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn list_enabled_feature_flags_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<crate::models::FeatureFlag>> {
+        let rows = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            r#"SELECT * FROM feature_flags
+               WHERE enabled = true
+                 AND (
+                   enabled_for_users = '{}'::uuid[]
+                   OR $1 = ANY(enabled_for_users)
+                   OR enabled_for_percentage = 100
+                   OR (enabled_for_percentage > 0 AND hashtext($2::text)::int % 100 < enabled_for_percentage)
+                 )
+               ORDER BY name"#,
+        )
+        .bind(user_id)
+        .bind(user_id.to_string())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_enabled_feature_flags_for_user: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn update_feature_flag(
+        &self,
+        id: Uuid,
+        name: Option<&str>,
+        description: Option<&str>,
+        enabled: Option<bool>,
+        enabled_for_percentage: Option<i32>,
+    ) -> Result<crate::models::FeatureFlag> {
+        let row = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            r#"UPDATE feature_flags
+               SET name = COALESCE($2, name),
+                   description = COALESCE($3, description),
+                   enabled = COALESCE($4, enabled),
+                   enabled_for_percentage = COALESCE($5, enabled_for_percentage),
+                   updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(description)
+        .bind(enabled)
+        .bind(enabled_for_percentage)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_feature_flag: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn toggle_feature_flag(&self, id: Uuid) -> Result<crate::models::FeatureFlag> {
+        let row = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            r#"UPDATE feature_flags
+               SET enabled = NOT enabled, updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("toggle_feature_flag: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_feature_flag(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM feature_flags WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_feature_flag: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn add_feature_flag_user(
+        &self,
+        flag_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE feature_flags
+               SET enabled_for_users = array_append(
+                 CASE WHEN enabled_for_users @> ARRAY[$2::uuid] THEN enabled_for_users ELSE enabled_for_users END,
+                 CASE WHEN enabled_for_users @> ARRAY[$2::uuid] THEN NULL::uuid ELSE $2 END
+               ),
+               updated_at = NOW()
+               WHERE id = $1"#,
+        )
+        .bind(flag_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_feature_flag_user: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn remove_feature_flag_user(
+        &self,
+        flag_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE feature_flags
+               SET enabled_for_users = array_remove(enabled_for_users, $2),
+                   updated_at = NOW()
+               WHERE id = $1"#,
+        )
+        .bind(flag_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("remove_feature_flag_user: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn add_feature_flag_org(
+        &self,
+        flag_id: Uuid,
+        org_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE feature_flags
+               SET enabled_for_orgs = array_append(
+                 CASE WHEN enabled_for_orgs @> ARRAY[$2::uuid] THEN enabled_for_orgs ELSE enabled_for_orgs END,
+                 CASE WHEN enabled_for_orgs @> ARRAY[$2::uuid] THEN NULL::uuid ELSE $2 END
+               ),
+               updated_at = NOW()
+               WHERE id = $1"#,
+        )
+        .bind(flag_id)
+        .bind(org_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_feature_flag_org: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn remove_feature_flag_org(
+        &self,
+        flag_id: Uuid,
+        org_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE feature_flags
+               SET enabled_for_orgs = array_remove(enabled_for_orgs, $2),
+                   updated_at = NOW()
+               WHERE id = $1"#,
+        )
+        .bind(flag_id)
+        .bind(org_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("remove_feature_flag_org: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn record_feature_flag_event(
+        &self,
+        flag_id: Uuid,
+        user_id: Option<Uuid>,
+        enabled: bool,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"INSERT INTO feature_flag_events (flag_id, user_id, enabled)
+               VALUES ($1, $2, $3)"#,
+        )
+        .bind(flag_id)
+        .bind(user_id)
+        .bind(enabled)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_feature_flag_event: {e}")))?;
+        Ok(())
+    }
+
+    // --- Admin Dashboard Config ---
+
+    pub async fn list_admin_dashboard_widgets(
+        &self,
+    ) -> Result<Vec<crate::models::AdminDashboardConfig>> {
+        let rows = sqlx::query_as::<_, crate::models::AdminDashboardConfig>(
+            "SELECT * FROM admin_dashboard_config ORDER BY position",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_admin_dashboard_widgets: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_admin_dashboard_widget(
+        &self,
+        widget_name: &str,
+    ) -> Result<Option<crate::models::AdminDashboardConfig>> {
+        let row = sqlx::query_as::<_, crate::models::AdminDashboardConfig>(
+            "SELECT * FROM admin_dashboard_config WHERE widget_name = $1",
+        )
+        .bind(widget_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_admin_dashboard_widget: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn upsert_admin_dashboard_widget(
+        &self,
+        widget_name: &str,
+        widget_config: &serde_json::Value,
+        position: i32,
+        enabled: bool,
+    ) -> Result<crate::models::AdminDashboardConfig> {
+        let row = sqlx::query_as::<_, crate::models::AdminDashboardConfig>(
+            r#"INSERT INTO admin_dashboard_config (widget_name, widget_config, position, enabled)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (widget_name) DO UPDATE SET
+                   widget_config = $2,
+                   position = $3,
+                   enabled = $4
+               RETURNING *"#,
+        )
+        .bind(widget_name)
+        .bind(widget_config)
+        .bind(position)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("upsert_admin_dashboard_widget: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_admin_dashboard_widget(&self, widget_name: &str) -> Result<()> {
+        sqlx::query("DELETE FROM admin_dashboard_config WHERE widget_name = $1")
+            .bind(widget_name)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_admin_dashboard_widget: {e}")))?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

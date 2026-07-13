@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod activity;
+pub mod admin_dashboard;
 pub mod artifact_serving;
 pub mod audit_admin;
 pub mod auth_routes;
@@ -17,6 +18,7 @@ pub mod discussions;
 pub mod edit;
 pub mod environments;
 pub mod error_reports;
+pub mod feature_flags;
 pub mod federation_routes;
 pub mod git_http;
 pub mod graphql;
@@ -269,6 +271,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(saml::saml_routes())
         .merge(scim::scim_routes())
         .merge(sso::sso_routes())
+        .merge(feature_flags::feature_flag_routes())
+        .merge(admin_dashboard::admin_dashboard_routes())
         .merge(observability_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))

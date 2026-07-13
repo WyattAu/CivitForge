@@ -30,6 +30,8 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("/new-repo") view=NewRepoPage />
                             <Route path=path!("/activity") view=ActivityPage />
                             <Route path=path!("/admin") view=AdminPage />
+                            <Route path=path!("/admin/feature-flags") view=AdminFeatureFlagsPage />
+                            <Route path=path!("/admin/dashboard") view=AdminDashboardPage />
                             <Route path=path!("/admin/site-settings") view=SiteSettingsPage />
                             <ParentRoute path=path!("/repos/:owner/:name") view=RepoDetailPage>
                                 <Route path=path!("") view=CodePage />
