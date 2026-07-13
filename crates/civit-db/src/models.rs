@@ -304,6 +304,25 @@ pub struct TeamMember {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReviewSummary {
+    pub pr_id: Uuid,
+    pub approvals: i64,
+    pub changes_requested: i64,
+    pub comments: i64,
+    pub codeowners_approved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReviewAssignment {
+    pub id: Uuid,
+    pub pr_id: Uuid,
+    pub user_id: Uuid,
+    pub team: String,
+    pub assigned_by: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WebAuthnCredential {
     pub id: Uuid,
     pub user_id: Uuid,
@@ -311,6 +330,21 @@ pub struct WebAuthnCredential {
     pub public_key: Vec<u8>,
     pub counter: i64,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct BoardCardLabel {
+    pub id: uuid::Uuid,
+    pub card_id: uuid::Uuid,
+    pub label: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct BoardCardAssignee {
+    pub id: uuid::Uuid,
+    pub card_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
 }
 
 #[cfg(test)]

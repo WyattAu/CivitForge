@@ -2223,6 +2223,183 @@ pub async fn toggle_pr_draft(
     }
 }
 
+// ── Review Summary / Resolve / Assign ──
+
+#[derive(Debug, Serialize)]
+pub struct ReviewSummaryResponse {
+    pub pr_id: String,
+    pub approvals: i64,
+    pub changes_requested: i64,
+    pub comments: i64,
+    pub codeowners_approved: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReviewAssignmentResponse {
+    pub id: String,
+    pub pr_id: String,
+    pub user_id: String,
+    pub team: String,
+    pub assigned_by: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AssignReviewersRequest {
+    pub user_ids: Vec<Uuid>,
+    pub team: Option<String>,
+}
+
+pub async fn get_review_summary(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let summary = match state.db.get_review_summary(pr.id).await {
+        Ok(s) => s,
+        Err(e) => return err_response(e),
+    };
+    let resp = ReviewSummaryResponse {
+        pr_id: summary.pr_id.to_string(),
+        approvals: summary.approvals,
+        changes_requested: summary.changes_requested,
+        comments: summary.comments,
+        codeowners_approved: summary.codeowners_approved,
+    };
+    (axum::http::StatusCode::OK, Json(resp)).into_response()
+}
+
+pub async fn resolve_comment_handler(
+    State(state): State<AppState>,
+    Path((owner, name, number, comment_id)): Path<(String, String, i32, String)>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let _pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let cid = match Uuid::parse_str(&comment_id) {
+        Ok(u) => u,
+        Err(_) => return err_response(CoreError::BadRequest("invalid comment_id".into())),
+    };
+    let user_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
+    match state.db.resolve_comment(cid, user_id).await {
+        Ok(_) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"resolved": true})),
+        )
+            .into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+pub async fn unresolve_comment_handler(
+    State(state): State<AppState>,
+    Path((owner, name, number, comment_id)): Path<(String, String, i32, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let _pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let cid = match Uuid::parse_str(&comment_id) {
+        Ok(u) => u,
+        Err(_) => return err_response(CoreError::BadRequest("invalid comment_id".into())),
+    };
+    match state.db.unresolve_comment(cid).await {
+        Ok(_) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"resolved": false})),
+        )
+            .into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+pub async fn list_review_assignments(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let assignments = match state.db.get_review_assignments(pr.id).await {
+        Ok(a) => a,
+        Err(e) => return err_response(e),
+    };
+    let items: Vec<ReviewAssignmentResponse> = assignments
+        .into_iter()
+        .map(|a| ReviewAssignmentResponse {
+            id: a.id.to_string(),
+            pr_id: a.pr_id.to_string(),
+            user_id: a.user_id.to_string(),
+            team: a.team,
+            assigned_by: a.assigned_by.map(|u| u.to_string()),
+            created_at: a.created_at.to_rfc3339(),
+        })
+        .collect();
+    (axum::http::StatusCode::OK, Json(items)).into_response()
+}
+
+pub async fn assign_reviewers(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(req): Json<AssignReviewersRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let actor_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
+    let team = req.team.unwrap_or_default();
+    let mut results = Vec::new();
+    for uid in &req.user_ids {
+        if let Ok(assignment) = state.db.add_review_assignment(pr.id, *uid, &team, actor_id).await {
+            results.push(ReviewAssignmentResponse {
+                id: assignment.id.to_string(),
+                pr_id: assignment.pr_id.to_string(),
+                user_id: assignment.user_id.to_string(),
+                team: assignment.team,
+                assigned_by: assignment.assigned_by.map(|u| u.to_string()),
+                created_at: assignment.created_at.to_rfc3339(),
+            });
+        }
+    }
+    (axum::http::StatusCode::OK, Json(results)).into_response()
+}
+
 // ── Router ──
 
 pub fn pr_routes() -> Router<AppState> {
@@ -2298,6 +2475,26 @@ pub fn pr_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/pulls/{number}/draft",
             patch(toggle_pr_draft),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/review-summary",
+            get(get_review_summary),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/comments/{comment_id}/resolve",
+            patch(resolve_comment_handler),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/comments/{comment_id}/unresolve",
+            patch(unresolve_comment_handler),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/assignments",
+            get(list_review_assignments),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/assign-reviewers",
+            post(assign_reviewers),
         )
 }
 

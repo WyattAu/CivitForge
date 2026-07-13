@@ -2,9 +2,9 @@
 
 use crate::error::{DbError, Result};
 use crate::models::{
-    ActivityEvent, BranchProtectionRule, EmailVerificationCode, Issue, Org, Pipeline, PrComment,
-    PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release, ReleaseAsset, Repository, SshKey,
-    Team, TeamMember, User,
+    ActivityEvent, BoardCardAssignee, BoardCardLabel, BranchProtectionRule, EmailVerificationCode,
+    Issue, Org, Pipeline, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release,
+    ReleaseAsset, Repository, ReviewAssignment, ReviewSummary, SshKey, Team, TeamMember, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -2524,6 +2524,227 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("close_prs_with_source_branch: {e}")))?;
         Ok(rows)
+    }
+
+    // --- Board Card Labels ---
+
+    pub async fn add_card_label(
+        &self,
+        card_id: Uuid,
+        label: &str,
+        color: &str,
+    ) -> Result<BoardCardLabel> {
+        let row = sqlx::query_as::<_, BoardCardLabel>(
+            r#"INSERT INTO board_card_labels (card_id, label, color)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (card_id, label) DO UPDATE SET color = $3
+               RETURNING *"#,
+        )
+        .bind(card_id)
+        .bind(label)
+        .bind(color)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_card_label: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn remove_card_label(&self, card_id: Uuid, label: &str) -> Result<()> {
+        sqlx::query("DELETE FROM board_card_labels WHERE card_id = $1 AND label = $2")
+            .bind(card_id)
+            .bind(label)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("remove_card_label: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn get_card_labels(&self, card_id: Uuid) -> Result<Vec<BoardCardLabel>> {
+        let rows = sqlx::query_as::<_, BoardCardLabel>(
+            "SELECT * FROM board_card_labels WHERE card_id = $1 ORDER BY label",
+        )
+        .bind(card_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_card_labels: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Board Card Assignees ---
+
+    pub async fn add_card_assignee(
+        &self,
+        card_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<BoardCardAssignee> {
+        let row = sqlx::query_as::<_, BoardCardAssignee>(
+            r#"INSERT INTO board_card_assignees (card_id, user_id)
+               VALUES ($1, $2)
+               ON CONFLICT DO NOTHING
+               RETURNING *"#,
+        )
+        .bind(card_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_card_assignee: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn remove_card_assignee(&self, card_id: Uuid, user_id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM board_card_assignees WHERE card_id = $1 AND user_id = $2")
+            .bind(card_id)
+            .bind(user_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("remove_card_assignee: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn get_card_assignees(&self, card_id: Uuid) -> Result<Vec<BoardCardAssignee>> {
+        let rows = sqlx::query_as::<_, BoardCardAssignee>(
+            "SELECT * FROM board_card_assignees WHERE card_id = $1 ORDER BY user_id",
+        )
+        .bind(card_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_card_assignees: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Board Card Priority / Due Date / Sort Order ---
+
+    pub async fn update_card_priority(&self, card_id: Uuid, priority: i32) -> Result<()> {
+        sqlx::query("UPDATE board_cards SET priority = $1, updated_at = NOW() WHERE id = $2")
+            .bind(priority)
+            .bind(card_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("update_card_priority: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn update_card_due_date(
+        &self,
+        card_id: Uuid,
+        due_date: Option<chrono::DateTime<Utc>>,
+    ) -> Result<()> {
+        sqlx::query("UPDATE board_cards SET due_date = $1, updated_at = NOW() WHERE id = $2")
+            .bind(due_date)
+            .bind(card_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("update_card_due_date: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn update_card_sort_order(&self, card_id: Uuid, sort_order: i32) -> Result<()> {
+        sqlx::query("UPDATE board_cards SET sort_order = $1, updated_at = NOW() WHERE id = $2")
+            .bind(sort_order)
+            .bind(card_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("update_card_sort_order: {e}")))?;
+        Ok(())
+    }
+
+    // --- PR: Resolve/Unresolve Comments ---
+
+    pub async fn resolve_comment(
+        &self,
+        comment_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE pr_comments SET resolved = true, resolved_by = $2, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(comment_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("resolve_comment: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn unresolve_comment(&self, comment_id: Uuid) -> Result<()> {
+        sqlx::query(
+            "UPDATE pr_comments SET resolved = false, resolved_by = NULL, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(comment_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("unresolve_comment: {e}")))?;
+        Ok(())
+    }
+
+    // --- PR: Review Summary ---
+
+    pub async fn get_review_summary(&self, pr_id: Uuid) -> Result<ReviewSummary> {
+        let row = sqlx::query_as::<_, (i64, i64, i64)>(
+            r#"SELECT
+                COUNT(*) FILTER (WHERE review_status = 'approved') AS approvals,
+                COUNT(*) FILTER (WHERE review_status = 'changes_requested') AS changes_requested,
+                COUNT(*) FILTER (WHERE review_status = 'commented') AS comments
+               FROM pr_reviewers WHERE pr_id = $1"#,
+        )
+        .bind(pr_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_review_summary counts: {e}")))?;
+
+        let codeowners_approved: (bool,) = sqlx::query_as(
+            r#"SELECT COALESCE(
+                (SELECT bool_and(approved) FROM codeowners_reviews WHERE pr_id = $1),
+                true
+            )"#,
+        )
+        .bind(pr_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_review_summary codeowners: {e}")))?;
+
+        Ok(ReviewSummary {
+            pr_id,
+            approvals: row.0,
+            changes_requested: row.1,
+            comments: row.2,
+            codeowners_approved: codeowners_approved.0,
+        })
+    }
+
+    // --- PR: Review Assignments ---
+
+    pub async fn get_review_assignments(&self, pr_id: Uuid) -> Result<Vec<ReviewAssignment>> {
+        sqlx::query_as::<_, ReviewAssignment>(
+            "SELECT * FROM pr_review_assignments WHERE pr_id = $1 ORDER BY created_at",
+        )
+        .bind(pr_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_review_assignments: {e}")))
+    }
+
+    pub async fn add_review_assignment(
+        &self,
+        pr_id: Uuid,
+        user_id: Uuid,
+        team: &str,
+        assigned_by: Uuid,
+    ) -> Result<ReviewAssignment> {
+        let row = sqlx::query_as::<_, ReviewAssignment>(
+            r#"INSERT INTO pr_review_assignments (pr_id, user_id, team, assigned_by)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (pr_id, user_id) DO UPDATE SET team = $3, assigned_by = $4
+               RETURNING *"#,
+        )
+        .bind(pr_id)
+        .bind(user_id)
+        .bind(team)
+        .bind(assigned_by)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_review_assignment: {e}")))?;
+        Ok(row)
     }
 
     // --- PR: Re-request review ---

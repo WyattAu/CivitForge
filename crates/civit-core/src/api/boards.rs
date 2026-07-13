@@ -7,7 +7,7 @@ use axum::Router;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
-use axum::routing::{get, patch, post};
+use axum::routing::{delete, get, patch, post};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -82,6 +82,42 @@ pub struct CreateCardRequest {
 pub struct MoveCardRequest {
     pub column_id: Option<uuid::Uuid>,
     pub position: Option<i32>,
+    pub sort_order: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddCardLabelRequest {
+    pub label: String,
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddCardAssigneeRequest {
+    pub user_id: uuid::Uuid,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct CardLabelResponse {
+    pub id: uuid::Uuid,
+    pub card_id: uuid::Uuid,
+    pub label: String,
+    pub color: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct CardAssigneeResponse {
+    pub id: uuid::Uuid,
+    pub card_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateCardRequest {
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub priority: Option<i32>,
+    pub due_date: Option<DateTime<Utc>>,
+    pub sort_order: Option<i32>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -112,8 +148,18 @@ pub struct CardResponse {
     pub title: String,
     pub description: Option<String>,
     pub position: i32,
+    pub priority: i32,
+    pub due_date: Option<DateTime<Utc>>,
+    pub sort_order: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CardDetailResponse {
+    pub card: CardResponse,
+    pub labels: Vec<CardLabelResponse>,
+    pub assignees: Vec<CardAssigneeResponse>,
 }
 
 #[derive(Debug, Serialize)]
@@ -125,7 +171,7 @@ pub struct BoardDetailResponse {
 #[derive(Debug, Serialize)]
 pub struct ColumnWithCards {
     pub column: ColumnResponse,
-    pub cards: Vec<CardResponse>,
+    pub cards: Vec<CardDetailResponse>,
 }
 
 // ---------------------------------------------------------------------------
@@ -265,13 +311,34 @@ pub async fn get_board(
 
     let mut columns_with_cards = Vec::with_capacity(columns.len());
     for col in columns {
-        let cards = sqlx::query_as::<_, CardResponse>(
-            "SELECT id, column_id, issue_id, title, description, position, created_at, updated_at FROM board_cards WHERE column_id = $1 ORDER BY position",
+        let raw_cards = sqlx::query_as::<_, CardResponse>(
+            "SELECT id, column_id, issue_id, title, description, position, priority, due_date, sort_order, created_at, updated_at FROM board_cards WHERE column_id = $1 ORDER BY sort_order, position",
         )
         .bind(col.id)
         .fetch_all(pool)
         .await
         .unwrap_or_default();
+
+        let mut cards = Vec::with_capacity(raw_cards.len());
+        for card in raw_cards {
+            let labels = sqlx::query_as::<_, CardLabelResponse>(
+                "SELECT id, card_id, label, color FROM board_card_labels WHERE card_id = $1 ORDER BY label",
+            )
+            .bind(card.id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
+
+            let assignees = sqlx::query_as::<_, CardAssigneeResponse>(
+                "SELECT id, card_id, user_id FROM board_card_assignees WHERE card_id = $1 ORDER BY user_id",
+            )
+            .bind(card.id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
+
+            cards.push(CardDetailResponse { card, labels, assignees });
+        }
 
         columns_with_cards.push(ColumnWithCards { column: col, cards });
     }
@@ -529,7 +596,7 @@ pub async fn add_card(
     };
 
     match sqlx::query_as::<_, CardResponse>(
-        "INSERT INTO board_cards (column_id, issue_id, title, description, position, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id, column_id, issue_id, title, description, position, created_at, updated_at",
+        "INSERT INTO board_cards (column_id, issue_id, title, description, position, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id, column_id, issue_id, title, description, position, priority, due_date, sort_order, created_at, updated_at",
     )
     .bind(req.column_id)
     .bind(req.issue_id)
@@ -579,7 +646,7 @@ pub async fn move_card(
     }
 
     let existing = match sqlx::query_as::<_, CardResponse>(
-        "SELECT id, column_id, issue_id, title, description, position, created_at, updated_at FROM board_cards WHERE id = $1",
+        "SELECT id, column_id, issue_id, title, description, position, priority, due_date, sort_order, created_at, updated_at FROM board_cards WHERE id = $1",
     )
     .bind(card_id)
     .fetch_optional(pool)
@@ -594,12 +661,14 @@ pub async fn move_card(
 
     let column_id = req.column_id.unwrap_or(existing.column_id);
     let position = req.position.unwrap_or(existing.position);
+    let sort_order = req.sort_order.unwrap_or(existing.sort_order);
 
     match sqlx::query_as::<_, CardResponse>(
-        "UPDATE board_cards SET column_id = $1, position = $2, updated_at = NOW() WHERE id = $3 RETURNING id, column_id, issue_id, title, description, position, created_at, updated_at",
+        "UPDATE board_cards SET column_id = $1, position = $2, sort_order = $3, updated_at = NOW() WHERE id = $4 RETURNING id, column_id, issue_id, title, description, position, priority, due_date, sort_order, created_at, updated_at",
     )
     .bind(column_id)
     .bind(position)
+    .bind(sort_order)
     .bind(card_id)
     .fetch_one(pool)
     .await
@@ -657,6 +726,416 @@ pub async fn delete_card(
 }
 
 // ---------------------------------------------------------------------------
+// 10. POST /repos/{owner}/{name}/boards/{id}/cards/{card_id}/labels — add label
+// ---------------------------------------------------------------------------
+
+pub async fn add_card_label(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id)): Path<(String, String, uuid::Uuid, uuid::Uuid)>,
+    _auth: AuthUser,
+    Json(req): Json<AddCardLabelRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let card_exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM board_cards WHERE id = $1")
+            .bind(card_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if card_exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "card not found");
+    }
+
+    let color = req.color.unwrap_or_else(|| "#3b82f6".to_string());
+
+    match sqlx::query_as::<_, CardLabelResponse>(
+        r#"INSERT INTO board_card_labels (card_id, label, color)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (card_id, label) DO UPDATE SET color = $3
+           RETURNING id, card_id, label, color"#,
+    )
+    .bind(card_id)
+    .bind(&req.label)
+    .bind(&color)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(label) => (StatusCode::CREATED, Json(label)).into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 11. DELETE /repos/{owner}/{name}/boards/{id}/cards/{card_id}/labels/{label} — remove label
+// ---------------------------------------------------------------------------
+
+pub async fn remove_card_label(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id, label)): Path<(
+        String,
+        String,
+        uuid::Uuid,
+        uuid::Uuid,
+        String,
+    )>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let result = sqlx::query("DELETE FROM board_card_labels WHERE card_id = $1 AND label = $2")
+        .bind(card_id)
+        .bind(&label)
+        .execute(pool)
+        .await;
+
+    match result {
+        Ok(rows) if rows.rows_affected() == 0 => {
+            err_response(StatusCode::NOT_FOUND, "label not found")
+        }
+        Ok(_) => (StatusCode::NO_CONTENT, ()).into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 12. POST /repos/{owner}/{name}/boards/{id}/cards/{card_id}/assignees — add assignee
+// ---------------------------------------------------------------------------
+
+pub async fn add_card_assignee(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id)): Path<(String, String, uuid::Uuid, uuid::Uuid)>,
+    _auth: AuthUser,
+    Json(req): Json<AddCardAssigneeRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let card_exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM board_cards WHERE id = $1")
+            .bind(card_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if card_exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "card not found");
+    }
+
+    match sqlx::query_as::<_, CardAssigneeResponse>(
+        r#"INSERT INTO board_card_assignees (card_id, user_id)
+           VALUES ($1, $2)
+           ON CONFLICT DO NOTHING
+           RETURNING id, card_id, user_id"#,
+    )
+    .bind(card_id)
+    .bind(req.user_id)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(assignee) => (StatusCode::CREATED, Json(assignee)).into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 13. DELETE /repos/{owner}/{name}/boards/{id}/cards/{card_id}/assignees/{user_id} — remove assignee
+// ---------------------------------------------------------------------------
+
+pub async fn remove_card_assignee(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id, user_id)): Path<(
+        String,
+        String,
+        uuid::Uuid,
+        uuid::Uuid,
+        uuid::Uuid,
+    )>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let result =
+        sqlx::query("DELETE FROM board_card_assignees WHERE card_id = $1 AND user_id = $2")
+            .bind(card_id)
+            .bind(user_id)
+            .execute(pool)
+            .await;
+
+    match result {
+        Ok(rows) if rows.rows_affected() == 0 => {
+            err_response(StatusCode::NOT_FOUND, "assignee not found")
+        }
+        Ok(_) => (StatusCode::NO_CONTENT, ()).into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 14. PATCH /repos/{owner}/{name}/boards/{id}/cards/{card_id}/priority — update priority
+// ---------------------------------------------------------------------------
+
+pub async fn update_card_priority(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id)): Path<(String, String, uuid::Uuid, uuid::Uuid)>,
+    _auth: AuthUser,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let priority = match body.get("priority").and_then(|v| v.as_i64()) {
+        Some(p) => p as i32,
+        None => return err_response(StatusCode::BAD_REQUEST, "priority is required"),
+    };
+
+    match sqlx::query(
+        "UPDATE board_cards SET priority = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(priority)
+    .bind(card_id)
+    .execute(pool)
+    .await
+    {
+        Ok(rows) if rows.rows_affected() == 0 => {
+            err_response(StatusCode::NOT_FOUND, "card not found")
+        }
+        Ok(_) => (StatusCode::OK, Json(serde_json::json!({"priority": priority}))).into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 15. PATCH /repos/{owner}/{name}/boards/{id}/cards/{card_id}/due_date — update due date
+// ---------------------------------------------------------------------------
+
+pub async fn update_card_due_date(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id)): Path<(String, String, uuid::Uuid, uuid::Uuid)>,
+    _auth: AuthUser,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let due_date: Option<DateTime<Utc>> = body
+        .get("due_date")
+        .and_then(|v| v.as_str())
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.with_timezone(&Utc));
+
+    match sqlx::query(
+        "UPDATE board_cards SET due_date = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(due_date)
+    .bind(card_id)
+    .execute(pool)
+    .await
+    {
+        Ok(rows) if rows.rows_affected() == 0 => {
+            err_response(StatusCode::NOT_FOUND, "card not found")
+        }
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"due_date": due_date})),
+        )
+            .into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 16. PATCH /repos/{owner}/{name}/boards/{id}/cards/{card_id}/sort_order — update sort order
+// ---------------------------------------------------------------------------
+
+pub async fn update_card_sort_order(
+    State(state): State<AppState>,
+    Path((owner, name, board_id, card_id)): Path<(String, String, uuid::Uuid, uuid::Uuid)>,
+    _auth: AuthUser,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Some(id) => id,
+        None => {
+            return err_response(
+                StatusCode::NOT_FOUND,
+                &format!("repository {owner}/{name} not found"),
+            );
+        }
+    };
+
+    let exists: Option<(uuid::Uuid,)> =
+        sqlx::query_as("SELECT id FROM boards WHERE id = $1 AND repo_id = $2")
+            .bind(board_id)
+            .bind(repo_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
+
+    if exists.is_none() {
+        return err_response(StatusCode::NOT_FOUND, "board not found");
+    }
+
+    let sort_order = match body.get("sort_order").and_then(|v| v.as_i64()) {
+        Some(p) => p as i32,
+        None => return err_response(StatusCode::BAD_REQUEST, "sort_order is required"),
+    };
+
+    match sqlx::query(
+        "UPDATE board_cards SET sort_order = $1, updated_at = NOW() WHERE id = $2",
+    )
+    .bind(sort_order)
+    .bind(card_id)
+    .execute(pool)
+    .await
+    {
+        Ok(rows) if rows.rows_affected() == 0 => {
+            err_response(StatusCode::NOT_FOUND, "card not found")
+        }
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"sort_order": sort_order})),
+        )
+            .into_response(),
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Route registration
 // ---------------------------------------------------------------------------
 
@@ -682,6 +1161,34 @@ pub fn board_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}",
             patch(move_card).delete(delete_card),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/labels",
+            post(add_card_label),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/labels/{label}",
+            delete(remove_card_label),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/assignees",
+            post(add_card_assignee),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/assignees/{user_id}",
+            delete(remove_card_assignee),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/priority",
+            patch(update_card_priority),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/due_date",
+            patch(update_card_due_date),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/boards/{id}/cards/{card_id}/sort_order",
+            patch(update_card_sort_order),
         )
 }
 
@@ -786,6 +1293,9 @@ mod tests {
             title: "My Card".into(),
             description: None,
             position: 0,
+            priority: 0,
+            due_date: None,
+            sort_order: 0,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };

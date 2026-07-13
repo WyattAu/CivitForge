@@ -61,10 +61,12 @@ pub const M_060_OAUTH2_UP: &str = include_str!("060_add_oauth2.sql");
 pub const M_061_ISSUE_TEMPLATES_UP: &str = include_str!("061_add_issue_templates.sql");
 pub const M_062_PR_TEMPLATES_UP: &str = include_str!("062_add_pr_templates.sql");
 pub const M_063_DISCUSSIONS_UP: &str = include_str!("063_add_discussions.sql");
+pub const M_066_BOARDS_V2_UP: &str = include_str!("066_add_boards_v2.sql");
 pub const M_051_ENVIRONMENTS_DEPLOYMENTS_UP: &str =
     include_str!("051_add_environments_deployments.sql");
 pub const M_054_MERGE_QUEUE_UP: &str = include_str!("054_add_merge_queue.sql");
 pub const M_057_CODEOWNERS_REVIEWS_UP: &str = include_str!("057_add_codeowners_reviews.sql");
+pub const M_067_REVIEW_THREADS_UP: &str = include_str!("067_add_review_threads.sql");
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -353,12 +355,6 @@ impl MigrationManager {
             down_sql: "DROP TABLE IF EXISTS oauth_codes; DROP TABLE IF EXISTS oauth_clients;".into(),
         });
         self.add_migration(Migration {
-            version: 61,
-            name: "add_issue_templates".into(),
-            up_sql: M_061_ISSUE_TEMPLATES_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS issue_templates;".into(),
-        });
-        self.add_migration(Migration {
             version: 62,
             name: "add_pr_templates".into(),
             up_sql: M_062_PR_TEMPLATES_UP.into(),
@@ -369,6 +365,18 @@ impl MigrationManager {
             name: "add_discussions".into(),
             up_sql: M_063_DISCUSSIONS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS discussion_comments; DROP TABLE IF EXISTS discussions;".into(),
+        });
+        self.add_migration(Migration {
+            version: 66,
+            name: "add_boards_v2".into(),
+            up_sql: M_066_BOARDS_V2_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS board_card_assignees; DROP TABLE IF EXISTS board_card_labels; ALTER TABLE board_cards DROP COLUMN IF EXISTS priority; ALTER TABLE board_cards DROP COLUMN IF EXISTS due_date; ALTER TABLE board_cards DROP COLUMN IF EXISTS sort_order;".into(),
+        });
+        self.add_migration(Migration {
+            version: 67,
+            name: "add_review_threads".into(),
+            up_sql: M_067_REVIEW_THREADS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS pr_review_assignments; ALTER TABLE pr_comments DROP COLUMN IF EXISTS resolved; ALTER TABLE pr_comments DROP COLUMN IF EXISTS resolved_by;".into(),
         });
     }
 
@@ -411,7 +419,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 44);
+        assert_eq!(mgr.all().len(), 46);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -494,25 +502,29 @@ mod tests {
         assert_eq!(mgr.all()[39].name, "add_codeowners_reviews");
         assert_eq!(mgr.all()[40].version, 58);
         assert_eq!(mgr.all()[40].name, "webauthn");
-        assert_eq!(mgr.all()[41].version, 61);
-        assert_eq!(mgr.all()[41].name, "add_issue_templates");
+        assert_eq!(mgr.all()[41].version, 60);
+        assert_eq!(mgr.all()[41].name, "add_oauth2");
         assert_eq!(mgr.all()[42].version, 62);
         assert_eq!(mgr.all()[42].name, "add_pr_templates");
         assert_eq!(mgr.all()[43].version, 63);
         assert_eq!(mgr.all()[43].name, "add_discussions");
+        assert_eq!(mgr.all()[44].version, 66);
+        assert_eq!(mgr.all()[44].name, "add_boards_v2");
+        assert_eq!(mgr.all()[45].version, 67);
+        assert_eq!(mgr.all()[45].name, "add_review_threads");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 62,
+            version: 68,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 44);
-        assert_eq!(mgr.all()[42].version, 62);
+        assert_eq!(mgr.all().len(), 47);
+        assert_eq!(mgr.all()[46].version, 68);
     }
 
     #[test]
@@ -531,21 +543,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 44);
+        assert_eq!(pending.len(), 46);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(61);
-        assert_eq!(pending.len(), 2);
+        let pending = mgr.get_pending(67);
+        assert_eq!(pending.len(), 0);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 41);
+        assert_eq!(pending.len(), 45);
     }
 
     #[test]
