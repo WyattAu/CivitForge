@@ -36,6 +36,11 @@ pub fn validate_pipeline(pipeline: &Pipeline) -> Result<()> {
         }
     }
 
+    // Validate v2-specific features
+    if pipeline.version == "2" {
+        validate_v2_features(pipeline)?;
+    }
+
     Ok(())
 }
 
@@ -144,5 +149,57 @@ fn dfs(
     }
 
     in_stack.remove(current);
+    Ok(())
+}
+
+/// Validate v2-specific features.
+fn validate_v2_features(pipeline: &Pipeline) -> Result<()> {
+    let all_names: std::collections::HashSet<String> =
+        pipeline.jobs.iter().map(|j| j.name.clone()).collect();
+
+    // Validate include paths
+    if let Some(includes) = &pipeline.include {
+        for inc in includes {
+            if inc.source.is_empty() {
+                return Err(PipelineError::Validation(
+                    "include source path cannot be empty".into(),
+                ));
+            }
+        }
+    }
+
+    // Validate artifact dependencies
+    for job in &pipeline.jobs {
+        if let Some(artifacts_from) = &job.artifacts_from {
+            for dep in artifacts_from {
+                if !all_names.contains(dep) {
+                    return Err(PipelineError::Validation(format!(
+                        "job '{}' references artifact from unknown job '{}'",
+                        job.name, dep
+                    )));
+                }
+            }
+        }
+
+        // Validate before/after hooks
+        if let Some(before) = &job.before {
+            if before.is_empty() {
+                return Err(PipelineError::Validation(format!(
+                    "job '{}' has empty before hooks",
+                    job.name
+                )));
+            }
+        }
+
+        if let Some(after) = &job.after {
+            if after.is_empty() {
+                return Err(PipelineError::Validation(format!(
+                    "job '{}' has empty after hooks",
+                    job.name
+                )));
+            }
+        }
+    }
+
     Ok(())
 }

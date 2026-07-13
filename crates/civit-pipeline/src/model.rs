@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 /// Parsed `.civit/pipeline.yaml` document.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pipeline {
-    /// Schema version. Must be "1".
+    /// Schema version. Must be "1" or "2".
     pub version: String,
     /// Trigger configuration.
     pub on: Option<TriggerConfig>,
@@ -24,6 +24,12 @@ pub struct Pipeline {
     pub variables: Option<Vec<VariableDef>>,
     /// Secrets needed (resolved from pipeline_variables DB).
     pub secrets: Option<Vec<String>>,
+    /// Include other YAML files (v2 only).
+    #[serde(default)]
+    pub include: Option<Vec<Include>>,
+    /// Deployment environment target (v2 only).
+    #[serde(default)]
+    pub environment: Option<String>,
     /// Pipeline jobs.
     pub jobs: Vec<Job>,
 }
@@ -85,6 +91,21 @@ pub enum DispatchInputType {
     Boolean,
     Number,
     Selection,
+}
+
+// ---------------------------------------------------------------------------
+// Include (v2)
+// ---------------------------------------------------------------------------
+
+/// Include statement for composing pipelines from multiple files.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Include {
+    /// Path to the YAML file to include (relative to repo root).
+    pub source: String,
+    /// Optional ref (branch/tag) to read from.
+    pub ref_name: Option<String>,
+    /// Optional context variables to pass to the included file.
+    pub context: Option<std::collections::HashMap<String, serde_yaml::Value>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +191,18 @@ pub struct Job {
     pub secrets: Option<Vec<String>>,
     /// Service containers (sidecars).
     pub services: Option<Vec<Service>>,
+    /// Steps to run before the main steps (v2 only).
+    #[serde(default)]
+    pub before: Option<Vec<Step>>,
+    /// Steps to run after the main steps (v2 only).
+    #[serde(default)]
+    pub after: Option<Vec<Step>>,
+    /// Environment target for this job (v2 only).
+    #[serde(default)]
+    pub environment: Option<String>,
+    /// Artifact dependencies from other jobs (v2 only).
+    #[serde(default)]
+    pub artifacts_from: Option<Vec<String>>,
     /// Job steps.
     pub steps: Vec<Step>,
 }
@@ -313,6 +346,12 @@ pub struct ArtifactConfig {
     pub retention: Option<String>,
     #[serde(rename = "if_no_files_found")]
     pub if_no_files_found: Option<String>,
+    /// Download artifacts from another job (v2 only).
+    #[serde(default)]
+    pub download_from: Option<String>,
+    /// Artifact dependencies - names of artifacts to download before this step.
+    #[serde(default)]
+    pub dependencies: Option<Vec<String>>,
 }
 
 /// Retry configuration.

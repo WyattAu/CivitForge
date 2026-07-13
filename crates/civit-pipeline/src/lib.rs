@@ -16,6 +16,6 @@ pub use error::PipelineError;
 pub use expand::expand_matrix;
 pub use expr::PipelineExpression;
 pub use model::*;
-pub use parser::parse_pipeline;
+pub use parser::{parse_included_pipeline, parse_pipeline, resolve_includes};
 pub use trigger::{TriggerContext, compute_next_cron_run, matches_trigger, validate_cron};
 pub use validate::validate_pipeline;

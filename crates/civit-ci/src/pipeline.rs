@@ -202,6 +202,430 @@ pub struct RunJobGraphRow {
 }
 
 // ---------------------------------------------------------------------------
+// Pipeline Artifacts
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtifactResponse {
+    pub id: String,
+    pub pipeline_run_id: String,
+    pub job_id: String,
+    pub name: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub content_type: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ArtifactRow {
+    pub id: Uuid,
+    pub pipeline_run_id: Uuid,
+    pub job_id: Uuid,
+    pub name: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub content_type: String,
+    pub storage_key: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ArtifactRow> for ArtifactResponse {
+    fn from(r: ArtifactRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            pipeline_run_id: r.pipeline_run_id.to_string(),
+            job_id: r.job_id.to_string(),
+            name: r.name,
+            path: r.path,
+            size_bytes: r.size_bytes,
+            content_type: r.content_type,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline Environments
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvironmentResponse {
+    pub id: String,
+    pub repo_id: String,
+    pub name: String,
+    pub url: Option<String>,
+    pub protected: bool,
+    pub auto_deploy: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct EnvironmentRow {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub url: Option<String>,
+    pub protected: bool,
+    pub auto_deploy: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<EnvironmentRow> for EnvironmentResponse {
+    fn from(r: EnvironmentRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            repo_id: r.repo_id.to_string(),
+            name: r.name,
+            url: r.url,
+            protected: r.protected,
+            auto_deploy: r.auto_deploy,
+            created_at: r.created_at.to_rfc3339(),
+            updated_at: r.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProtectionResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub required_approvals: i32,
+    pub wait_timer: i32,
+    pub allow_admin_override: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ProtectionRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub required_approvals: i32,
+    pub wait_timer: i32,
+    pub allow_admin_override: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ProtectionRow> for ProtectionResponse {
+    fn from(r: ProtectionRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            required_approvals: r.required_approvals,
+            wait_timer: r.wait_timer,
+            allow_admin_override: r.allow_admin_override,
+            created_at: r.created_at.to_rfc3339(),
+            updated_at: r.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvironmentDeploymentResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub pipeline_run_id: Option<String>,
+    pub sha: String,
+    pub status: String,
+    pub creator_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct EnvironmentDeploymentRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub pipeline_run_id: Option<Uuid>,
+    pub sha: String,
+    pub status: String,
+    pub creator_id: Option<Uuid>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<EnvironmentDeploymentRow> for EnvironmentDeploymentResponse {
+    fn from(r: EnvironmentDeploymentRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            pipeline_run_id: r.pipeline_run_id.map(|id| id.to_string()),
+            sha: r.sha,
+            status: r.status,
+            creator_id: r.creator_id.map(|id| id.to_string()),
+            created_at: r.created_at.to_rfc3339(),
+            updated_at: r.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Artifact DB operations
+// ---------------------------------------------------------------------------
+
+/// Create a new artifact record.
+pub async fn create_artifact(
+    pool: &sqlx::PgPool,
+    pipeline_run_id: Uuid,
+    job_id: Uuid,
+    name: &str,
+    path: &str,
+    size_bytes: i64,
+    content_type: &str,
+    storage_key: &str,
+) -> std::result::Result<ArtifactResponse, sqlx::Error> {
+    sqlx::query_as::<_, ArtifactRow>(
+        "INSERT INTO pipeline_artifacts (pipeline_run_id, job_id, name, path, size_bytes, content_type, storage_key) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7) \
+         RETURNING *",
+    )
+    .bind(pipeline_run_id)
+    .bind(job_id)
+    .bind(name)
+    .bind(path)
+    .bind(size_bytes)
+    .bind(content_type)
+    .bind(storage_key)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List artifacts for a pipeline run.
+pub async fn list_artifacts(
+    pool: &sqlx::PgPool,
+    pipeline_run_id: Uuid,
+) -> std::result::Result<Vec<ArtifactResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ArtifactRow>(
+        "SELECT * FROM pipeline_artifacts WHERE pipeline_run_id = $1 ORDER BY created_at",
+    )
+    .bind(pipeline_run_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get artifact by ID.
+pub async fn get_artifact(
+    pool: &sqlx::PgPool,
+    artifact_id: Uuid,
+) -> std::result::Result<Option<ArtifactRow>, sqlx::Error> {
+    sqlx::query_as::<_, ArtifactRow>("SELECT * FROM pipeline_artifacts WHERE id = $1")
+        .bind(artifact_id)
+        .fetch_optional(pool)
+        .await
+}
+
+/// Delete artifact by ID.
+pub async fn delete_artifact(
+    pool: &sqlx::PgPool,
+    artifact_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM pipeline_artifacts WHERE id = $1")
+        .bind(artifact_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+// ---------------------------------------------------------------------------
+// Environment DB operations
+// ---------------------------------------------------------------------------
+
+/// Create a new environment.
+pub async fn create_environment(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    name: &str,
+    url: Option<&str>,
+    protected: bool,
+    auto_deploy: bool,
+) -> std::result::Result<EnvironmentResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>(
+        "INSERT INTO pipeline_environments (repo_id, name, url, protected, auto_deploy) \
+         VALUES ($1, $2, $3, $4, $5) \
+         RETURNING *",
+    )
+    .bind(repo_id)
+    .bind(name)
+    .bind(url)
+    .bind(protected)
+    .bind(auto_deploy)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List environments for a repo.
+pub async fn list_environments(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<Vec<EnvironmentResponse>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>(
+        "SELECT * FROM pipeline_environments WHERE repo_id = $1 ORDER BY name",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get environment by ID.
+pub async fn get_environment(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<Option<EnvironmentRow>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>("SELECT * FROM pipeline_environments WHERE id = $1")
+        .bind(environment_id)
+        .fetch_optional(pool)
+        .await
+}
+
+/// Update environment.
+pub async fn update_environment(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    name: Option<&str>,
+    url: Option<&str>,
+    protected: Option<bool>,
+    auto_deploy: Option<bool>,
+) -> std::result::Result<EnvironmentResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>(
+        "UPDATE pipeline_environments \
+         SET name = COALESCE($2, name), \
+             url = COALESCE($3, url), \
+             protected = COALESCE($4, protected), \
+             auto_deploy = COALESCE($5, auto_deploy), \
+             updated_at = NOW() \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(name)
+    .bind(url)
+    .bind(protected)
+    .bind(auto_deploy)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Delete environment by ID.
+pub async fn delete_environment(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM pipeline_environments WHERE id = $1")
+        .bind(environment_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Get protection rules for an environment.
+pub async fn get_protections(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<Option<ProtectionResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ProtectionRow>(
+        "SELECT * FROM deployment_protections WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// Upsert protection rules for an environment.
+pub async fn upsert_protections(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    required_approvals: i32,
+    wait_timer: i32,
+    allow_admin_override: bool,
+) -> std::result::Result<ProtectionResponse, sqlx::Error> {
+    sqlx::query_as::<_, ProtectionRow>(
+        "INSERT INTO deployment_protections (environment_id, required_approvals, wait_timer, allow_admin_override) \
+         VALUES ($1, $2, $3, $4) \
+         ON CONFLICT (environment_id) DO UPDATE \
+         SET required_approvals = EXCLUDED.required_approvals, \
+             wait_timer = EXCLUDED.wait_timer, \
+             allow_admin_override = EXCLUDED.allow_admin_override, \
+             updated_at = NOW() \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(required_approvals)
+    .bind(wait_timer)
+    .bind(allow_admin_override)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Create a deployment in an environment.
+pub async fn create_environment_deployment(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    pipeline_run_id: Option<Uuid>,
+    sha: &str,
+    creator_id: Option<Uuid>,
+) -> std::result::Result<EnvironmentDeploymentResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentDeploymentRow>(
+        "INSERT INTO environment_deployments (environment_id, pipeline_run_id, sha, creator_id) \
+         VALUES ($1, $2, $3, $4) \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(pipeline_run_id)
+    .bind(sha)
+    .bind(creator_id)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List deployments for an environment.
+pub async fn list_environment_deployments(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<EnvironmentDeploymentResponse>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentDeploymentRow>(
+        "SELECT * FROM environment_deployments WHERE environment_id = $1 \
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(environment_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Update deployment status.
+pub async fn update_deployment_status(
+    pool: &sqlx::PgPool,
+    deployment_id: Uuid,
+    status: &str,
+) -> std::result::Result<EnvironmentDeploymentResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentDeploymentRow>(
+        "UPDATE environment_deployments SET status = $2, updated_at = NOW() \
+         WHERE id = $1 RETURNING *",
+    )
+    .bind(deployment_id)
+    .bind(status)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline creation logic
 // ---------------------------------------------------------------------------
 

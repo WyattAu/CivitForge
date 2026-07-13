@@ -13,7 +13,9 @@ use axum::routing::get;
 use axum::{Json, Router};
 use civit_ci::pipeline::{self, PipelineListParams, PipelineRunResponse, TriggerPipelineRequest};
 use civit_pipeline::trigger::TriggerContext;
-use civit_pipeline::{expand_matrix, matches_trigger, parse_pipeline, validate_pipeline};
+use civit_pipeline::{
+    expand_matrix, matches_trigger, parse_pipeline, resolve_includes, validate_pipeline,
+};
 use uuid::Uuid;
 
 pub fn pipeline_routes() -> Router<AppState> {
@@ -220,7 +222,7 @@ pub async fn trigger_pipeline(
         }
     };
 
-    let pl = match parse_pipeline(&yaml_content) {
+    let mut pl = match parse_pipeline(&yaml_content) {
         Ok(p) => p,
         Err(e) => {
             return (
@@ -230,6 +232,49 @@ pub async fn trigger_pipeline(
                 .into_response();
         }
     };
+
+    // Resolve includes for v2 pipelines
+    if pl.version == "2" {
+        if let Some(includes) = &pl.include {
+            let mut included_files = Vec::new();
+            for inc in includes {
+                let ref_name = inc.ref_name.as_deref().unwrap_or(&req.ref_name);
+                match read_pipeline_yaml(&state, &repo_id, &owner, &repo_name, ref_name, &inc.source).await {
+                    Ok(Some(content)) => {
+                        included_files.push((inc.clone(), content));
+                    }
+                    Ok(None) => {
+                        return (
+                            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                            Json(
+                                CoreError::NotFound(format!(
+                                    "included file '{}' not found",
+                                    inc.source
+                                ))
+                                .error_response(),
+                            ),
+                        )
+                            .into_response();
+                    }
+                    Err(e) => {
+                        return (
+                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(CoreError::Database(e.to_string()).error_response()),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+
+            if let Err(e) = resolve_includes(&mut pl, &included_files) {
+                return (
+                    axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                    Json(CoreError::NotFound(e.to_string()).error_response()),
+                )
+                    .into_response();
+            }
+        }
+    }
 
     if let Err(e) = validate_pipeline(&pl) {
         return (
@@ -448,10 +493,36 @@ pub async fn trigger_pipelines_on_push(state: &AppState, owner: &str, repo_name:
             _ => return,
         };
 
-    let pl = match parse_pipeline(&yaml_content).and_then(|p| validate_pipeline(&p).map(|_| p)) {
+    let mut pl = match parse_pipeline(&yaml_content) {
         Ok(p) => p,
         _ => return,
     };
+
+    // Resolve includes for v2 pipelines
+    if pl.version == "2" {
+        if let Some(includes) = &pl.include {
+            let mut included_files = Vec::new();
+            for inc in includes {
+                let ref_name = inc.ref_name.as_deref().unwrap_or(&ref_name);
+                match read_pipeline_yaml(state, &repo_id, owner, repo_name, ref_name, &inc.source)
+                    .await
+                {
+                    Ok(Some(content)) => {
+                        included_files.push((inc.clone(), content));
+                    }
+                    _ => continue,
+                }
+            }
+
+            if let Err(_) = resolve_includes(&mut pl, &included_files) {
+                return;
+            }
+        }
+    }
+
+    if let Err(_) = validate_pipeline(&pl) {
+        return;
+    }
 
     let pl = match expand_matrix(&pl) {
         Ok(p) => p,

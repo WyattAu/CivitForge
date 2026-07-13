@@ -174,6 +174,10 @@ fn apply_combination(template: &Job, combo: &Combination) -> Result<Job> {
         env: if env.is_empty() { None } else { Some(env) },
         secrets: template.secrets.clone(),
         services: template.services.clone(),
+        before: template.before.clone(),
+        after: template.after.clone(),
+        environment: template.environment.clone(),
+        artifacts_from: template.artifacts_from.clone(),
         steps: resolved_steps,
     })
 }

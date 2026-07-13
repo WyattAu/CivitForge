@@ -38,6 +38,8 @@ pub mod pipeline_caches;
 pub mod pipeline_log_stream;
 pub mod pipeline_schedules;
 pub mod pipeline_secrets;
+pub mod pipeline_artifacts;
+pub mod pipeline_environments;
 pub mod pipelines;
 pub mod pr_templates;
 pub mod pull_requests;
@@ -152,6 +154,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         )
         .merge(repos::repo_routes())
         .merge(pipelines::pipeline_routes())
+        .merge(pipeline_artifacts::artifact_routes())
+        .merge(pipeline_environments::environment_routes())
         .merge(pipeline_schedules::schedule_routes())
         .merge(badges::badge_routes())
         .merge(pipeline_secrets::pipeline_secret_routes())
