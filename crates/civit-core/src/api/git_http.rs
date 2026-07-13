@@ -267,6 +267,7 @@ pub async fn receive_pack_dotgit(
 
 /// After a push, update open PRs whose source branch was pushed to.
 /// Sets the head_commit_sha to the latest commit on the pushed branch.
+/// Also detects branch deletions and auto-closes PRs targeting the deleted branch.
 async fn update_prs_on_push(state: &AppState, owner: &str, name: &str) {
     // List all branches in the repo
     let branches = match list_branches(state, owner, name) {
@@ -310,6 +311,47 @@ async fn update_prs_on_push(state: &AppState, owner: &str, name: &str) {
                 sha = %sha,
                 "auto-updated PR head commit on push"
             );
+        }
+    }
+
+    // Detect branch deletions: find open PRs whose source or target branch no longer exists
+    let open_prs = match sqlx::query_as::<_, crate::db::models::PullRequest>(
+        "SELECT * FROM pull_requests WHERE repo_id = $1 AND status = 'open'",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(prs) => prs,
+        Err(_) => return,
+    };
+
+    for pr in &open_prs {
+        let source_exists = branches.iter().any(|b| b == &pr.source_branch);
+        let target_exists = branches.iter().any(|b| b == &pr.target_branch);
+
+        if !source_exists || !target_exists {
+            let _ = state.db.close_prs_with_source_branch(repo_id, &pr.source_branch).await;
+            let _ = state.db.close_prs_targeting_branch(repo_id, &pr.target_branch).await;
+            tracing::info!(
+                pr_number = pr.number,
+                source = %pr.source_branch,
+                target = %pr.target_branch,
+                "auto-closed PR due to branch deletion"
+            );
+
+            let dispatcher = crate::webhooks::WebhookDispatcher::new();
+            let pool_clone = state.db.pool().clone();
+            let rid = repo_id;
+            let evt = crate::webhooks::WebhookEvent::PullRequest;
+            let pl = serde_json::json!({
+                "action": "closed",
+                "pr_number": pr.number,
+                "repo_id": rid.to_string(),
+                "reason": "branch_deleted",
+                "author_id": pr.author_id.to_string(),
+            });
+            tokio::spawn(async move { dispatcher.dispatch(&pool_clone, rid, &evt, pl).await });
         }
     }
 }

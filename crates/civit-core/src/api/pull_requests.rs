@@ -4,7 +4,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     response::IntoResponse,
-    routing::{get, post},
+    routing::{get, patch, post},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -105,6 +105,8 @@ pub struct PrResponse {
     pub assignees: Vec<String>,
     pub reviewers: Vec<ReviewerResponse>,
     pub auto_merge: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub checkout_instructions: Option<CheckoutInstructions>,
 }
 
 #[derive(Debug, Serialize)]
@@ -140,6 +142,13 @@ pub struct ReviewerResponse {
     pub user_id: String,
     pub review_status: String,
     pub submitted_at: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckoutInstructions {
+    pub fetch: String,
+    pub checkout: String,
+    pub test: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -1008,6 +1017,22 @@ fn pr_to_response(
     assignees: Option<Vec<String>>,
     review_status: Option<String>,
 ) -> PrResponse {
+    let checkout_instructions = if pr.status == "open" {
+        Some(CheckoutInstructions {
+            fetch: format!("git fetch origin {}", pr.source_branch),
+            checkout: format!(
+                "git checkout -b {} origin/{}",
+                pr.source_branch, pr.source_branch
+            ),
+            test: format!(
+                "git diff origin/{}...HEAD",
+                pr.target_branch
+            ),
+        })
+    } else {
+        None
+    };
+
     PrResponse {
         id: pr.id.to_string(),
         number: pr.number,
@@ -1036,6 +1061,7 @@ fn pr_to_response(
         assignees: assignees.unwrap_or_default(),
         reviewers: Vec::new(),
         auto_merge: pr.auto_merge,
+        checkout_instructions,
     }
 }
 
@@ -2115,6 +2141,88 @@ pub async fn create_inline_comment(
     (axum::http::StatusCode::CREATED, Json(resp)).into_response()
 }
 
+// ── PR Re-request Review ──
+
+#[derive(Debug, Deserialize)]
+pub struct ReRequestReviewRequest {
+    pub reviewer_id: String,
+}
+
+pub async fn rerequest_review(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+    Json(req): Json<ReRequestReviewRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    let uid = match Uuid::parse_str(&req.reviewer_id) {
+        Ok(u) => u,
+        Err(_) => {
+            return err_response(CoreError::BadRequest("invalid reviewer_id".into()));
+        }
+    };
+
+    match state.db.rerequest_pr_review(pr.id, uid).await {
+        Ok(rv) => {
+            let resp = ReviewerResponse {
+                user_id: rv.user_id.to_string(),
+                review_status: rv.review_status,
+                submitted_at: rv.submitted_at.map(|t| t.to_rfc3339()),
+            };
+            (axum::http::StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => err_response(e),
+    }
+}
+
+// ── PR Draft/Ready Toggle ──
+
+#[derive(Debug, Deserialize)]
+pub struct ToggleDraftRequest {
+    pub draft: bool,
+}
+
+pub async fn toggle_pr_draft(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+    Json(req): Json<ToggleDraftRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    if pr.status != "open" {
+        return err_response(CoreError::BadRequest(format!(
+            "PR #{} is {} (only open PRs can toggle draft status)",
+            number, pr.status
+        )));
+    }
+
+    match state.db.set_pr_draft(pr.id, req.draft).await {
+        Ok(updated) => {
+            let resp = pr_to_response(updated, None, None, None);
+            (axum::http::StatusCode::OK, Json(resp)).into_response()
+        }
+        Err(e) => err_response(e),
+    }
+}
+
 // ── Router ──
 
 pub fn pr_routes() -> Router<AppState> {
@@ -2182,6 +2290,14 @@ pub fn pr_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/pulls/{number}/inline-comments",
             post(create_inline_comment),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/review/re-request",
+            post(rerequest_review),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/draft",
+            patch(toggle_pr_draft),
         )
 }
 

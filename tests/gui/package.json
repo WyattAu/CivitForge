@@ -6,7 +6,9 @@
   "scripts": {
     "test": "node full-traverse.mjs",
     "test:headed": "node full-traverse.mjs --headed",
-    "test:debug": "node full-traverse.mjs --headed --debug"
+    "test:debug": "node full-traverse.mjs --headed --debug",
+    "load-test": "node load-test.mjs",
+    "load-test:quick": "node load-test.mjs --duration 30"
   },
   "dependencies": {
     "playwright": "^1.50.0"

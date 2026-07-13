@@ -21,6 +21,7 @@ pub mod git_http;
 pub mod graphql;
 pub mod import;
 pub mod issues;
+pub mod issue_templates;
 pub mod lfs;
 pub mod marketplace;
 pub mod mentions;
@@ -156,6 +157,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(runners::runner_routes())
         .merge(oci::registry_routes())
         .merge(issues::issue_routes())
+        .merge(issue_templates::issue_template_routes())
         .merge(boards::board_routes())
         .merge(edit::edit_routes())
         .merge(pull_requests::pr_routes())

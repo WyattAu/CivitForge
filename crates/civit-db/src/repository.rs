@@ -2177,6 +2177,135 @@ impl DbRepository {
             .map_err(|e| DbError::Database(format!("unban_user: {e}")))?;
         Ok(())
     }
+    // --- Issue Templates ---
+
+    pub async fn list_issue_templates(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<crate::models::IssueTemplate>> {
+        let rows = sqlx::query_as::<_, crate::models::IssueTemplate>(
+            "SELECT id, repo_id, name, title, body, labels, created_at FROM issue_templates WHERE repo_id = $1 ORDER BY name",
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_issue_templates: {e}")))?;
+        Ok(rows)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_issue_template(
+        &self,
+        repo_id: Uuid,
+        name: &str,
+        title: &str,
+        body: &str,
+        labels: &[String],
+    ) -> Result<crate::models::IssueTemplate> {
+        let row = sqlx::query_as::<_, crate::models::IssueTemplate>(
+            "INSERT INTO issue_templates (repo_id, name, title, body, labels, created_at) VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id, repo_id, name, title, body, labels, created_at",
+        )
+        .bind(repo_id)
+        .bind(name)
+        .bind(title)
+        .bind(body)
+        .bind(labels)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_issue_template: {e}")))?;
+        Ok(row)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update_issue_template(
+        &self,
+        template_id: Uuid,
+        repo_id: Uuid,
+        name: Option<&str>,
+        title: Option<&str>,
+        body: Option<&str>,
+        labels: Option<&[String]>,
+    ) -> Result<crate::models::IssueTemplate> {
+        let row = sqlx::query_as::<_, crate::models::IssueTemplate>(
+            "UPDATE issue_templates SET name = COALESCE($3, name), title = COALESCE($4, title), body = COALESCE($5, body), labels = COALESCE($6, labels) WHERE id = $1 AND repo_id = $2 RETURNING id, repo_id, name, title, body, labels, created_at",
+        )
+        .bind(template_id)
+        .bind(repo_id)
+        .bind(name)
+        .bind(title)
+        .bind(body)
+        .bind(labels)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_issue_template: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_issue_template(
+        &self,
+        template_id: Uuid,
+        repo_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM issue_templates WHERE id = $1 AND repo_id = $2")
+            .bind(template_id)
+            .bind(repo_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_issue_template: {e}")))?;
+        Ok(())
+    }
+
+    // --- PR: Close PRs targeting a deleted branch ---
+
+    pub async fn close_prs_targeting_branch(
+        &self,
+        repo_id: Uuid,
+        target_branch: &str,
+    ) -> Result<Vec<PullRequest>> {
+        let rows = sqlx::query_as::<_, PullRequest>(
+            "UPDATE pull_requests SET status = 'closed', closed_at = NOW(), updated_at = NOW() WHERE repo_id = $1 AND target_branch = $2 AND status = 'open' AND draft = false RETURNING *",
+        )
+        .bind(repo_id)
+        .bind(target_branch)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("close_prs_targeting_branch: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn close_prs_with_source_branch(
+        &self,
+        repo_id: Uuid,
+        source_branch: &str,
+    ) -> Result<Vec<PullRequest>> {
+        let rows = sqlx::query_as::<_, PullRequest>(
+            "UPDATE pull_requests SET status = 'closed', closed_at = NOW(), updated_at = NOW() WHERE repo_id = $1 AND source_branch = $2 AND status = 'open' AND draft = false RETURNING *",
+        )
+        .bind(repo_id)
+        .bind(source_branch)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("close_prs_with_source_branch: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- PR: Re-request review ---
+
+    pub async fn rerequest_pr_review(
+        &self,
+        pr_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<PrReviewer> {
+        let row = sqlx::query_as::<_, PrReviewer>(
+            "INSERT INTO pr_reviewers (pr_id, user_id, review_status, submitted_at) VALUES ($1, $2, 'pending', NULL) ON CONFLICT (pr_id, user_id) DO UPDATE SET review_status = 'pending', submitted_at = NULL RETURNING pr_id, user_id, review_status, submitted_at",
+        )
+        .bind(pr_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("rerequest_pr_review: {e}")))?;
+        Ok(row)
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

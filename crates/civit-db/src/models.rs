@@ -223,6 +223,17 @@ pub struct ReleaseAsset {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct IssueTemplate {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub title: String,
+    pub body: String,
+    pub labels: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct BranchProtectionRule {
     pub id: Uuid,
     pub repo_id: Uuid,
