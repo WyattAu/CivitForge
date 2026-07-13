@@ -7,6 +7,7 @@
 //! (replica routing, AppConfig integration) live here as thin wrappers.
 
 pub mod migrations;
+pub mod pool_manager;
 pub mod replica_router;
 
 // Re-export the single source of truth from civit-db.
@@ -19,6 +20,7 @@ pub use civit_db::session;
 pub use civit_db::pool::DatabasePool;
 pub use civit_db::repository::DbRepository;
 pub use civit_db::session::{Session, SessionManager};
+pub use pool_manager::{ConnectionPool, PoolConfig, PoolHealth, PoolHealthChecker};
 
 // Re-export commonly used model types (backward-compatible with old imports).
 pub use civit_db::models::{

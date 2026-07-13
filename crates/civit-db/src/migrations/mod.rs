@@ -112,6 +112,14 @@ pub const M_086_CACHE_ENTRIES_UP: &str = include_str!("086_add_cache_entries.sql
 pub const M_086_CACHE_ENTRIES_DOWN: &str = "DROP TABLE IF EXISTS cache_entries;";
 pub const M_087_CDN_CONFIG_UP: &str = include_str!("087_add_cdn_config.sql");
 pub const M_087_CDN_CONFIG_DOWN: &str = "DROP TABLE IF EXISTS cdn_config;";
+pub const M_088_SERVER_INSTANCES_UP: &str = include_str!("088_add_server_instances.sql");
+pub const M_088_SERVER_INSTANCES_DOWN: &str =
+    "DROP TABLE IF EXISTS sticky_sessions; DROP TABLE IF EXISTS server_instances;";
+pub const M_089_WEBSOCKET_CONNECTIONS_UP: &str =
+    include_str!("089_add_websocket_connections.sql");
+pub const M_089_WEBSOCKET_CONNECTIONS_DOWN: &str = "DROP TABLE IF EXISTS websocket_connections;";
+pub const M_090_POOL_CONFIG_UP: &str = include_str!("090_add_pool_config.sql");
+pub const M_090_POOL_CONFIG_DOWN: &str = "DROP TABLE IF EXISTS pool_config;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -531,6 +539,24 @@ impl MigrationManager {
             up_sql: M_087_CDN_CONFIG_UP.into(),
             down_sql: M_087_CDN_CONFIG_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 88,
+            name: "add_server_instances".into(),
+            up_sql: M_088_SERVER_INSTANCES_UP.into(),
+            down_sql: M_088_SERVER_INSTANCES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 89,
+            name: "add_websocket_connections".into(),
+            up_sql: M_089_WEBSOCKET_CONNECTIONS_UP.into(),
+            down_sql: M_089_WEBSOCKET_CONNECTIONS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 90,
+            name: "add_pool_config".into(),
+            up_sql: M_090_POOL_CONFIG_UP.into(),
+            down_sql: M_090_POOL_CONFIG_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -572,7 +598,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 64);
+        assert_eq!(mgr.all().len(), 67);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -693,19 +719,31 @@ mod tests {
         assert_eq!(mgr.all()[59].name, "add_container_repository_policies");
         assert_eq!(mgr.all()[60].version, 84);
         assert_eq!(mgr.all()[60].name, "add_observability_tables");
+        assert_eq!(mgr.all()[61].version, 85);
+        assert_eq!(mgr.all()[61].name, "add_performance_indexes");
+        assert_eq!(mgr.all()[62].version, 86);
+        assert_eq!(mgr.all()[62].name, "add_cache_entries");
+        assert_eq!(mgr.all()[63].version, 87);
+        assert_eq!(mgr.all()[63].name, "add_cdn_config");
+        assert_eq!(mgr.all()[64].version, 88);
+        assert_eq!(mgr.all()[64].name, "add_server_instances");
+        assert_eq!(mgr.all()[65].version, 89);
+        assert_eq!(mgr.all()[65].name, "add_websocket_connections");
+        assert_eq!(mgr.all()[66].version, 90);
+        assert_eq!(mgr.all()[66].name, "add_pool_config");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 88,
+            version: 91,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 65);
-        assert_eq!(mgr.all()[64].version, 88);
+        assert_eq!(mgr.all().len(), 68);
+        assert_eq!(mgr.all()[67].version, 91);
     }
 
     #[test]
@@ -724,13 +762,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 64);
+        assert_eq!(pending.len(), 67);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(87);
+        let pending = mgr.get_pending(90);
         assert_eq!(pending.len(), 0);
     }
 
@@ -738,7 +776,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 63);
+        assert_eq!(pending.len(), 66);
     }
 
     #[test]
