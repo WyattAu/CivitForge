@@ -2926,6 +2926,182 @@ impl DbRepository {
         .map_err(|e| DbError::Database(format!("list_maven_packages: {e}")))?;
         Ok(rows)
     }
+
+    // --- Pages Sites ---
+
+    pub async fn enable_pages(
+        &self,
+        repo_id: Uuid,
+        url: &str,
+        branch: &str,
+        path: &str,
+        public: bool,
+    ) -> Result<crate::models::PagesSite> {
+        let row = sqlx::query_as::<_, crate::models::PagesSite>(
+            r#"INSERT INTO pages_sites (repo_id, url, branch, path, public)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (repo_id) DO UPDATE SET url = $2, branch = $3, path = $4, public = $5, updated_at = NOW()
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(url)
+        .bind(branch)
+        .bind(path)
+        .bind(public)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("enable_pages: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_pages_site(&self, repo_id: Uuid) -> Result<Option<crate::models::PagesSite>> {
+        let row = sqlx::query_as::<_, crate::models::PagesSite>(
+            "SELECT * FROM pages_sites WHERE repo_id = $1",
+        )
+        .bind(repo_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_pages_site: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn disable_pages(&self, repo_id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM pages_sites WHERE repo_id = $1")
+            .bind(repo_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("disable_pages: {e}")))?;
+        Ok(())
+    }
+
+    // --- Discussion Labels ---
+
+    pub async fn add_discussion_label(
+        &self,
+        discussion_id: Uuid,
+        label: &str,
+        color: &str,
+    ) -> Result<crate::models::DiscussionLabel> {
+        let row = sqlx::query_as::<_, crate::models::DiscussionLabel>(
+            r#"INSERT INTO discussion_labels (discussion_id, label, color)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (discussion_id, label) DO UPDATE SET color = $3
+               RETURNING *"#,
+        )
+        .bind(discussion_id)
+        .bind(label)
+        .bind(color)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_discussion_label: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn remove_discussion_label(
+        &self,
+        discussion_id: Uuid,
+        label: &str,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM discussion_labels WHERE discussion_id = $1 AND label = $2")
+            .bind(discussion_id)
+            .bind(label)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("remove_discussion_label: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn list_discussion_labels(
+        &self,
+        discussion_id: Uuid,
+    ) -> Result<Vec<crate::models::DiscussionLabel>> {
+        let rows = sqlx::query_as::<_, crate::models::DiscussionLabel>(
+            "SELECT * FROM discussion_labels WHERE discussion_id = $1 ORDER BY label",
+        )
+        .bind(discussion_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_discussion_labels: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Discussion Reactions ---
+
+    pub async fn add_discussion_reaction(
+        &self,
+        comment_id: Uuid,
+        user_id: Uuid,
+        emoji: &str,
+    ) -> Result<crate::models::DiscussionReaction> {
+        let row = sqlx::query_as::<_, crate::models::DiscussionReaction>(
+            r#"INSERT INTO discussion_reactions (comment_id, user_id, emoji)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (comment_id, user_id, emoji) DO UPDATE SET emoji = $3
+               RETURNING *"#,
+        )
+        .bind(comment_id)
+        .bind(user_id)
+        .bind(emoji)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("add_discussion_reaction: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn remove_discussion_reaction(
+        &self,
+        comment_id: Uuid,
+        user_id: Uuid,
+        emoji: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM discussion_reactions WHERE comment_id = $1 AND user_id = $2 AND emoji = $3",
+        )
+        .bind(comment_id)
+        .bind(user_id)
+        .bind(emoji)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("remove_discussion_reaction: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn list_discussion_reactions(
+        &self,
+        comment_id: Uuid,
+    ) -> Result<Vec<crate::models::DiscussionReaction>> {
+        let rows = sqlx::query_as::<_, crate::models::DiscussionReaction>(
+            "SELECT * FROM discussion_reactions WHERE comment_id = $1 ORDER BY created_at",
+        )
+        .bind(comment_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_discussion_reactions: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Discussion Search ---
+
+    pub async fn search_discussions(
+        &self,
+        repo_id: Uuid,
+        query: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::Discussion>> {
+        let pattern = format!("%{query}%");
+        let rows = sqlx::query_as::<_, crate::models::Discussion>(
+            "SELECT id, repo_id, title, body, category, author_id, is_pinned, is_locked, created_at, updated_at FROM discussions WHERE repo_id = $1 AND (title ILIKE $2 OR body ILIKE $2) ORDER BY is_pinned DESC, created_at DESC LIMIT $3 OFFSET $4",
+        )
+        .bind(repo_id)
+        .bind(&pattern)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("search_discussions: {e}")))?;
+        Ok(rows)
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

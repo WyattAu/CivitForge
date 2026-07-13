@@ -70,6 +70,13 @@ pub const M_067_REVIEW_THREADS_UP: &str = include_str!("067_add_review_threads.s
 pub const M_068_RATE_LIMITS_UP: &str = include_str!("068_add_rate_limits.sql");
 pub const M_069_NPM_PACKAGES_UP: &str = include_str!("069_add_npm_packages.sql");
 pub const M_070_MAVEN_PACKAGES_UP: &str = include_str!("070_add_maven_packages.sql");
+pub const M_071_PAGES_SITES_UP: &str = include_str!("071_add_pages_sites.sql");
+pub const M_072_DISCUSSION_LABELS_REACTIONS_UP: &str =
+    include_str!("072_add_discussion_labels_reactions.sql");
+pub const M_071_SEARCH_HISTORY_UP: &str = include_str!("071_add_search_history.sql");
+pub const M_071_SEARCH_HISTORY_DOWN: &str = "DROP TABLE IF EXISTS search_history;";
+pub const M_072_CODE_SUGGESTIONS_UP: &str = include_str!("072_add_code_suggestions.sql");
+pub const M_072_CODE_SUGGESTIONS_DOWN: &str = "DROP TABLE IF EXISTS code_suggestions;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -399,6 +406,30 @@ impl MigrationManager {
             up_sql: M_070_MAVEN_PACKAGES_UP.into(),
             down_sql: "DROP TABLE IF EXISTS maven_packages;".into(),
         });
+        self.add_migration(Migration {
+            version: 71,
+            name: "add_pages_sites".into(),
+            up_sql: M_071_PAGES_SITES_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS pages_sites;".into(),
+        });
+        self.add_migration(Migration {
+            version: 72,
+            name: "add_discussion_labels_reactions".into(),
+            up_sql: M_072_DISCUSSION_LABELS_REACTIONS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS discussion_reactions; DROP TABLE IF EXISTS discussion_labels;".into(),
+        });
+        self.add_migration(Migration {
+            version: 73,
+            name: "add_search_history".into(),
+            up_sql: M_071_SEARCH_HISTORY_UP.into(),
+            down_sql: M_071_SEARCH_HISTORY_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 74,
+            name: "add_code_suggestions".into(),
+            up_sql: M_072_CODE_SUGGESTIONS_UP.into(),
+            down_sql: M_072_CODE_SUGGESTIONS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -440,7 +471,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 49);
+        assert_eq!(mgr.all().len(), 53);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -537,19 +568,23 @@ mod tests {
         assert_eq!(mgr.all()[47].name, "add_npm_packages");
         assert_eq!(mgr.all()[48].version, 70);
         assert_eq!(mgr.all()[48].name, "add_maven_packages");
+        assert_eq!(mgr.all()[49].version, 71);
+        assert_eq!(mgr.all()[49].name, "add_pages_sites");
+        assert_eq!(mgr.all()[50].version, 72);
+        assert_eq!(mgr.all()[50].name, "add_discussion_labels_reactions");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 71,
+            version: 75,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 50);
-        assert_eq!(mgr.all()[49].version, 71);
+        assert_eq!(mgr.all().len(), 54);
+        assert_eq!(mgr.all()[53].version, 75);
     }
 
     #[test]
@@ -568,13 +603,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 47);
+        assert_eq!(pending.len(), 53);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(68);
+        let pending = mgr.get_pending(74);
         assert_eq!(pending.len(), 0);
     }
 
@@ -582,7 +617,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 46);
+        assert_eq!(pending.len(), 52);
     }
 
     #[test]

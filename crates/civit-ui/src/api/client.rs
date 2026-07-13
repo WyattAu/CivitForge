@@ -113,6 +113,31 @@ impl ApiClient {
         req.send().await
     }
 
+    pub async fn patch_empty(
+        &self,
+        path: &str,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let url = format!("{}{}", self.base_url, path);
+        let mut req = self.client.patch(&url);
+        if let Some(auth) = self.auth_header() {
+            req = req.header("Authorization", auth);
+        }
+        req.send().await
+    }
+
+    pub async fn post_json(
+        &self,
+        path: &str,
+        body: &impl serde::Serialize,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let url = format!("{}{}", self.base_url, path);
+        let mut req = self.client.post(&url).json(body);
+        if let Some(auth) = self.auth_header() {
+            req = req.header("Authorization", auth);
+        }
+        req.send().await
+    }
+
     pub async fn delete(&self, path: &str) -> Result<reqwest::Response, reqwest::Error> {
         let url = format!("{}{}", self.base_url, path);
         let mut req = self.client.delete(&url);

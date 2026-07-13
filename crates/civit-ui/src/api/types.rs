@@ -455,3 +455,131 @@ pub struct MoveCardBody {
     pub column_id: String,
     pub position: i32,
 }
+
+// ── Pages Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PagesSiteResponse {
+    pub id: String,
+    pub repo_id: String,
+    pub url: String,
+    pub branch: String,
+    pub path: String,
+    pub public: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnablePagesBody {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public: Option<bool>,
+}
+
+// ── Discussion Enhancement Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscussionLabelResponse {
+    pub id: String,
+    pub discussion_id: String,
+    pub label: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscussionReactionResponse {
+    pub id: String,
+    pub comment_id: String,
+    pub user_id: String,
+    pub emoji: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddLabelBody {
+    pub label: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddReactionBody {
+    pub emoji: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscussionSearchParams {
+    pub q: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub per_page: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub page: Option<u32>,
+}
+
+// ── Code Suggestion Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeSuggestionResponse {
+    pub id: String,
+    pub pr_id: String,
+    pub comment_id: Option<String>,
+    pub file_path: String,
+    pub start_line: i32,
+    pub end_line: i32,
+    pub suggestion: String,
+    pub applied: bool,
+    pub author_id: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCodeSuggestionBody {
+    pub file_path: String,
+    pub start_line: i32,
+    pub end_line: i32,
+    pub suggestion: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment_id: Option<String>,
+}
+
+// ── Search Suggestion Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSuggestionItem {
+    pub text: String,
+    pub category: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchSuggestResponse {
+    pub suggestions: Vec<SearchSuggestionItem>,
+}
+
+// ── Search History Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryItem {
+    pub id: String,
+    pub query: String,
+    pub result_count: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchHistoryResponse {
+    pub items: Vec<SearchHistoryItem>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddSearchHistoryBody {
+    pub query: String,
+    pub result_count: Option<i64>,
+}

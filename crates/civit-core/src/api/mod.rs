@@ -35,6 +35,7 @@ pub mod oci;
 pub mod oidc;
 pub mod openapi_handler;
 pub mod orgs;
+pub mod pages;
 pub mod password;
 pub mod pipeline_caches;
 pub mod pipeline_log_stream;
@@ -189,6 +190,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(marketplace::marketplace_routes())
         .merge(npm::npm_routes())
         .merge(maven::maven_routes())
+        .merge(pages::pages_routes())
         .merge(tokens::token_routes())
         .merge(webhooks::webhook_routes())
         .route(

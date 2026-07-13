@@ -65,6 +65,31 @@ pub struct AddPrAssigneeRequest {
     pub assignee_id: Uuid,
 }
 
+// ── Code Suggestion Types ──
+
+#[derive(Debug, Deserialize)]
+pub struct CreateCodeSuggestion {
+    pub file_path: String,
+    pub start_line: i32,
+    pub end_line: i32,
+    pub suggestion: String,
+    pub comment_id: Option<Uuid>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CodeSuggestionResponse {
+    pub id: String,
+    pub pr_id: String,
+    pub comment_id: Option<String>,
+    pub file_path: String,
+    pub start_line: i32,
+    pub end_line: i32,
+    pub suggestion: String,
+    pub applied: bool,
+    pub author_id: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Deserialize, Default)]
 pub struct ListPrParams {
     pub state: Option<String>,
@@ -2400,6 +2425,182 @@ pub async fn assign_reviewers(
     (axum::http::StatusCode::OK, Json(results)).into_response()
 }
 
+// ── Code Suggestion Handlers ──
+
+/// POST /repos/:owner/:name/pulls/:number/suggestions — create a code suggestion
+pub async fn create_code_suggestion(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    auth: AuthUser,
+    Json(body): Json<CreateCodeSuggestion>,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let author_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(CoreError::Auth("invalid user id".into())),
+    };
+
+    let comment_id = body.comment_id;
+    let file_path = body.file_path.clone();
+    let start_line = body.start_line;
+    let end_line = body.end_line;
+    let suggestion = body.suggestion.clone();
+
+    match sqlx::query_as::<_, CodeSuggestionRow>(
+        "INSERT INTO code_suggestions (pr_id, comment_id, file_path, start_line, end_line, suggestion, author_id) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7) \
+         RETURNING id::text, pr_id::text, comment_id::text, file_path, start_line, end_line, suggestion, applied, author_id::text, created_at::text",
+    )
+    .bind(pr.id)
+    .bind(comment_id)
+    .bind(&file_path)
+    .bind(start_line)
+    .bind(end_line)
+    .bind(&suggestion)
+    .bind(author_id)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(row) => (
+            axum::http::StatusCode::CREATED,
+            Json(CodeSuggestionResponse {
+                id: row.id,
+                pr_id: row.pr_id,
+                comment_id: row.comment_id,
+                file_path: row.file_path,
+                start_line: row.start_line,
+                end_line: row.end_line,
+                suggestion: row.suggestion,
+                applied: row.applied,
+                author_id: row.author_id,
+                created_at: row.created_at,
+            }),
+        )
+            .into_response(),
+        Err(e) => err_response(CoreError::Database(e.to_string())),
+    }
+}
+
+/// PATCH /repos/:owner/:name/pulls/:number/suggestions/:id/apply — apply a suggestion
+pub async fn apply_code_suggestion(
+    State(state): State<AppState>,
+    Path((owner, name, number, suggestion_id)): Path<(String, String, i32, String)>,
+    _auth: AuthUser,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+    let sid = match uuid::Uuid::parse_str(&suggestion_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(CoreError::NotFound("invalid suggestion id".into())),
+    };
+
+    // Verify the suggestion belongs to this PR
+    let exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(SELECT 1 FROM code_suggestions WHERE id = $1 AND pr_id = $2)",
+    )
+    .bind(sid)
+    .bind(pr.id)
+    .fetch_one(pool)
+    .await;
+
+    match exists {
+        Ok(true) => {}
+        _ => {
+            return err_response(CoreError::NotFound(
+                "suggestion not found for this PR".into(),
+            ));
+        }
+    }
+
+    match sqlx::query("UPDATE code_suggestions SET applied = true WHERE id = $1")
+        .bind(sid)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({ "applied": true, "id": suggestion_id })),
+        )
+            .into_response(),
+        Err(e) => err_response(CoreError::Database(e.to_string())),
+    }
+}
+
+/// GET /repos/:owner/:name/pulls/:number/suggestions — list suggestions for a PR
+pub async fn list_code_suggestions(
+    State(state): State<AppState>,
+    Path((owner, name, number)): Path<(String, String, i32)>,
+    _auth: AuthUser,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(e) => return err_response(e),
+    };
+    let pr = match state.db.get_pr_by_number(repo_id, number).await {
+        Ok(r) => r,
+        Err(e) => return err_response(e),
+    };
+
+    match sqlx::query_as::<_, CodeSuggestionRow>(
+        "SELECT id::text, pr_id::text, comment_id::text, file_path, start_line, end_line, suggestion, applied, author_id::text, created_at::text \
+         FROM code_suggestions WHERE pr_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(pr.id)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let items: Vec<CodeSuggestionResponse> = rows
+                .into_iter()
+                .map(|r| CodeSuggestionResponse {
+                    id: r.id,
+                    pr_id: r.pr_id,
+                    comment_id: r.comment_id,
+                    file_path: r.file_path,
+                    start_line: r.start_line,
+                    end_line: r.end_line,
+                    suggestion: r.suggestion,
+                    applied: r.applied,
+                    author_id: r.author_id,
+                    created_at: r.created_at,
+                })
+                .collect();
+            (axum::http::StatusCode::OK, Json(items)).into_response()
+        }
+        Err(e) => err_response(CoreError::Database(e.to_string())),
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct CodeSuggestionRow {
+    id: String,
+    pr_id: String,
+    comment_id: Option<String>,
+    file_path: String,
+    start_line: i32,
+    end_line: i32,
+    suggestion: String,
+    applied: bool,
+    author_id: String,
+    created_at: String,
+}
+
 // ── Router ──
 
 pub fn pr_routes() -> Router<AppState> {
@@ -2495,6 +2696,14 @@ pub fn pr_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/pulls/{number}/assign-reviewers",
             post(assign_reviewers),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/suggestions",
+            get(list_code_suggestions).post(create_code_suggestion),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/pulls/{number}/suggestions/{suggestion_id}/apply",
+            patch(apply_code_suggestion),
         )
 }
 

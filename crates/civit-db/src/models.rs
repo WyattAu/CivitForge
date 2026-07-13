@@ -381,6 +381,35 @@ pub struct MavenPackage {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PagesSite {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub url: String,
+    pub branch: String,
+    pub path: String,
+    pub public: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DiscussionLabel {
+    pub id: Uuid,
+    pub discussion_id: Uuid,
+    pub label: String,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DiscussionReaction {
+    pub id: Uuid,
+    pub comment_id: Uuid,
+    pub user_id: Uuid,
+    pub emoji: String,
+    pub created_at: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
+use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use crate::search::tantivy_index::SearchHit as TantivySearchHit;
 use axum::extract::{Path, Query, State};
@@ -8,6 +9,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use sqlx::Row;
 use std::path::PathBuf;
 
 // ---------------------------------------------------------------------------
@@ -113,6 +115,305 @@ struct IndexTriggerResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Advanced Search Filters
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Default)]
+pub struct ParsedFilters {
+    pub free_text: String,
+    pub repo_name: Option<String>,
+    pub user_name: Option<String>,
+    pub item_type: Option<String>,
+    pub status: Option<String>,
+    pub language: Option<String>,
+    pub created_after: Option<String>,
+    pub created_before: Option<String>,
+}
+
+/// Parse advanced search syntax from a query string.
+/// Supports: repo:name, user:name, is:issue|pr, status:open|closed, language:x, created:>date / created:<date
+pub fn parse_advanced_filters(query: &str) -> ParsedFilters {
+    let mut filters = ParsedFilters::default();
+    let mut free_parts = Vec::new();
+
+    for token in query.split_whitespace() {
+        if let Some(val) = token.strip_prefix("repo:") {
+            filters.repo_name = Some(val.to_string());
+        } else if let Some(val) = token.strip_prefix("user:") {
+            filters.user_name = Some(val.to_string());
+        } else if let Some(val) = token.strip_prefix("is:") {
+            match val {
+                "issue" | "pr" => filters.item_type = Some(val.to_string()),
+                _ => free_parts.push(token),
+            }
+        } else if let Some(val) = token.strip_prefix("status:") {
+            match val {
+                "open" | "closed" => filters.status = Some(val.to_string()),
+                _ => free_parts.push(token),
+            }
+        } else if let Some(val) = token.strip_prefix("language:") {
+            filters.language = Some(val.to_string());
+        } else if let Some(val) = token.strip_prefix("created:") {
+            if let Some(date) = val.strip_prefix('>') {
+                filters.created_after = Some(date.to_string());
+            } else if let Some(date) = val.strip_prefix('<') {
+                filters.created_before = Some(date.to_string());
+            } else {
+                free_parts.push(token);
+            }
+        } else {
+            free_parts.push(token);
+        }
+    }
+
+    filters.free_text = free_parts.join(" ");
+    filters
+}
+
+// ---------------------------------------------------------------------------
+// Search Suggestions
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct SearchSuggestParams {
+    pub q: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SearchSuggestion {
+    pub text: String,
+    pub category: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchSuggestResponse {
+    pub suggestions: Vec<SearchSuggestion>,
+}
+
+/// GET /api/v1/search/suggest — auto-complete suggestions for search queries
+pub async fn search_suggestions(
+    State(state): State<AppState>,
+    Query(params): Query<SearchSuggestParams>,
+) -> impl IntoResponse {
+    let q = match &params.q {
+        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
+        _ => {
+            return (
+                StatusCode::OK,
+                Json(SearchSuggestResponse {
+                    suggestions: Vec::new(),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    let pool = state.db.pool();
+    let mut suggestions = Vec::new();
+
+    // Suggest repos matching prefix
+    if let Ok(repos) = sqlx::query_scalar::<_, String>(
+        "SELECT CONCAT(u.username, '/', r.name) FROM repositories r \
+         JOIN users u ON r.owner_id = u.id \
+         WHERE CONCAT(u.username, '/', r.name) ILIKE $1 LIMIT 5",
+    )
+    .bind(format!("{q}%"))
+    .fetch_all(pool)
+    .await
+    {
+        for repo in repos {
+            suggestions.push(SearchSuggestion {
+                text: repo,
+                category: "repo".into(),
+            });
+        }
+    }
+
+    // Suggest users matching prefix
+    if let Ok(users) = sqlx::query_scalar::<_, String>(
+        "SELECT username FROM users WHERE username ILIKE $1 LIMIT 5",
+    )
+    .bind(format!("{q}%"))
+    .fetch_all(pool)
+    .await
+    {
+        for user in users {
+            suggestions.push(SearchSuggestion {
+                text: user,
+                category: "user".into(),
+            });
+        }
+    }
+
+    // Suggest recent search queries matching prefix (from search_history)
+    if let Ok(queries) = sqlx::query_scalar::<_, String>(
+        "SELECT DISTINCT query FROM search_history \
+         WHERE query ILIKE $1 ORDER BY created_at DESC LIMIT 5",
+    )
+    .bind(format!("{q}%"))
+    .fetch_all(pool)
+    .await
+    {
+        for query in queries {
+            suggestions.push(SearchSuggestion {
+                text: query,
+                category: "recent".into(),
+            });
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(SearchSuggestResponse { suggestions }),
+    )
+        .into_response()
+}
+
+// ---------------------------------------------------------------------------
+// Search History
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct SearchHistoryParams {
+    #[serde(default = "default_page")]
+    pub page: i64,
+    #[serde(default = "default_per_page")]
+    pub per_page: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AddSearchHistoryBody {
+    pub query: String,
+    pub result_count: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SearchHistoryItem {
+    pub id: String,
+    pub query: String,
+    pub result_count: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+struct SearchHistoryResponse {
+    pub items: Vec<SearchHistoryItem>,
+    pub total: i64,
+    pub page: i64,
+    pub per_page: i64,
+}
+
+/// GET /api/v1/search/history — list recent searches for the authenticated user
+pub async fn get_search_history(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(params): Query<SearchHistoryParams>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let user_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id"),
+    };
+
+    let offset = (params.page - 1) * params.per_page;
+
+    let items = match sqlx::query_as::<_, SearchHistoryRow>(
+        "SELECT id, query, result_count, created_at::text \
+         FROM search_history WHERE user_id = $1 \
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(user_id)
+    .bind(params.per_page)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let total = match sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM search_history WHERE user_id = $1",
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(t) => t,
+        Err(e) => return internal_err(&e.to_string()),
+    };
+
+    let items: Vec<SearchHistoryItem> = items
+        .into_iter()
+        .map(|r| SearchHistoryItem {
+            id: r.id,
+            query: r.query,
+            result_count: r.result_count,
+            created_at: r.created_at,
+        })
+        .collect();
+
+    (
+        StatusCode::OK,
+        Json(SearchHistoryResponse {
+            items,
+            total,
+            page: params.page,
+            per_page: params.per_page,
+        }),
+    )
+        .into_response()
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct SearchHistoryRow {
+    id: String,
+    query: String,
+    result_count: i64,
+    created_at: String,
+}
+
+/// POST /api/v1/search/history — record a search query
+pub async fn add_search_history(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(body): Json<AddSearchHistoryBody>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let user_id = match uuid::Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_response(StatusCode::UNAUTHORIZED, "invalid user id"),
+    };
+
+    let query = sanitize_query(&body.query);
+    if query.is_empty() {
+        return err_response(StatusCode::BAD_REQUEST, "query is required");
+    }
+
+    let result_count = body.result_count.unwrap_or(0);
+
+    match sqlx::query(
+        "INSERT INTO search_history (user_id, query, result_count) VALUES ($1, $2, $3) RETURNING id::text",
+    )
+    .bind(user_id)
+    .bind(&query)
+    .bind(result_count)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(row) => {
+            let id: String = row.get("id");
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({ "id": id, "query": query, "result_count": result_count })),
+            )
+                .into_response()
+        }
+        Err(e) => internal_err(&e.to_string()),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Helper: get repo id
 // ---------------------------------------------------------------------------
 
@@ -172,12 +473,28 @@ pub async fn global_search(
 ) -> impl IntoResponse {
     let pool = state.db.pool();
 
-    let q = match &params.q {
-        Some(q) if !q.trim().is_empty() => sanitize_query(q),
+    let raw_q = match &params.q {
+        Some(q) if !q.trim().is_empty() => q.trim().to_string(),
         _ => {
             return err_response(StatusCode::BAD_REQUEST, "query parameter 'q' is required");
         }
     };
+
+    // Parse advanced filters from the query
+    let filters = parse_advanced_filters(&raw_q);
+
+    // Merge explicit params with parsed filters (explicit params take precedence)
+    let effective_repo = params
+        .repo
+        .as_ref()
+        .or(filters.repo_name.as_ref())
+        .cloned();
+    let effective_language = params
+        .language
+        .as_ref()
+        .or(filters.language.as_ref())
+        .cloned();
+    let q = sanitize_query(&filters.free_text);
 
     let offset = (params.page - 1) * params.per_page;
 
@@ -196,7 +513,7 @@ pub async fn global_search(
 
     let mut bind_idx = 2i32;
 
-    if let Some(ref lang) = params.language
+    if let Some(ref lang) = effective_language
         && !lang.is_empty()
     {
         let clause = format!(" AND i.language = ${bind_idx}");
@@ -205,7 +522,7 @@ pub async fn global_search(
         bind_idx += 1;
     }
 
-    if let Some(ref repo) = params.repo {
+    if let Some(ref repo) = effective_repo {
         let parts: Vec<&str> = repo.splitn(2, '/').collect();
         if parts.len() == 2 {
             let clause = format!(
@@ -228,14 +545,14 @@ pub async fn global_search(
     let mut query = sqlx::query_as::<_, SearchHitRow>(sqlx::AssertSqlSafe(query_str)).bind(&q);
     let mut count_query = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_str)).bind(&q);
 
-    if let Some(ref lang) = params.language
+    if let Some(ref lang) = effective_language
         && !lang.is_empty()
     {
         query = query.bind(lang);
         count_query = count_query.bind(lang);
     }
 
-    if let Some(ref repo) = params.repo {
+    if let Some(ref repo) = effective_repo {
         let parts: Vec<&str> = repo.splitn(2, '/').collect();
         if parts.len() == 2 {
             query = query.bind(parts[0]).bind(parts[1]);
@@ -1220,6 +1537,11 @@ pub fn search_routes() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/api/v1/search", get(global_search))
         .route("/api/v1/search/code", get(global_code_search))
+        .route("/api/v1/search/suggest", get(search_suggestions))
+        .route(
+            "/api/v1/search/history",
+            get(get_search_history).post(add_search_history),
+        )
         .route("/api/v1/repos/{owner}/{name}/search", get(repo_search))
         .route(
             "/api/v1/repos/{owner}/{name}/search/code",

@@ -8,6 +8,7 @@ use crate::api::client::ApiClient;
 use crate::api::types::{
     CreatePrCommentBody, InlineDiffResponse, MergePullRequestBody, MergeResponse,
     MergeabilityResponse, PrDiffResponse, PullRequestResponse, UpdatePullRequestBody,
+    CodeSuggestionResponse, CreateCodeSuggestionBody,
 };
 use crate::components::{Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Spinner};
 use crate::state::auth::use_auth;
@@ -71,6 +72,16 @@ pub fn PullRequestDetailPage() -> impl IntoView {
     let (diff_view_mode, set_diff_view_mode) = signal(String::from("unified"));
 
     let (action_loading, set_action_loading) = signal(false);
+
+    // Code suggestions state
+    let (code_suggestions, set_code_suggestions) = signal(Vec::<CodeSuggestionResponse>::new());
+    let (suggestion_loading, set_suggestion_loading) = signal(false);
+    let (show_suggestion_form, set_show_suggestion_form) = signal(false);
+    let (suggestion_file_path, set_suggestion_file_path) = signal(String::new());
+    let (suggestion_start_line, set_suggestion_start_line) = signal(0i32);
+    let (suggestion_end_line, set_suggestion_end_line) = signal(0i32);
+    let (suggestion_text, set_suggestion_text) = signal(String::new());
+    let (suggestion_error, set_suggestion_error) = signal(None::<String>);
 
     let fetch_pr = move || {
         let token = auth.0.with(|a| a.token.clone());
@@ -154,6 +165,32 @@ pub fn PullRequestDetailPage() -> impl IntoView {
 
     leptos::task::spawn_local(async move {
         fetch_pr();
+    });
+
+    // Fetch code suggestions when PR loads
+    let fetch_suggestions = move || {
+        let token = auth.0.with(|a| a.token.clone());
+        let client = ApiClient::new(token);
+        let owner_val = owner();
+        let name_val = name();
+        let number_val = number();
+        set_suggestion_loading.set(true);
+        leptos::task::spawn_local(async move {
+            let path = format!("/repos/{owner_val}/{name_val}/pulls/{number_val}/suggestions");
+            match client.get(&path).await {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(data) = resp.json::<Vec<CodeSuggestionResponse>>().await {
+                        set_code_suggestions.set(data);
+                    }
+                }
+                _ => {}
+            }
+            set_suggestion_loading.set(false);
+        });
+    };
+
+    leptos::task::spawn_local(async move {
+        fetch_suggestions();
     });
 
     let handle_close = move |_| {
@@ -577,6 +614,165 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                 {move || if comment_saving.get() { "Posting..." } else { "Add Comment" }}
                             </Button>
                         </form>
+                    </Card>
+
+                    // Code Suggestions
+                    <Card>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">"Code Suggestions"</h3>
+                            <button
+                                class="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                on:click=move |_| set_show_suggestion_form.update(|v| *v = !*v)
+                            >
+                                {move || if show_suggestion_form.get() { "Cancel" } else { "+ New Suggestion" }}
+                            </button>
+                        </div>
+                        <Show when=move || show_suggestion_form.get()>
+                            <div class="p-3 bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700 rounded-md mb-3 space-y-2">
+                                <Show when=move || suggestion_error.get().is_some()>
+                                    <div class="text-xs text-red-600 dark:text-red-400">{move || suggestion_error.get().unwrap_or_default()}</div>
+                                </Show>
+                                <input
+                                    type="text"
+                                    placeholder="File path (e.g. src/main.rs)"
+                                    class="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                                    prop:value=move || suggestion_file_path.get()
+                                    on:input=move |ev| set_suggestion_file_path.set(event_target_value(&ev))
+                                />
+                                <div class="flex gap-2">
+                                    <input
+                                        type="number"
+                                        placeholder="Start line"
+                                        class="w-24 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                                        prop:value=move || suggestion_start_line.get().to_string()
+                                        on:input=move |ev| {
+                                            if let Ok(v) = event_target_value(&ev).parse::<i32>() {
+                                                set_suggestion_start_line.set(v);
+                                            }
+                                        }
+                                    />
+                                    <input
+                                        type="number"
+                                        placeholder="End line"
+                                        class="w-24 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                                        prop:value=move || suggestion_end_line.get().to_string()
+                                        on:input=move |ev| {
+                                            if let Ok(v) = event_target_value(&ev).parse::<i32>() {
+                                                set_suggestion_end_line.set(v);
+                                            }
+                                        }
+                                    />
+                                </div>
+                                <textarea
+                                    placeholder="Suggested code..."
+                                    class="w-full px-3 py-1.5 text-sm font-mono border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                                    rows="4"
+                                    prop:value=move || suggestion_text.get()
+                                    on:input=move |ev| set_suggestion_text.set(event_target_value(&ev))
+                                ></textarea>
+                                <button
+                                    class="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-md disabled:opacity-50"
+                                    disabled=move || suggestion_text.get().trim().is_empty() || suggestion_file_path.get().trim().is_empty()
+                                    on:click=move |_| {
+                                        let token = auth.0.with(|a| a.token.clone());
+                                        let client = ApiClient::new(token);
+                                        let owner_val = owner();
+                                        let name_val = name();
+                                        let number_val = number();
+                                        let body = CreateCodeSuggestionBody {
+                                            file_path: suggestion_file_path.get(),
+                                            start_line: suggestion_start_line.get(),
+                                            end_line: suggestion_end_line.get(),
+                                            suggestion: suggestion_text.get(),
+                                            comment_id: None,
+                                        };
+                                        set_suggestion_error.set(None);
+                                        leptos::task::spawn_local(async move {
+                                            let path = format!("/repos/{owner_val}/{name_val}/pulls/{number_val}/suggestions");
+                                            match client.post_json(&path, &body).await {
+                                                Ok(resp) if resp.status().is_success() => {
+                                                    set_show_suggestion_form.set(false);
+                                                    set_suggestion_text.set(String::new());
+                                                    set_suggestion_file_path.set(String::new());
+                                                    // Re-fetch suggestions
+                                                    let token2 = auth.0.with(|a| a.token.clone());
+                                                    let client2 = ApiClient::new(token2);
+                                                    let path2 = format!("/repos/{owner_val}/{name_val}/pulls/{number_val}/suggestions");
+                                                    leptos::task::spawn_local(async move {
+                                                        if let Ok(r) = client2.get(&path2).await
+                                                            && r.status().is_success()
+                                                            && let Ok(data) = r.json::<Vec<CodeSuggestionResponse>>().await
+                                                        {
+                                                            set_code_suggestions.set(data);
+                                                        }
+                                                    });
+                                                }
+                                                _ => {
+                                                    set_suggestion_error.set(Some("Failed to create suggestion.".into()));
+                                                }
+                                            }
+                                        });
+                                    }
+                                >
+                                    "Submit Suggestion"
+                                </button>
+                            </div>
+                        </Show>
+                        <Show when=move || suggestion_loading.get()>
+                            <div class="flex justify-center py-4"><Spinner /></div>
+                        </Show>
+                        <Show when=move || !suggestion_loading.get() && code_suggestions.get().is_empty()>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 text-center py-4">"No code suggestions yet."</p>
+                        </Show>
+                        <Show when=move || !code_suggestions.get().is_empty()>
+                            <div class="space-y-2">
+                                {move || code_suggestions.get().into_iter().map(|s| {
+                                    let applied = s.applied;
+                                    let sid = s.id.clone();
+                                    let suggestion_text = s.suggestion.clone();
+                                    view! {
+                                        <div class="p-3 border border-gray-200 dark:border-gray-700 rounded-md">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-xs font-mono text-blue-600 dark:text-blue-400">{s.file_path.clone()}</span>
+                                                    <span class="text-xs text-gray-400">":"</span>
+                                                    <span class="text-xs font-mono text-gray-500">{format!("{}-{}", s.start_line, s.end_line)}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    {if applied {
+                                                        view! {
+                                                            <span class="text-xs text-green-600 dark:text-green-400">"Applied"</span>
+                                                        }.into_any()
+                                                    } else {
+                                                        let sid_clone = sid.clone();
+                                                        view! {
+                                                            <button
+                                                                class="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded"
+                                                                on:click=move |_| {
+                                                                    let token = auth.0.with(|a| a.token.clone());
+                                                                    let client = ApiClient::new(token);
+                                                                    let owner_val = owner();
+                                                                    let name_val = name();
+                                                                    let number_val = number();
+                                                                    let sid = sid_clone.clone();
+                                                                    leptos::task::spawn_local(async move {
+                                                                        let path = format!("/repos/{owner_val}/{name_val}/pulls/{number_val}/suggestions/{sid}/apply");
+                                                                        let _ = client.patch_empty(&path).await;
+                                                                    });
+                                                                }
+                                                            >
+                                                                "Apply"
+                                                            </button>
+                                                        }.into_any()
+                                                    }}
+                                                </div>
+                                            </div>
+                                            <pre class="text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-750 p-2 rounded overflow-x-auto">{suggestion_text}</pre>
+                                        </div>
+                                    }
+                                }).collect_view()}
+                            </div>
+                        </Show>
                     </Card>
                 </Show>
 
