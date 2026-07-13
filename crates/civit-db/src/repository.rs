@@ -3694,6 +3694,360 @@ impl DbRepository {
             .map_err(|e| DbError::Database(format!("delete_usage_quota: {e}")))?;
         Ok(())
     }
+
+    // --- Deployment History ---
+
+    pub async fn create_deployment_history(
+        &self,
+        environment_id: Uuid,
+        version: &str,
+        sha: &str,
+        status: &str,
+        deployed_by: Uuid,
+        rollback_of: Option<Uuid>,
+    ) -> Result<crate::models::DeploymentHistory> {
+        let row = sqlx::query_as::<_, crate::models::DeploymentHistory>(
+            r#"INSERT INTO deployment_history (environment_id, version, sha, status, deployed_by, rollback_of)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING *"#,
+        )
+        .bind(environment_id)
+        .bind(version)
+        .bind(sha)
+        .bind(status)
+        .bind(deployed_by)
+        .bind(rollback_of)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_deployment_history: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_deployment_history(
+        &self,
+        environment_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::DeploymentHistory>> {
+        let rows = sqlx::query_as::<_, crate::models::DeploymentHistory>(
+            r#"SELECT * FROM deployment_history
+               WHERE environment_id = $1
+               ORDER BY created_at DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(environment_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_deployment_history: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_deployment_history(
+        &self,
+        id: Uuid,
+    ) -> Result<crate::models::DeploymentHistory> {
+        sqlx::query_as::<_, crate::models::DeploymentHistory>(
+            "SELECT * FROM deployment_history WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_deployment_history: {e}")))
+    }
+
+    pub async fn rollback_deployment(
+        &self,
+        original_id: Uuid,
+        deployed_by: Uuid,
+    ) -> Result<crate::models::DeploymentHistory> {
+        let original = self.get_deployment_history(original_id).await?;
+        let new_version = format!("rollback-{}", original.version);
+        self.create_deployment_history(
+            original.environment_id,
+            &new_version,
+            &original.sha,
+            "deployed",
+            deployed_by,
+            Some(original_id),
+        )
+        .await
+    }
+
+    pub async fn get_rollback_status(
+        &self,
+        deployment_id: Uuid,
+    ) -> Result<crate::models::DeploymentHistory> {
+        let row = sqlx::query_as::<_, crate::models::DeploymentHistory>(
+            r#"SELECT * FROM deployment_history
+               WHERE rollback_of = $1
+               ORDER BY created_at DESC
+               LIMIT 1"#,
+        )
+        .bind(deployment_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_rollback_status: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Monitoring Alerts ---
+
+    pub async fn create_monitoring_alert(
+        &self,
+        repo_id: Uuid,
+        alert_type: &str,
+        condition: &str,
+        threshold: f64,
+    ) -> Result<crate::models::MonitoringAlert> {
+        let row = sqlx::query_as::<_, crate::models::MonitoringAlert>(
+            r#"INSERT INTO monitoring_alerts (repo_id, alert_type, condition, threshold)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(alert_type)
+        .bind(condition)
+        .bind(threshold)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_monitoring_alert: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_monitoring_alerts(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<crate::models::MonitoringAlert>> {
+        let rows = sqlx::query_as::<_, crate::models::MonitoringAlert>(
+            r#"SELECT * FROM monitoring_alerts
+               WHERE repo_id = $1
+               ORDER BY created_at DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_monitoring_alerts: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_monitoring_alert(
+        &self,
+        id: Uuid,
+    ) -> Result<crate::models::MonitoringAlert> {
+        sqlx::query_as::<_, crate::models::MonitoringAlert>(
+            "SELECT * FROM monitoring_alerts WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_monitoring_alert: {e}")))
+    }
+
+    pub async fn update_monitoring_alert(
+        &self,
+        id: Uuid,
+        alert_type: Option<&str>,
+        condition: Option<&str>,
+        threshold: Option<f64>,
+        enabled: Option<bool>,
+    ) -> Result<crate::models::MonitoringAlert> {
+        let row = sqlx::query_as::<_, crate::models::MonitoringAlert>(
+            r#"UPDATE monitoring_alerts
+               SET alert_type = COALESCE($2, alert_type),
+                   condition = COALESCE($3, condition),
+                   threshold = COALESCE($4, threshold),
+                   enabled = COALESCE($5, enabled)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(alert_type)
+        .bind(condition)
+        .bind(threshold)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_monitoring_alert: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_monitoring_alert(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM monitoring_alerts WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_monitoring_alert: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn trigger_monitoring_alert(
+        &self,
+        id: Uuid,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE monitoring_alerts SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("trigger_monitoring_alert: {e}")))?;
+        Ok(())
+    }
+
+    // --- Monitoring Incidents ---
+
+    pub async fn create_monitoring_incident(
+        &self,
+        alert_id: Uuid,
+        severity: &str,
+        message: &str,
+    ) -> Result<crate::models::MonitoringIncident> {
+        let row = sqlx::query_as::<_, crate::models::MonitoringIncident>(
+            r#"INSERT INTO monitoring_incidents (alert_id, severity, message)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(alert_id)
+        .bind(severity)
+        .bind(message)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_monitoring_incident: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_monitoring_incidents(
+        &self,
+        repo_id: Option<Uuid>,
+        status: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::MonitoringIncident>> {
+        let rows = sqlx::query_as::<_, crate::models::MonitoringIncident>(
+            r#"SELECT mi.* FROM monitoring_incidents mi
+               INNER JOIN monitoring_alerts ma ON ma.id = mi.alert_id
+               WHERE ($1::uuid IS NULL OR ma.repo_id = $1)
+                 AND ($2::varchar IS NULL OR mi.status = $2)
+               ORDER BY mi.created_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(repo_id)
+        .bind(status)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_monitoring_incidents: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn resolve_monitoring_incident(
+        &self,
+        id: Uuid,
+    ) -> Result<crate::models::MonitoringIncident> {
+        let row = sqlx::query_as::<_, crate::models::MonitoringIncident>(
+            r#"UPDATE monitoring_incidents
+               SET status = 'resolved', resolved_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("resolve_monitoring_incident: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_incident_timeline(
+        &self,
+        alert_id: Uuid,
+    ) -> Result<Vec<crate::models::MonitoringIncident>> {
+        let rows = sqlx::query_as::<_, crate::models::MonitoringIncident>(
+            r#"SELECT * FROM monitoring_incidents
+               WHERE alert_id = $1
+               ORDER BY created_at ASC"#,
+        )
+        .bind(alert_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_incident_timeline: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Performance Metrics ---
+
+    pub async fn record_performance_metric(
+        &self,
+        metric_name: &str,
+        metric_value: f64,
+        labels: &serde_json::Value,
+    ) -> Result<crate::models::PerformanceMetric> {
+        let row = sqlx::query_as::<_, crate::models::PerformanceMetric>(
+            r#"INSERT INTO performance_metrics (metric_name, metric_value, labels)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(metric_name)
+        .bind(metric_value)
+        .bind(labels)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_metric: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn query_performance_metrics(
+        &self,
+        metric_name: &str,
+        since: chrono::DateTime<chrono::Utc>,
+        until: chrono::DateTime<chrono::Utc>,
+        limit: i64,
+    ) -> Result<Vec<crate::models::PerformanceMetric>> {
+        let rows = sqlx::query_as::<_, crate::models::PerformanceMetric>(
+            r#"SELECT * FROM performance_metrics
+               WHERE metric_name = $1
+                 AND recorded_at >= $2
+                 AND recorded_at < $3
+               ORDER BY recorded_at DESC
+               LIMIT $4"#,
+        )
+        .bind(metric_name)
+        .bind(since)
+        .bind(until)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("query_performance_metrics: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_performance_metric_summary(
+        &self,
+        metric_name: &str,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'metric_name', $1,
+                'count', COUNT(*),
+                'avg_value', AVG(metric_value),
+                'min_value', MIN(metric_value),
+                'max_value', MAX(metric_value),
+                'p95_value', PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY metric_value),
+                'p99_value', PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY metric_value)
+             )
+             FROM performance_metrics
+             WHERE metric_name = $1 AND recorded_at >= $2"#,
+        )
+        .bind(metric_name)
+        .bind(since)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_performance_metric_summary: {e}")))?;
+        Ok(row)
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

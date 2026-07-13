@@ -16,6 +16,7 @@ pub mod compliance;
 pub mod data_export;
 pub mod deploy_keys;
 pub mod deployments;
+pub mod deployment_history;
 pub mod diagnostics;
 pub mod discussions;
 pub mod edit;
@@ -37,6 +38,7 @@ pub mod npm;
 pub mod observability;
 pub mod merge_queue;
 pub mod mirrors;
+pub mod monitoring;
 pub mod notifications;
 pub mod oci;
 pub mod oidc;
@@ -44,6 +46,7 @@ pub mod openapi_handler;
 pub mod orgs;
 pub mod pages;
 pub mod password;
+pub mod performance_metrics;
 pub mod pipeline_caches;
 pub mod pipeline_log_stream;
 pub mod pipeline_schedules;
@@ -226,7 +229,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/graphql/subscribe", get(graphql::graphql_subscribe))
         .merge(deploy_keys::deploy_key_routes())
         .merge(deployments::deployment_routes())
+        .merge(deployment_history::deployment_history_routes())
         .merge(environments::environment_routes())
+        .merge(monitoring::monitoring_routes())
+        .merge(performance_metrics::performance_metric_routes())
         .merge(notifications::notification_routes())
         .route("/api/v1/user/tokens", post(tokens::create_token))
         .route(

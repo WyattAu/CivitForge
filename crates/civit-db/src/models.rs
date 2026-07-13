@@ -761,3 +761,47 @@ pub struct UsageQuota {
     pub period_start: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DeploymentHistory {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub version: String,
+    pub sha: String,
+    pub status: String,
+    pub deployed_by: Uuid,
+    pub rollback_of: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MonitoringAlert {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub alert_type: String,
+    pub condition: String,
+    pub threshold: f64,
+    pub enabled: bool,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MonitoringIncident {
+    pub id: Uuid,
+    pub alert_id: Uuid,
+    pub severity: String,
+    pub message: String,
+    pub status: String,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PerformanceMetric {
+    pub id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub labels: serde_json::Value,
+    pub recorded_at: DateTime<Utc>,
+}
