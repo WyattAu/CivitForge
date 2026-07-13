@@ -105,6 +105,13 @@ pub const M_084_OBSERVABILITY_TABLES_UP: &str =
     include_str!("084_add_observability_tables.sql");
 pub const M_084_OBSERVABILITY_TABLES_DOWN: &str =
     "DROP TABLE IF EXISTS metrics; DROP TABLE IF EXISTS trace_spans;";
+pub const M_085_PERFORMANCE_INDEXES_UP: &str =
+    include_str!("085_add_performance_indexes.sql");
+pub const M_085_PERFORMANCE_INDEXES_DOWN: &str = "DROP INDEX IF EXISTS idx_repositories_owner_id; DROP INDEX IF EXISTS idx_repositories_visibility; DROP INDEX IF EXISTS idx_issues_repo_id_status; DROP INDEX IF EXISTS idx_pull_requests_repo_id_status; DROP INDEX IF EXISTS idx_pipeline_runs_repo_id; DROP INDEX IF EXISTS idx_audit_events_created_at; DROP INDEX IF EXISTS idx_audit_events_user_id; DROP INDEX IF EXISTS idx_stars_user_id; DROP INDEX IF EXISTS idx_watchers_user_id; DROP INDEX IF EXISTS idx_comments_pr_id; DROP INDEX IF EXISTS idx_comments_issue_id;";
+pub const M_086_CACHE_ENTRIES_UP: &str = include_str!("086_add_cache_entries.sql");
+pub const M_086_CACHE_ENTRIES_DOWN: &str = "DROP TABLE IF EXISTS cache_entries;";
+pub const M_087_CDN_CONFIG_UP: &str = include_str!("087_add_cdn_config.sql");
+pub const M_087_CDN_CONFIG_DOWN: &str = "DROP TABLE IF EXISTS cdn_config;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -506,6 +513,24 @@ impl MigrationManager {
             up_sql: M_084_OBSERVABILITY_TABLES_UP.into(),
             down_sql: M_084_OBSERVABILITY_TABLES_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 85,
+            name: "add_performance_indexes".into(),
+            up_sql: M_085_PERFORMANCE_INDEXES_UP.into(),
+            down_sql: M_085_PERFORMANCE_INDEXES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 86,
+            name: "add_cache_entries".into(),
+            up_sql: M_086_CACHE_ENTRIES_UP.into(),
+            down_sql: M_086_CACHE_ENTRIES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 87,
+            name: "add_cdn_config".into(),
+            up_sql: M_087_CDN_CONFIG_UP.into(),
+            down_sql: M_087_CDN_CONFIG_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -547,7 +572,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 61);
+        assert_eq!(mgr.all().len(), 64);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -674,13 +699,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 85,
+            version: 88,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 62);
-        assert_eq!(mgr.all()[61].version, 85);
+        assert_eq!(mgr.all().len(), 65);
+        assert_eq!(mgr.all()[64].version, 88);
     }
 
     #[test]
@@ -699,13 +724,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 61);
+        assert_eq!(pending.len(), 64);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(84);
+        let pending = mgr.get_pending(87);
         assert_eq!(pending.len(), 0);
     }
 
@@ -713,7 +738,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 60);
+        assert_eq!(pending.len(), 63);
     }
 
     #[test]

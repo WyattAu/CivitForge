@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod cache;
 pub mod csrf;
 pub mod debug;
 pub mod error_reporter;
