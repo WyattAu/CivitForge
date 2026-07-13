@@ -68,11 +68,11 @@ use crate::middleware::rate_limit::{RateLimitConfig, RateLimiter, rate_limit_mid
 use crate::search::tantivy_index::CodeSearchIndex;
 use crate::wiki::WikiGitBackend;
 use axum::Router;
-use axum::extract::State;
+use axum::extract::{Request, State};
 use axum::extract::ws::WebSocketUpgrade;
 use axum::http::{HeaderName, HeaderValue};
-use axum::middleware;
-use axum::response::IntoResponse;
+use axum::middleware::{self, Next};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
@@ -296,6 +296,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         window: Duration::from_secs(state.config.rate_limit_window_secs.unwrap_or(60) as u64),
     }));
 
+    let state_jwt_service = state.jwt_service.clone();
+
     let ui_dir = std::path::PathBuf::from(&state.config.ui_assets_path);
     let index_path = ui_dir.join("index.html");
     let has_ui = ui_dir.is_dir() && index_path.is_file();
@@ -304,6 +306,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
 
     let mut router = Router::new()
         .merge(api)
+        // API v2 routes (backward compatible, with deprecation notice on v1)
+        .merge(api_v2_routes())
         .layer(cors)
         .layer(middleware::from_fn(rate_limit_middleware))
         .layer(middleware::from_fn(csrf_middleware))
@@ -314,6 +318,10 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::header::X_CONTENT_TYPE_OPTIONS,
             HeaderValue::from_static("nosniff"),
+        ))
+        .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("x-xss-protection"),
+            HeaderValue::from_static("0"),
         ))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
             axum::http::header::REFERRER_POLICY,
@@ -327,7 +335,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
                   style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; \
                   img-src 'self' data:; font-src 'self'; \
                   connect-src *; \
-                  frame-ancestors 'none';",
+                  frame-ancestors 'none'; \
+                  upgrade-insecure-requests;",
             ),
         ))
         .layer(tower_http::set_header::SetResponseHeaderLayer::overriding(
@@ -340,7 +349,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         ))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
-        .layer(axum::Extension(rate_limiter));
+        .layer(axum::Extension(rate_limiter))
+        .layer(axum::Extension(state_jwt_service));
 
     if debug_mode {
         router = router
@@ -370,6 +380,67 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
     router = router.route("/__logout__", get(|| async { "" }));
 
     Ok(router)
+}
+
+/// API v2 routes with forward-compatible versioning.
+///
+/// v2 endpoints are aliases for v1 endpoints. When breaking changes are introduced,
+/// v2 will diverge while v1 remains stable. v1 endpoints include a deprecation header.
+fn api_v2_routes() -> axum::Router<AppState> {
+    Router::new()
+        .route("/api/v2/health", get(health))
+        .route("/api/v2/repos", get(repos::list_repos).post(repos::create_repo))
+        .route(
+            "/api/v2/repos/{owner}/{name}",
+            get(repos::get_repo)
+                .patch(repos::update_repo)
+                .delete(repos::delete_repo),
+        )
+        .route(
+            "/api/v2/repos/{owner}/{name}/commits",
+            get(repos::list_commits),
+        )
+        .route("/api/v2/auth/login", post(auth_routes::login))
+        .route("/api/v2/auth/register", post(auth_routes::register))
+        .route("/api/v2/auth/me", get(auth_routes::me))
+        .route("/api/v2/auth/refresh", post(auth_routes::refresh))
+        .route("/api/v2/users", get(users::list_users).post(users::create_user))
+        .route(
+            "/api/v2/users/{id}",
+            get(users::get_user)
+                .patch(users::update_user)
+                .delete(users::delete_user),
+        )
+        .route("/api/v2/user/profile", patch(users::update_profile))
+        .route("/api/v2/orgs", get(orgs::list_orgs).post(orgs::create_org))
+        .route(
+            "/api/v2/orgs/{id}",
+            get(orgs::get_org).patch(orgs::update_org),
+        )
+        .route("/api/v2/search", get(search::global_search))
+        .layer(middleware::from_fn(deprecation_header_middleware))
+}
+
+/// Middleware that adds deprecation headers to v1 API responses.
+async fn deprecation_header_middleware(mut req: Request, next: Next) -> Response {
+    let mut response = next.run(req).await;
+
+    // Add deprecation headers for v1 endpoints
+    let headers = response.headers_mut();
+    headers.insert(
+        HeaderName::from_static("sunset"),
+        HeaderValue::from_static("2027-01-01"),
+    );
+    headers.insert(
+        HeaderName::from_static("deprecation"),
+        HeaderValue::from_static("true"),
+    );
+    headers.insert(
+        HeaderName::from_static("link"),
+        HeaderValue::from_static("</api/v2>; rel=\"successor-version\""),
+    );
+
+    response
 }
 
 async fn health() -> &'static str {

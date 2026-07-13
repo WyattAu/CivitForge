@@ -1,7 +1,12 @@
-//! IP-based rate limiting middleware using a sliding window counter.
+//! Per-user rate limiting middleware with tiered limits and security headers.
 //!
-//! Each IP address gets a configurable number of requests per window.
-//! When exceeded, returns 429 Too Many Requests with `Retry-After` header.
+//! Supports three tiers:
+//! - Anonymous: 60 requests/minute (by IP)
+//! - Authenticated: 300 requests/minute (by user ID)
+//! - Admin: 1000 requests/minute (by user ID)
+//!
+//! Returns 429 Too Many Requests with `Retry-After` header.
+//! Adds `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers.
 
 #![forbid(unsafe_code)]
 
@@ -9,7 +14,7 @@
 use axum::body::Body;
 use axum::{
     extract::Request,
-    http::{StatusCode, header},
+    http::{HeaderName, StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -22,10 +27,29 @@ use std::{
 use tokio::sync::Mutex;
 use tracing::warn;
 
+/// Rate limit tiers based on user role.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RateLimitTier {
+    Anonymous,
+    Authenticated,
+    Admin,
+}
+
+impl RateLimitTier {
+    /// Max requests per minute for this tier.
+    pub fn max_requests(&self) -> u32 {
+        match self {
+            RateLimitTier::Anonymous => 60,
+            RateLimitTier::Authenticated => 300,
+            RateLimitTier::Admin => 1000,
+        }
+    }
+}
+
 /// Configuration for rate limiting.
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
-    /// Max requests per window per IP.
+    /// Max requests per window (legacy, used as fallback).
     pub max_requests: u32,
     /// Window duration.
     pub window: Duration,
@@ -46,11 +70,11 @@ struct Bucket {
     window_start: Instant,
 }
 
-/// Per-IP sliding window state. Thread-safe via tokio Mutex.
+/// Per-key (IP or user ID) sliding window state. Thread-safe via tokio Mutex.
 #[derive(Debug, Clone)]
 pub struct RateLimiter {
     config: RateLimitConfig,
-    buckets: Arc<Mutex<HashMap<IpAddr, Bucket>>>,
+    buckets: Arc<Mutex<HashMap<String, Bucket>>>,
 }
 
 impl RateLimiter {
@@ -61,31 +85,40 @@ impl RateLimiter {
         }
     }
 
-    /// Check if request is allowed. Returns `(allowed, retry_after_seconds)`.
-    pub async fn check(&self, ip: IpAddr) -> (bool, u32) {
+    /// Check if request is allowed. Returns `(allowed, retry_after_seconds, remaining, limit, reset_seconds)`.
+    pub async fn check(
+        &self,
+        key: &str,
+        tier: RateLimitTier,
+    ) -> (bool, u32, u32, u32, u64) {
         let mut buckets = self.buckets.lock().await;
         let now = Instant::now();
+        let max_requests = tier.max_requests();
+        let window = self.config.window;
 
-        let bucket = buckets.entry(ip).or_insert(Bucket {
+        let bucket = buckets.entry(key.to_string()).or_insert(Bucket {
             count: 0,
             window_start: now,
         });
 
         // Sliding window: reset if window expired
-        if now.duration_since(bucket.window_start) >= self.config.window {
+        if now.duration_since(bucket.window_start) >= window {
             bucket.count = 0;
             bucket.window_start = now;
         }
 
-        if bucket.count >= self.config.max_requests {
-            let elapsed = now.duration_since(bucket.window_start);
-            let remaining = self.config.window.saturating_sub(elapsed);
-            let retry_after = remaining.as_secs() as u32 + u32::from(remaining.subsec_nanos() > 0);
-            return (false, retry_after);
+        let reset_seconds = window
+            .saturating_sub(now.duration_since(bucket.window_start))
+            .as_secs();
+
+        if bucket.count >= max_requests {
+            let retry_after = reset_seconds as u32 + u32::from(reset_seconds == 0);
+            return (false, retry_after, 0, max_requests, reset_seconds);
         }
 
         bucket.count += 1;
-        (true, 0)
+        let remaining = max_requests.saturating_sub(bucket.count);
+        (true, 0, remaining, max_requests, reset_seconds)
     }
 }
 
@@ -110,23 +143,79 @@ fn extract_client_ip(req: &Request) -> IpAddr {
     IpAddr::V4(std::net::Ipv4Addr::LOCALHOST)
 }
 
+/// Determine the rate limit tier from JWT claims (if present).
+///
+/// Returns (tier, user_key, jwt_service).
+/// user_key is either the user ID (for authenticated) or IP string (for anonymous).
+fn extract_tier_info(
+    req: &Request,
+    ip: &IpAddr,
+    jwt_service: &Arc<civit_auth::jwt::JwtService>,
+) -> (RateLimitTier, String) {
+    // Try to extract Bearer token from Authorization header
+    if let Some(auth_header) = req.headers().get(header::AUTHORIZATION)
+        && let Ok(auth_str) = auth_header.to_str()
+        && let Some(token) = civit_auth::jwt::JwtService::extract_bearer(auth_str)
+        && let Ok(claims) = jwt_service.validate_token(token)
+    {
+        let tier = if claims.role == "admin" {
+            RateLimitTier::Admin
+        } else {
+            RateLimitTier::Authenticated
+        };
+        return (tier, format!("user:{}", claims.sub));
+    }
+
+    // No valid token → anonymous, rate limit by IP
+    (RateLimitTier::Anonymous, format!("ip:{}", ip))
+}
+
 /// Rate limiting middleware function for axum.
 pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
     let state = req.extensions().get::<Arc<RateLimiter>>().cloned();
+    let jwt_service = req.extensions().get::<Arc<civit_auth::jwt::JwtService>>().cloned();
 
     let limiter = match state {
         Some(l) => l,
         None => return next.run(req).await,
     };
 
+    let jwt_service = match jwt_service {
+        Some(s) => s,
+        None => return next.run(req).await,
+    };
+
     let ip = extract_client_ip(&req);
-    let (allowed, retry_after) = limiter.check(ip).await;
+    let (tier, user_key) = extract_tier_info(&req, &ip, &jwt_service);
+    let (allowed, retry_after, remaining, limit, reset_seconds) =
+        limiter.check(&user_key, tier).await;
+
+    let reset_epoch = chrono::Utc::now().timestamp() as u64 + reset_seconds;
 
     if !allowed {
-        warn!(ip = %ip, retry_after = retry_after, "Rate limit exceeded");
+        warn!(
+            key = %user_key,
+            tier = ?tier,
+            retry_after = retry_after,
+            "Rate limit exceeded"
+        );
         return (
             StatusCode::TOO_MANY_REQUESTS,
-            [(header::RETRY_AFTER, retry_after.to_string())],
+            [
+                (header::RETRY_AFTER, retry_after.to_string()),
+                (
+                    HeaderName::from_static("x-ratelimit-limit"),
+                    limit.to_string().into(),
+                ),
+                (
+                    HeaderName::from_static("x-ratelimit-remaining"),
+                    "0".into(),
+                ),
+                (
+                    HeaderName::from_static("x-ratelimit-reset"),
+                    reset_epoch.to_string().into(),
+                ),
+            ],
             axum::Json(serde_json::json!({
                 "error": "rate_limit_exceeded",
                 "message": "Too many requests. Please retry later."
@@ -135,7 +224,24 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
             .into_response();
     }
 
-    next.run(req).await
+    let mut response = next.run(req).await;
+
+    // Add rate limit headers to successful responses
+    let headers = response.headers_mut();
+    headers.insert(
+        HeaderName::from_static("x-ratelimit-limit"),
+        limit.to_string().parse().unwrap(),
+    );
+    headers.insert(
+        HeaderName::from_static("x-ratelimit-remaining"),
+        remaining.to_string().parse().unwrap(),
+    );
+    headers.insert(
+        HeaderName::from_static("x-ratelimit-reset"),
+        reset_epoch.to_string().parse().unwrap(),
+    );
+
+    response
 }
 
 #[cfg(test)]
@@ -149,71 +255,95 @@ mod tests {
             window: Duration::from_secs(60),
         };
         let limiter = RateLimiter::new(config);
-        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+        let key = "ip:1.2.3.4";
 
         for _ in 0..5 {
-            let (allowed, _) = limiter.check(ip).await;
+            let (allowed, _, _, _, _) = limiter.check(key, RateLimitTier::Anonymous).await;
             assert!(allowed);
         }
     }
 
     #[tokio::test]
     async fn test_rate_limiter_blocks_over_limit() {
-        let config = RateLimitConfig {
-            max_requests: 3,
-            window: Duration::from_secs(60),
-        };
+        let config = RateLimitConfig::default();
         let limiter = RateLimiter::new(config);
-        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+        let key = "ip:1.2.3.4";
 
-        for _ in 0..3 {
-            let (allowed, _) = limiter.check(ip).await;
-            assert!(allowed);
+        for _ in 0..60 {
+            limiter.check(key, RateLimitTier::Anonymous).await;
         }
 
-        let (allowed, retry) = limiter.check(ip).await;
+        let (allowed, retry, _, _, _) = limiter.check(key, RateLimitTier::Anonymous).await;
         assert!(!allowed);
         assert!(retry > 0);
     }
 
     #[tokio::test]
-    async fn test_rate_limiter_independent_ips() {
-        let config = RateLimitConfig {
-            max_requests: 2,
-            window: Duration::from_secs(60),
-        };
+    async fn test_rate_limiter_independent_keys() {
+        let config = RateLimitConfig::default();
         let limiter = RateLimiter::new(config);
-        let ip1: IpAddr = "1.1.1.1".parse().unwrap();
-        let ip2: IpAddr = "2.2.2.2".parse().unwrap();
 
-        for _ in 0..2 {
-            limiter.check(ip1).await;
+        // Exhaust anonymous limit for key1
+        for _ in 0..60 {
+            limiter.check("ip:1.1.1.1", RateLimitTier::Anonymous).await;
         }
 
-        // IP2 should still be allowed
-        let (allowed, _) = limiter.check(ip2).await;
+        // key2 should still be allowed
+        let (allowed, _, _, _, _) = limiter.check("ip:2.2.2.2", RateLimitTier::Anonymous).await;
         assert!(allowed);
     }
 
     #[tokio::test]
     async fn test_rate_limiter_window_resets() {
-        let config = RateLimitConfig {
-            max_requests: 2,
-            window: Duration::from_millis(100),
-        };
+        let config = RateLimitConfig::default();
         let limiter = RateLimiter::new(config);
-        let ip: IpAddr = "1.2.3.4".parse().unwrap();
+        let key = "ip:1.2.3.4";
 
-        limiter.check(ip).await;
-        limiter.check(ip).await;
+        // Exhaust the limit
+        for _ in 0..60 {
+            limiter.check(key, RateLimitTier::Anonymous).await;
+        }
 
-        let (allowed, _) = limiter.check(ip).await;
+        let (allowed, _, _, _, _) = limiter.check(key, RateLimitTier::Anonymous).await;
         assert!(!allowed);
 
-        tokio::time::sleep(Duration::from_millis(150)).await;
+        // Wait for window to expire
+        tokio::time::sleep(Duration::from_millis(1050)).await;
 
-        let (allowed, _) = limiter.check(ip).await;
+        let (allowed, _, _, _, _) = limiter.check(key, RateLimitTier::Anonymous).await;
         assert!(allowed);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_tier_limits() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+
+        // Authenticated tier should allow 300
+        for _ in 0..300 {
+            let (allowed, _, _, _, _) =
+                limiter.check("user:u1", RateLimitTier::Authenticated).await;
+            assert!(allowed);
+        }
+
+        let (allowed, _, _, _, _) = limiter.check("user:u1", RateLimitTier::Authenticated).await;
+        assert!(!allowed);
+
+        // Admin tier should still work for different key
+        let (allowed, _, _, _, _) = limiter.check("user:admin1", RateLimitTier::Admin).await;
+        assert!(allowed);
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_returns_correct_remaining() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+
+        let (allowed, _, remaining, limit, _) =
+            limiter.check("ip:1.2.3.4", RateLimitTier::Anonymous).await;
+        assert!(allowed);
+        assert_eq!(remaining, 59);
+        assert_eq!(limit, 60);
     }
 
     #[test]
@@ -254,5 +384,12 @@ mod tests {
         let config = RateLimitConfig::default();
         assert_eq!(config.max_requests, 100);
         assert_eq!(config.window, Duration::from_secs(60));
+    }
+
+    #[test]
+    fn test_tier_max_requests() {
+        assert_eq!(RateLimitTier::Anonymous.max_requests(), 60);
+        assert_eq!(RateLimitTier::Authenticated.max_requests(), 300);
+        assert_eq!(RateLimitTier::Admin.max_requests(), 1000);
     }
 }
