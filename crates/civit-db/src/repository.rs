@@ -1197,6 +1197,33 @@ impl DbRepository {
         Ok(rows)
     }
 
+    pub async fn list_activity_events_filtered(
+        &self,
+        repo_id: Option<Uuid>,
+        user_id: Option<Uuid>,
+        action: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ActivityEvent>> {
+        let rows = sqlx::query_as::<_, ActivityEvent>(
+            r#"SELECT * FROM activity_events
+               WHERE ($1::uuid IS NULL OR repo_id = $1)
+                 AND ($2::uuid IS NULL OR actor_id = $2)
+                 AND ($3::varchar IS NULL OR action = $3)
+               ORDER BY created_at DESC
+               LIMIT $4 OFFSET $5"#,
+        )
+        .bind(repo_id)
+        .bind(user_id)
+        .bind(action)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_activity_events_filtered: {e}")))?;
+        Ok(rows)
+    }
+
     // --- Multi-tenancy: Org-scoped resources ---
 
     pub async fn count_repos_by_org(&self, org_id: Uuid) -> Result<i64> {
@@ -2252,6 +2279,216 @@ impl DbRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::Database(format!("delete_issue_template: {e}")))?;
+        Ok(())
+    }
+
+    // --- PR Templates ---
+
+    pub async fn list_pr_templates(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<crate::models::PrTemplate>> {
+        let rows = sqlx::query_as::<_, crate::models::PrTemplate>(
+            "SELECT id, repo_id, name, title, body, base_branch, labels, created_at FROM pr_templates WHERE repo_id = $1 ORDER BY name",
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_pr_templates: {e}")))?;
+        Ok(rows)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_pr_template(
+        &self,
+        repo_id: Uuid,
+        name: &str,
+        title: &str,
+        body: &str,
+        base_branch: &str,
+        labels: &[String],
+    ) -> Result<crate::models::PrTemplate> {
+        let row = sqlx::query_as::<_, crate::models::PrTemplate>(
+            "INSERT INTO pr_templates (repo_id, name, title, body, base_branch, labels, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id, repo_id, name, title, body, base_branch, labels, created_at",
+        )
+        .bind(repo_id)
+        .bind(name)
+        .bind(title)
+        .bind(body)
+        .bind(base_branch)
+        .bind(labels)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_pr_template: {e}")))?;
+        Ok(row)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn update_pr_template(
+        &self,
+        template_id: Uuid,
+        repo_id: Uuid,
+        name: Option<&str>,
+        title: Option<&str>,
+        body: Option<&str>,
+        base_branch: Option<&str>,
+        labels: Option<&[String]>,
+    ) -> Result<crate::models::PrTemplate> {
+        let row = sqlx::query_as::<_, crate::models::PrTemplate>(
+            "UPDATE pr_templates SET name = COALESCE($3, name), title = COALESCE($4, title), body = COALESCE($5, body), base_branch = COALESCE($6, base_branch), labels = COALESCE($7, labels) WHERE id = $1 AND repo_id = $2 RETURNING id, repo_id, name, title, body, base_branch, labels, created_at",
+        )
+        .bind(template_id)
+        .bind(repo_id)
+        .bind(name)
+        .bind(title)
+        .bind(body)
+        .bind(base_branch)
+        .bind(labels)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_pr_template: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_pr_template(
+        &self,
+        template_id: Uuid,
+        repo_id: Uuid,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM pr_templates WHERE id = $1 AND repo_id = $2")
+            .bind(template_id)
+            .bind(repo_id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_pr_template: {e}")))?;
+        Ok(())
+    }
+
+    // --- Discussions ---
+
+    pub async fn list_discussions(
+        &self,
+        repo_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::Discussion>> {
+        let rows = sqlx::query_as::<_, crate::models::Discussion>(
+            "SELECT id, repo_id, title, body, category, author_id, is_pinned, is_locked, created_at, updated_at FROM discussions WHERE repo_id = $1 ORDER BY is_pinned DESC, created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(repo_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_discussions: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_discussion(&self, id: Uuid) -> Result<crate::models::Discussion> {
+        sqlx::query_as::<_, crate::models::Discussion>(
+            "SELECT id, repo_id, title, body, category, author_id, is_pinned, is_locked, created_at, updated_at FROM discussions WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_discussion: {e}")))
+    }
+
+    pub async fn create_discussion(
+        &self,
+        repo_id: Uuid,
+        title: &str,
+        body: &str,
+        category: &str,
+        author_id: Uuid,
+    ) -> Result<crate::models::Discussion> {
+        let row = sqlx::query_as::<_, crate::models::Discussion>(
+            "INSERT INTO discussions (repo_id, title, body, category, author_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, repo_id, title, body, category, author_id, is_pinned, is_locked, created_at, updated_at",
+        )
+        .bind(repo_id)
+        .bind(title)
+        .bind(body)
+        .bind(category)
+        .bind(author_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_discussion: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn update_discussion(
+        &self,
+        id: Uuid,
+        title: Option<&str>,
+        body: Option<&str>,
+        category: Option<&str>,
+        is_pinned: Option<bool>,
+        is_locked: Option<bool>,
+    ) -> Result<crate::models::Discussion> {
+        let row = sqlx::query_as::<_, crate::models::Discussion>(
+            "UPDATE discussions SET title = COALESCE($2, title), body = COALESCE($3, body), category = COALESCE($4, category), is_pinned = COALESCE($5, is_pinned), is_locked = COALESCE($6, is_locked), updated_at = NOW() WHERE id = $1 RETURNING id, repo_id, title, body, category, author_id, is_pinned, is_locked, created_at, updated_at",
+        )
+        .bind(id)
+        .bind(title)
+        .bind(body)
+        .bind(category)
+        .bind(is_pinned)
+        .bind(is_locked)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_discussion: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_discussion(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM discussions WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_discussion: {e}")))?;
+        Ok(())
+    }
+
+    // --- Discussion Comments ---
+
+    pub async fn list_discussion_comments(
+        &self,
+        discussion_id: Uuid,
+    ) -> Result<Vec<crate::models::DiscussionComment>> {
+        let rows = sqlx::query_as::<_, crate::models::DiscussionComment>(
+            "SELECT id, discussion_id, author_id, body, created_at, updated_at FROM discussion_comments WHERE discussion_id = $1 ORDER BY created_at ASC",
+        )
+        .bind(discussion_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_discussion_comments: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn create_discussion_comment(
+        &self,
+        discussion_id: Uuid,
+        author_id: Uuid,
+        body: &str,
+    ) -> Result<crate::models::DiscussionComment> {
+        let row = sqlx::query_as::<_, crate::models::DiscussionComment>(
+            "INSERT INTO discussion_comments (discussion_id, author_id, body) VALUES ($1, $2, $3) RETURNING id, discussion_id, author_id, body, created_at, updated_at",
+        )
+        .bind(discussion_id)
+        .bind(author_id)
+        .bind(body)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_discussion_comment: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_discussion_comment(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM discussion_comments WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_discussion_comment: {e}")))?;
         Ok(())
     }
 

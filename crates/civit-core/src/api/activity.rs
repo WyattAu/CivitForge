@@ -51,6 +51,8 @@ pub struct ActivityQueryParams {
     pub offset: Option<u32>,
     pub repo_id: Option<String>,
     pub org_id: Option<String>,
+    pub user_id: Option<String>,
+    pub action: Option<String>,
 }
 
 fn effective_limit(params: &ActivityQueryParams) -> i64 {
@@ -83,16 +85,17 @@ pub async fn list_activity(
         .repo_id
         .clone()
         .and_then(|s| uuid::Uuid::parse_str(&s).ok());
-    let org_id = params
-        .org_id
+    let user_id = params
+        .user_id
         .clone()
         .and_then(|s| uuid::Uuid::parse_str(&s).ok());
+    let action_filter = params.action.as_deref();
     let limit = effective_limit(&params);
     let offset = effective_offset(&params);
 
     match state
         .db
-        .list_activity_events(repo_id, org_id, limit, offset)
+        .list_activity_events_filtered(repo_id, user_id, action_filter, limit, offset)
         .await
     {
         Ok(events) => {
@@ -184,6 +187,8 @@ mod tests {
             offset: None,
             repo_id: None,
             org_id: None,
+            user_id: None,
+            action: None,
         };
         assert_eq!(effective_limit(&params), 50);
         assert_eq!(effective_offset(&params), 0);
@@ -191,10 +196,11 @@ mod tests {
 
     #[test]
     fn test_activity_query_params_parse() {
-        let json = r#"{"per_page":10,"page":2,"repo_id":"00000000-0000-0000-0000-000000000000"}"#;
+        let json = r#"{"per_page":10,"page":2,"repo_id":"00000000-0000-0000-0000-000000000000","action":"push"}"#;
         let params: ActivityQueryParams = serde_json::from_str(json).unwrap();
         assert_eq!(params.per_page, Some(10));
         assert!(params.repo_id.is_some());
+        assert_eq!(params.action, Some("push".into()));
     }
 
     #[test]

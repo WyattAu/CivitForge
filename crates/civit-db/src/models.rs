@@ -234,6 +234,42 @@ pub struct IssueTemplate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PrTemplate {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub title: String,
+    pub body: String,
+    pub base_branch: String,
+    pub labels: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Discussion {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub title: String,
+    pub body: String,
+    pub category: String,
+    pub author_id: Uuid,
+    pub is_pinned: bool,
+    pub is_locked: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DiscussionComment {
+    pub id: Uuid,
+    pub discussion_id: Uuid,
+    pub author_id: Uuid,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct BranchProtectionRule {
     pub id: Uuid,
     pub repo_id: Uuid,
@@ -466,6 +502,59 @@ mod tests {
         let json = serde_json::to_string(&member).unwrap();
         let de: TeamMember = serde_json::from_str(&json).unwrap();
         assert_eq!(de.role, "maintainer");
+    }
+
+    #[test]
+    fn test_pr_template_serialization() {
+        let tmpl = PrTemplate {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            name: "Feature".into(),
+            title: "feat: ".into(),
+            body: "## Description".into(),
+            base_branch: "main".into(),
+            labels: vec!["feature".into()],
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&tmpl).unwrap();
+        let de: PrTemplate = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.name, "Feature");
+        assert_eq!(de.base_branch, "main");
+    }
+
+    #[test]
+    fn test_discussion_serialization() {
+        let disc = Discussion {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            title: "RFC: New API".into(),
+            body: "Proposal".into(),
+            category: "rfc".into(),
+            author_id: Uuid::nil(),
+            is_pinned: true,
+            is_locked: false,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&disc).unwrap();
+        let de: Discussion = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.title, "RFC: New API");
+        assert!(de.is_pinned);
+    }
+
+    #[test]
+    fn test_discussion_comment_serialization() {
+        let cmt = DiscussionComment {
+            id: Uuid::nil(),
+            discussion_id: Uuid::nil(),
+            author_id: Uuid::nil(),
+            body: "Great idea!".into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&cmt).unwrap();
+        let de: DiscussionComment = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.body, "Great idea!");
     }
 
     #[test]

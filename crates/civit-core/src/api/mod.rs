@@ -3,8 +3,8 @@
 pub mod activity;
 pub mod artifact_serving;
 pub mod audit_admin;
-pub mod auth;
 pub mod auth_routes;
+pub mod auth;
 pub mod badges;
 pub mod boards;
 pub mod branch_protection;
@@ -13,6 +13,7 @@ pub mod codeowners;
 pub mod deploy_keys;
 pub mod deployments;
 pub mod diagnostics;
+pub mod discussions;
 pub mod edit;
 pub mod environments;
 pub mod error_reports;
@@ -38,6 +39,7 @@ pub mod pipeline_log_stream;
 pub mod pipeline_schedules;
 pub mod pipeline_secrets;
 pub mod pipelines;
+pub mod pr_templates;
 pub mod pull_requests;
 pub mod releases;
 pub mod repos;
@@ -64,7 +66,7 @@ use crate::middleware::rate_limit::{RateLimitConfig, RateLimiter, rate_limit_mid
 use crate::search::tantivy_index::CodeSearchIndex;
 use crate::wiki::WikiGitBackend;
 use axum::Router;
-use axum::extract::{Query, State};
+use axum::extract::State;
 use axum::extract::ws::WebSocketUpgrade;
 use axum::http::{HeaderName, HeaderValue};
 use axum::middleware;
@@ -158,6 +160,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(oci::registry_routes())
         .merge(issues::issue_routes())
         .merge(issue_templates::issue_template_routes())
+        .merge(pr_templates::pr_template_routes())
+        .merge(discussions::discussion_routes())
         .merge(boards::board_routes())
         .merge(edit::edit_routes())
         .merge(pull_requests::pr_routes())

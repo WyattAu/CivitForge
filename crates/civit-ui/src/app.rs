@@ -48,6 +48,8 @@ pub fn App() -> impl IntoView {
                                 <Route path=path!("graph") view=GraphPage />
                                 <Route path=path!("releases") view=ReleasesPage />
                                 <Route path=path!("boards") view=BoardsPage />
+                                <Route path=path!("discussions") view=DiscussionsPage />
+                                <Route path=path!("pr-templates") view=PrTemplatesPage />
                                 <Route path=path!("environments") view=EnvironmentsPage />
                                 <Route path=path!("deployments") view=DeploymentsPage />
                                 <Route path=path!("settings") view=RepoSettingsPage />

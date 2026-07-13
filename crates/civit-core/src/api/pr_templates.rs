@@ -14,28 +14,31 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize)]
-pub struct CreateIssueTemplateRequest {
+pub struct CreatePrTemplateRequest {
     pub name: String,
     pub title: Option<String>,
     pub body: Option<String>,
+    pub base_branch: Option<String>,
     pub labels: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct UpdateIssueTemplateRequest {
+pub struct UpdatePrTemplateRequest {
     pub name: Option<String>,
     pub title: Option<String>,
     pub body: Option<String>,
+    pub base_branch: Option<String>,
     pub labels: Option<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
-pub struct IssueTemplateResponse {
+pub struct PrTemplateResponse {
     pub id: Uuid,
     pub repo_id: Uuid,
     pub name: String,
     pub title: String,
     pub body: String,
+    pub base_branch: String,
     pub labels: Vec<String>,
     pub created_at: DateTime<Utc>,
 }
@@ -68,7 +71,7 @@ async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<Uui
     .flatten()
 }
 
-pub async fn list_issue_templates(
+pub async fn list_pr_templates(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
     _auth: OptionalAuthUser,
@@ -84,18 +87,18 @@ pub async fn list_issue_templates(
         }
     };
 
-    let templates = state.db.list_issue_templates(repo_id).await;
+    let templates = state.db.list_pr_templates(repo_id).await;
     match templates {
         Ok(t) => (axum::http::StatusCode::OK, Json(t)).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
 }
 
-pub async fn create_issue_template(
+pub async fn create_pr_template(
     State(state): State<AppState>,
     Path((owner, name)): Path<(String, String)>,
     _auth: AuthUser,
-    Json(req): Json<CreateIssueTemplateRequest>,
+    Json(req): Json<CreatePrTemplateRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -114,11 +117,12 @@ pub async fn create_issue_template(
 
     let title = req.title.unwrap_or_default();
     let body = req.body.unwrap_or_default();
+    let base_branch = req.base_branch.unwrap_or_else(|| "main".into());
     let labels = req.labels.unwrap_or_default();
 
     match state
         .db
-        .create_issue_template(repo_id, &req.name, &title, &body, &labels)
+        .create_pr_template(repo_id, &req.name, &title, &body, &base_branch, &labels)
         .await
     {
         Ok(t) => (axum::http::StatusCode::CREATED, Json(t)).into_response(),
@@ -126,11 +130,11 @@ pub async fn create_issue_template(
     }
 }
 
-pub async fn update_issue_template(
+pub async fn update_pr_template(
     State(state): State<AppState>,
     Path((owner, name, template_id)): Path<(String, String, Uuid)>,
     _auth: AuthUser,
-    Json(req): Json<UpdateIssueTemplateRequest>,
+    Json(req): Json<UpdatePrTemplateRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &name).await {
@@ -145,12 +149,13 @@ pub async fn update_issue_template(
 
     match state
         .db
-        .update_issue_template(
+        .update_pr_template(
             template_id,
             repo_id,
             req.name.as_deref(),
             req.title.as_deref(),
             req.body.as_deref(),
+            req.base_branch.as_deref(),
             req.labels.as_deref(),
         )
         .await
@@ -160,7 +165,7 @@ pub async fn update_issue_template(
     }
 }
 
-pub async fn delete_issue_template(
+pub async fn delete_pr_template(
     State(state): State<AppState>,
     Path((owner, name, template_id)): Path<(String, String, Uuid)>,
     _auth: AuthUser,
@@ -178,7 +183,7 @@ pub async fn delete_issue_template(
 
     match state
         .db
-        .delete_issue_template(template_id, repo_id)
+        .delete_pr_template(template_id, repo_id)
         .await
     {
         Ok(()) => (axum::http::StatusCode::NO_CONTENT, ()).into_response(),
@@ -186,16 +191,16 @@ pub async fn delete_issue_template(
     }
 }
 
-pub fn issue_template_routes() -> Router<AppState> {
+pub fn pr_template_routes() -> Router<AppState> {
     Router::new()
         .route(
-            "/api/v1/repos/{owner}/{name}/issue-templates",
-            get(list_issue_templates).post(create_issue_template),
+            "/api/v1/repos/{owner}/{name}/pr-templates",
+            get(list_pr_templates).post(create_pr_template),
         )
         .route(
-            "/api/v1/repos/{owner}/{name}/issue-templates/{template_id}",
-            axum::routing::patch(update_issue_template)
-                .delete(delete_issue_template),
+            "/api/v1/repos/{owner}/{name}/pr-templates/{template_id}",
+            axum::routing::patch(update_pr_template)
+                .delete(delete_pr_template),
         )
 }
 
@@ -204,18 +209,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_create_issue_template_request_deserialize() {
-        let json = "{\"name\":\"Bug Report\",\"title\":\"[Bug] \",\"body\":\"## Description\",\"labels\":[\"bug\"]}";
-        let req: CreateIssueTemplateRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(req.name, "Bug Report");
-        assert_eq!(req.title, Some("[Bug] ".into()));
-        assert_eq!(req.labels, Some(vec!["bug".into()]));
+    fn test_create_pr_template_request_deserialize() {
+        let json = "{\"name\":\"Feature\",\"title\":\"feat: \",\"body\":\"## Description\",\"base_branch\":\"main\",\"labels\":[\"feature\"]}";
+        let req: CreatePrTemplateRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.name, "Feature");
+        assert_eq!(req.title, Some("feat: ".into()));
+        assert_eq!(req.base_branch, Some("main".into()));
+        assert_eq!(req.labels, Some(vec!["feature".into()]));
     }
 
     #[test]
-    fn test_update_issue_template_request_deserialize() {
+    fn test_update_pr_template_request_deserialize() {
         let json = r#"{"name":"Updated Name"}"#;
-        let req: UpdateIssueTemplateRequest = serde_json::from_str(json).unwrap();
+        let req: UpdatePrTemplateRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.name, Some("Updated Name".into()));
         assert!(req.title.is_none());
     }
