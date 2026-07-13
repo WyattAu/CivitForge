@@ -3484,6 +3484,216 @@ impl DbRepository {
             .map_err(|e| DbError::Database(format!("delete_admin_dashboard_widget: {e}")))?;
         Ok(())
     }
+
+    // --- API Analytics ---
+
+    pub async fn record_api_analytic(
+        &self,
+        endpoint: &str,
+        method: &str,
+        status_code: i32,
+        response_time_ms: i32,
+        user_id: Option<Uuid>,
+        ip_address: Option<&str>,
+        user_agent: Option<&str>,
+        request_size_bytes: i32,
+        response_size_bytes: i32,
+    ) -> Result<crate::models::ApiAnalytic> {
+        let row = sqlx::query_as::<_, crate::models::ApiAnalytic>(
+            r#"INSERT INTO api_analytics (endpoint, method, status_code, response_time_ms, user_id, ip_address, user_agent, request_size_bytes, response_size_bytes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(status_code)
+        .bind(response_time_ms)
+        .bind(user_id)
+        .bind(ip_address)
+        .bind(user_agent)
+        .bind(request_size_bytes)
+        .bind(response_size_bytes)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_api_analytic: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_analytics(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::ApiAnalytic>> {
+        let rows = sqlx::query_as::<_, crate::models::ApiAnalytic>(
+            "SELECT * FROM api_analytics ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_api_analytics_by_endpoint(
+        &self,
+        endpoint: &str,
+        limit: i64,
+    ) -> Result<Vec<crate::models::ApiAnalytic>> {
+        let rows = sqlx::query_as::<_, crate::models::ApiAnalytic>(
+            "SELECT * FROM api_analytics WHERE endpoint = $1 ORDER BY created_at DESC LIMIT $2",
+        )
+        .bind(endpoint)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_by_endpoint: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_endpoint_statistics(&self) -> Result<Vec<serde_json::Value>> {
+        let rows = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'endpoint', endpoint,
+                'method', method,
+                'total_requests', COUNT(*),
+                'avg_response_time_ms', AVG(response_time_ms),
+                'error_rate', SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)::float / COUNT(*)::float,
+                'p95_response_time_ms', PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time_ms)
+             )
+             FROM api_analytics
+             GROUP BY endpoint, method
+             ORDER BY total_requests DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_endpoint_statistics: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_user_usage_statistics(&self) -> Result<Vec<serde_json::Value>> {
+        let rows = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'user_id', user_id,
+                'total_requests', COUNT(*),
+                'avg_response_time_ms', AVG(response_time_ms),
+                'error_rate', SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)::float / COUNT(*)::float
+             )
+             FROM api_analytics
+             WHERE user_id IS NOT NULL
+             GROUP BY user_id
+             ORDER BY total_requests DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_user_usage_statistics: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_api_usage_summary(
+        &self,
+        period_start: chrono::DateTime<chrono::Utc>,
+        period_end: chrono::DateTime<chrono::Utc>,
+    ) -> Result<crate::models::ApiUsageSummary> {
+        let row = sqlx::query_as::<_, crate::models::ApiUsageSummary>(
+            r#"INSERT INTO api_usage_summary (period_start, period_end, total_requests, total_errors, avg_response_time_ms, p95_response_time_ms, unique_users)
+               SELECT $1, $2, COUNT(*), SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END), AVG(response_time_ms), PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time_ms), COUNT(DISTINCT user_id)
+               FROM api_analytics
+               WHERE created_at >= $1 AND created_at < $3
+               RETURNING *"#,
+        )
+        .bind(period_start)
+        .bind(period_end)
+        .bind(period_end)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_usage_summary: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Usage Quotas ---
+
+    pub async fn create_usage_quota(
+        &self,
+        user_id: Uuid,
+        quota_type: &str,
+        quota_limit: i32,
+        period_start: chrono::DateTime<chrono::Utc>,
+    ) -> Result<crate::models::UsageQuota> {
+        let row = sqlx::query_as::<_, crate::models::UsageQuota>(
+            r#"INSERT INTO usage_quotas (user_id, quota_type, quota_limit, period_start)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (user_id, quota_type, period_start) DO UPDATE SET quota_limit = $3
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(quota_type)
+        .bind(quota_limit)
+        .bind(period_start)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_usage_quota: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_usage_quota(
+        &self,
+        user_id: Uuid,
+        quota_type: &str,
+    ) -> Result<Option<crate::models::UsageQuota>> {
+        let row = sqlx::query_as::<_, crate::models::UsageQuota>(
+            r#"SELECT * FROM usage_quotas 
+               WHERE user_id = $1 AND quota_type = $2 AND period_start <= NOW()
+               ORDER BY period_start DESC LIMIT 1"#,
+        )
+        .bind(user_id)
+        .bind(quota_type)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_usage_quota: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn increment_usage_quota(
+        &self,
+        user_id: Uuid,
+        quota_type: &str,
+    ) -> Result<crate::models::UsageQuota> {
+        let row = sqlx::query_as::<_, crate::models::UsageQuota>(
+            r#"UPDATE usage_quotas 
+               SET quota_used = quota_used + 1
+               WHERE user_id = $1 AND quota_type = $2 AND period_start <= NOW()
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(quota_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("increment_usage_quota: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_user_usage_quotas(&self, user_id: Uuid) -> Result<Vec<crate::models::UsageQuota>> {
+        let rows = sqlx::query_as::<_, crate::models::UsageQuota>(
+            r#"SELECT * FROM usage_quotas 
+               WHERE user_id = $1 AND period_start <= NOW()
+               ORDER BY quota_type"#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_user_usage_quotas: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn delete_usage_quota(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM usage_quotas WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_usage_quota: {e}")))?;
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

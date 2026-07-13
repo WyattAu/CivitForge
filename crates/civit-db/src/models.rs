@@ -722,3 +722,42 @@ mod tests {
         assert!(de.enforce_admins);
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiAnalytic {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub status_code: i32,
+    pub response_time_ms: i32,
+    pub user_id: Option<Uuid>,
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub request_size_bytes: i32,
+    pub response_size_bytes: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiUsageSummary {
+    pub id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub total_requests: i32,
+    pub total_errors: i32,
+    pub avg_response_time_ms: f64,
+    pub p95_response_time_ms: f64,
+    pub unique_users: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct UsageQuota {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub quota_type: String,
+    pub quota_limit: i32,
+    pub quota_used: i32,
+    pub period_start: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}

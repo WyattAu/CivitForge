@@ -2,6 +2,7 @@
 
 pub mod activity;
 pub mod admin_dashboard;
+pub mod api_analytics;
 pub mod artifact_serving;
 pub mod audit_admin;
 pub mod auth_routes;
@@ -65,6 +66,7 @@ pub mod sso;
 pub mod ssh_keys;
 pub mod teams;
 pub mod tokens;
+pub mod usage_quotas;
 pub mod users;
 #[cfg(feature = "webauthn")]
 pub mod webauthn;
@@ -273,6 +275,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(sso::sso_routes())
         .merge(feature_flags::feature_flag_routes())
         .merge(admin_dashboard::admin_dashboard_routes())
+        .merge(api_analytics::api_analytics_routes())
+        .merge(usage_quotas::usage_quota_routes())
         .merge(observability_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
@@ -372,9 +376,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
         ))
         .layer(TraceLayer::new_for_http())
-        .with_state(state)
+        .with_state(state.clone())
         .layer(axum::Extension(rate_limiter))
-        .layer(axum::Extension(state_jwt_service));
+        .layer(axum::Extension(state_jwt_service))
+        .layer(axum::Extension(std::sync::Arc::new(state.db.clone())))
+        .layer(middleware::from_fn(crate::middleware::api_analytics::api_analytics_middleware));
 
     if debug_mode {
         router = router
