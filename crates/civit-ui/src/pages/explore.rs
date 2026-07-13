@@ -6,8 +6,8 @@ use leptos_router::components::A;
 use crate::api::client::ApiClient;
 use crate::api::types::ListResponse;
 use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Pagination,
-    SkeletonCard,
+    Badge, BadgeColor, Button, ButtonVariant, Card, EmptyState, ErrorBanner, Input, InputType,
+    Pagination, SkeletonCard,
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
@@ -142,11 +142,17 @@ pub fn ExplorePage() -> impl IntoView {
 
             <Show when=move || !loading.get() && repos_sig.with(|r| r.is_empty()) && error.get().is_none() fallback=|| view! { <div></div> }>
                 <Card>
-                    <div class="py-12 text-center">
-                        <p class="text-gray-500 dark:text-gray-400 text-lg">
-                            "No repositories found. Be the first to create one!"
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon=view! {
+                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                        }.into_any()
+                        title="No repositories found".to_string()
+                        description="No repositories match your search. Try a different query or create the first one.".to_string()
+                        action_text="Create Repository".to_string()
+                        action_href="/new-repo".to_string()
+                    />
                 </Card>
             </Show>
 

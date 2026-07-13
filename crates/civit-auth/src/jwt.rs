@@ -75,6 +75,11 @@ impl JwtService {
             .map(str::trim)
             .filter(|s| !s.is_empty())
     }
+
+    /// Returns the token expiry in seconds.
+    pub fn expiry_seconds(&self) -> u64 {
+        self.expiry_hours * 3600
+    }
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@ use crate::api::client::ApiClient;
 use crate::api::types::{
     CreateWikiPageBody, UpdateWikiPageBody, WikiPageListItem, WikiPageResponse, WikiRevision,
 };
-use crate::components::{Button, ButtonVariant, Card, ErrorBanner, Modal, Spinner};
+use crate::components::{Button, ButtonVariant, Card, EmptyState, ErrorBanner, Modal, Spinner};
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
@@ -404,8 +404,17 @@ pub fn WikiPage() -> impl IntoView {
                             </Show>
 
                             <Show when=move || !pages_loading.get() && pages_sig.get().is_empty() fallback=|| view! { <div class="hidden"></div> }>
-                                <div class="p-4 text-sm text-gray-500 dark:text-gray-400 text-center">
-                                    "No pages yet"
+                                <div class="p-4">
+                                    <EmptyState
+                                        icon=view! {
+                                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                            </svg>
+                                        }.into_any()
+                                        title="No wiki pages".to_string()
+                                        description="Create the first wiki page to document this repository.".to_string()
+                                        action_text="New Page".to_string()
+                                    />
                                 </div>
                             </Show>
 
@@ -492,13 +501,17 @@ pub fn WikiPage() -> impl IntoView {
 
                     <Show when=move || !page_loading.get() && current_page_sig.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                         <Card>
-                            <div class="text-center py-12">
-                                <svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                                </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">"Select a page"</h3>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">"Choose a page from the sidebar to view its content."</p>
-                            </div>
+                            <EmptyState
+                                icon=view! {
+                                    <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                                    </svg>
+                                }.into_any()
+                                title="Select a page".to_string()
+                                description="Choose a page from the sidebar to view its content, or create a new one.".to_string()
+                                action_text="New Page".to_string()
+                                action_href=format!("/repos/{}/{}/wiki", owner(), name())
+                            />
                         </Card>
                     </Show>
 

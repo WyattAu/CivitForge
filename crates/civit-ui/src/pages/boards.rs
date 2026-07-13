@@ -10,7 +10,8 @@ use crate::api::types::{
     CreateColumnBody, MoveCardBody, UpdateBoardBody,
 };
 use crate::components::{
-    Avatar, Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Modal, Spinner,
+    Avatar, Badge, BadgeColor, Button, ButtonVariant, Card, EmptyState, ErrorBanner, Modal,
+    Spinner,
 };
 use crate::state::auth::use_auth;
 use crate::utils::get_input_value;
@@ -716,9 +717,16 @@ pub fn BoardsPage() -> impl IntoView {
             <Show when=move || !loading.get() && selected_board_id.get().is_none() && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                 <Show when=move || !boards.with(|bs| bs.is_empty()) fallback=|| view! {
                     <Card>
-                        <div class="text-center py-12">
-                            <p class="text-gray-500 dark:text-gray-400 text-lg">"No boards yet. Create one to get started!"</p>
-                        </div>
+                        <EmptyState
+                            icon=view! {
+                                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+                                </svg>
+                            }.into_any()
+                            title="No boards yet".to_string()
+                            description="Create a Kanban board to organize issues and track progress visually.".to_string()
+                            action_text="New Board".to_string()
+                        />
                     </Card>
                 }>
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

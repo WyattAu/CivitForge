@@ -63,7 +63,7 @@ use crate::middleware::rate_limit::{RateLimitConfig, RateLimiter, rate_limit_mid
 use crate::search::tantivy_index::CodeSearchIndex;
 use crate::wiki::WikiGitBackend;
 use axum::Router;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::extract::ws::WebSocketUpgrade;
 use axum::http::{HeaderName, HeaderValue};
 use axum::middleware;
@@ -211,6 +211,22 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route(
             "/api/v1/auth/oidc/exchange",
             post(oidc::exchange_oidc_token),
+        )
+        .route(
+            "/api/v1/oauth/authorize",
+            get(auth_routes::oauth_authorize),
+        )
+        .route(
+            "/api/v1/oauth/token",
+            post(auth_routes::oauth_token),
+        )
+        .route(
+            "/api/v1/oauth/refresh",
+            post(auth_routes::oauth_refresh),
+        )
+        .route(
+            "/api/v1/oauth/clients",
+            post(auth_routes::oauth_register_client),
         )
         .route("/api/v1/orgs", get(orgs::list_orgs).post(orgs::create_org))
         .route(
@@ -363,6 +379,7 @@ pub struct AppState {
     pub forgefed_processor: Arc<ForgeFedProcessor>,
     pub code_search_index: Arc<RwLock<CodeSearchIndex>>,
     pub wiki_git: Arc<WikiGitBackend>,
+    pub notification_broadcaster: Arc<tokio::sync::broadcast::Sender<String>>,
     #[cfg(feature = "webauthn")]
     pub webauthn_service: Option<Arc<civit_auth::webauthn::WebAuthnService>>,
 }
@@ -430,6 +447,7 @@ impl AppState {
             forgefed_processor,
             code_search_index,
             wiki_git,
+            notification_broadcaster: Arc::new(tokio::sync::broadcast::channel(256).0),
             #[cfg(feature = "webauthn")]
             webauthn_service: {
                 let rp_name =

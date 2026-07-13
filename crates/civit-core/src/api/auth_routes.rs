@@ -6,12 +6,13 @@ use crate::api::users::UserResponse;
 use crate::error::CoreError;
 use crate::ldap::LdapAuth;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
-    response::{IntoResponse, Json},
+    response::{IntoResponse, Json, Redirect},
 };
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
@@ -68,6 +69,76 @@ pub struct MeResponse {
     pub username: String,
     pub role: String,
     pub org_id: Option<String>,
+}
+
+// ── OAuth2/PKCE Types ──
+
+#[derive(Debug, Deserialize)]
+pub struct OAuthAuthorizeParams {
+    pub client_id: String,
+    pub redirect_uri: String,
+    pub response_type: String,
+    pub code_challenge: String,
+    pub code_challenge_method: String,
+    pub state: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OAuthTokenResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: u64,
+    pub refresh_token: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OAuthTokenRequest {
+    pub grant_type: String,
+    pub code: String,
+    pub redirect_uri: String,
+    pub code_verifier: String,
+    pub client_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OAuthRefreshRequest {
+    pub grant_type: String,
+    pub refresh_token: String,
+    pub client_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OAuthRegisterClientRequest {
+    pub name: String,
+    pub redirect_uris: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OAuthRegisterClientResponse {
+    pub client_id: String,
+    pub client_secret: String,
+}
+
+/// Hash a token for storage (SHA-256)
+fn hash_token(token: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Generate a random string of specified length
+fn generate_random_string(length: usize) -> String {
+    let mut random_bytes = vec![0u8; length];
+    rand::fill(&mut random_bytes);
+    // Convert to alphanumeric string
+    random_bytes
+        .iter()
+        .map(|b| {
+            let idx = (b % 62) as usize;
+            const CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            CHARS[idx] as char
+        })
+        .collect()
 }
 
 impl From<AuthUser> for MeResponse {
@@ -724,6 +795,471 @@ async fn do_verify_email(
         status: "ok".into(),
         message: "Email verified successfully".into(),
     })
+}
+
+// ── OAuth2/PKCE Endpoints ──
+
+/// OAuth2 Authorization endpoint (GET /api/v1/oauth/authorize)
+pub async fn oauth_authorize(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(params): Query<OAuthAuthorizeParams>,
+) -> impl IntoResponse {
+    // Validate response_type
+    if params.response_type != "code" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("response_type must be 'code'".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Validate code_challenge_method
+    if params.code_challenge_method != "S256" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("code_challenge_method must be 'S256'".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Validate client_id
+    let client = match sqlx::query_as::<_, (String, String, serde_json::Value)>(
+        "SELECT client_id, name, redirect_uris FROM oauth_clients WHERE client_id = $1",
+    )
+    .bind(&params.client_id)
+    .fetch_optional(state.db.pool())
+    .await
+    {
+        Ok(Some(c)) => c,
+        Ok(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid client_id".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Validate redirect_uri
+    let redirect_uris: Vec<String> = serde_json::from_value(client.2).unwrap_or_default();
+    if !redirect_uris.contains(&params.redirect_uri) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("invalid redirect_uri".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Generate authorization code
+    let code = generate_random_string(64);
+    let expires_at = Utc::now() + Duration::minutes(10);
+    let user_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
+
+    // Store the authorization code
+    if let Err(e) = sqlx::query(
+        "INSERT INTO oauth_codes (code, code_challenge, code_challenge_method, client_id, user_id, redirect_uri, state, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(&code)
+    .bind(&params.code_challenge)
+    .bind(&params.code_challenge_method)
+    .bind(&params.client_id)
+    .bind(user_id)
+    .bind(&params.redirect_uri)
+    .bind(&params.state)
+    .bind(expires_at)
+    .execute(state.db.pool())
+    .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Redirect to client with code and state
+    let mut redirect_url = format!("{}?code={}", params.redirect_uri, code);
+    if let Some(ref state_param) = params.state {
+        redirect_url = format!("{}&state={}", redirect_url, state_param);
+    }
+
+    Redirect::temporary(&redirect_url).into_response()
+}
+
+/// OAuth2 Token endpoint (POST /api/v1/oauth/token)
+pub async fn oauth_token(
+    State(state): State<AppState>,
+    Json(req): Json<OAuthTokenRequest>,
+) -> impl IntoResponse {
+    // Validate grant_type
+    if req.grant_type != "authorization_code" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "unsupported_grant_type",
+                "error_description": "grant_type must be 'authorization_code'"
+            })),
+        )
+            .into_response();
+    }
+
+    // Find and validate the authorization code
+    let code_record = match sqlx::query_as::<_, (uuid::Uuid, String, String, uuid::Uuid, String, bool)>(
+        "SELECT id, code_challenge, client_id, user_id, redirect_uri, used FROM oauth_codes WHERE code = $1 AND expires_at > NOW()",
+    )
+    .bind(&req.code)
+    .fetch_optional(state.db.pool())
+    .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "invalid_grant",
+                    "error_description": "invalid or expired authorization code"
+                })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Check if code was already used
+    if code_record.5 {
+        // Mark as compromised - delete all codes for this client
+        let _ = sqlx::query("DELETE FROM oauth_codes WHERE client_id = $1")
+            .bind(&code_record.2)
+            .execute(state.db.pool())
+            .await;
+
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "authorization code already used"
+            })),
+        )
+            .into_response();
+    }
+
+    // Validate client_id matches
+    if code_record.2 != req.client_id {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "client_id mismatch"
+            })),
+        )
+            .into_response();
+    }
+
+    // Validate redirect_uri matches
+    if code_record.4 != req.redirect_uri {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "redirect_uri mismatch"
+            })),
+        )
+            .into_response();
+    }
+
+    // Validate PKCE: compute SHA256 of code_verifier and compare with stored code_challenge
+    let mut hasher = Sha256::new();
+    hasher.update(req.code_verifier.as_bytes());
+    let computed_challenge = base64::Engine::encode(
+        &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+        &hasher.finalize(),
+    );
+
+    if computed_challenge != code_record.1 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "code_verifier validation failed"
+            })),
+        )
+            .into_response();
+    }
+
+    // Mark the code as used
+    if let Err(e) = sqlx::query("UPDATE oauth_codes SET used = true WHERE id = $1")
+        .bind(code_record.0)
+        .execute(state.db.pool())
+        .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Get user info
+    let user = match state.db.get_user_by_id(code_record.3).await {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("user not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate JWT access token
+    let access_token = match state.jwt_service.generate_token(
+        &user.id.to_string(),
+        &user.username,
+        &user.role,
+        None,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate refresh token
+    let refresh_token = generate_random_string(64);
+    let refresh_token_hash = hash_token(&refresh_token);
+    let refresh_expires_at = Utc::now() + Duration::days(30);
+
+    if let Err(e) = sqlx::query(
+        "INSERT INTO refresh_tokens (user_id, token_hash, scope, expires_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(code_record.3)
+    .bind(&refresh_token_hash)
+    .bind("openid profile")
+    .bind(refresh_expires_at)
+    .execute(state.db.pool())
+    .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Return tokens
+    let response = OAuthTokenResponse {
+        access_token,
+        token_type: "Bearer".into(),
+        expires_in: state.jwt_service.expiry_seconds(),
+        refresh_token: Some(refresh_token),
+    };
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+/// OAuth2 Refresh Token endpoint (POST /api/v1/oauth/refresh)
+pub async fn oauth_refresh(
+    State(state): State<AppState>,
+    Json(req): Json<OAuthRefreshRequest>,
+) -> impl IntoResponse {
+    // Validate grant_type
+    if req.grant_type != "refresh_token" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "unsupported_grant_type",
+                "error_description": "grant_type must be 'refresh_token'"
+            })),
+        )
+            .into_response();
+    }
+
+    // Hash the refresh token
+    let token_hash = hash_token(&req.refresh_token);
+
+    // Find the refresh token
+    let token_record = match sqlx::query_as::<_, (uuid::Uuid, uuid::Uuid, bool)>(
+        "SELECT id, user_id, revoked_at IS NOT NULL as revoked FROM refresh_tokens WHERE token_hash = $1 AND expires_at > NOW()",
+    )
+    .bind(&token_hash)
+    .fetch_optional(state.db.pool())
+    .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": "invalid_grant",
+                    "error_description": "invalid or expired refresh token"
+                })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Check if revoked
+    if token_record.2 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": "invalid_grant",
+                "error_description": "refresh token has been revoked"
+            })),
+        )
+            .into_response();
+    }
+
+    // Get user
+    let user = match state.db.get_user_by_id(token_record.1).await {
+        Ok(u) => u,
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("user not found".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate new access token
+    let access_token = match state.jwt_service.generate_token(
+        &user.id.to_string(),
+        &user.username,
+        &user.role,
+        None,
+    ) {
+        Ok(t) => t,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Internal(format!("token generation failed: {e}")).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Generate new refresh token (rotation)
+    let new_refresh_token = generate_random_string(64);
+    let new_refresh_token_hash = hash_token(&new_refresh_token);
+    let new_refresh_expires_at = Utc::now() + Duration::days(30);
+
+    // Revoke old token and insert new one
+    let _ = sqlx::query("UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1")
+        .bind(token_record.0)
+        .execute(state.db.pool())
+        .await;
+
+    if let Err(e) = sqlx::query(
+        "INSERT INTO refresh_tokens (user_id, token_hash, scope, expires_at) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(token_record.1)
+    .bind(&new_refresh_token_hash)
+    .bind("openid profile")
+    .bind(new_refresh_expires_at)
+    .execute(state.db.pool())
+    .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response();
+    }
+
+    let response = OAuthTokenResponse {
+        access_token,
+        token_type: "Bearer".into(),
+        expires_in: state.jwt_service.expiry_seconds(),
+        refresh_token: Some(new_refresh_token),
+    };
+
+    (StatusCode::OK, Json(response)).into_response()
+}
+
+/// Register a new OAuth2 client (POST /api/v1/oauth/clients)
+pub async fn oauth_register_client(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Json(req): Json<OAuthRegisterClientRequest>,
+) -> impl IntoResponse {
+    // Require admin
+    if let Err(rejection) = require_admin(&_auth) {
+        return rejection.into_response();
+    }
+
+    // Validate inputs
+    if req.name.is_empty() || req.name.len() > 255 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("name must be 1-255 characters".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    if req.redirect_uris.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("at least one redirect_uri is required".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    // Generate client_id and client_secret
+    let client_id = format!("cf_{}", generate_random_string(32));
+    let client_secret = generate_random_string(64);
+    let client_secret_hash = hash_token(&client_secret);
+
+    // Store the client
+    if let Err(e) = sqlx::query(
+        "INSERT INTO oauth_clients (client_id, client_secret_hash, name, redirect_uris) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(&client_id)
+    .bind(&client_secret_hash)
+    .bind(&req.name)
+    .bind(serde_json::to_value(&req.redirect_uris).unwrap_or_default())
+    .execute(state.db.pool())
+    .await
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response();
+    }
+
+    let response = OAuthRegisterClientResponse {
+        client_id,
+        client_secret,
+    };
+
+    (StatusCode::CREATED, Json(response)).into_response()
 }
 
 #[allow(dead_code)]

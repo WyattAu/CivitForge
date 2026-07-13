@@ -7,8 +7,11 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
+    response::sse::Sse,
 };
+use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
@@ -193,13 +196,33 @@ pub async fn unread_count(State(state): State<AppState>, _auth: AuthUser) -> imp
         .into_response()
 }
 
+pub async fn stream_notifications(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Sse<impl Stream<Item = Result<axum::response::sse::Event, Infallible>>> {
+    let rx = state.notification_broadcaster.subscribe();
+    let stream = futures::stream::unfold(rx, |mut rx| async move {
+        match rx.recv().await {
+            Ok(event) => Some((Ok(axum::response::sse::Event::default().data(event)), rx)),
+            Err(_) => None,
+        }
+    });
+
+    Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(30))
+            .text("ping"),
+    )
+}
+
 pub fn notification_routes() -> axum::Router<AppState> {
-    use axum::routing::{get, patch};
+    use axum::routing::get;
     axum::Router::new()
         .route("/api/v1/notifications", get(list_notifications))
+        .route("/api/v1/notifications/stream", get(stream_notifications))
         .route("/api/v1/notifications/unread-count", get(unread_count))
         .route(
             "/api/v1/notifications/{notification_id}/read",
-            patch(mark_notification_read),
+            axum::routing::patch(mark_notification_read),
         )
 }

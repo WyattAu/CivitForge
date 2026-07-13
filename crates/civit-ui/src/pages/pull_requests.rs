@@ -6,7 +6,7 @@ use leptos_router::hooks::use_params_map;
 
 use crate::api::client::ApiClient;
 use crate::api::types::{CreatePullRequestBody, PullRequestListResponse};
-use crate::components::{Badge, Button, ButtonVariant, Card, ErrorBanner, Spinner, TabItem, Tabs};
+use crate::components::{Badge, Button, ButtonVariant, Card, EmptyState, ErrorBanner, Spinner, TabItem, Tabs};
 use crate::state::auth::use_auth;
 use crate::utils::*;
 
@@ -250,10 +250,17 @@ pub fn PullRequestsPage() -> impl IntoView {
 
             <Show when=move || !loading.get() && !has_prs() && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
-                    <div class="text-center py-12">
-                        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">"No pull requests yet"</h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">"Create the first pull request for this repository."</p>
-                    </div>
+                    <EmptyState
+                        icon=view! {
+                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 3v12M18 9a3 3 0 100-6 3 3 0 000 6zM6 21a3 3 0 100-6 3 3 0 000 6zM9 12l3-3 3 3"/>
+                            </svg>
+                        }.into_any()
+                        title="No pull requests".to_string()
+                        description="Create the first pull request for this repository to start reviewing code changes.".to_string()
+                        action_text="New Pull Request".to_string()
+                        action_href=format!("/repos/{}/{}/pulls", owner(), name())
+                    />
                 </Card>
             </Show>
 

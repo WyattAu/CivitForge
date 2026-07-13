@@ -7,7 +7,8 @@ use leptos_router::hooks::use_params_map;
 use crate::api::client::ApiClient;
 use crate::api::types::{CreateIssueBody, IssueResponse, ListResponse};
 use crate::components::{
-    Badge, Button, ButtonVariant, Card, ErrorBanner, Pagination, SkeletonCard, Spinner, TabItem, Tabs,
+    Badge, Button, ButtonVariant, Card, EmptyState, ErrorBanner, Pagination, SkeletonCard,
+    Spinner, TabItem, Tabs,
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
@@ -571,13 +572,17 @@ pub fn IssuesPage() -> impl IntoView {
 
             <Show when=move || !loading.get() && !has_issues() && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
-                    <div class="text-center py-12">
-                        <svg class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">"No issues yet"</h3>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">"Create the first issue for this repository."</p>
-                    </div>
+                    <EmptyState
+                        icon=view! {
+                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                        }.into_any()
+                        title="No issues yet".to_string()
+                        description="Create the first issue for this repository to start tracking bugs and feature requests.".to_string()
+                        action_text="New Issue".to_string()
+                        action_href=format!("/repos/{}/{}/issues", owner(), name())
+                    />
                 </Card>
             </Show>
 

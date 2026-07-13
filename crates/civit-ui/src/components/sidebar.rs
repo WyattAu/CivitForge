@@ -6,6 +6,7 @@ use leptos_router::hooks::use_location;
 
 use crate::api::client::ApiClient;
 use crate::components::Avatar;
+use crate::components::notification_stream::NotificationBell;
 use crate::i18n::{self, LOCALES, t};
 use crate::state::auth::use_auth;
 
@@ -200,17 +201,20 @@ pub fn Sidebar() -> impl IntoView {
                         }).collect_view()}
                     </select>
                 </div>
-                // Theme toggle — uses data-theme-toggle attribute with JS-attached
-                // click handler to avoid Leptos on:click WebKit auto-fire bug
-                <div
-                    data-theme-toggle=""
-                    class="block w-full px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
-                    role="button"
-                    tabindex="0"
-                    aria-label="Toggle dark mode"
-                >
-                    <span data-theme-toggle-icon="" class="font-mono text-xs">"Dark"</span>
-                    " Toggle Theme"
+                <div class="flex items-center gap-2 mb-2">
+                    <NotificationBell />
+                    // Theme toggle — uses data-theme-toggle attribute with JS-attached
+                    // click handler to avoid Leptos on:click WebKit auto-fire bug
+                    <div
+                        data-theme-toggle=""
+                        class="flex-1 block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Toggle dark mode"
+                    >
+                        <span data-theme-toggle-icon="" class="font-mono text-xs">"Dark"</span>
+                        " Toggle Theme"
+                    </div>
                 </div>
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
                     <A href="/login">

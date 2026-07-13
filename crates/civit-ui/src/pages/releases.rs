@@ -5,7 +5,8 @@ use leptos_router::hooks::{use_navigate, use_params_map};
 
 use crate::api::client::ApiClient;
 use crate::components::{
-    Badge, BadgeColor, Button, ButtonVariant, Card, ErrorBanner, Input, InputType, Modal, Spinner,
+    Badge, BadgeColor, Button, ButtonVariant, Card, EmptyState, ErrorBanner, Input, InputType,
+    Modal, Spinner,
 };
 use crate::state::auth::use_auth;
 
@@ -337,11 +338,16 @@ pub fn ReleasesPage() -> impl IntoView {
 
             <Show when=move || !loading.get() && releases.with(|r| r.is_empty()) && error.get().is_none() fallback=|| view! { <div class="hidden"></div> }>
                 <Card>
-                    <div class="py-12 text-center">
-                        <p class="text-gray-500 dark:text-gray-400 text-lg">
-                            "No releases yet. Create one to get started!"
-                        </p>
-                    </div>
+                    <EmptyState
+                        icon=view! {
+                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                        }.into_any()
+                        title="No releases".to_string()
+                        description="Create the first release for this repository to distribute versions to your users.".to_string()
+                        action_text="New Release".to_string()
+                    />
                 </Card>
             </Show>
 

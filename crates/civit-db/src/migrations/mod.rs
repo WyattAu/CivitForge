@@ -57,6 +57,7 @@ pub const M_053_ADD_OIDC_UP: &str = include_str!("053_add_oidc.sql");
 pub const M_055_ADD_SITE_SETTINGS_UP: &str = include_str!("055_add_site_settings.sql");
 pub const M_056_ADD_OIDC_ADMIN_UP: &str = include_str!("056_add_oidc_admin.sql");
 pub const M_058_WEBAUTHN_UP: &str = include_str!("058_webauthn.sql");
+pub const M_060_OAUTH2_UP: &str = include_str!("060_add_oauth2.sql");
 pub const M_051_ENVIRONMENTS_DEPLOYMENTS_UP: &str =
     include_str!("051_add_environments_deployments.sql");
 pub const M_054_MERGE_QUEUE_UP: &str = include_str!("054_add_merge_queue.sql");
@@ -342,6 +343,12 @@ impl MigrationManager {
             up_sql: M_058_WEBAUTHN_UP.into(),
             down_sql: "DROP TABLE IF EXISTS webauthn_credentials;".into(),
         });
+        self.add_migration(Migration {
+            version: 60,
+            name: "add_oauth2".into(),
+            up_sql: M_060_OAUTH2_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS oauth_codes; DROP TABLE IF EXISTS oauth_clients;".into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -478,7 +485,7 @@ mod tests {
             down_sql: "DROP INDEX test;".into(),
         });
         assert_eq!(mgr.all().len(), 42);
-        assert_eq!(mgr.all()[41].version, 59);
+        assert_eq!(mgr.all()[41].version, 60);
     }
 
     #[test]
