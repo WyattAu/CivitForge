@@ -130,6 +130,10 @@ pub const M_093_API_ANALYTICS_UP: &str = include_str!("093_add_api_analytics.sql
 pub const M_093_API_ANALYTICS_DOWN: &str = "DROP TABLE IF EXISTS api_usage_summary; DROP TABLE IF EXISTS api_analytics;";
 pub const M_094_USAGE_QUOTAS_UP: &str = include_str!("094_add_usage_quotas.sql");
 pub const M_094_USAGE_QUOTAS_DOWN: &str = "DROP TABLE IF EXISTS usage_quotas;";
+pub const M_095_EXPORT_JOBS_UP: &str = include_str!("095_add_export_jobs.sql");
+pub const M_095_EXPORT_JOBS_DOWN: &str = "DROP TABLE IF EXISTS export_jobs;";
+pub const M_096_COMPLIANCE_REPORTS_UP: &str = include_str!("096_add_compliance_reports.sql");
+pub const M_096_COMPLIANCE_REPORTS_DOWN: &str = "DROP TABLE IF EXISTS compliance_reports;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -591,6 +595,18 @@ impl MigrationManager {
             up_sql: M_094_USAGE_QUOTAS_UP.into(),
             down_sql: M_094_USAGE_QUOTAS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 95,
+            name: "add_export_jobs".into(),
+            up_sql: M_095_EXPORT_JOBS_UP.into(),
+            down_sql: M_095_EXPORT_JOBS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 96,
+            name: "add_compliance_reports".into(),
+            up_sql: M_096_COMPLIANCE_REPORTS_UP.into(),
+            down_sql: M_096_COMPLIANCE_REPORTS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -632,7 +648,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 71);
+        assert_eq!(mgr.all().len(), 73);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -773,19 +789,23 @@ mod tests {
         assert_eq!(mgr.all()[69].name, "add_api_analytics");
         assert_eq!(mgr.all()[70].version, 94);
         assert_eq!(mgr.all()[70].name, "add_usage_quotas");
+        assert_eq!(mgr.all()[71].version, 95);
+        assert_eq!(mgr.all()[71].name, "add_export_jobs");
+        assert_eq!(mgr.all()[72].version, 96);
+        assert_eq!(mgr.all()[72].name, "add_compliance_reports");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 95,
+            version: 97,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 72);
-        assert_eq!(mgr.all()[71].version, 95);
+        assert_eq!(mgr.all().len(), 74);
+        assert_eq!(mgr.all()[73].version, 97);
     }
 
     #[test]
@@ -804,13 +824,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 71);
+        assert_eq!(pending.len(), 73);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(94);
+        let pending = mgr.get_pending(96);
         assert_eq!(pending.len(), 0);
     }
 
@@ -818,7 +838,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 70);
+        assert_eq!(pending.len(), 72);
     }
 
     #[test]

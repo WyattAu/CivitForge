@@ -12,6 +12,8 @@ pub mod boards;
 pub mod branch_protection;
 pub mod code_browser;
 pub mod codeowners;
+pub mod compliance;
+pub mod data_export;
 pub mod deploy_keys;
 pub mod deployments;
 pub mod diagnostics;
@@ -277,6 +279,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(admin_dashboard::admin_dashboard_routes())
         .merge(api_analytics::api_analytics_routes())
         .merge(usage_quotas::usage_quota_routes())
+        .merge(data_export::export_routes())
+        .merge(compliance::compliance_routes())
         .merge(observability_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
