@@ -29,6 +29,7 @@ pub mod marketplace;
 pub mod maven;
 pub mod mentions;
 pub mod npm;
+pub mod observability;
 pub mod merge_queue;
 pub mod mirrors;
 pub mod notifications;
@@ -268,6 +269,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(saml::saml_routes())
         .merge(scim::scim_routes())
         .merge(sso::sso_routes())
+        .merge(observability_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
@@ -398,6 +400,30 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
     router = router.route("/__logout__", get(|| async { "" }));
 
     Ok(router)
+}
+
+/// Observability routes for traces and metrics.
+fn observability_routes() -> axum::Router<AppState> {
+    let obs_state = Arc::new(observability::ObservabilityState {
+        provider: Arc::new(crate::telemetry::opentelemetry::InstrumentationProvider::new(
+            crate::telemetry::opentelemetry::Resource::default(),
+        )),
+    });
+
+    Router::new()
+        .route(
+            "/api/v1/observability/traces",
+            get(observability::list_traces),
+        )
+        .route(
+            "/api/v1/observability/metrics",
+            get(observability::list_metrics),
+        )
+        .route(
+            "/api/v1/observability/traces/export",
+            post(observability::export_traces),
+        )
+        .with_state(obs_state)
 }
 
 /// API v2 routes with forward-compatible versioning.

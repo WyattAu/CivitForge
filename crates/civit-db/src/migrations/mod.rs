@@ -97,6 +97,14 @@ pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_UP: &str =
     include_str!("078_enhance_deployment_protections.sql");
 pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_DOWN: &str =
     "DROP TABLE IF EXISTS deployment_locks; ALTER TABLE deployment_protections DROP COLUMN IF EXISTS allowed_branches;";
+pub const M_083_CONTAINER_REPO_POLICIES_UP: &str =
+    include_str!("083_add_container_repository_policies.sql");
+pub const M_083_CONTAINER_REPO_POLICIES_DOWN: &str =
+    "DROP TABLE IF EXISTS container_pull_through_cache; DROP TABLE IF EXISTS container_image_signatures; DROP TABLE IF EXISTS container_vulnerability_scans; DROP TABLE IF EXISTS container_repository_policies;";
+pub const M_084_OBSERVABILITY_TABLES_UP: &str =
+    include_str!("084_add_observability_tables.sql");
+pub const M_084_OBSERVABILITY_TABLES_DOWN: &str =
+    "DROP TABLE IF EXISTS metrics; DROP TABLE IF EXISTS trace_spans;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -486,6 +494,18 @@ impl MigrationManager {
             up_sql: M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_UP.into(),
             down_sql: M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 83,
+            name: "add_container_repository_policies".into(),
+            up_sql: M_083_CONTAINER_REPO_POLICIES_UP.into(),
+            down_sql: M_083_CONTAINER_REPO_POLICIES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 84,
+            name: "add_observability_tables".into(),
+            up_sql: M_084_OBSERVABILITY_TABLES_UP.into(),
+            down_sql: M_084_OBSERVABILITY_TABLES_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -527,7 +547,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 59);
+        assert_eq!(mgr.all().len(), 61);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -644,19 +664,23 @@ mod tests {
         assert_eq!(mgr.all()[57].name, "add_scim_tokens");
         assert_eq!(mgr.all()[58].version, 82);
         assert_eq!(mgr.all()[58].name, "add_sso_groups_sessions_login_history");
+        assert_eq!(mgr.all()[59].version, 83);
+        assert_eq!(mgr.all()[59].name, "add_container_repository_policies");
+        assert_eq!(mgr.all()[60].version, 84);
+        assert_eq!(mgr.all()[60].name, "add_observability_tables");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 83,
+            version: 85,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 60);
-        assert_eq!(mgr.all()[59].version, 83);
+        assert_eq!(mgr.all().len(), 62);
+        assert_eq!(mgr.all()[61].version, 85);
     }
 
     #[test]
@@ -675,13 +699,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 59);
+        assert_eq!(pending.len(), 61);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(82);
+        let pending = mgr.get_pending(84);
         assert_eq!(pending.len(), 0);
     }
 
@@ -689,7 +713,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 58);
+        assert_eq!(pending.len(), 60);
     }
 
     #[test]
@@ -841,5 +865,34 @@ mod tests {
     fn test_webhook_deliveries_down_sql_not_empty() {
         assert_ne!(M_042_WEBHOOK_DELIVERIES_DOWN, "");
         assert!(M_042_WEBHOOK_DELIVERIES_DOWN.contains("DROP TABLE IF EXISTS webhook_deliveries"));
+    }
+
+    #[test]
+    fn test_container_repo_policies_sql_not_empty() {
+        assert_ne!(M_083_CONTAINER_REPO_POLICIES_UP, "");
+        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_repository_policies"));
+        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_vulnerability_scans"));
+        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_image_signatures"));
+        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_pull_through_cache"));
+    }
+
+    #[test]
+    fn test_container_repo_policies_down_sql_not_empty() {
+        assert_ne!(M_083_CONTAINER_REPO_POLICIES_DOWN, "");
+        assert!(M_083_CONTAINER_REPO_POLICIES_DOWN.contains("DROP TABLE IF EXISTS container_repository_policies"));
+    }
+
+    #[test]
+    fn test_observability_tables_sql_not_empty() {
+        assert_ne!(M_084_OBSERVABILITY_TABLES_UP, "");
+        assert!(M_084_OBSERVABILITY_TABLES_UP.contains("CREATE TABLE IF NOT EXISTS trace_spans"));
+        assert!(M_084_OBSERVABILITY_TABLES_UP.contains("CREATE TABLE IF NOT EXISTS metrics"));
+    }
+
+    #[test]
+    fn test_observability_tables_down_sql_not_empty() {
+        assert_ne!(M_084_OBSERVABILITY_TABLES_DOWN, "");
+        assert!(M_084_OBSERVABILITY_TABLES_DOWN.contains("DROP TABLE IF EXISTS trace_spans"));
+        assert!(M_084_OBSERVABILITY_TABLES_DOWN.contains("DROP TABLE IF EXISTS metrics"));
     }
 }
