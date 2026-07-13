@@ -295,6 +295,7 @@ pub struct ProtectionResponse {
     pub required_approvals: i32,
     pub wait_timer: i32,
     pub allow_admin_override: bool,
+    pub allowed_branches: Vec<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -306,6 +307,7 @@ pub struct ProtectionRow {
     pub required_approvals: i32,
     pub wait_timer: i32,
     pub allow_admin_override: bool,
+    pub allowed_branches: Option<Vec<String>>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -318,8 +320,39 @@ impl From<ProtectionRow> for ProtectionResponse {
             required_approvals: r.required_approvals,
             wait_timer: r.wait_timer,
             allow_admin_override: r.allow_admin_override,
+            allowed_branches: r.allowed_branches.unwrap_or_default(),
             created_at: r.created_at.to_rfc3339(),
             updated_at: r.updated_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentLockResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub user_id: String,
+    pub reason: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct DeploymentLockRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub user_id: Uuid,
+    pub reason: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<DeploymentLockRow> for DeploymentLockResponse {
+    fn from(r: DeploymentLockRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            user_id: r.user_id.to_string(),
+            reason: r.reason,
+            created_at: r.created_at.to_rfc3339(),
         }
     }
 }
@@ -547,14 +580,16 @@ pub async fn upsert_protections(
     required_approvals: i32,
     wait_timer: i32,
     allow_admin_override: bool,
+    allowed_branches: &[String],
 ) -> std::result::Result<ProtectionResponse, sqlx::Error> {
     sqlx::query_as::<_, ProtectionRow>(
-        "INSERT INTO deployment_protections (environment_id, required_approvals, wait_timer, allow_admin_override) \
-         VALUES ($1, $2, $3, $4) \
+        "INSERT INTO deployment_protections (environment_id, required_approvals, wait_timer, allow_admin_override, allowed_branches) \
+         VALUES ($1, $2, $3, $4, $5) \
          ON CONFLICT (environment_id) DO UPDATE \
          SET required_approvals = EXCLUDED.required_approvals, \
              wait_timer = EXCLUDED.wait_timer, \
              allow_admin_override = EXCLUDED.allow_admin_override, \
+             allowed_branches = EXCLUDED.allowed_branches, \
              updated_at = NOW() \
          RETURNING *",
     )
@@ -562,6 +597,7 @@ pub async fn upsert_protections(
     .bind(required_approvals)
     .bind(wait_timer)
     .bind(allow_admin_override)
+    .bind(allowed_branches)
     .fetch_one(pool)
     .await
     .map(|r| r.into())
@@ -623,6 +659,70 @@ pub async fn update_deployment_status(
     .fetch_one(pool)
     .await
     .map(|r| r.into())
+}
+
+// ---------------------------------------------------------------------------
+// Deployment Locks
+// ---------------------------------------------------------------------------
+
+/// Create a deployment lock for an environment.
+pub async fn create_deployment_lock(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    user_id: Uuid,
+    reason: &str,
+) -> std::result::Result<DeploymentLockResponse, sqlx::Error> {
+    sqlx::query_as::<_, DeploymentLockRow>(
+        "INSERT INTO deployment_locks (environment_id, user_id, reason) \
+         VALUES ($1, $2, $3) \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(user_id)
+    .bind(reason)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List deployment locks for an environment.
+pub async fn list_deployment_locks(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<Vec<DeploymentLockResponse>, sqlx::Error> {
+    sqlx::query_as::<_, DeploymentLockRow>(
+        "SELECT * FROM deployment_locks WHERE environment_id = $1 ORDER BY created_at",
+    )
+    .bind(environment_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Remove a deployment lock.
+pub async fn remove_deployment_lock(
+    pool: &sqlx::PgPool,
+    lock_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM deployment_locks WHERE id = $1")
+        .bind(lock_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Check if an environment is locked.
+pub async fn is_environment_locked(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let row: Option<(i64,)> = sqlx::query_as(
+        "SELECT COUNT(*) FROM deployment_locks WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(c,)| c > 0).unwrap_or(false))
 }
 
 // ---------------------------------------------------------------------------

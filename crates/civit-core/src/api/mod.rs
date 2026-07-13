@@ -50,12 +50,15 @@ pub mod pull_requests;
 pub mod releases;
 pub mod repos;
 pub mod runners;
+pub mod saml;
+pub mod scim;
 pub mod search;
 pub mod secret_scanning;
 pub mod security_dashboard;
 pub mod dependencies;
 pub mod site_settings;
 pub mod slsa_dashboard;
+pub mod sso;
 pub mod ssh_keys;
 pub mod teams;
 pub mod tokens;
@@ -262,6 +265,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             get(site_settings::get_site_settings).put(site_settings::update_site_settings),
         )
         .merge(oidc::oidc_routes())
+        .merge(saml::saml_routes())
+        .merge(scim::scim_routes())
+        .merge(sso::sso_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

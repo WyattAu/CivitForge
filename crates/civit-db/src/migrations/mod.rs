@@ -82,6 +82,21 @@ pub const M_075_LICENSE_REPORTS_DOWN: &str = "DROP TABLE IF EXISTS license_repor
 pub const M_076_ENHANCE_AUDIT_LOG_UP: &str = include_str!("076_enhance_audit_log.sql");
 pub const M_076_ENHANCE_AUDIT_LOG_DOWN: &str =
     "ALTER TABLE audit_events DROP COLUMN IF EXISTS request_id;";
+pub const M_080_ADD_SAML_PROVIDERS_UP: &str = include_str!("080_add_saml_providers.sql");
+pub const M_080_ADD_SAML_PROVIDERS_DOWN: &str = "DROP TABLE IF EXISTS saml_providers;";
+pub const M_081_ADD_SCIM_TOKENS_UP: &str = include_str!("081_add_scim_tokens.sql");
+pub const M_081_ADD_SCIM_TOKENS_DOWN: &str = "DROP TABLE IF EXISTS scim_tokens;";
+pub const M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_UP: &str =
+    include_str!("082_add_sso_groups_sessions_login_history.sql");
+pub const M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_DOWN: &str =
+    "DROP TABLE IF EXISTS login_history; DROP TABLE IF EXISTS active_sessions; DROP TABLE IF EXISTS sso_group_mappings;";
+pub const M_077_ENHANCE_PAGES_SITES_UP: &str = include_str!("077_enhance_pages_sites.sql");
+pub const M_077_ENHANCE_PAGES_SITES_DOWN: &str =
+    "DROP TABLE IF EXISTS pages_deployments; ALTER TABLE pages_sites DROP COLUMN IF EXISTS custom_domain; ALTER TABLE pages_sites DROP COLUMN IF EXISTS https_enabled; ALTER TABLE pages_sites DROP COLUMN IF EXISTS last_built_at;";
+pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_UP: &str =
+    include_str!("078_enhance_deployment_protections.sql");
+pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_DOWN: &str =
+    "DROP TABLE IF EXISTS deployment_locks; ALTER TABLE deployment_protections DROP COLUMN IF EXISTS allowed_branches;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -447,6 +462,30 @@ impl MigrationManager {
             up_sql: M_076_ENHANCE_AUDIT_LOG_UP.into(),
             down_sql: M_076_ENHANCE_AUDIT_LOG_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 77,
+            name: "enhance_pages_sites".into(),
+            up_sql: M_077_ENHANCE_PAGES_SITES_UP.into(),
+            down_sql: M_077_ENHANCE_PAGES_SITES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 80,
+            name: "add_saml_providers".into(),
+            up_sql: M_080_ADD_SAML_PROVIDERS_UP.into(),
+            down_sql: M_080_ADD_SAML_PROVIDERS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 81,
+            name: "add_scim_tokens".into(),
+            up_sql: M_081_ADD_SCIM_TOKENS_UP.into(),
+            down_sql: M_081_ADD_SCIM_TOKENS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 82,
+            name: "add_sso_groups_sessions_login_history".into(),
+            up_sql: M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_UP.into(),
+            down_sql: M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -488,7 +527,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 55);
+        assert_eq!(mgr.all().len(), 59);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -589,19 +628,35 @@ mod tests {
         assert_eq!(mgr.all()[49].name, "add_pages_sites");
         assert_eq!(mgr.all()[50].version, 72);
         assert_eq!(mgr.all()[50].name, "add_discussion_labels_reactions");
+        assert_eq!(mgr.all()[51].version, 73);
+        assert_eq!(mgr.all()[51].name, "add_search_history");
+        assert_eq!(mgr.all()[52].version, 74);
+        assert_eq!(mgr.all()[52].name, "add_code_suggestions");
+        assert_eq!(mgr.all()[53].version, 75);
+        assert_eq!(mgr.all()[53].name, "add_license_reports");
+        assert_eq!(mgr.all()[54].version, 76);
+        assert_eq!(mgr.all()[54].name, "enhance_audit_log");
+        assert_eq!(mgr.all()[55].version, 77);
+        assert_eq!(mgr.all()[55].name, "enhance_pages_sites");
+        assert_eq!(mgr.all()[56].version, 80);
+        assert_eq!(mgr.all()[56].name, "add_saml_providers");
+        assert_eq!(mgr.all()[57].version, 81);
+        assert_eq!(mgr.all()[57].name, "add_scim_tokens");
+        assert_eq!(mgr.all()[58].version, 82);
+        assert_eq!(mgr.all()[58].name, "add_sso_groups_sessions_login_history");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 77,
+            version: 83,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 56);
-        assert_eq!(mgr.all()[55].version, 77);
+        assert_eq!(mgr.all().len(), 60);
+        assert_eq!(mgr.all()[59].version, 83);
     }
 
     #[test]
@@ -620,13 +675,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 55);
+        assert_eq!(pending.len(), 59);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(76);
+        let pending = mgr.get_pending(82);
         assert_eq!(pending.len(), 0);
     }
 
@@ -634,7 +689,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 52);
+        assert_eq!(pending.len(), 58);
     }
 
     #[test]

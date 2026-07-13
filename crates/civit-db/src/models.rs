@@ -389,8 +389,21 @@ pub struct PagesSite {
     pub branch: String,
     pub path: String,
     pub public: bool,
+    pub custom_domain: Option<String>,
+    pub https_enabled: bool,
+    pub last_built_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PagesDeployment {
+    pub id: Uuid,
+    pub site_id: Uuid,
+    pub sha: String,
+    pub url: String,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

@@ -44,6 +44,8 @@ pub struct CreateProtectionRequest {
     pub wait_timer: i32,
     #[serde(default = "default_true")]
     pub allow_admin_override: bool,
+    #[serde(default)]
+    pub allowed_branches: Vec<String>,
 }
 
 fn default_one() -> i32 {
@@ -74,6 +76,12 @@ fn default_page() -> u32 {
 }
 fn default_per_page() -> u32 {
     20
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateLockRequest {
+    #[serde(default)]
+    pub reason: String,
 }
 
 async fn resolve_repo_id(
@@ -389,6 +397,7 @@ pub async fn upsert_protections(
         req.required_approvals,
         req.wait_timer,
         req.allow_admin_override,
+        &req.allowed_branches,
     )
     .await
     {
@@ -566,6 +575,134 @@ pub async fn update_deployment_status(
     }
 }
 
+pub async fn create_lock(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    auth: AuthUser,
+    Json(req): Json<CreateLockRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::create_deployment_lock(pool, eid, user_id, &req.reason).await {
+        Ok(lock) => (StatusCode::CREATED, Json(lock)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_locks(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::list_deployment_locks(pool, eid).await {
+        Ok(locks) => (StatusCode::OK, Json(locks)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn remove_lock(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, lock_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let lid = match Uuid::parse_str(&lock_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid lock ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::remove_deployment_lock(pool, lid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("lock not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 pub fn environment_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -589,6 +726,14 @@ pub fn environment_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployments/{deployment_id}/status",
             patch(update_deployment_status),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/locks",
+            get(list_locks).post(create_lock),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/locks/{lock_id}",
+            delete(remove_lock),
         )
 }
 
@@ -616,11 +761,22 @@ mod tests {
 
     #[test]
     fn test_create_protection_request() {
-        let json = r#"{"required_approvals": 2, "wait_timer": 300, "allow_admin_override": false}"#;
+        let json = r#"{"required_approvals": 2, "wait_timer": 300, "allow_admin_override": false, "allowed_branches": ["main", "release/*"]}"#;
         let req: CreateProtectionRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.required_approvals, 2);
         assert_eq!(req.wait_timer, 300);
         assert!(!req.allow_admin_override);
+        assert_eq!(req.allowed_branches, vec!["main", "release/*"]);
+    }
+
+    #[test]
+    fn test_create_protection_request_defaults() {
+        let json = r#"{}"#;
+        let req: CreateProtectionRequest = serde_json::from_str(json).unwrap();
+        assert_eq!(req.required_approvals, 1);
+        assert_eq!(req.wait_timer, 0);
+        assert!(req.allow_admin_override);
+        assert!(req.allowed_branches.is_empty());
     }
 
     #[test]

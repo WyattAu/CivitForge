@@ -2975,6 +2975,106 @@ impl DbRepository {
         Ok(())
     }
 
+    pub async fn update_pages_custom_domain(
+        &self,
+        repo_id: Uuid,
+        custom_domain: Option<&str>,
+        https_enabled: bool,
+    ) -> Result<crate::models::PagesSite> {
+        let row = sqlx::query_as::<_, crate::models::PagesSite>(
+            r#"UPDATE pages_sites
+               SET custom_domain = $2, https_enabled = $3, updated_at = NOW()
+               WHERE repo_id = $1
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(custom_domain)
+        .bind(https_enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_pages_custom_domain: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn update_pages_last_built(
+        &self,
+        site_id: Uuid,
+    ) -> Result<crate::models::PagesSite> {
+        let row = sqlx::query_as::<_, crate::models::PagesSite>(
+            r#"UPDATE pages_sites
+               SET last_built_at = NOW(), updated_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(site_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_pages_last_built: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Pages Deployments ---
+
+    pub async fn create_pages_deployment(
+        &self,
+        site_id: Uuid,
+        sha: &str,
+        url: &str,
+    ) -> Result<crate::models::PagesDeployment> {
+        let row = sqlx::query_as::<_, crate::models::PagesDeployment>(
+            r#"INSERT INTO pages_deployments (site_id, sha, url, status)
+               VALUES ($1, $2, $3, 'pending')
+               RETURNING *"#,
+        )
+        .bind(site_id)
+        .bind(sha)
+        .bind(url)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_pages_deployment: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn update_pages_deployment_status(
+        &self,
+        deployment_id: Uuid,
+        status: &str,
+    ) -> Result<crate::models::PagesDeployment> {
+        let row = sqlx::query_as::<_, crate::models::PagesDeployment>(
+            r#"UPDATE pages_deployments
+               SET status = $2
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(deployment_id)
+        .bind(status)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_pages_deployment_status: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_pages_deployments(
+        &self,
+        site_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<crate::models::PagesDeployment>> {
+        let rows = sqlx::query_as::<_, crate::models::PagesDeployment>(
+            r#"SELECT * FROM pages_deployments
+               WHERE site_id = $1
+               ORDER BY created_at DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(site_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_pages_deployments: {e}")))?;
+        Ok(rows)
+    }
+
     // --- Discussion Labels ---
 
     pub async fn add_discussion_label(
