@@ -68,6 +68,8 @@ pub const M_054_MERGE_QUEUE_UP: &str = include_str!("054_add_merge_queue.sql");
 pub const M_057_CODEOWNERS_REVIEWS_UP: &str = include_str!("057_add_codeowners_reviews.sql");
 pub const M_067_REVIEW_THREADS_UP: &str = include_str!("067_add_review_threads.sql");
 pub const M_068_RATE_LIMITS_UP: &str = include_str!("068_add_rate_limits.sql");
+pub const M_069_NPM_PACKAGES_UP: &str = include_str!("069_add_npm_packages.sql");
+pub const M_070_MAVEN_PACKAGES_UP: &str = include_str!("070_add_maven_packages.sql");
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -385,6 +387,18 @@ impl MigrationManager {
             up_sql: M_068_RATE_LIMITS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS rate_limits;".into(),
         });
+        self.add_migration(Migration {
+            version: 69,
+            name: "add_npm_packages".into(),
+            up_sql: M_069_NPM_PACKAGES_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS npm_versions; DROP TABLE IF EXISTS npm_packages;".into(),
+        });
+        self.add_migration(Migration {
+            version: 70,
+            name: "add_maven_packages".into(),
+            up_sql: M_070_MAVEN_PACKAGES_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS maven_packages;".into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -426,7 +440,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 47);
+        assert_eq!(mgr.all().len(), 49);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -519,19 +533,23 @@ mod tests {
         assert_eq!(mgr.all()[44].name, "add_boards_v2");
         assert_eq!(mgr.all()[45].version, 67);
         assert_eq!(mgr.all()[45].name, "add_review_threads");
+        assert_eq!(mgr.all()[47].version, 69);
+        assert_eq!(mgr.all()[47].name, "add_npm_packages");
+        assert_eq!(mgr.all()[48].version, 70);
+        assert_eq!(mgr.all()[48].name, "add_maven_packages");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 69,
+            version: 71,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 48);
-        assert_eq!(mgr.all()[47].version, 69);
+        assert_eq!(mgr.all().len(), 50);
+        assert_eq!(mgr.all()[49].version, 71);
     }
 
     #[test]

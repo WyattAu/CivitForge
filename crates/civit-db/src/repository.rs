@@ -3,8 +3,9 @@
 use crate::error::{DbError, Result};
 use crate::models::{
     ActivityEvent, BoardCardAssignee, BoardCardLabel, BranchProtectionRule, EmailVerificationCode,
-    Issue, Org, Pipeline, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release,
-    ReleaseAsset, Repository, ReviewAssignment, ReviewSummary, SshKey, Team, TeamMember, User,
+    Issue, MavenPackage, NpmPackage, NpmVersion, Org, Pipeline, PrComment, PrReviewer, PrStatusCheck,
+    PrTimeline, PullRequest, Release, ReleaseAsset, Repository, ReviewAssignment, ReviewSummary,
+    SshKey, Team, TeamMember, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -2763,6 +2764,167 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("rerequest_pr_review: {e}")))?;
         Ok(row)
+    }
+
+    // --- NPM Packages ---
+
+    pub async fn create_npm_package(
+        &self,
+        repo_id: Uuid,
+        name: &str,
+        version: &str,
+        description: &str,
+        dist_tags: &serde_json::Value,
+        readme: &str,
+    ) -> Result<crate::models::NpmPackage> {
+        let row = sqlx::query_as::<_, crate::models::NpmPackage>(
+            r#"INSERT INTO npm_packages (repo_id, name, version, description, dist_tags, readme)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (repo_id, name, version)
+               DO UPDATE SET description = $4, dist_tags = $5, readme = $6
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(name)
+        .bind(version)
+        .bind(description)
+        .bind(dist_tags)
+        .bind(readme)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_npm_package: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_npm_package_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Vec<crate::models::NpmPackage>> {
+        let rows = sqlx::query_as::<_, crate::models::NpmPackage>(
+            "SELECT * FROM npm_packages WHERE name = $1 ORDER BY created_at DESC",
+        )
+        .bind(name)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_npm_package_by_name: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_npm_package_version(
+        &self,
+        name: &str,
+        version: &str,
+    ) -> Result<Option<crate::models::NpmPackage>> {
+        let row = sqlx::query_as::<_, crate::models::NpmPackage>(
+            "SELECT * FROM npm_packages WHERE name = $1 AND version = $2 LIMIT 1",
+        )
+        .bind(name)
+        .bind(version)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_npm_package_version: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn create_npm_version(
+        &self,
+        package_id: Uuid,
+        version: &str,
+        tarball_url: &str,
+        shasum: &str,
+        integrity: &str,
+    ) -> Result<crate::models::NpmVersion> {
+        let row = sqlx::query_as::<_, crate::models::NpmVersion>(
+            r#"INSERT INTO npm_versions (package_id, version, tarball_url, shasum, integrity)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(package_id)
+        .bind(version)
+        .bind(tarball_url)
+        .bind(shasum)
+        .bind(integrity)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_npm_version: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_npm_versions(&self, package_id: Uuid) -> Result<Vec<crate::models::NpmVersion>> {
+        let rows = sqlx::query_as::<_, crate::models::NpmVersion>(
+            "SELECT * FROM npm_versions WHERE package_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(package_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_npm_versions: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- Maven Packages ---
+
+    pub async fn create_maven_package(
+        &self,
+        repo_id: Uuid,
+        group_id: &str,
+        artifact_id: &str,
+        version: &str,
+        packaging: &str,
+    ) -> Result<crate::models::MavenPackage> {
+        let row = sqlx::query_as::<_, crate::models::MavenPackage>(
+            r#"INSERT INTO maven_packages (repo_id, group_id, artifact_id, version, packaging)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (repo_id, group_id, artifact_id, version)
+               DO UPDATE SET packaging = $5
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(group_id)
+        .bind(artifact_id)
+        .bind(version)
+        .bind(packaging)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_maven_package: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_maven_package(
+        &self,
+        repo_id: Uuid,
+        group_id: &str,
+        artifact_id: &str,
+        version: &str,
+    ) -> Result<Option<crate::models::MavenPackage>> {
+        let row = sqlx::query_as::<_, crate::models::MavenPackage>(
+            "SELECT * FROM maven_packages WHERE repo_id = $1 AND group_id = $2 AND artifact_id = $3 AND version = $4 LIMIT 1",
+        )
+        .bind(repo_id)
+        .bind(group_id)
+        .bind(artifact_id)
+        .bind(version)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_maven_package: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_maven_packages(
+        &self,
+        repo_id: Uuid,
+        group_id: &str,
+        artifact_id: &str,
+    ) -> Result<Vec<crate::models::MavenPackage>> {
+        let rows = sqlx::query_as::<_, crate::models::MavenPackage>(
+            "SELECT * FROM maven_packages WHERE repo_id = $1 AND group_id = $2 AND artifact_id = $3 ORDER BY created_at DESC",
+        )
+        .bind(repo_id)
+        .bind(group_id)
+        .bind(artifact_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_maven_packages: {e}")))?;
+        Ok(rows)
     }
 }
 

@@ -25,7 +25,9 @@ pub mod issues;
 pub mod issue_templates;
 pub mod lfs;
 pub mod marketplace;
+pub mod maven;
 pub mod mentions;
+pub mod npm;
 pub mod merge_queue;
 pub mod mirrors;
 pub mod notifications;
@@ -185,6 +187,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(artifact_serving::artifact_serving_routes())
         .merge(openapi_handler::openapi_routes())
         .merge(marketplace::marketplace_routes())
+        .merge(npm::npm_routes())
+        .merge(maven::maven_routes())
         .merge(tokens::token_routes())
         .merge(webhooks::webhook_routes())
         .route(

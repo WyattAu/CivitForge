@@ -347,6 +347,40 @@ pub struct BoardCardAssignee {
     pub user_id: uuid::Uuid,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct NpmPackage {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub dist_tags: serde_json::Value,
+    pub readme: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct NpmVersion {
+    pub id: Uuid,
+    pub package_id: Uuid,
+    pub version: String,
+    pub tarball_url: String,
+    pub shasum: String,
+    pub integrity: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MavenPackage {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub group_id: String,
+    pub artifact_id: String,
+    pub version: String,
+    pub packaging: String,
+    pub created_at: DateTime<Utc>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
