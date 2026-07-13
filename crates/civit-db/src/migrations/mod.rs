@@ -142,6 +142,12 @@ pub const M_098_MONITORING_ALERTS_DOWN: &str =
     "DROP TABLE IF EXISTS monitoring_incidents; DROP TABLE IF EXISTS monitoring_alerts;";
 pub const M_099_PERFORMANCE_METRICS_UP: &str = include_str!("099_add_performance_metrics.sql");
 pub const M_099_PERFORMANCE_METRICS_DOWN: &str = "DROP TABLE IF EXISTS performance_metrics;";
+pub const M_100_WEBHOOK_DELIVERIES_V2_UP: &str = include_str!("100_add_webhook_deliveries_v2.sql");
+pub const M_100_WEBHOOK_DELIVERIES_V2_DOWN: &str = "DROP TABLE IF EXISTS webhook_deliveries_v2;";
+pub const M_101_EVENTS_AND_SUBSCRIPTIONS_UP: &str = include_str!("101_add_events_and_subscriptions.sql");
+pub const M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN: &str = "DROP TABLE IF EXISTS event_subscriptions; DROP TABLE IF EXISTS events;";
+pub const M_102_EVENT_QUEUES_UP: &str = include_str!("102_add_event_queues.sql");
+pub const M_102_EVENT_QUEUES_DOWN: &str = "DROP TABLE IF EXISTS event_queue_messages; DROP TABLE IF EXISTS event_queues;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -633,6 +639,24 @@ impl MigrationManager {
             up_sql: M_099_PERFORMANCE_METRICS_UP.into(),
             down_sql: M_099_PERFORMANCE_METRICS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 100,
+            name: "add_webhook_deliveries_v2".into(),
+            up_sql: M_100_WEBHOOK_DELIVERIES_V2_UP.into(),
+            down_sql: M_100_WEBHOOK_DELIVERIES_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 101,
+            name: "add_events_and_subscriptions".into(),
+            up_sql: M_101_EVENTS_AND_SUBSCRIPTIONS_UP.into(),
+            down_sql: M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 102,
+            name: "add_event_queues".into(),
+            up_sql: M_102_EVENT_QUEUES_UP.into(),
+            down_sql: M_102_EVENT_QUEUES_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -674,7 +698,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 76);
+        assert_eq!(mgr.all().len(), 79);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -825,19 +849,25 @@ mod tests {
         assert_eq!(mgr.all()[74].name, "add_monitoring_alerts");
         assert_eq!(mgr.all()[75].version, 99);
         assert_eq!(mgr.all()[75].name, "add_performance_metrics");
+        assert_eq!(mgr.all()[76].version, 100);
+        assert_eq!(mgr.all()[76].name, "add_webhook_deliveries_v2");
+        assert_eq!(mgr.all()[77].version, 101);
+        assert_eq!(mgr.all()[77].name, "add_events_and_subscriptions");
+        assert_eq!(mgr.all()[78].version, 102);
+        assert_eq!(mgr.all()[78].name, "add_event_queues");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 100,
+            version: 103,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 77);
-        assert_eq!(mgr.all()[76].version, 100);
+        assert_eq!(mgr.all().len(), 80);
+        assert_eq!(mgr.all()[79].version, 103);
     }
 
     #[test]
@@ -856,13 +886,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 76);
+        assert_eq!(pending.len(), 79);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(99);
+        let pending = mgr.get_pending(102);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1051,5 +1081,69 @@ mod tests {
         assert_ne!(M_084_OBSERVABILITY_TABLES_DOWN, "");
         assert!(M_084_OBSERVABILITY_TABLES_DOWN.contains("DROP TABLE IF EXISTS trace_spans"));
         assert!(M_084_OBSERVABILITY_TABLES_DOWN.contains("DROP TABLE IF EXISTS metrics"));
+    }
+
+    #[test]
+    fn test_webhook_deliveries_v2_sql_not_empty() {
+        assert_ne!(M_100_WEBHOOK_DELIVERIES_V2_UP, "");
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("CREATE TABLE IF NOT EXISTS webhook_deliveries_v2"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("webhook_id"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("event"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("payload"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("status"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("response_status"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("response_body"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("attempts"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("max_attempts"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("next_retry_at"));
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("created_at"));
+    }
+
+    #[test]
+    fn test_webhook_deliveries_v2_down_sql_not_empty() {
+        assert_ne!(M_100_WEBHOOK_DELIVERIES_V2_DOWN, "");
+        assert!(M_100_WEBHOOK_DELIVERIES_V2_DOWN.contains("DROP TABLE IF EXISTS webhook_deliveries_v2"));
+    }
+
+    #[test]
+    fn test_events_and_subscriptions_sql_not_empty() {
+        assert_ne!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP, "");
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("CREATE TABLE IF NOT EXISTS events"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("CREATE TABLE IF NOT EXISTS event_subscriptions"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("event_type"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("resource_type"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("resource_id"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("actor_id"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("payload"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("callback_url"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("enabled"));
+    }
+
+    #[test]
+    fn test_events_and_subscriptions_down_sql_not_empty() {
+        assert_ne!(M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN, "");
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN.contains("DROP TABLE IF EXISTS event_subscriptions"));
+        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN.contains("DROP TABLE IF EXISTS events"));
+    }
+
+    #[test]
+    fn test_event_queues_sql_not_empty() {
+        assert_ne!(M_102_EVENT_QUEUES_UP, "");
+        assert!(M_102_EVENT_QUEUES_UP.contains("CREATE TABLE IF NOT EXISTS event_queues"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("CREATE TABLE IF NOT EXISTS event_queue_messages"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("queue_name"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("message_count"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("payload"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("status"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("attempts"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("max_attempts"));
+        assert!(M_102_EVENT_QUEUES_UP.contains("processed_at"));
+    }
+
+    #[test]
+    fn test_event_queues_down_sql_not_empty() {
+        assert_ne!(M_102_EVENT_QUEUES_DOWN, "");
+        assert!(M_102_EVENT_QUEUES_DOWN.contains("DROP TABLE IF EXISTS event_queue_messages"));
+        assert!(M_102_EVENT_QUEUES_DOWN.contains("DROP TABLE IF EXISTS event_queues"));
     }
 }

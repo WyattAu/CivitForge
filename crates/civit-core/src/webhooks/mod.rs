@@ -69,6 +69,29 @@ pub struct WebhookDispatcher {
     max_retries: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeliveryStats {
+    pub total_deliveries: i64,
+    pub successful_deliveries: i64,
+    pub failed_deliveries: i64,
+    pub pending_deliveries: i64,
+    pub retrying_deliveries: i64,
+    pub average_response_time_ms: f64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WebhookTestResult {
+    pub delivery_id: String,
+    pub event: String,
+    pub status: String,
+    pub response_status: Option<u16>,
+    pub response_body: Option<String>,
+    pub success: bool,
+    pub error: Option<String>,
+    pub created_at: String,
+}
+
 impl Default for WebhookDispatcher {
     fn default() -> Self {
         Self::new()
@@ -307,6 +330,198 @@ impl WebhookDispatcher {
         }
     }
 
+    pub async fn get_delivery_stats(
+        &self,
+        pool: &sqlx::PgPool,
+        webhook_id: &str,
+    ) -> Result<DeliveryStats, sqlx::Error> {
+        let webhook_uuid = Uuid::parse_str(webhook_id).map_err(|_| sqlx::Error::Decode("invalid webhook id".into()))?;
+
+        let total: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1",
+        )
+        .bind(webhook_uuid)
+        .fetch_one(pool)
+        .await?;
+
+        let successful: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1 AND status = 'delivered'",
+        )
+        .bind(webhook_uuid)
+        .fetch_one(pool)
+        .await?;
+
+        let failed: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1 AND status = 'failed'",
+        )
+        .bind(webhook_uuid)
+        .fetch_one(pool)
+        .await?;
+
+        let pending: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1 AND status = 'pending'",
+        )
+        .bind(webhook_uuid)
+        .fetch_one(pool)
+        .await?;
+
+        let retrying: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1 AND status = 'retrying'",
+        )
+        .bind(webhook_uuid)
+        .fetch_one(pool)
+        .await?;
+
+        let success_rate = if total.0 > 0 {
+            (successful.0 as f64 / total.0 as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(DeliveryStats {
+            total_deliveries: total.0,
+            successful_deliveries: successful.0,
+            failed_deliveries: failed.0,
+            pending_deliveries: pending.0,
+            retrying_deliveries: retrying.0,
+            average_response_time_ms: 0.0,
+            success_rate,
+        })
+    }
+
+    pub async fn test_webhook_with_payload(
+        &self,
+        pool: &sqlx::PgPool,
+        webhook_id: &str,
+        custom_payload: Option<serde_json::Value>,
+    ) -> Result<WebhookTestResult, DeliveryError> {
+        let webhook = match self.get_webhook(pool, webhook_id).await {
+            Some(w) => w,
+            None => return Err(DeliveryError::Network("webhook not found".into())),
+        };
+
+        let payload = custom_payload.unwrap_or_else(|| {
+            serde_json::json!({
+                "zen": "Design for failure.",
+                "hook_id": webhook_id,
+                "test": true
+            })
+        });
+
+        let delivery_id = Uuid::new_v4().to_string();
+        let delivery = WebhookDelivery {
+            id: delivery_id.clone(),
+            event: WebhookEvent::Push,
+            payload: payload.clone(),
+            timestamp: Utc::now(),
+        };
+
+        let body = serde_json::to_vec(&payload)
+            .map_err(|e| DeliveryError::Serialization(e.to_string()))?;
+
+        let mut req = self
+            .http_client
+            .post(&webhook.url)
+            .header("Content-Type", "application/json")
+            .header("X-CivitForge-Event", "ping")
+            .header("X-CivitForge-Delivery", &delivery_id)
+            .body(body.clone());
+
+        if let Some(ref secret) = webhook.secret {
+            let signature = compute_hmac_signature(secret, &body);
+            req = req.header("X-CivitForge-Signature", signature);
+        }
+
+        let start_time = std::time::Instant::now();
+        match req.send().await {
+            Ok(resp) => {
+                let _duration = start_time.elapsed();
+                let status = resp.status().as_u16();
+                let response_body = resp.text().await.unwrap_or_default();
+                let success = status >= 200 && status < 300;
+
+                let final_status = if success {
+                    DeliveryStatus::Delivered
+                } else {
+                    DeliveryStatus::Failed
+                };
+
+                let status_str = final_status.as_str().to_string();
+                let _ = self
+                    .update_delivery_status(
+                        pool,
+                        &delivery_id,
+                        final_status,
+                        1,
+                        None,
+                        None,
+                    )
+                    .await;
+
+                Ok(WebhookTestResult {
+                    delivery_id,
+                    event: "ping".to_string(),
+                    status: status_str,
+                    response_status: Some(status),
+                    response_body: Some(response_body),
+                    success,
+                    error: if success {
+                        None
+                    } else {
+                        Some(format!("HTTP {status}"))
+                    },
+                    created_at: Utc::now().to_rfc3339(),
+                })
+            }
+            Err(e) => {
+                let _ = self
+                    .update_delivery_status(
+                        pool,
+                        &delivery_id,
+                        DeliveryStatus::Failed,
+                        1,
+                        Some(&e.to_string()),
+                        None,
+                    )
+                    .await;
+
+                Ok(WebhookTestResult {
+                    delivery_id,
+                    event: "ping".to_string(),
+                    status: DeliveryStatus::Failed.as_str().to_string(),
+                    response_status: None,
+                    response_body: None,
+                    success: false,
+                    error: Some(e.to_string()),
+                    created_at: Utc::now().to_rfc3339(),
+                })
+            }
+        }
+    }
+
+    pub async fn get_webhooks_by_event_filter(
+        &self,
+        pool: &sqlx::PgPool,
+        repo_id: Uuid,
+        event_filter: &str,
+    ) -> Result<Vec<StoredWebhook>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, StoredWebhook>(
+            "SELECT id, url, events, secret, active FROM webhooks WHERE repo_id = $1 AND active = true",
+        )
+        .bind(repo_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .filter(|wh| {
+                let events: Vec<String> =
+                    serde_json::from_value(wh.events.clone()).unwrap_or_default();
+                events.iter().any(|e| e == event_filter)
+            })
+            .collect())
+    }
+
     pub async fn retry_pending_deliveries(&self, pool: &sqlx::PgPool) -> u32 {
         let pending = match sqlx::query_as::<_, PendingDelivery>(
             "SELECT id, webhook_id, event, payload, attempts \
@@ -408,7 +623,7 @@ struct PendingDelivery {
 }
 
 #[derive(Debug)]
-enum DeliveryError {
+pub enum DeliveryError {
     Serialization(String),
     Http(u16),
     Network(String),

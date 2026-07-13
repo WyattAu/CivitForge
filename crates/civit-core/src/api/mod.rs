@@ -22,6 +22,8 @@ pub mod discussions;
 pub mod edit;
 pub mod environments;
 pub mod error_reports;
+pub mod event_queues;
+pub mod events;
 pub mod feature_flags;
 pub mod federation_routes;
 pub mod git_http;
@@ -212,6 +214,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(pages::pages_routes())
         .merge(tokens::token_routes())
         .merge(webhooks::webhook_routes())
+        .merge(events::event_routes())
+        .merge(event_queues::event_queue_routes())
         .route(
             "/api/v1/repos/{owner}/{name}/webhooks",
             get(webhooks::list_webhooks).post(webhooks::create_webhook),

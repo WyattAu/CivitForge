@@ -356,6 +356,34 @@ pub struct UpdateWebhookRequest {
     pub active: Option<bool>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct WebhookStatsResponse {
+    pub total_deliveries: i64,
+    pub successful_deliveries: i64,
+    pub failed_deliveries: i64,
+    pub pending_deliveries: i64,
+    pub retrying_deliveries: i64,
+    pub average_response_time_ms: f64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TestWebhookWithPayloadRequest {
+    pub payload: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WebhookTestResultResponse {
+    pub delivery_id: String,
+    pub event: String,
+    pub status: String,
+    pub response_status: Option<u16>,
+    pub response_body: Option<String>,
+    pub success: bool,
+    pub error: Option<String>,
+    pub created_at: String,
+}
+
 pub async fn update_webhook(
     State(state): State<AppState>,
     Path((owner, name, webhook_id)): Path<(String, String, String)>,
@@ -529,6 +557,14 @@ pub fn webhook_routes() -> axum::Router<AppState> {
             "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/test",
             post(test_webhook),
         )
+        .route(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/stats",
+            get(get_webhook_stats),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/webhooks/{webhook_id}/test-payload",
+            post(test_webhook_with_payload),
+        )
 }
 
 pub async fn get_webhook(
@@ -582,6 +618,101 @@ pub async fn get_webhook(
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_webhook_stats(
+    State(state): State<AppState>,
+    Path((owner, name, webhook_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo(&state, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    match dispatcher.get_delivery_stats(pool, &wid.to_string()).await {
+        Ok(stats) => (
+            StatusCode::OK,
+            Json(WebhookStatsResponse {
+                total_deliveries: stats.total_deliveries,
+                successful_deliveries: stats.successful_deliveries,
+                failed_deliveries: stats.failed_deliveries,
+                pending_deliveries: stats.pending_deliveries,
+                retrying_deliveries: stats.retrying_deliveries,
+                average_response_time_ms: stats.average_response_time_ms,
+                success_rate: stats.success_rate,
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn test_webhook_with_payload(
+    State(state): State<AppState>,
+    Path((owner, name, webhook_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<TestWebhookWithPayloadRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo(&state, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook id".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let dispatcher = crate::webhooks::WebhookDispatcher::new();
+    match dispatcher
+        .test_webhook_with_payload(pool, &wid.to_string(), req.payload)
+        .await
+    {
+        Ok(result) => (
+            StatusCode::OK,
+            Json(WebhookTestResultResponse {
+                delivery_id: result.delivery_id,
+                event: result.event,
+                status: result.status,
+                response_status: result.response_status,
+                response_body: result.response_body,
+                success: result.success,
+                error: result.error,
+                created_at: result.created_at,
+            }),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::BadRequest(e.to_string()).error_response()),
         )
             .into_response(),
     }
