@@ -284,3 +284,75 @@ pub struct TemplateAnalytics {
     pub last_used_at: Option<DateTime<Utc>>,
     pub popular_configs: Vec<serde_json::Value>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShareV2 {
+    pub id: Uuid,
+    pub dashboard_id: Uuid,
+    pub user_id: Uuid,
+    pub permission: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardShareV2 {
+    pub dashboard_id: Uuid,
+    pub user_id: Uuid,
+    pub permission: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportScheduleV3 {
+    pub id: Uuid,
+    pub report_id: Uuid,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<DateTime<Utc>>,
+    pub next_run_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportScheduleV3 {
+    pub report_id: Uuid,
+    pub cron_expression: String,
+    pub enabled: Option<bool>,
+    pub next_run_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportScheduleV3 {
+    pub cron_expression: Option<String>,
+    pub enabled: Option<bool>,
+    pub next_run_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardAnalytics {
+    pub dashboard_id: Uuid,
+    pub view_count: i64,
+    pub unique_viewers: i64,
+    pub last_viewed_at: Option<DateTime<Utc>>,
+    pub widget_interactions: i64,
+    pub avg_view_duration_seconds: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportAnalytics {
+    pub report_id: Uuid,
+    pub generation_count: i64,
+    pub avg_generation_time_ms: f64,
+    pub last_generated_at: Option<DateTime<Utc>>,
+    pub export_count: i64,
+    pub popular_format: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardStatsV5 {
+    pub total_dashboards: i64,
+    pub public_dashboards: i64,
+    pub total_reports: i64,
+    pub scheduled_reports: i64,
+    pub total_shares: i64,
+    pub total_schedules: i64,
+}

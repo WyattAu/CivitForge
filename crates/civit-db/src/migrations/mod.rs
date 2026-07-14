@@ -428,6 +428,15 @@ pub const M_248_COMPLIANCE_FRAMEWORKS_V5_DOWN: &str =
     "DROP TABLE IF EXISTS compliance_assessments_v4; DROP TABLE IF EXISTS compliance_frameworks_v5;";
 pub const M_249_AUDIT_TRAIL_V6_UP: &str = include_str!("249_add_audit_trail_v6.sql");
 pub const M_249_AUDIT_TRAIL_V6_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v6;";
+pub const M_253_LOG_AGGREGATION_V5_UP: &str = include_str!("253_add_log_aggregation_v5.sql");
+pub const M_253_LOG_AGGREGATION_V5_DOWN: &str =
+    "DROP TABLE IF EXISTS log_alert_rules_v2; DROP TABLE IF EXISTS log_entries_v5;";
+pub const M_254_DISTRIBUTED_TRACING_V6_UP: &str = include_str!("254_add_distributed_tracing_v6.sql");
+pub const M_254_DISTRIBUTED_TRACING_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS trace_service_dependencies_v2; DROP TABLE IF EXISTS trace_sampling_rules_v5;";
+pub const M_255_DASHBOARD_REPORTING_V5_UP: &str = include_str!("255_add_dashboard_reporting_v5.sql");
+pub const M_255_DASHBOARD_REPORTING_V5_DOWN: &str =
+    "DROP TABLE IF EXISTS report_schedules_v3; DROP TABLE IF EXISTS dashboard_shares_v2;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1656,6 +1665,24 @@ impl MigrationManager {
             name: "add_audit_trail_v6".into(),
             up_sql: M_249_AUDIT_TRAIL_V6_UP.into(),
             down_sql: M_249_AUDIT_TRAIL_V6_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 253,
+            name: "add_log_aggregation_v5".into(),
+            up_sql: M_253_LOG_AGGREGATION_V5_UP.into(),
+            down_sql: M_253_LOG_AGGREGATION_V5_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 254,
+            name: "add_distributed_tracing_v6".into(),
+            up_sql: M_254_DISTRIBUTED_TRACING_V6_UP.into(),
+            down_sql: M_254_DISTRIBUTED_TRACING_V6_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 255,
+            name: "add_dashboard_reporting_v5".into(),
+            up_sql: M_255_DASHBOARD_REPORTING_V5_UP.into(),
+            down_sql: M_255_DASHBOARD_REPORTING_V5_DOWN.into(),
         });
     }
 
