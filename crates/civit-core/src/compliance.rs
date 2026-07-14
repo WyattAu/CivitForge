@@ -523,6 +523,275 @@ pub fn create_iso27001_framework() -> ComplianceFramework {
     framework
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceFrameworkV2 {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub requirements: Vec<ComplianceRequirement>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+impl ComplianceFrameworkV2 {
+    pub fn new(name: String, description: String) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            name,
+            version: "1.0".into(),
+            description,
+            requirements: Vec::new(),
+            enabled: true,
+            created_at: Utc::now(),
+        }
+    }
+
+    pub fn with_version(mut self, version: &str) -> Self {
+        self.version = version.into();
+        self
+    }
+
+    pub fn add_requirement(&mut self, requirement: ComplianceRequirement) {
+        self.requirements.push(requirement);
+    }
+
+    pub fn mandatory_requirements(&self) -> Vec<&ComplianceRequirement> {
+        self.requirements.iter().filter(|r| r.mandatory).collect()
+    }
+
+    pub fn requirements_by_category(&self, category: &str) -> Vec<&ComplianceRequirement> {
+        self.requirements
+            .iter()
+            .filter(|r| r.category == category)
+            .collect()
+    }
+
+    pub fn increment_version(&mut self) {
+        let parts: Vec<&str> = self.version.split('.').collect();
+        if parts.len() == 2 {
+            if let Ok(minor) = parts[1].parse::<u32>() {
+                self.version = format!("{}.{}", parts[0], minor + 1);
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceAssessmentV2 {
+    pub id: String,
+    pub framework_id: String,
+    pub repo_id: Option<String>,
+    pub status: AssessmentStatus,
+    pub findings: Vec<ComplianceFinding>,
+    pub score: u32,
+    pub assessor_id: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub history: Vec<AssessmentSnapshot>,
+}
+
+impl ComplianceAssessmentV2 {
+    pub fn new(framework_id: String) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            framework_id,
+            repo_id: None,
+            status: AssessmentStatus::Pending,
+            findings: Vec::new(),
+            score: 0,
+            assessor_id: None,
+            started_at: Utc::now(),
+            completed_at: None,
+            history: Vec::new(),
+        }
+    }
+
+    pub fn with_repo(mut self, repo_id: &str) -> Self {
+        self.repo_id = Some(repo_id.into());
+        self
+    }
+
+    pub fn with_assessor(mut self, assessor_id: &str) -> Self {
+        self.assessor_id = Some(assessor_id.into());
+        self
+    }
+
+    pub fn add_finding(&mut self, finding: ComplianceFinding) {
+        self.findings.push(finding);
+        self.snapshot_history();
+    }
+
+    pub fn complete(&mut self, score: u32) {
+        self.status = if self.findings.iter().any(|f| f.status == FindingStatus::NonCompliant) {
+            AssessmentStatus::Failed
+        } else if self.findings.iter().any(|f| f.status == FindingStatus::Partial) {
+            AssessmentStatus::Partial
+        } else {
+            AssessmentStatus::Passed
+        };
+        self.score = score;
+        self.completed_at = Some(Utc::now());
+        self.snapshot_history();
+    }
+
+    fn snapshot_history(&mut self) {
+        self.history.push(AssessmentSnapshot {
+            status: self.status,
+            score: self.score,
+            findings_count: self.findings.len() as u32,
+            timestamp: Utc::now(),
+        });
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssessmentSnapshot {
+    pub status: AssessmentStatus,
+    pub score: u32,
+    pub findings_count: u32,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FindingTracker {
+    pub findings: Vec<ComplianceFinding>,
+    pub remediation_deadlines: std::collections::HashMap<String, DateTime<Utc>>,
+    pub assigned_to: std::collections::HashMap<String, String>,
+}
+
+impl FindingTracker {
+    pub fn new() -> Self {
+        Self {
+            findings: Vec::new(),
+            remediation_deadlines: std::collections::HashMap::new(),
+            assigned_to: std::collections::HashMap::new(),
+        }
+    }
+
+    pub fn add_finding(&mut self, finding: ComplianceFinding) {
+        self.findings.push(finding);
+    }
+
+    pub fn set_deadline(&mut self, finding_id: &str, deadline: DateTime<Utc>) {
+        self.remediation_deadlines.insert(finding_id.into(), deadline);
+    }
+
+    pub fn assign(&mut self, finding_id: &str, user_id: &str) {
+        self.assigned_to.insert(finding_id.into(), user_id.into());
+    }
+
+    pub fn overdue_findings(&self) -> Vec<&ComplianceFinding> {
+        let now = Utc::now();
+        self.findings
+            .iter()
+            .filter(|f| {
+                self.remediation_deadlines
+                    .get(&f.id)
+                    .map(|d| *d < now)
+                    .unwrap_or(false)
+            })
+            .collect()
+    }
+
+    pub fn open_findings(&self) -> Vec<&ComplianceFinding> {
+        self.findings
+            .iter()
+            .filter(|f| f.status == FindingStatus::NonCompliant || f.status == FindingStatus::Partial)
+            .collect()
+    }
+}
+
+impl Default for FindingTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+pub struct ComplianceScoringEngineV2;
+
+impl ComplianceScoringEngineV2 {
+    pub fn calculate_framework_score(
+        requirements: &[ComplianceRequirementRecord],
+        check_results: &[ComplianceCheckResult],
+    ) -> ComplianceScore {
+        let total = requirements.len() as u32;
+        if total == 0 {
+            return ComplianceScore {
+                overall: 100,
+                by_severity: std::collections::HashMap::new(),
+                total_requirements: 0,
+                passed: 0,
+                failed: 0,
+                skipped: 0,
+            };
+        }
+
+        let mut passed = 0u32;
+        let mut failed = 0u32;
+        let mut skipped = 0u32;
+
+        for result in check_results {
+            match result.status {
+                CheckStatus::Passed => passed += 1,
+                CheckStatus::Failed => failed += 1,
+                CheckStatus::Skipped => skipped += 1,
+                _ => {}
+            }
+        }
+
+        let applicable = total - skipped;
+        let overall = if applicable > 0 {
+            ((passed as f64 / applicable as f64) * 100.0) as u32
+        } else {
+            100
+        };
+
+        ComplianceScore {
+            overall,
+            by_severity: std::collections::HashMap::new(),
+            total_requirements: total,
+            passed,
+            failed,
+            skipped,
+        }
+    }
+
+    pub fn calculate_weighted_score(
+        requirements: &[ComplianceRequirementRecord],
+        check_results: &[ComplianceCheckResult],
+    ) -> f64 {
+        let total_weight: f64 = requirements.iter().map(|r| {
+            match r.severity {
+                RequirementSeverity::Critical => 4.0,
+                RequirementSeverity::High => 3.0,
+                RequirementSeverity::Medium => 2.0,
+                RequirementSeverity::Low => 1.0,
+            }
+        }).sum();
+
+        if total_weight == 0.0 {
+            return 100.0;
+        }
+
+        let earned_weight: f64 = requirements.iter().zip(check_results.iter()).map(|(req, res)| {
+            let weight = match req.severity {
+                RequirementSeverity::Critical => 4.0,
+                RequirementSeverity::High => 3.0,
+                RequirementSeverity::Medium => 2.0,
+                RequirementSeverity::Low => 1.0,
+            };
+            if res.status == CheckStatus::Passed {
+                weight
+            } else {
+                0.0
+            }
+        }).sum();
+
+        (earned_weight / total_weight) * 100.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -954,5 +1223,194 @@ mod tests {
             serde_json::to_string(&CheckStatus::Passed).unwrap(),
             "\"passed\""
         );
+    }
+
+    #[test]
+    fn test_compliance_framework_v2_new() {
+        let fw = ComplianceFrameworkV2::new("Test V2".into(), "Description".into());
+        assert_eq!(fw.name, "Test V2");
+        assert_eq!(fw.version, "1.0");
+        assert!(fw.enabled);
+        assert!(fw.requirements.is_empty());
+    }
+
+    #[test]
+    fn test_compliance_framework_v2_with_version() {
+        let fw = ComplianceFrameworkV2::new("Test".into(), "Desc".into())
+            .with_version("2.1");
+        assert_eq!(fw.version, "2.1");
+    }
+
+    #[test]
+    fn test_compliance_framework_v2_increment_version() {
+        let mut fw = ComplianceFrameworkV2::new("Test".into(), "Desc".into());
+        fw.increment_version();
+        assert_eq!(fw.version, "1.1");
+        fw.increment_version();
+        assert_eq!(fw.version, "1.2");
+    }
+
+    #[test]
+    fn test_compliance_assessment_v2_new() {
+        let assessment = ComplianceAssessmentV2::new("fw-1".into());
+        assert_eq!(assessment.framework_id, "fw-1");
+        assert_eq!(assessment.status, AssessmentStatus::Pending);
+        assert!(assessment.findings.is_empty());
+        assert_eq!(assessment.score, 0);
+        assert!(assessment.history.is_empty());
+    }
+
+    #[test]
+    fn test_compliance_assessment_v2_with_repo() {
+        let assessment = ComplianceAssessmentV2::new("fw-1".into())
+            .with_repo("repo-1")
+            .with_assessor("user-1");
+        assert_eq!(assessment.repo_id.as_deref(), Some("repo-1"));
+        assert_eq!(assessment.assessor_id.as_deref(), Some("user-1"));
+    }
+
+    #[test]
+    fn test_compliance_assessment_v2_add_finding() {
+        let mut assessment = ComplianceAssessmentV2::new("fw-1".into());
+        let finding = ComplianceFinding {
+            id: uuid::Uuid::new_v4().to_string(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::Compliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        assessment.add_finding(finding);
+        assert_eq!(assessment.findings.len(), 1);
+        assert_eq!(assessment.history.len(), 1);
+    }
+
+    #[test]
+    fn test_compliance_assessment_v2_complete() {
+        let mut assessment = ComplianceAssessmentV2::new("fw-1".into());
+        let finding = ComplianceFinding {
+            id: uuid::Uuid::new_v4().to_string(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::Compliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        assessment.add_finding(finding);
+        assessment.complete(100);
+        assert_eq!(assessment.status, AssessmentStatus::Passed);
+        assert_eq!(assessment.score, 100);
+        assert!(assessment.completed_at.is_some());
+    }
+
+    #[test]
+    fn test_compliance_assessment_v2_complete_failed() {
+        let mut assessment = ComplianceAssessmentV2::new("fw-1".into());
+        let finding = ComplianceFinding {
+            id: uuid::Uuid::new_v4().to_string(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::NonCompliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        assessment.add_finding(finding);
+        assessment.complete(0);
+        assert_eq!(assessment.status, AssessmentStatus::Failed);
+    }
+
+    #[test]
+    fn test_finding_tracker_new() {
+        let tracker = FindingTracker::new();
+        assert!(tracker.findings.is_empty());
+        assert!(tracker.remediation_deadlines.is_empty());
+        assert!(tracker.assigned_to.is_empty());
+    }
+
+    #[test]
+    fn test_finding_tracker_add_finding() {
+        let mut tracker = FindingTracker::new();
+        let finding = ComplianceFinding {
+            id: "f-1".into(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::NonCompliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        tracker.add_finding(finding);
+        assert_eq!(tracker.findings.len(), 1);
+    }
+
+    #[test]
+    fn test_finding_tracker_overdue() {
+        let mut tracker = FindingTracker::new();
+        let finding = ComplianceFinding {
+            id: "f-1".into(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::NonCompliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        tracker.add_finding(finding);
+        tracker.set_deadline("f-1", Utc::now() - chrono::Duration::hours(1));
+        assert_eq!(tracker.overdue_findings().len(), 1);
+    }
+
+    #[test]
+    fn test_finding_tracker_open_findings() {
+        let mut tracker = FindingTracker::new();
+        let f1 = ComplianceFinding {
+            id: "f-1".into(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::NonCompliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        let f2 = ComplianceFinding {
+            id: "f-2".into(),
+            requirement_id: "req-2".into(),
+            status: FindingStatus::Compliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        tracker.add_finding(f1);
+        tracker.add_finding(f2);
+        assert_eq!(tracker.open_findings().len(), 1);
+    }
+
+    #[test]
+    fn test_finding_tracker_assign() {
+        let mut tracker = FindingTracker::new();
+        let finding = ComplianceFinding {
+            id: "f-1".into(),
+            requirement_id: "req-1".into(),
+            status: FindingStatus::NonCompliant,
+            details: "Test".into(),
+            evidence: None,
+            remediation: None,
+        };
+        tracker.add_finding(finding);
+        tracker.assign("f-1", "user-1");
+        assert_eq!(tracker.assigned_to.get("f-1").map(|s| s.as_str()), Some("user-1"));
+    }
+
+    #[test]
+    fn test_compliance_scoring_engine_v2_weighted() {
+        let requirements = vec![
+            ComplianceRequirementRecord::new("fw".into(), "R1".into(), "".into())
+                .with_severity(RequirementSeverity::Critical),
+            ComplianceRequirementRecord::new("fw".into(), "R2".into(), "".into())
+                .with_severity(RequirementSeverity::Low),
+        ];
+        let check_results = vec![
+            ComplianceCheckResult::new("R1".into(), "a".into(), CheckStatus::Passed),
+            ComplianceCheckResult::new("R2".into(), "a".into(), CheckStatus::Failed),
+        ];
+        let score = ComplianceScoringEngineV2::calculate_weighted_score(&requirements, &check_results);
+        assert!((score - 80.0).abs() < 0.01);
     }
 }

@@ -473,6 +473,195 @@ pub struct PolicyViolation {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityScanRuleV2 {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub rule_type: RuleType,
+    pub severity: RuleSeverity,
+    pub pattern: String,
+    pub enabled: bool,
+    pub version: u32,
+    pub author_id: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl SecurityScanRuleV2 {
+    pub fn new(name: String, description: String, rule_type: RuleType, pattern: String) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            name,
+            description,
+            rule_type,
+            severity: RuleSeverity::Medium,
+            pattern,
+            enabled: true,
+            version: 1,
+            author_id: None,
+            created_at: Utc::now(),
+        }
+    }
+
+    pub fn with_severity(mut self, severity: RuleSeverity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    pub fn with_author(mut self, author_id: &str) -> Self {
+        self.author_id = Some(author_id.into());
+        self
+    }
+
+    pub fn increment_version(&mut self) {
+        self.version += 1;
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityScanResult {
+    pub id: String,
+    pub scan_id: String,
+    pub rule_id: String,
+    pub file_path: Option<String>,
+    pub line_number: Option<u32>,
+    pub message: String,
+    pub severity: RuleSeverity,
+    pub created_at: DateTime<Utc>,
+}
+
+impl SecurityScanResult {
+    pub fn new(scan_id: String, rule_id: String, message: String, severity: RuleSeverity) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            scan_id,
+            rule_id,
+            file_path: None,
+            line_number: None,
+            message,
+            severity,
+            created_at: Utc::now(),
+        }
+    }
+
+    pub fn with_file_path(mut self, path: &str) -> Self {
+        self.file_path = Some(path.into());
+        self
+    }
+
+    pub fn with_line_number(mut self, line: u32) -> Self {
+        self.line_number = Some(line);
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceMapping {
+    pub rule_id: String,
+    pub framework_id: String,
+    pub requirement_id: String,
+    pub mapping_type: ComplianceMappingType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComplianceMappingType {
+    Direct,
+    Partial,
+    Advisory,
+}
+
+pub struct SecurityScanRuleManagerV2 {
+    rules: Vec<SecurityScanRuleV2>,
+    results: Vec<SecurityScanResult>,
+    compliance_mappings: Vec<ComplianceMapping>,
+}
+
+impl SecurityScanRuleManagerV2 {
+    pub fn new() -> Self {
+        Self {
+            rules: Vec::new(),
+            results: Vec::new(),
+            compliance_mappings: Vec::new(),
+        }
+    }
+
+    pub fn add_rule(&mut self, rule: SecurityScanRuleV2) {
+        self.rules.push(rule);
+    }
+
+    pub fn get_rule(&self, rule_id: &str) -> Option<&SecurityScanRuleV2> {
+        self.rules.iter().find(|r| r.id == rule_id)
+    }
+
+    pub fn update_rule_version(&mut self, rule_id: &str) -> Result<(), String> {
+        let rule = self
+            .rules
+            .iter_mut()
+            .find(|r| r.id == rule_id)
+            .ok_or("Rule not found")?;
+        rule.increment_version();
+        Ok(())
+    }
+
+    pub fn list_rules(&self) -> &[SecurityScanRuleV2] {
+        &self.rules
+    }
+
+    pub fn add_result(&mut self, result: SecurityScanResult) {
+        self.results.push(result);
+    }
+
+    pub fn get_results_for_scan(&self, scan_id: &str) -> Vec<&SecurityScanResult> {
+        self.results.iter().filter(|r| r.scan_id == scan_id).collect()
+    }
+
+    pub fn get_results_for_rule(&self, rule_id: &str) -> Vec<&SecurityScanResult> {
+        self.results.iter().filter(|r| r.rule_id == rule_id).collect()
+    }
+
+    pub fn add_compliance_mapping(&mut self, mapping: ComplianceMapping) {
+        self.compliance_mappings.push(mapping);
+    }
+
+    pub fn get_compliance_mappings_for_rule(&self, rule_id: &str) -> Vec<&ComplianceMapping> {
+        self.compliance_mappings.iter().filter(|m| m.rule_id == rule_id).collect()
+    }
+
+    pub fn test_rule_v2(&self, rule: &SecurityScanRuleV2, input: &str) -> RuleTestResult {
+        let start = std::time::Instant::now();
+        let mut matched_lines = Vec::new();
+
+        for (idx, line) in input.lines().enumerate() {
+            let matched = match rule.rule_type {
+                RuleType::Regex => regex::Regex::new(&rule.pattern)
+                    .map(|re| re.is_match(line))
+                    .unwrap_or(false),
+                RuleType::Keyword => line.contains(&rule.pattern),
+                RuleType::Pattern => line.to_lowercase().contains(&rule.pattern.to_lowercase()),
+                RuleType::Ast | RuleType::Custom => false,
+            };
+            if matched {
+                matched_lines.push((idx + 1) as u32);
+            }
+        }
+
+        RuleTestResult {
+            rule_id: rule.id.clone(),
+            input: input.to_string(),
+            matched: !matched_lines.is_empty(),
+            matched_lines,
+            execution_time_ms: start.elapsed().as_millis() as u64,
+        }
+    }
+}
+
+impl Default for SecurityScanRuleManagerV2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct StubSecurityScanner {
     scan_type: ScanType,
 }
@@ -883,6 +1072,162 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&RuleSeverity::Low).unwrap(),
             "\"low\""
+        );
+    }
+
+    #[test]
+    fn test_security_scan_rule_v2_new() {
+        let rule = SecurityScanRuleV2::new(
+            "Test Rule V2".into(),
+            "A test rule".into(),
+            RuleType::Regex,
+            r#"test_pattern"#.into(),
+        );
+        assert_eq!(rule.name, "Test Rule V2");
+        assert_eq!(rule.rule_type, RuleType::Regex);
+        assert_eq!(rule.severity, RuleSeverity::Medium);
+        assert!(rule.enabled);
+        assert_eq!(rule.version, 1);
+        assert!(rule.author_id.is_none());
+    }
+
+    #[test]
+    fn test_security_scan_rule_v2_with_author() {
+        let rule = SecurityScanRuleV2::new(
+            "Test".into(),
+            "Desc".into(),
+            RuleType::Keyword,
+            "pattern".into(),
+        )
+        .with_author("user-1");
+        assert_eq!(rule.author_id.as_deref(), Some("user-1"));
+    }
+
+    #[test]
+    fn test_security_scan_rule_v2_increment_version() {
+        let mut rule = SecurityScanRuleV2::new(
+            "Test".into(),
+            "Desc".into(),
+            RuleType::Regex,
+            "pattern".into(),
+        );
+        rule.increment_version();
+        assert_eq!(rule.version, 2);
+        rule.increment_version();
+        assert_eq!(rule.version, 3);
+    }
+
+    #[test]
+    fn test_security_scan_result_new() {
+        let result = SecurityScanResult::new(
+            "scan-1".into(),
+            "rule-1".into(),
+            "Test finding".into(),
+            RuleSeverity::High,
+        );
+        assert_eq!(result.scan_id, "scan-1");
+        assert_eq!(result.rule_id, "rule-1");
+        assert_eq!(result.message, "Test finding");
+        assert_eq!(result.severity, RuleSeverity::High);
+        assert!(result.file_path.is_none());
+        assert!(result.line_number.is_none());
+    }
+
+    #[test]
+    fn test_security_scan_result_with_file() {
+        let result = SecurityScanResult::new(
+            "scan-1".into(),
+            "rule-1".into(),
+            "Finding".into(),
+            RuleSeverity::Medium,
+        )
+        .with_file_path("src/main.rs")
+        .with_line_number(42);
+        assert_eq!(result.file_path.as_deref(), Some("src/main.rs"));
+        assert_eq!(result.line_number, Some(42));
+    }
+
+    #[test]
+    fn test_security_scan_rule_manager_v2_add_and_get() {
+        let mut manager = SecurityScanRuleManagerV2::new();
+        let rule = SecurityScanRuleV2::new(
+            "Rule1".into(),
+            "Desc".into(),
+            RuleType::Regex,
+            "pattern".into(),
+        );
+        let id = rule.id.clone();
+        manager.add_rule(rule);
+        assert!(manager.get_rule(&id).is_some());
+        assert!(manager.get_rule("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_security_scan_rule_manager_v2_update_version() {
+        let mut manager = SecurityScanRuleManagerV2::new();
+        let rule = SecurityScanRuleV2::new(
+            "Rule1".into(),
+            "Desc".into(),
+            RuleType::Regex,
+            "pattern".into(),
+        );
+        let id = rule.id.clone();
+        manager.add_rule(rule);
+        manager.update_rule_version(&id).unwrap();
+        assert_eq!(manager.get_rule(&id).unwrap().version, 2);
+    }
+
+    #[test]
+    fn test_security_scan_rule_manager_v2_add_result() {
+        let mut manager = SecurityScanRuleManagerV2::new();
+        let result = SecurityScanResult::new(
+            "scan-1".into(),
+            "rule-1".into(),
+            "Finding".into(),
+            RuleSeverity::High,
+        );
+        manager.add_result(result);
+        assert_eq!(manager.get_results_for_scan("scan-1").len(), 1);
+        assert_eq!(manager.get_results_for_rule("rule-1").len(), 1);
+    }
+
+    #[test]
+    fn test_security_scan_rule_manager_v2_compliance_mapping() {
+        let mut manager = SecurityScanRuleManagerV2::new();
+        let mapping = ComplianceMapping {
+            rule_id: "rule-1".into(),
+            framework_id: "fw-1".into(),
+            requirement_id: "req-1".into(),
+            mapping_type: ComplianceMappingType::Direct,
+        };
+        manager.add_compliance_mapping(mapping);
+        assert_eq!(manager.get_compliance_mappings_for_rule("rule-1").len(), 1);
+        assert!(manager.get_compliance_mappings_for_rule("rule-2").is_empty());
+    }
+
+    #[test]
+    fn test_security_scan_rule_manager_v2_test_rule() {
+        let manager = SecurityScanRuleManagerV2::new();
+        let rule = SecurityScanRuleV2::new(
+            "Keyword Rule".into(),
+            "Desc".into(),
+            RuleType::Keyword,
+            "password".into(),
+        );
+        let result = manager.test_rule_v2(&rule, "line with password here\nsafe line");
+        assert!(result.matched);
+        assert_eq!(result.matched_lines, vec![1]);
+    }
+
+    #[test]
+    fn test_compliance_mapping_type_serialization() {
+        assert_eq!(
+            serde_json::to_string(&ComplianceMappingType::Direct).unwrap(),
+            "\"direct\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ComplianceMappingType::Partial).unwrap(),
+            "\"partial\""
         );
     }
 }
