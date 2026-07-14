@@ -605,6 +605,15 @@ pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_DOWN: &str =
 pub const M_342_CACHE_HIT_ANALYSIS_V6_UP: &str = include_str!("342_add_cache_hit_analysis_v6.sql");
 pub const M_342_CACHE_HIT_ANALYSIS_V6_DOWN: &str =
     "DROP TABLE IF EXISTS cache_performance_insights_v6; DROP TABLE IF EXISTS cache_cost_optimization_v6; DROP TABLE IF EXISTS cache_size_tracking_v6; DROP TABLE IF EXISTS cache_hit_analysis_v6;";
+pub const M_343_TEST_SUITE_MANAGEMENT_V9_UP: &str = include_str!("343_add_test_suite_management_v9.sql");
+pub const M_343_TEST_SUITE_MANAGEMENT_V9_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines_v6; DROP TABLE IF EXISTS test_suite_metrics_v6;";
+pub const M_344_CODE_QUALITY_RULES_V9_UP: &str = include_str!("344_add_code_quality_rules_v9.sql");
+pub const M_344_CODE_QUALITY_RULES_V9_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds_v6; DROP TABLE IF EXISTS code_quality_metrics_v7;";
+pub const M_345_PERFORMANCE_TESTING_V10_UP: &str = include_str!("345_add_performance_testing_v10.sql");
+pub const M_345_PERFORMANCE_TESTING_V10_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v7; DROP TABLE IF EXISTS performance_test_alerts_v7;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2193,6 +2202,24 @@ impl MigrationManager {
             name: "add_cache_hit_analysis_v6".into(),
             up_sql: M_342_CACHE_HIT_ANALYSIS_V6_UP.into(),
             down_sql: M_342_CACHE_HIT_ANALYSIS_V6_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 343,
+            name: "add_test_suite_management_v9".into(),
+            up_sql: M_343_TEST_SUITE_MANAGEMENT_V9_UP.into(),
+            down_sql: M_343_TEST_SUITE_MANAGEMENT_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 344,
+            name: "add_code_quality_rules_v9".into(),
+            up_sql: M_344_CODE_QUALITY_RULES_V9_UP.into(),
+            down_sql: M_344_CODE_QUALITY_RULES_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 345,
+            name: "add_performance_testing_v10".into(),
+            up_sql: M_345_PERFORMANCE_TESTING_V10_UP.into(),
+            down_sql: M_345_PERFORMANCE_TESTING_V10_DOWN.into(),
         });
     }
 
