@@ -1153,3 +1153,45 @@ pub struct ScheduledTask {
     pub next_run_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiDocsV2 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub version: String,
+    pub summary: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+    pub request_body: Option<serde_json::Value>,
+    pub responses: serde_json::Value,
+    pub examples: serde_json::Value,
+    pub tags: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RateLimitTier {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub rate_limit: i32,
+    pub burst_limit: i32,
+    pub monthly_quota: Option<i32>,
+    pub price_cents: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiAnalyticV3 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub status_code: i32,
+    pub response_time_ms: i32,
+    pub user_id: Option<Uuid>,
+    pub request_size_bytes: i32,
+    pub response_size_bytes: i32,
+    pub cache_hit: bool,
+    pub created_at: DateTime<Utc>,
+}

@@ -251,6 +251,12 @@ pub const M_149_PIPELINE_RUNNERS_V2_UP: &str = include_str!("149_add_pipeline_ru
 pub const M_149_PIPELINE_RUNNERS_V2_DOWN: &str = "DROP TABLE IF EXISTS runner_metrics; DROP TABLE IF EXISTS pipeline_runners_v2;";
 pub const M_150_ENVIRONMENT_VARIABLES_UP: &str = include_str!("150_add_environment_variables.sql");
 pub const M_150_ENVIRONMENT_VARIABLES_DOWN: &str = "DROP TABLE IF EXISTS environment_variable_inheritance; DROP TABLE IF EXISTS environment_variables;";
+pub const M_154_API_DOCS_V2_UP: &str = include_str!("154_add_api_docs_v2.sql");
+pub const M_154_API_DOCS_V2_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v2;";
+pub const M_155_RATE_LIMIT_TIERS_UP: &str = include_str!("155_add_rate_limit_tiers.sql");
+pub const M_155_RATE_LIMIT_TIERS_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_tiers;";
+pub const M_156_API_ANALYTICS_V3_UP: &str = include_str!("156_add_api_analytics_v3.sql");
+pub const M_156_API_ANALYTICS_V3_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v3;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1048,6 +1054,24 @@ impl MigrationManager {
             up_sql: M_150_ENVIRONMENT_VARIABLES_UP.into(),
             down_sql: M_150_ENVIRONMENT_VARIABLES_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 154,
+            name: "add_api_docs_v2".into(),
+            up_sql: M_154_API_DOCS_V2_UP.into(),
+            down_sql: M_154_API_DOCS_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 155,
+            name: "add_rate_limit_tiers".into(),
+            up_sql: M_155_RATE_LIMIT_TIERS_UP.into(),
+            down_sql: M_155_RATE_LIMIT_TIERS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 156,
+            name: "add_api_analytics_v3".into(),
+            up_sql: M_156_API_ANALYTICS_V3_UP.into(),
+            down_sql: M_156_API_ANALYTICS_V3_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1089,7 +1113,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 127);
+        assert_eq!(mgr.all().len(), 130);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1282,6 +1306,12 @@ mod tests {
         assert_eq!(mgr.all()[125].name, "add_pipeline_runners_v2");
         assert_eq!(mgr.all()[126].version, 150);
         assert_eq!(mgr.all()[126].name, "add_environment_variables");
+        assert_eq!(mgr.all()[127].version, 154);
+        assert_eq!(mgr.all()[127].name, "add_api_docs_v2");
+        assert_eq!(mgr.all()[128].version, 155);
+        assert_eq!(mgr.all()[128].name, "add_rate_limit_tiers");
+        assert_eq!(mgr.all()[129].version, 156);
+        assert_eq!(mgr.all()[129].name, "add_api_analytics_v3");
     }
 
     #[test]
@@ -1293,8 +1323,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 128);
-        assert_eq!(mgr.all()[127].version, 151);
+        assert_eq!(mgr.all().len(), 131);
+        assert_eq!(mgr.all()[130].version, 151);
     }
 
     #[test]
@@ -1313,21 +1343,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 127);
+        assert_eq!(pending.len(), 130);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(147);
-        assert_eq!(pending.len(), 3);
+        let pending = mgr.get_pending(156);
+        assert_eq!(pending.len(), 0);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 126);
+        assert_eq!(pending.len(), 129);
     }
 
     #[test]
