@@ -95,6 +95,46 @@ pub struct ActionChainResult {
     pub completed_at: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowTemplate {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowTemplateUsage {
+    pub id: Uuid,
+    pub template_id: Uuid,
+    pub user_id: Uuid,
+    pub used_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkflowTemplate {
+    pub name: String,
+    pub description: Option<String>,
+    pub template_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateWorkflowTemplate {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub template_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct WorkflowRow {
     id: Uuid,
@@ -191,6 +231,54 @@ impl From<WorkflowRunRow> for WorkflowRun {
             total_steps: row.total_steps,
             started_at: row.started_at,
             completed_at: row.completed_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowTemplateRow {
+    id: Uuid,
+    name: String,
+    description: String,
+    template_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<Uuid>,
+    usage_count: i32,
+    created_at: DateTime<Utc>,
+}
+
+impl From<WorkflowTemplateRow> for WorkflowTemplate {
+    fn from(row: WorkflowTemplateRow) -> Self {
+        WorkflowTemplate {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            template_type: row.template_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowTemplateUsageRow {
+    id: Uuid,
+    template_id: Uuid,
+    user_id: Uuid,
+    used_at: DateTime<Utc>,
+}
+
+impl From<WorkflowTemplateUsageRow> for WorkflowTemplateUsage {
+    fn from(row: WorkflowTemplateUsageRow) -> Self {
+        WorkflowTemplateUsage {
+            id: row.id,
+            template_id: row.template_id,
+            user_id: row.user_id,
+            used_at: row.used_at,
         }
     }
 }
@@ -757,6 +845,199 @@ impl WorkflowService {
 
         Ok(all_results)
     }
+
+    // --- Workflow Templates ---
+
+    pub async fn create_template(
+        &self,
+        input: CreateWorkflowTemplate,
+    ) -> Result<WorkflowTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"INSERT INTO workflow_templates (name, description, template_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.template_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_template(&self, id: Uuid) -> Result<Option<WorkflowTemplate>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM workflow_templates WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_templates(&self) -> Result<Vec<WorkflowTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM workflow_templates ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_public_templates(&self) -> Result<Vec<WorkflowTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM workflow_templates WHERE is_public = true ORDER BY usage_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_templates_by_type(
+        &self,
+        template_type: &str,
+    ) -> Result<Vec<WorkflowTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM workflow_templates WHERE template_type = $1 AND is_public = true
+             ORDER BY usage_count DESC"#,
+        )
+        .bind(template_type)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_template(
+        &self,
+        id: Uuid,
+        input: UpdateWorkflowTemplate,
+    ) -> Result<WorkflowTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"UPDATE workflow_templates SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             template_type = COALESCE($4, template_type),
+             config = COALESCE($5, config),
+             is_public = COALESCE($6, is_public)
+             WHERE id = $1
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.template_type)
+        .bind(&input.config)
+        .bind(input.is_public)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM workflow_templates WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_template_usage(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<WorkflowTemplateUsage, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateUsageRow>(
+            r#"INSERT INTO workflow_template_usage (template_id, user_id)
+             VALUES ($1, $2)
+             RETURNING id, template_id, user_id, used_at"#,
+        )
+        .bind(template_id)
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        // Increment usage count
+        sqlx::query("UPDATE workflow_templates SET usage_count = usage_count + 1 WHERE id = $1")
+            .bind(template_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_template_usage_count(&self, template_id: Uuid) -> Result<i64, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct UsageCount {
+            count: Option<i64>,
+        }
+
+        let row = sqlx::query_as::<_, UsageCount>(
+            r#"SELECT COUNT(*) as count FROM workflow_template_usage WHERE template_id = $1"#,
+        )
+        .bind(template_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.count.unwrap_or(0))
+    }
+
+    pub async fn get_popular_templates(&self, limit: i64) -> Result<Vec<WorkflowTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM workflow_templates WHERE is_public = true
+             ORDER BY usage_count DESC LIMIT $1"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn create_workflow_from_template(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        workflow_name: Option<&str>,
+    ) -> Result<Workflow, sqlx::Error> {
+        let template = self.get_template(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let name = workflow_name.unwrap_or(&template.name);
+
+        let create_input = CreateWorkflow {
+            name: name.to_string(),
+            description: Some(template.description.clone()),
+            trigger_type: template.config.get("trigger_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("manual")
+                .to_string(),
+            trigger_config: template.config.get("trigger_config").cloned(),
+            steps: template.config.get("steps").cloned(),
+            enabled: Some(true),
+        };
+
+        let workflow = self.create_workflow(create_input).await?;
+
+        // Record usage
+        let _ = self.record_template_usage(template_id, user_id).await;
+
+        Ok(workflow)
+    }
 }
 
 #[cfg(test)]
@@ -834,5 +1115,66 @@ mod tests {
         };
         let json = serde_json::to_string(&action).unwrap();
         assert!(json.contains("run_pipeline"));
+    }
+
+    #[test]
+    fn test_workflow_template_serialization() {
+        let template = WorkflowTemplate {
+            id: Uuid::new_v4(),
+            name: "CI/CD Pipeline".into(),
+            description: "Standard CI/CD pipeline template".into(),
+            template_type: "pipeline".into(),
+            config: serde_json::json!({"trigger_type": "push", "steps": []}),
+            is_public: true,
+            author_id: Some(Uuid::new_v4()),
+            usage_count: 42,
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&template).unwrap();
+        assert!(json.contains("CI/CD Pipeline"));
+        assert!(json.contains("pipeline"));
+        assert!(json.contains("42"));
+    }
+
+    #[test]
+    fn test_workflow_template_usage_serialization() {
+        let usage = WorkflowTemplateUsage {
+            id: Uuid::new_v4(),
+            template_id: Uuid::new_v4(),
+            user_id: Uuid::new_v4(),
+            used_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&usage).unwrap();
+        assert!(json.contains("template_id"));
+        assert!(json.contains("user_id"));
+    }
+
+    #[test]
+    fn test_create_workflow_template_input_serialization() {
+        let input = CreateWorkflowTemplate {
+            name: "Deploy Template".into(),
+            description: Some("Deployment template".into()),
+            template_type: "deployment".into(),
+            config: Some(serde_json::json!({"steps": [{"name": "deploy"}]})),
+            is_public: Some(true),
+            author_id: Some(Uuid::new_v4()),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("Deploy Template"));
+        assert!(json.contains("deployment"));
+    }
+
+    #[test]
+    fn test_update_workflow_template_input_serialization() {
+        let input = UpdateWorkflowTemplate {
+            name: Some("Updated Template".into()),
+            description: None,
+            template_type: None,
+            config: None,
+            is_public: Some(false),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("Updated Template"));
+        assert!(json.contains("false"));
     }
 }

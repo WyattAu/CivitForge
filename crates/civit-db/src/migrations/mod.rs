@@ -309,6 +309,12 @@ pub const M_179_CODE_QUALITY_RULES_UP: &str = include_str!("179_add_code_quality
 pub const M_179_CODE_QUALITY_RULES_DOWN: &str = "DROP TABLE IF EXISTS code_quality_rules;";
 pub const M_180_PERF_TEST_CONFIGS_RESULTS_UP: &str = include_str!("180_add_performance_test_configs_results.sql");
 pub const M_180_PERF_TEST_CONFIGS_RESULTS_DOWN: &str = "DROP TABLE IF EXISTS performance_test_results; DROP TABLE IF EXISTS performance_test_configs;";
+pub const M_187_WORKFLOW_TEMPLATES_UP: &str = include_str!("187_add_workflow_templates.sql");
+pub const M_187_WORKFLOW_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_usage; DROP TABLE IF EXISTS workflow_templates;";
+pub const M_188_AUTOMATION_RULES_V3_UP: &str = include_str!("188_add_automation_rules_v3.sql");
+pub const M_188_AUTOMATION_RULES_V3_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v3;";
+pub const M_189_SCHEDULED_TASK_TEMPLATES_UP: &str = include_str!("189_add_scheduled_task_templates.sql");
+pub const M_189_SCHEDULED_TASK_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1250,6 +1256,24 @@ impl MigrationManager {
             up_sql: M_180_PERF_TEST_CONFIGS_RESULTS_UP.into(),
             down_sql: M_180_PERF_TEST_CONFIGS_RESULTS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 187,
+            name: "add_workflow_templates".into(),
+            up_sql: M_187_WORKFLOW_TEMPLATES_UP.into(),
+            down_sql: M_187_WORKFLOW_TEMPLATES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 188,
+            name: "add_automation_rules_v3".into(),
+            up_sql: M_188_AUTOMATION_RULES_V3_UP.into(),
+            down_sql: M_188_AUTOMATION_RULES_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 189,
+            name: "add_scheduled_task_templates".into(),
+            up_sql: M_189_SCHEDULED_TASK_TEMPLATES_UP.into(),
+            down_sql: M_189_SCHEDULED_TASK_TEMPLATES_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1291,7 +1315,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 151);
+        assert_eq!(mgr.all().len(), 154);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1537,7 +1561,7 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 152);
+        assert_eq!(mgr.all().len(), 155);
         assert_eq!(mgr.all()[151].version, 181);
     }
 

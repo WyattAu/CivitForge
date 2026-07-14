@@ -63,6 +63,50 @@ pub struct TaskExecutionResult {
     pub executed_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTaskTemplate {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub task_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateScheduledTaskTemplate {
+    pub name: String,
+    pub description: Option<String>,
+    pub task_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateScheduledTaskTemplate {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub task_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskAnalytics {
+    pub task_id: Uuid,
+    pub total_runs: i64,
+    pub successful_runs: i64,
+    pub failed_runs: i64,
+    pub average_execution_time_ms: f64,
+    pub last_execution_time_ms: Option<f64>,
+    pub success_rate: f64,
+    pub next_scheduled_run: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct ScheduledTaskRow {
     id: Uuid,
@@ -102,6 +146,35 @@ struct TaskRunRow {
     started_at: DateTime<Utc>,
     completed_at: Option<DateTime<Utc>>,
     result: serde_json::Value,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ScheduledTaskTemplateRow {
+    id: Uuid,
+    name: String,
+    description: String,
+    task_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<Uuid>,
+    usage_count: i32,
+    created_at: DateTime<Utc>,
+}
+
+impl From<ScheduledTaskTemplateRow> for ScheduledTaskTemplate {
+    fn from(row: ScheduledTaskTemplateRow) -> Self {
+        ScheduledTaskTemplate {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            task_type: row.task_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            created_at: row.created_at,
+        }
+    }
 }
 
 impl From<TaskRunRow> for TaskRun {
@@ -583,6 +656,224 @@ impl ScheduledTaskService {
 
         Ok(retried)
     }
+
+    // --- Task Templates ---
+
+    pub async fn create_template(
+        &self,
+        input: CreateScheduledTaskTemplate,
+    ) -> Result<ScheduledTaskTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"INSERT INTO scheduled_task_templates (name, description, task_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, task_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.task_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_template(&self, id: Uuid) -> Result<Option<ScheduledTaskTemplate>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, created_at
+             FROM scheduled_task_templates WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_templates(&self) -> Result<Vec<ScheduledTaskTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, created_at
+             FROM scheduled_task_templates ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_public_templates(&self) -> Result<Vec<ScheduledTaskTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, created_at
+             FROM scheduled_task_templates WHERE is_public = true ORDER BY usage_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_templates_by_type(
+        &self,
+        task_type: &str,
+    ) -> Result<Vec<ScheduledTaskTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, created_at
+             FROM scheduled_task_templates WHERE task_type = $1 AND is_public = true
+             ORDER BY usage_count DESC"#,
+        )
+        .bind(task_type)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_template(
+        &self,
+        id: Uuid,
+        input: UpdateScheduledTaskTemplate,
+    ) -> Result<ScheduledTaskTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"UPDATE scheduled_task_templates SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             task_type = COALESCE($4, task_type),
+             config = COALESCE($5, config),
+             is_public = COALESCE($6, is_public)
+             WHERE id = $1
+             RETURNING id, name, description, task_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.task_type)
+        .bind(&input.config)
+        .bind(input.is_public)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM scheduled_task_templates WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_template_usage(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        // Increment usage count
+        let result = sqlx::query(
+            "UPDATE scheduled_task_templates SET usage_count = usage_count + 1 WHERE id = $1",
+        )
+        .bind(template_id)
+        .execute(&self.pool)
+        .await?;
+
+        let _ = user_id;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_popular_templates(&self, limit: i64) -> Result<Vec<ScheduledTaskTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateRow>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, created_at
+             FROM scheduled_task_templates WHERE is_public = true
+             ORDER BY usage_count DESC LIMIT $1"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn create_task_from_template(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        task_name: Option<&str>,
+    ) -> Result<ScheduledTask, sqlx::Error> {
+        let template = self.get_template(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let name = task_name.unwrap_or(&template.name);
+
+        let cron_expression = template.config.get("cron_expression")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0 * * * *")
+            .to_string();
+
+        let create_input = CreateScheduledTask {
+            name: name.to_string(),
+            description: Some(template.description.clone()),
+            cron_expression,
+            task_type: template.task_type.clone(),
+            task_config: template.config.get("task_config").cloned(),
+            enabled: Some(true),
+        };
+
+        let task = self.create_task(create_input).await?;
+
+        // Record usage
+        let _ = self.record_template_usage(template_id, user_id).await;
+
+        Ok(task)
+    }
+
+    // --- Task Analytics ---
+
+    pub async fn get_task_analytics(&self, task_id: Uuid) -> Result<TaskAnalytics, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct AnalyticsRow {
+            total_runs: i64,
+            successful_runs: i64,
+            failed_runs: i64,
+            avg_execution_time_ms: f64,
+            last_execution_time_ms: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, AnalyticsRow>(
+            r#"SELECT
+                COUNT(*) as total_runs,
+                COUNT(*) FILTER (WHERE status = 'completed') as successful_runs,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed_runs,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000), 0) as avg_execution_time_ms,
+                MAX(CASE WHEN completed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 END) as last_execution_time_ms
+             FROM scheduled_task_runs WHERE task_id = $1"#,
+        )
+        .bind(task_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let success_rate = if row.total_runs > 0 {
+            (row.successful_runs as f64 / row.total_runs as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let task = self.get_task(task_id).await?;
+        let next_scheduled_run = task.map(|t| t.next_run_at);
+
+        Ok(TaskAnalytics {
+            task_id,
+            total_runs: row.total_runs,
+            successful_runs: row.successful_runs,
+            failed_runs: row.failed_runs,
+            average_execution_time_ms: row.avg_execution_time_ms,
+            last_execution_time_ms: row.last_execution_time_ms,
+            success_rate,
+            next_scheduled_run,
+        })
+    }
 }
 
 fn compute_next_run(cron_expr: &str) -> DateTime<Utc> {
@@ -656,5 +947,57 @@ mod tests {
         };
         let json = serde_json::to_string(&run).unwrap();
         assert!(json.contains("completed"));
+    }
+
+    #[test]
+    fn test_scheduled_task_template_serialization() {
+        let template = ScheduledTaskTemplate {
+            id: Uuid::new_v4(),
+            name: "Nightly Build Template".into(),
+            description: "Template for nightly builds".into(),
+            task_type: "pipeline".into(),
+            config: serde_json::json!({"cron_expression": "0 2 * * *", "task_config": {}}),
+            is_public: true,
+            author_id: Some(Uuid::new_v4()),
+            usage_count: 25,
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&template).unwrap();
+        assert!(json.contains("Nightly Build Template"));
+        assert!(json.contains("pipeline"));
+        assert!(json.contains("25"));
+    }
+
+    #[test]
+    fn test_create_scheduled_task_template_input_serialization() {
+        let input = CreateScheduledTaskTemplate {
+            name: "Backup Template".into(),
+            description: Some("Daily backup template".into()),
+            task_type: "backup".into(),
+            config: Some(serde_json::json!({"cron_expression": "0 1 * * *"})),
+            is_public: Some(true),
+            author_id: Some(Uuid::new_v4()),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("Backup Template"));
+        assert!(json.contains("backup"));
+    }
+
+    #[test]
+    fn test_task_analytics_serialization() {
+        let analytics = TaskAnalytics {
+            task_id: Uuid::new_v4(),
+            total_runs: 100,
+            successful_runs: 95,
+            failed_runs: 5,
+            average_execution_time_ms: 250.75,
+            last_execution_time_ms: Some(200.0),
+            success_rate: 95.0,
+            next_scheduled_run: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&analytics).unwrap();
+        assert!(json.contains("100"));
+        assert!(json.contains("95"));
+        assert!(json.contains("250.75"));
     }
 }
