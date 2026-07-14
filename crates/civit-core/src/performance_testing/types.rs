@@ -196,3 +196,86 @@ pub struct MetricComparison {
     pub change_percent: f64,
     pub improved: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceBaseline {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub threshold_percent: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePerformanceBaselineRequest {
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub threshold_percent: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePerformanceBaselineRequest {
+    pub baseline_value: Option<f64>,
+    pub threshold_percent: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceRegression {
+    pub id: Uuid,
+    pub baseline_id: Uuid,
+    pub test_id: Uuid,
+    pub regression_percent: f64,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegressionStatusUpdate {
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceTrendData {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub recorded_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordTrendDataRequest {
+    pub metric_name: String,
+    pub metric_value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceTrendAnalysis {
+    pub metric_name: String,
+    pub data_points: Vec<PerformanceTrendData>,
+    pub avg_value: f64,
+    pub min_value: f64,
+    pub max_value: f64,
+    pub trend_direction: String,
+    pub change_percent: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceAlert {
+    pub baseline_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub current_value: f64,
+    pub regression_percent: f64,
+    pub threshold_percent: f64,
+    pub severity: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceBaselineSummary {
+    pub total_baselines: i64,
+    pub active_regressions: i64,
+    pub resolved_regressions: i64,
+    pub baselines: Vec<PerformanceBaseline>,
+}

@@ -8,4 +8,7 @@ pub use types::{
     TestSuite, TestSuiteConfig, TestRun, TestRunStatus, TestRunResult,
     CreateTestSuiteRequest, UpdateTestSuiteRequest, CreateTestRunRequest,
     TestSuiteSummary, TestRunHistory,
+    TestSuiteConfiguration, CreateTestSuiteConfigRequest, UpdateTestSuiteConfigRequest,
+    TestSuiteNotification, CreateTestSuiteNotificationRequest, UpdateTestSuiteNotificationRequest,
+    TestSuiteAnalytics, SuiteActivity, FailureTrend, TestSchedule,
 };

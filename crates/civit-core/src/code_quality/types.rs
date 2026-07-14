@@ -232,3 +232,93 @@ pub struct QualityRuleEnforcementResult {
     pub files_checked: i64,
     pub files_violating: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityRuleV2 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub rule_type: RuleType,
+    pub severity: Severity,
+    pub pattern: Option<String>,
+    pub auto_fix: bool,
+    pub fix_config: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateQualityRuleV2Request {
+    pub name: String,
+    pub description: String,
+    pub rule_type: RuleType,
+    pub severity: Severity,
+    pub pattern: Option<String>,
+    pub auto_fix: Option<bool>,
+    pub fix_config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateQualityRuleV2Request {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub rule_type: Option<RuleType>,
+    pub severity: Option<Severity>,
+    pub pattern: Option<String>,
+    pub auto_fix: Option<bool>,
+    pub fix_config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityRuleVersion {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub version: i32,
+    pub config_snapshot: serde_json::Value,
+    pub change_description: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityRuleTestResult {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub test_file: String,
+    pub expected_violations: i32,
+    pub actual_violations: i32,
+    pub passed: bool,
+    pub tested_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleTestRequest {
+    pub test_file: String,
+    pub expected_violations: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleVersionDiff {
+    pub from_version: i32,
+    pub to_version: i32,
+    pub changes: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleAnalytics {
+    pub rule_id: Uuid,
+    pub total_enforcements: i64,
+    pub total_violations: i64,
+    pub avg_violations_per_run: f64,
+    pub last_enforced_at: Option<DateTime<Utc>>,
+    pub trend: Vec<RuleEnforcementTrend>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleEnforcementTrend {
+    pub date: chrono::NaiveDate,
+    pub enforcement_count: i64,
+    pub violation_count: i64,
+}

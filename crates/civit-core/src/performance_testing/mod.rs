@@ -9,4 +9,8 @@ pub use types::{
     CreatePerformanceTestRequest, PerformanceTestSummary, PerformanceTestRecord,
     TestConfigEntry, CreateTestConfigRequest, TestResultMetric, RecordTestResultRequest,
     PercentileAnalysis, PerformanceComparison, MetricComparison,
+    PerformanceBaseline, CreatePerformanceBaselineRequest, UpdatePerformanceBaselineRequest,
+    PerformanceRegression, RegressionStatusUpdate,
+    PerformanceTrendData, RecordTrendDataRequest, PerformanceTrendAnalysis,
+    PerformanceAlert, PerformanceBaselineSummary,
 };

@@ -327,6 +327,12 @@ pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_UP: &str = include_str!("194_
 pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_DOWN: &str = "DROP TABLE IF EXISTS environment_webhook_deliveries; DROP TABLE IF EXISTS environment_notifications; DROP TABLE IF EXISTS environment_webhooks;";
 pub const M_195_CACHE_WARMING_RULES_UP: &str = include_str!("195_add_cache_warming_rules.sql");
 pub const M_195_CACHE_WARMING_RULES_DOWN: &str = "DROP TABLE IF EXISTS cache_warming_logs; DROP TABLE IF EXISTS cache_warming_rules;";
+pub const M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP: &str = include_str!("196_add_test_suite_config_notifications.sql");
+pub const M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN: &str = "DROP TABLE IF EXISTS test_suite_notifications; DROP TABLE IF EXISTS test_suite_configurations;";
+pub const M_197_CODE_QUALITY_RULES_V2_UP: &str = include_str!("197_add_code_quality_rules_v2.sql");
+pub const M_197_CODE_QUALITY_RULES_V2_DOWN: &str = "DROP TABLE IF EXISTS code_quality_rule_test_results; DROP TABLE IF EXISTS code_quality_rule_versions; DROP TABLE IF EXISTS code_quality_rules_v2;";
+pub const M_198_PERF_BASELINES_REGRESSIONS_UP: &str = include_str!("198_add_performance_baselines_regressions.sql");
+pub const M_198_PERF_BASELINES_REGRESSIONS_DOWN: &str = "DROP TABLE IF EXISTS performance_trend_data; DROP TABLE IF EXISTS performance_regressions; DROP TABLE IF EXISTS performance_baselines;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1322,6 +1328,24 @@ impl MigrationManager {
             up_sql: M_195_CACHE_WARMING_RULES_UP.into(),
             down_sql: M_195_CACHE_WARMING_RULES_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 196,
+            name: "add_test_suite_config_notifications".into(),
+            up_sql: M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.into(),
+            down_sql: M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 197,
+            name: "add_code_quality_rules_v2".into(),
+            up_sql: M_197_CODE_QUALITY_RULES_V2_UP.into(),
+            down_sql: M_197_CODE_QUALITY_RULES_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 198,
+            name: "add_performance_baselines_regressions".into(),
+            up_sql: M_198_PERF_BASELINES_REGRESSIONS_UP.into(),
+            down_sql: M_198_PERF_BASELINES_REGRESSIONS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1946,5 +1970,60 @@ mod tests {
     fn test_circuit_breakers_down_sql_not_empty() {
         assert_ne!(M_105_CIRCUIT_BREAKERS_DOWN, "");
         assert!(M_105_CIRCUIT_BREAKERS_DOWN.contains("DROP TABLE IF EXISTS circuit_breakers"));
+    }
+
+    #[test]
+    fn test_test_suite_config_notifications_sql_not_empty() {
+        assert_ne!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP, "");
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_configurations"));
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("suite_id"));
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("config_key"));
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("config_value"));
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_notifications"));
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("notification_type"));
+    }
+
+    #[test]
+    fn test_test_suite_config_notifications_down_sql_not_empty() {
+        assert_ne!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN, "");
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN.contains("DROP TABLE IF EXISTS test_suite_notifications"));
+        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN.contains("DROP TABLE IF EXISTS test_suite_configurations"));
+    }
+
+    #[test]
+    fn test_code_quality_rules_v2_sql_not_empty() {
+        assert_ne!(M_197_CODE_QUALITY_RULES_V2_UP, "");
+        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_rules_v2"));
+        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("auto_fix"));
+        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("fix_config"));
+        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_rule_versions"));
+        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_rule_test_results"));
+    }
+
+    #[test]
+    fn test_code_quality_rules_v2_down_sql_not_empty() {
+        assert_ne!(M_197_CODE_QUALITY_RULES_V2_DOWN, "");
+        assert!(M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rule_test_results"));
+        assert!(M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rule_versions"));
+        assert!(M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rules_v2"));
+    }
+
+    #[test]
+    fn test_performance_baselines_regressions_sql_not_empty() {
+        assert_ne!(M_198_PERF_BASELINES_REGRESSIONS_UP, "");
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("CREATE TABLE IF NOT EXISTS performance_baselines"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("baseline_value"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("threshold_percent"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("CREATE TABLE IF NOT EXISTS performance_regressions"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("regression_percent"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("CREATE TABLE IF NOT EXISTS performance_trend_data"));
+    }
+
+    #[test]
+    fn test_performance_baselines_regressions_down_sql_not_empty() {
+        assert_ne!(M_198_PERF_BASELINES_REGRESSIONS_DOWN, "");
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_DOWN.contains("DROP TABLE IF EXISTS performance_trend_data"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_DOWN.contains("DROP TABLE IF EXISTS performance_regressions"));
+        assert!(M_198_PERF_BASELINES_REGRESSIONS_DOWN.contains("DROP TABLE IF EXISTS performance_baselines"));
     }
 }

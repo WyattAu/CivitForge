@@ -146,3 +146,81 @@ pub struct TestRunTrend {
     pub failed_runs: i64,
     pub avg_duration_ms: f64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteConfiguration {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteConfigRequest {
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateTestSuiteConfigRequest {
+    pub config_value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteNotification {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub notification_type: String,
+    pub config: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteNotificationRequest {
+    pub notification_type: String,
+    pub config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateTestSuiteNotificationRequest {
+    pub notification_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteAnalytics {
+    pub total_suites: i64,
+    pub total_runs: i64,
+    pub avg_pass_rate: f64,
+    pub avg_duration_ms: f64,
+    pub most_active_suites: Vec<SuiteActivity>,
+    pub failure_trends: Vec<FailureTrend>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SuiteActivity {
+    pub suite_id: Uuid,
+    pub suite_name: String,
+    pub run_count: i64,
+    pub last_run_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FailureTrend {
+    pub date: chrono::NaiveDate,
+    pub failure_count: i64,
+    pub failure_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSchedule {
+    pub suite_id: Uuid,
+    pub cron_expression: String,
+    pub timezone: Option<String>,
+    pub enabled: bool,
+    pub next_run_at: Option<DateTime<Utc>>,
+}

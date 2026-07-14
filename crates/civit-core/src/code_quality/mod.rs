@@ -9,4 +9,7 @@ pub use types::{
     ComplexityAnalysis, DuplicationReport, CodeSmellsReport, TechnicalDebtReport,
     RecordMetricRequest, QualityRule, CreateQualityRuleRequest, UpdateQualityRuleRequest,
     QualityRuleEnforcementResult,
+    QualityRuleV2, CreateQualityRuleV2Request, UpdateQualityRuleV2Request,
+    QualityRuleVersion, QualityRuleTestResult, RuleTestRequest,
+    RuleVersionDiff, RuleAnalytics, RuleEnforcementTrend,
 };

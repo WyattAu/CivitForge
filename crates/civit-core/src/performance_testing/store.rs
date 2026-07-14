@@ -383,6 +383,336 @@ impl PerformanceTestStore {
             .await?;
         Ok(result.rows_affected() > 0)
     }
+
+    pub async fn create_baseline(
+        &self,
+        repo_id: Uuid,
+        req: CreatePerformanceBaselineRequest,
+    ) -> Result<PerformanceBaseline, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let threshold_percent = req.threshold_percent.unwrap_or(10.0);
+
+        sqlx::query(
+            r#"INSERT INTO performance_baselines (id, repo_id, metric_name, baseline_value, threshold_percent, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(repo_id)
+        .bind(&req.metric_name)
+        .bind(req.baseline_value)
+        .bind(threshold_percent)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(PerformanceBaseline {
+            id,
+            repo_id,
+            metric_name: req.metric_name,
+            baseline_value: req.baseline_value,
+            threshold_percent,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_baseline(&self, id: Uuid) -> Result<Option<PerformanceBaseline>, sqlx::Error> {
+        let row = sqlx::query_as::<_, BaselineRow>(
+            r#"SELECT id, repo_id, metric_name, baseline_value, threshold_percent, created_at
+               FROM performance_baselines WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(PerformanceBaseline::from))
+    }
+
+    pub async fn list_baselines(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<PerformanceBaseline>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, BaselineRow>(
+            r#"SELECT id, repo_id, metric_name, baseline_value, threshold_percent, created_at
+               FROM performance_baselines
+               WHERE repo_id = $1
+               ORDER BY metric_name"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(PerformanceBaseline::from).collect())
+    }
+
+    pub async fn update_baseline(
+        &self,
+        id: Uuid,
+        req: UpdatePerformanceBaselineRequest,
+    ) -> Result<PerformanceBaseline, sqlx::Error> {
+        if let Some(value) = req.baseline_value {
+            sqlx::query(r#"UPDATE performance_baselines SET baseline_value = $1 WHERE id = $2"#)
+                .bind(value)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(threshold) = req.threshold_percent {
+            sqlx::query(r#"UPDATE performance_baselines SET threshold_percent = $1 WHERE id = $2"#)
+                .bind(threshold)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        self.get_baseline(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    pub async fn delete_baseline(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM performance_baselines WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_trend_data(
+        &self,
+        repo_id: Uuid,
+        req: RecordTrendDataRequest,
+    ) -> Result<PerformanceTrendData, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO performance_trend_data (id, repo_id, metric_name, metric_value, recorded_at)
+               VALUES ($1, $2, $3, $4, $5)"#,
+        )
+        .bind(id)
+        .bind(repo_id)
+        .bind(&req.metric_name)
+        .bind(req.metric_value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(PerformanceTrendData {
+            id,
+            repo_id,
+            metric_name: req.metric_name,
+            metric_value: req.metric_value,
+            recorded_at: now,
+        })
+    }
+
+    pub async fn get_trend_analysis(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+        days: i64,
+    ) -> Result<PerformanceTrendAnalysis, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TrendDataRow>(
+            r#"SELECT id, repo_id, metric_name, metric_value, recorded_at
+               FROM performance_trend_data
+               WHERE repo_id = $1 AND metric_name = $2
+                 AND recorded_at >= NOW() - ($3 || ' days')::INTERVAL
+               ORDER BY recorded_at"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .bind(days)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let data_points: Vec<PerformanceTrendData> = rows
+            .into_iter()
+            .map(PerformanceTrendData::from)
+            .collect();
+
+        let avg_value = if data_points.is_empty() {
+            0.0
+        } else {
+            data_points.iter().map(|d| d.metric_value).sum::<f64>() / data_points.len() as f64
+        };
+
+        let min_value = data_points.iter().map(|d| d.metric_value).fold(f64::INFINITY, f64::min);
+        let max_value = data_points.iter().map(|d| d.metric_value).fold(f64::NEG_INFINITY, f64::max);
+
+        let (trend_direction, change_percent) = if data_points.len() >= 2 {
+            let first = data_points.first().unwrap().metric_value;
+            let last = data_points.last().unwrap().metric_value;
+            let change = if first != 0.0 {
+                ((last - first) / first) * 100.0
+            } else {
+                0.0
+            };
+            let direction = if change > 5.0 {
+                "increasing"
+            } else if change < -5.0 {
+                "decreasing"
+            } else {
+                "stable"
+            };
+            (direction.to_string(), change)
+        } else {
+            ("unknown".to_string(), 0.0)
+        };
+
+        Ok(PerformanceTrendAnalysis {
+            metric_name: metric_name.to_string(),
+            data_points,
+            avg_value,
+            min_value,
+            max_value,
+            trend_direction,
+            change_percent,
+        })
+    }
+
+    pub async fn detect_regressions(
+        &self,
+        test_id: Uuid,
+        repo_id: Uuid,
+    ) -> Result<Vec<PerformanceAlert>, sqlx::Error> {
+        let baselines = self.list_baselines(repo_id).await?;
+        let mut alerts = Vec::new();
+
+        for baseline in baselines {
+            if let Some(result) = sqlx::query_as::<_, TestResultRow>(
+                r#"SELECT id, test_id, metric_name, metric_value, percentile, recorded_at
+                   FROM performance_test_results
+                   WHERE test_id = $1 AND metric_name = $2 AND percentile IS NULL
+                   LIMIT 1"#,
+            )
+            .bind(test_id)
+            .bind(&baseline.metric_name)
+            .fetch_optional(&self.pool)
+            .await?
+            {
+                let current_value = result.metric_value;
+                let regression_percent = if baseline.baseline_value != 0.0 {
+                    ((current_value - baseline.baseline_value) / baseline.baseline_value) * 100.0
+                } else {
+                    0.0
+                };
+
+                if regression_percent > baseline.threshold_percent {
+                    let severity = if regression_percent > 50.0 {
+                        "critical"
+                    } else if regression_percent > 25.0 {
+                        "high"
+                    } else if regression_percent > 10.0 {
+                        "medium"
+                    } else {
+                        "low"
+                    };
+
+                    sqlx::query(
+                        r#"INSERT INTO performance_regressions (baseline_id, test_id, regression_percent, status, created_at)
+                           VALUES ($1, $2, $3, $4, $5)"#,
+                    )
+                    .bind(baseline.id)
+                    .bind(test_id)
+                    .bind(regression_percent)
+                    .bind("open")
+                    .bind(Utc::now())
+                    .execute(&self.pool)
+                    .await?;
+
+                    alerts.push(PerformanceAlert {
+                        baseline_id: baseline.id,
+                        metric_name: baseline.metric_name,
+                        baseline_value: baseline.baseline_value,
+                        current_value,
+                        regression_percent,
+                        threshold_percent: baseline.threshold_percent,
+                        severity: severity.to_string(),
+                    });
+                }
+            }
+        }
+
+        Ok(alerts)
+    }
+
+    pub async fn list_regressions(
+        &self,
+        repo_id: Uuid,
+        status_filter: Option<&str>,
+    ) -> Result<Vec<PerformanceRegression>, sqlx::Error> {
+        let query = if let Some(status) = status_filter {
+            sqlx::query_as::<_, RegressionRow>(
+                r#"SELECT pr.id, pr.baseline_id, pr.test_id, pr.regression_percent, pr.status, pr.created_at
+                   FROM performance_regressions pr
+                   JOIN performance_baselines pb ON pr.baseline_id = pb.id
+                   WHERE pb.repo_id = $1 AND pr.status = $2
+                   ORDER BY pr.created_at DESC"#,
+            )
+            .bind(repo_id)
+            .bind(status)
+        } else {
+            sqlx::query_as::<_, RegressionRow>(
+                r#"SELECT pr.id, pr.baseline_id, pr.test_id, pr.regression_percent, pr.status, pr.created_at
+                   FROM performance_regressions pr
+                   JOIN performance_baselines pb ON pr.baseline_id = pb.id
+                   WHERE pb.repo_id = $1
+                   ORDER BY pr.created_at DESC"#,
+            )
+            .bind(repo_id)
+        };
+
+        let rows = query.fetch_all(&self.pool).await?;
+        Ok(rows.into_iter().map(PerformanceRegression::from).collect())
+    }
+
+    pub async fn update_regression_status(
+        &self,
+        id: Uuid,
+        req: RegressionStatusUpdate,
+    ) -> Result<PerformanceRegression, sqlx::Error> {
+        sqlx::query(r#"UPDATE performance_regressions SET status = $1 WHERE id = $2"#)
+            .bind(&req.status)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        let row = sqlx::query_as::<_, RegressionRow>(
+            r#"SELECT id, baseline_id, test_id, regression_percent, status, created_at
+               FROM performance_regressions WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(PerformanceRegression::from(row))
+    }
+
+    pub async fn get_baseline_summary(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<PerformanceBaselineSummary, sqlx::Error> {
+        let baselines = self.list_baselines(repo_id).await?;
+        let total_baselines = baselines.len() as i64;
+
+        let stats = sqlx::query_as::<_, RegressionStatsRow>(
+            r#"SELECT
+                COUNT(*) FILTER (WHERE status = 'open') as active_regressions,
+                COUNT(*) FILTER (WHERE status = 'resolved') as resolved_regressions
+               FROM performance_regressions pr
+               JOIN performance_baselines pb ON pr.baseline_id = pb.id
+               WHERE pb.repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(PerformanceBaselineSummary {
+            total_baselines,
+            active_regressions: stats.active_regressions,
+            resolved_regressions: stats.resolved_regressions,
+            baselines,
+        })
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -492,4 +822,77 @@ struct MetricCompareRow {
     metric_name: String,
     value_1: f64,
     value_2: f64,
+}
+
+#[derive(sqlx::FromRow)]
+struct BaselineRow {
+    id: Uuid,
+    repo_id: Uuid,
+    metric_name: String,
+    baseline_value: f64,
+    threshold_percent: f64,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<BaselineRow> for PerformanceBaseline {
+    fn from(row: BaselineRow) -> Self {
+        Self {
+            id: row.id,
+            repo_id: row.repo_id,
+            metric_name: row.metric_name,
+            baseline_value: row.baseline_value,
+            threshold_percent: row.threshold_percent,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct RegressionRow {
+    id: Uuid,
+    baseline_id: Uuid,
+    test_id: Uuid,
+    regression_percent: f64,
+    status: String,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<RegressionRow> for PerformanceRegression {
+    fn from(row: RegressionRow) -> Self {
+        Self {
+            id: row.id,
+            baseline_id: row.baseline_id,
+            test_id: row.test_id,
+            regression_percent: row.regression_percent,
+            status: row.status,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct TrendDataRow {
+    id: Uuid,
+    repo_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    recorded_at: chrono::DateTime<Utc>,
+}
+
+impl From<TrendDataRow> for PerformanceTrendData {
+    fn from(row: TrendDataRow) -> Self {
+        Self {
+            id: row.id,
+            repo_id: row.repo_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            recorded_at: row.recorded_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct RegressionStatsRow {
+    active_regressions: i64,
+    resolved_regressions: i64,
 }

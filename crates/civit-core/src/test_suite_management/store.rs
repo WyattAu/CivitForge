@@ -356,6 +356,235 @@ impl TestSuiteStore {
             trend,
         })
     }
+
+    pub async fn create_config(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteConfigRequest,
+    ) -> Result<TestSuiteConfiguration, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_configurations (id, suite_id, config_key, config_value, created_at)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (suite_id, config_key) DO UPDATE SET config_value = $4"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.config_key)
+        .bind(&req.config_value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteConfiguration {
+            id,
+            suite_id,
+            config_key: req.config_key,
+            config_value: req.config_value,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_configs(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteConfiguration>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ConfigRow>(
+            r#"SELECT id, suite_id, config_key, config_value, created_at
+               FROM test_suite_configurations
+               WHERE suite_id = $1
+               ORDER BY config_key"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteConfiguration::from).collect())
+    }
+
+    pub async fn update_config(
+        &self,
+        suite_id: Uuid,
+        config_key: &str,
+        req: UpdateTestSuiteConfigRequest,
+    ) -> Result<TestSuiteConfiguration, sqlx::Error> {
+        let row = sqlx::query_as::<_, ConfigRow>(
+            r#"UPDATE test_suite_configurations
+               SET config_value = $3
+               WHERE suite_id = $1 AND config_key = $2
+               RETURNING id, suite_id, config_key, config_value, created_at"#,
+        )
+        .bind(suite_id)
+        .bind(config_key)
+        .bind(&req.config_value)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(TestSuiteConfiguration::from(row))
+    }
+
+    pub async fn delete_config(
+        &self,
+        suite_id: Uuid,
+        config_key: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"DELETE FROM test_suite_configurations WHERE suite_id = $1 AND config_key = $2"#,
+        )
+        .bind(suite_id)
+        .bind(config_key)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn create_notification(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteNotificationRequest,
+    ) -> Result<TestSuiteNotification, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let config = req.config.unwrap_or(serde_json::json!({}));
+        let enabled = req.enabled.unwrap_or(true);
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_notifications (id, suite_id, notification_type, config, enabled, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.notification_type)
+        .bind(&config)
+        .bind(enabled)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteNotification {
+            id,
+            suite_id,
+            notification_type: req.notification_type,
+            config,
+            enabled,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_notifications(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteNotification>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, NotificationRow>(
+            r#"SELECT id, suite_id, notification_type, config, enabled, created_at
+               FROM test_suite_notifications
+               WHERE suite_id = $1
+               ORDER BY created_at DESC"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteNotification::from).collect())
+    }
+
+    pub async fn update_notification(
+        &self,
+        id: Uuid,
+        req: UpdateTestSuiteNotificationRequest,
+    ) -> Result<TestSuiteNotification, sqlx::Error> {
+        let row = sqlx::query_as::<_, NotificationRow>(
+            r#"UPDATE test_suite_notifications SET
+               notification_type = COALESCE($2, notification_type),
+               config = COALESCE($3, config),
+               enabled = COALESCE($4, enabled)
+               WHERE id = $1
+               RETURNING id, suite_id, notification_type, config, enabled, created_at"#,
+        )
+        .bind(id)
+        .bind(&req.notification_type)
+        .bind(&req.config)
+        .bind(req.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(TestSuiteNotification::from(row))
+    }
+
+    pub async fn delete_notification(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM test_suite_notifications WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_analytics(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<TestSuiteAnalytics, sqlx::Error> {
+        let summary = self.get_suite_summary(repo_id).await?;
+
+        let activity_rows = sqlx::query_as::<_, ActivityRow>(
+            r#"SELECT ts.id as suite_id, ts.name as suite_name,
+                COUNT(tr.id) as run_count,
+                MAX(tr.started_at) as last_run_at
+               FROM test_suites ts
+               LEFT JOIN test_runs tr ON ts.id = tr.suite_id
+               WHERE ts.repo_id = $1
+               GROUP BY ts.id, ts.name
+               ORDER BY run_count DESC
+               LIMIT 10"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let most_active_suites = activity_rows
+            .into_iter()
+            .map(SuiteActivity::from)
+            .collect();
+
+        let failure_rows = sqlx::query_as::<_, FailureTrendRow>(
+            r#"SELECT
+                DATE(tr.started_at) as date,
+                COUNT(*) FILTER (WHERE tr.status = 'failed') as failure_count,
+                CASE WHEN COUNT(*) > 0 THEN
+                    COUNT(*) FILTER (WHERE tr.status = 'failed')::double precision / COUNT(*)::double precision * 100.0
+                ELSE 0.0 END as failure_rate
+               FROM test_runs tr
+               JOIN test_suites ts ON tr.suite_id = ts.id
+               WHERE ts.repo_id = $1
+                 AND tr.started_at >= NOW() - INTERVAL '30 days'
+               GROUP BY DATE(tr.started_at)
+               ORDER BY DATE(tr.started_at) DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let failure_trends = failure_rows
+            .into_iter()
+            .map(FailureTrend::from)
+            .collect();
+
+        let avg_pass_rate = if summary.total_runs > 0 {
+            summary.passed_runs as f64 / summary.total_runs as f64 * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(TestSuiteAnalytics {
+            total_suites: summary.total_suites,
+            total_runs: summary.total_runs,
+            avg_pass_rate,
+            avg_duration_ms: 0.0,
+            most_active_suites,
+            failure_trends,
+        })
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -452,6 +681,86 @@ impl From<TrendRow> for TestRunTrend {
             passed_runs: row.passed_runs,
             failed_runs: row.failed_runs,
             avg_duration_ms: row.avg_duration_ms,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct ConfigRow {
+    id: Uuid,
+    suite_id: Uuid,
+    config_key: String,
+    config_value: serde_json::Value,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<ConfigRow> for TestSuiteConfiguration {
+    fn from(row: ConfigRow) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            config_key: row.config_key,
+            config_value: row.config_value,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct NotificationRow {
+    id: Uuid,
+    suite_id: Uuid,
+    notification_type: String,
+    config: serde_json::Value,
+    enabled: bool,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<NotificationRow> for TestSuiteNotification {
+    fn from(row: NotificationRow) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            notification_type: row.notification_type,
+            config: row.config,
+            enabled: row.enabled,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct ActivityRow {
+    suite_id: Uuid,
+    suite_name: String,
+    run_count: i64,
+    last_run_at: Option<chrono::DateTime<Utc>>,
+}
+
+impl From<ActivityRow> for SuiteActivity {
+    fn from(row: ActivityRow) -> Self {
+        Self {
+            suite_id: row.suite_id,
+            suite_name: row.suite_name,
+            run_count: row.run_count,
+            last_run_at: row.last_run_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct FailureTrendRow {
+    date: chrono::NaiveDate,
+    failure_count: i64,
+    failure_rate: f64,
+}
+
+impl From<FailureTrendRow> for FailureTrend {
+    fn from(row: FailureTrendRow) -> Self {
+        Self {
+            date: row.date,
+            failure_count: row.failure_count,
+            failure_rate: row.failure_rate,
         }
     }
 }
