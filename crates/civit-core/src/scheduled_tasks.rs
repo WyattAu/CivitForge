@@ -2,7 +2,8 @@
 
 //! Scheduled task management for CivitForge.
 //!
-//! Provides task CRUD, cron scheduling, task execution, and run history.
+//! Provides task CRUD, cron scheduling, run history tracking,
+//! task dependencies, parallel execution, error recovery, and task execution.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,16 @@ pub struct ScheduledTask {
     pub last_run_at: Option<DateTime<Utc>>,
     pub next_run_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskRun {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub status: String,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub result: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +90,29 @@ impl From<ScheduledTaskRow> for ScheduledTask {
             last_run_at: row.last_run_at,
             next_run_at: row.next_run_at,
             created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct TaskRunRow {
+    id: Uuid,
+    task_id: Uuid,
+    status: String,
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+    result: serde_json::Value,
+}
+
+impl From<TaskRunRow> for TaskRun {
+    fn from(row: TaskRunRow) -> Self {
+        TaskRun {
+            id: row.id,
+            task_id: row.task_id,
+            status: row.status,
+            started_at: row.started_at,
+            completed_at: row.completed_at,
+            result: row.result,
         }
     }
 }
@@ -271,6 +305,284 @@ impl ScheduledTaskService {
 
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
+
+    // --- Run History ---
+
+    pub async fn create_run(&self, task_id: Uuid) -> Result<TaskRun, sqlx::Error> {
+        let row = sqlx::query_as::<_, TaskRunRow>(
+            r#"INSERT INTO scheduled_task_runs (task_id, status)
+             VALUES ($1, 'running')
+             RETURNING id, task_id, status, started_at, completed_at, result"#,
+        )
+        .bind(task_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn complete_run(
+        &self,
+        run_id: Uuid,
+        status: &str,
+        result: serde_json::Value,
+    ) -> Result<TaskRun, sqlx::Error> {
+        let row = sqlx::query_as::<_, TaskRunRow>(
+            r#"UPDATE scheduled_task_runs SET status = $2, completed_at = NOW(), result = $3
+             WHERE id = $1
+             RETURNING id, task_id, status, started_at, completed_at, result"#,
+        )
+        .bind(run_id)
+        .bind(status)
+        .bind(result)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn fail_run(
+        &self,
+        run_id: Uuid,
+        error: &str,
+    ) -> Result<TaskRun, sqlx::Error> {
+        let result = serde_json::json!({"error": error});
+        let row = sqlx::query_as::<_, TaskRunRow>(
+            r#"UPDATE scheduled_task_runs SET status = 'failed', completed_at = NOW(), result = $2
+             WHERE id = $1
+             RETURNING id, task_id, status, started_at, completed_at, result"#,
+        )
+        .bind(run_id)
+        .bind(result)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_run(&self, run_id: Uuid) -> Result<Option<TaskRun>, sqlx::Error> {
+        let row = sqlx::query_as::<_, TaskRunRow>(
+            r#"SELECT id, task_id, status, started_at, completed_at, result
+             FROM scheduled_task_runs WHERE id = $1"#,
+        )
+        .bind(run_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_runs_for_task(
+        &self,
+        task_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<TaskRun>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TaskRunRow>(
+            r#"SELECT id, task_id, status, started_at, completed_at, result
+             FROM scheduled_task_runs WHERE task_id = $1
+             ORDER BY started_at DESC LIMIT $2"#,
+        )
+        .bind(task_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_latest_run(
+        &self,
+        task_id: Uuid,
+    ) -> Result<Option<TaskRun>, sqlx::Error> {
+        let row = sqlx::query_as::<_, TaskRunRow>(
+            r#"SELECT id, task_id, status, started_at, completed_at, result
+             FROM scheduled_task_runs WHERE task_id = $1
+             ORDER BY started_at DESC LIMIT 1"#,
+        )
+        .bind(task_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    // --- Task Dependencies ---
+
+    pub async fn get_dependency_tasks(
+        &self,
+        task_id: Uuid,
+    ) -> Result<Vec<ScheduledTask>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskRow>(
+            r#"SELECT st.id, st.name, st.description, st.cron_expression, st.task_type, st.task_config,
+                    st.enabled, st.last_run_at, st.next_run_at, st.created_at
+             FROM scheduled_tasks st
+             JOIN task_dependencies td ON td.depends_on_task_id = st.id
+             WHERE td.task_id = $1
+             ORDER BY st.name ASC"#,
+        )
+        .bind(task_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_dependent_tasks(
+        &self,
+        task_id: Uuid,
+    ) -> Result<Vec<ScheduledTask>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskRow>(
+            r#"SELECT st.id, st.name, st.description, st.cron_expression, st.task_type, st.task_config,
+                    st.enabled, st.last_run_at, st.next_run_at, st.created_at
+             FROM scheduled_tasks st
+             JOIN task_dependencies td ON td.task_id = st.id
+             WHERE td.depends_on_task_id = $1
+             ORDER BY st.name ASC"#,
+        )
+        .bind(task_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn add_dependency(
+        &self,
+        task_id: Uuid,
+        depends_on_task_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"INSERT INTO task_dependencies (task_id, depends_on_task_id)
+             VALUES ($1, $2) ON CONFLICT DO NOTHING"#,
+        )
+        .bind(task_id)
+        .bind(depends_on_task_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn remove_dependency(
+        &self,
+        task_id: Uuid,
+        depends_on_task_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "DELETE FROM task_dependencies WHERE task_id = $1 AND depends_on_task_id = $2",
+        )
+        .bind(task_id)
+        .bind(depends_on_task_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn are_dependencies_met(
+        &self,
+        task_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let deps = self.get_dependency_tasks(task_id).await?;
+
+        if deps.is_empty() {
+            return Ok(true);
+        }
+
+        for dep in &deps {
+            let latest_run = self.get_latest_run(dep.id).await?;
+            match latest_run {
+                Some(run) if run.status == "completed" => {}
+                _ => return Ok(false),
+            }
+        }
+
+        Ok(true)
+    }
+
+    // --- Parallel Execution ---
+
+    pub async fn get_executable_tasks(&self) -> Result<Vec<ScheduledTask>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskRow>(
+            r#"SELECT id, name, description, cron_expression, task_type, task_config,
+             enabled, last_run_at, next_run_at, created_at
+             FROM scheduled_tasks
+             WHERE enabled = true AND next_run_at <= NOW()
+             ORDER BY next_run_at ASC
+             LIMIT 50"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut executable = Vec::new();
+        for task_row in rows {
+            let task: ScheduledTask = task_row.into();
+            if self.are_dependencies_met(task.id).await? {
+                executable.push(task);
+            }
+        }
+
+        Ok(executable)
+    }
+
+    // --- Error Recovery ---
+
+    pub async fn retry_failed_run(
+        &self,
+        run_id: Uuid,
+    ) -> Result<TaskRun, sqlx::Error> {
+        let run = self.get_run(run_id).await?;
+        let run = run.ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        if run.status != "failed" {
+            return Err(sqlx::Error::RowNotFound);
+        }
+
+        let new_run = self.create_run(run.task_id).await?;
+
+        self.complete_run(
+            new_run.id,
+            "retrying",
+            serde_json::json!({"original_run_id": run_id, "retry": true}),
+        )
+        .await
+    }
+
+    pub async fn get_failed_runs(
+        &self,
+        task_id: Uuid,
+    ) -> Result<Vec<TaskRun>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TaskRunRow>(
+            r#"SELECT id, task_id, status, started_at, completed_at, result
+             FROM scheduled_task_runs WHERE task_id = $1 AND status = 'failed'
+             ORDER BY started_at DESC"#,
+        )
+        .bind(task_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn auto_retry_failed_tasks(&self) -> Result<Vec<TaskRun>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TaskRunRow>(
+            r#"SELECT id, task_id, status, started_at, completed_at, result
+             FROM scheduled_task_runs WHERE status = 'failed'
+             ORDER BY started_at ASC LIMIT 10"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut retried = Vec::new();
+        for run_row in rows {
+            let run: TaskRun = run_row.into();
+            if let Ok(new_run) = self.retry_failed_run(run.id).await {
+                retried.push(new_run);
+            }
+        }
+
+        Ok(retried)
+    }
 }
 
 fn compute_next_run(cron_expr: &str) -> DateTime<Utc> {
@@ -330,5 +642,19 @@ mod tests {
     fn test_compute_next_run_valid_cron() {
         let next = compute_next_run("0 2 * * *");
         assert!(next > Utc::now());
+    }
+
+    #[test]
+    fn test_task_run_serialization() {
+        let run = TaskRun {
+            id: Uuid::new_v4(),
+            task_id: Uuid::new_v4(),
+            status: "completed".into(),
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+            result: serde_json::json!({"output": "done"}),
+        };
+        let json = serde_json::to_string(&run).unwrap();
+        assert!(json.contains("completed"));
     }
 }
