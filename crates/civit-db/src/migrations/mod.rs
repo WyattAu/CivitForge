@@ -351,6 +351,12 @@ pub const M_206_COMPLIANCE_V3_UP: &str = include_str!("206_add_compliance_framew
 pub const M_206_COMPLIANCE_V3_DOWN: &str = "DROP TABLE IF EXISTS compliance_evidence_v2; DROP TABLE IF EXISTS compliance_frameworks_v3;";
 pub const M_207_AUDIT_TRAIL_V4_UP: &str = include_str!("207_add_audit_trail_v4.sql");
 pub const M_207_AUDIT_TRAIL_V4_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v4;";
+pub const M_208_WORKFLOW_EXECUTION_V4_UP: &str = include_str!("208_add_workflow_execution_v4.sql");
+pub const M_208_WORKFLOW_EXECUTION_V4_DOWN: &str = "DROP TABLE IF EXISTS workflow_execution_steps; DROP TABLE IF EXISTS workflow_executions;";
+pub const M_209_AUTOMATION_RULES_V4_UP: &str = include_str!("209_add_automation_rules_v4.sql");
+pub const M_209_AUTOMATION_RULES_V4_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v4;";
+pub const M_210_SCHEDULED_TASK_EXECUTION_V4_UP: &str = include_str!("210_add_scheduled_task_execution_v4.sql");
+pub const M_210_SCHEDULED_TASK_EXECUTION_V4_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_executions;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1418,6 +1424,24 @@ impl MigrationManager {
             up_sql: M_207_AUDIT_TRAIL_V4_UP.into(),
             down_sql: M_207_AUDIT_TRAIL_V4_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 208,
+            name: "add_workflow_execution_v4".into(),
+            up_sql: M_208_WORKFLOW_EXECUTION_V4_UP.into(),
+            down_sql: M_208_WORKFLOW_EXECUTION_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 209,
+            name: "add_automation_rules_v4".into(),
+            up_sql: M_209_AUTOMATION_RULES_V4_UP.into(),
+            down_sql: M_209_AUTOMATION_RULES_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 210,
+            name: "add_scheduled_task_execution_v4".into(),
+            up_sql: M_210_SCHEDULED_TASK_EXECUTION_V4_UP.into(),
+            down_sql: M_210_SCHEDULED_TASK_EXECUTION_V4_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1459,7 +1483,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 172);
+        assert_eq!(mgr.all().len(), 175);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1700,13 +1724,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 208,
+            version: 211,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 173);
-        assert_eq!(mgr.all()[172].version, 208);
+        assert_eq!(mgr.all().len(), 176);
+        assert_eq!(mgr.all()[175].version, 211);
     }
 
     #[test]
@@ -1725,21 +1749,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 172);
+        assert_eq!(pending.len(), 175);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 15);
+        assert_eq!(pending.len(), 18);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 171);
+        assert_eq!(pending.len(), 174);
     }
 
     #[test]

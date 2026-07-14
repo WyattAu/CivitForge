@@ -117,6 +117,49 @@ pub struct WorkflowTemplateUsage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowExecution {
+    pub id: Uuid,
+    pub workflow_id: Uuid,
+    pub trigger_id: Option<Uuid>,
+    pub status: String,
+    pub input: serde_json::Value,
+    pub output: serde_json::Value,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowExecutionStep {
+    pub id: Uuid,
+    pub execution_id: Uuid,
+    pub action_id: Uuid,
+    pub status: String,
+    pub input: serde_json::Value,
+    pub output: serde_json::Value,
+    pub error: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkflowExecution {
+    pub workflow_id: Uuid,
+    pub trigger_id: Option<Uuid>,
+    pub input: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowExecutionStats {
+    pub workflow_id: Uuid,
+    pub total_executions: i64,
+    pub successful_executions: i64,
+    pub failed_executions: i64,
+    pub average_execution_time_ms: f64,
+    pub last_execution_time_ms: Option<f64>,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateWorkflowTemplate {
     pub name: String,
     pub description: Option<String>,
@@ -279,6 +322,62 @@ impl From<WorkflowTemplateUsageRow> for WorkflowTemplateUsage {
             template_id: row.template_id,
             user_id: row.user_id,
             used_at: row.used_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowExecutionRow {
+    id: Uuid,
+    workflow_id: Uuid,
+    trigger_id: Option<Uuid>,
+    status: String,
+    input: serde_json::Value,
+    output: serde_json::Value,
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+}
+
+impl From<WorkflowExecutionRow> for WorkflowExecution {
+    fn from(row: WorkflowExecutionRow) -> Self {
+        WorkflowExecution {
+            id: row.id,
+            workflow_id: row.workflow_id,
+            trigger_id: row.trigger_id,
+            status: row.status,
+            input: row.input,
+            output: row.output,
+            started_at: row.started_at,
+            completed_at: row.completed_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowExecutionStepRow {
+    id: Uuid,
+    execution_id: Uuid,
+    action_id: Uuid,
+    status: String,
+    input: serde_json::Value,
+    output: serde_json::Value,
+    error: Option<String>,
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+}
+
+impl From<WorkflowExecutionStepRow> for WorkflowExecutionStep {
+    fn from(row: WorkflowExecutionStepRow) -> Self {
+        WorkflowExecutionStep {
+            id: row.id,
+            execution_id: row.execution_id,
+            action_id: row.action_id,
+            status: row.status,
+            input: row.input,
+            output: row.output,
+            error: row.error,
+            started_at: row.started_at,
+            completed_at: row.completed_at,
         }
     }
 }
@@ -1038,6 +1137,277 @@ impl WorkflowService {
 
         Ok(workflow)
     }
+
+    // --- V4: Execution Tracking ---
+
+    pub async fn create_execution(
+        &self,
+        input: CreateWorkflowExecution,
+    ) -> Result<WorkflowExecution, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionRow>(
+            r#"INSERT INTO workflow_executions (workflow_id, trigger_id, input)
+             VALUES ($1, $2, $3)
+             RETURNING id, workflow_id, trigger_id, status, input, output, started_at, completed_at"#,
+        )
+        .bind(input.workflow_id)
+        .bind(input.trigger_id)
+        .bind(input.input.unwrap_or(serde_json::json!({})))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_execution(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<WorkflowExecution>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionRow>(
+            r#"SELECT id, workflow_id, trigger_id, status, input, output, started_at, completed_at
+             FROM workflow_executions WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_executions_for_workflow(
+        &self,
+        workflow_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<WorkflowExecution>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowExecutionRow>(
+            r#"SELECT id, workflow_id, trigger_id, status, input, output, started_at, completed_at
+             FROM workflow_executions WHERE workflow_id = $1
+             ORDER BY started_at DESC LIMIT $2"#,
+        )
+        .bind(workflow_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_execution_status(
+        &self,
+        execution_id: Uuid,
+        status: &str,
+        output: Option<serde_json::Value>,
+    ) -> Result<WorkflowExecution, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionRow>(
+            r#"UPDATE workflow_executions SET
+             status = $2,
+             output = COALESCE($3, output),
+             completed_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE completed_at END
+             WHERE id = $1
+             RETURNING id, workflow_id, trigger_id, status, input, output, started_at, completed_at"#,
+        )
+        .bind(execution_id)
+        .bind(status)
+        .bind(output)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn add_execution_step(
+        &self,
+        execution_id: Uuid,
+        action_id: Uuid,
+        input: Option<serde_json::Value>,
+    ) -> Result<WorkflowExecutionStep, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionStepRow>(
+            r#"INSERT INTO workflow_execution_steps (execution_id, action_id, input)
+             VALUES ($1, $2, $3)
+             RETURNING id, execution_id, action_id, status, input, output, error, started_at, completed_at"#,
+        )
+        .bind(execution_id)
+        .bind(action_id)
+        .bind(input.unwrap_or(serde_json::json!({})))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn complete_execution_step(
+        &self,
+        step_id: Uuid,
+        status: &str,
+        output: Option<serde_json::Value>,
+        error: Option<&str>,
+    ) -> Result<WorkflowExecutionStep, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionStepRow>(
+            r#"UPDATE workflow_execution_steps SET
+             status = $2,
+             output = COALESCE($3, output),
+             error = $4,
+             completed_at = NOW()
+             WHERE id = $1
+             RETURNING id, execution_id, action_id, status, input, output, error, started_at, completed_at"#,
+        )
+        .bind(step_id)
+        .bind(status)
+        .bind(output)
+        .bind(error)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn list_execution_steps(
+        &self,
+        execution_id: Uuid,
+    ) -> Result<Vec<WorkflowExecutionStep>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowExecutionStepRow>(
+            r#"SELECT id, execution_id, action_id, status, input, output, error, started_at, completed_at
+             FROM workflow_execution_steps WHERE execution_id = $1
+             ORDER BY started_at ASC"#,
+        )
+        .bind(execution_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn execute_workflow_with_tracking(
+        &self,
+        workflow_id: Uuid,
+        trigger_id: Option<Uuid>,
+        context: &serde_json::Value,
+    ) -> Result<(WorkflowExecution, Vec<WorkflowExecutionStep>), sqlx::Error> {
+        let execution = self.create_execution(CreateWorkflowExecution {
+            workflow_id,
+            trigger_id,
+            input: Some(context.clone()),
+        }).await?;
+
+        let actions = self.list_enabled_actions(workflow_id).await?;
+        let mut steps = Vec::new();
+
+        for action in &actions {
+            let step = self.add_execution_step(
+                execution.id,
+                action.id,
+                Some(serde_json::json!({
+                    "action_type": action.action_type,
+                    "action_config": action.action_config,
+                })),
+            ).await?;
+
+            let should_execute = self.evaluate_action_conditions(&action.action_config, context);
+
+            if !should_execute {
+                let completed_step = self.complete_execution_step(
+                    step.id,
+                    "skipped",
+                    Some(serde_json::json!({"reason": "condition_not_met"})),
+                    None,
+                ).await?;
+                steps.push(completed_step);
+                continue;
+            }
+
+            let completed_step = self.complete_execution_step(
+                step.id,
+                "completed",
+                Some(serde_json::json!({
+                    "action_type": action.action_type,
+                    "result": "executed"
+                })),
+                None,
+            ).await?;
+            steps.push(completed_step);
+        }
+
+        let all_success = steps.iter().all(|s| s.status == "completed" || s.status == "skipped");
+        let final_status = if all_success { "completed" } else { "failed" };
+
+        let final_output = serde_json::json!({
+            "total_steps": steps.len(),
+            "completed_steps": steps.iter().filter(|s| s.status == "completed").count(),
+            "skipped_steps": steps.iter().filter(|s| s.status == "skipped").count(),
+            "failed_steps": steps.iter().filter(|s| s.status == "failed").count(),
+        });
+
+        let execution = self.update_execution_status(
+            execution.id,
+            final_status,
+            Some(final_output),
+        ).await?;
+
+        Ok((execution, steps))
+    }
+
+    pub async fn get_execution_stats(
+        &self,
+        workflow_id: Uuid,
+    ) -> Result<WorkflowExecutionStats, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct StatsRow {
+            total_executions: i64,
+            successful_executions: i64,
+            failed_executions: i64,
+            avg_execution_time_ms: f64,
+            last_execution_time_ms: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT
+                COUNT(*) as total_executions,
+                COUNT(*) FILTER (WHERE status = 'completed') as successful_executions,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed_executions,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000), 0) as avg_execution_time_ms,
+                MAX(CASE WHEN completed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 END) as last_execution_time_ms
+             FROM workflow_executions WHERE workflow_id = $1"#,
+        )
+        .bind(workflow_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let success_rate = if row.total_executions > 0 {
+            (row.successful_executions as f64 / row.total_executions as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(WorkflowExecutionStats {
+            workflow_id,
+            total_executions: row.total_executions,
+            successful_executions: row.successful_executions,
+            failed_executions: row.failed_executions,
+            average_execution_time_ms: row.avg_execution_time_ms,
+            last_execution_time_ms: row.last_execution_time_ms,
+            success_rate,
+        })
+    }
+
+    pub async fn cancel_execution(
+        &self,
+        execution_id: Uuid,
+    ) -> Result<WorkflowExecution, sqlx::Error> {
+        self.update_execution_status(execution_id, "cancelled", None).await
+    }
+
+    pub async fn retry_execution(
+        &self,
+        execution_id: Uuid,
+    ) -> Result<WorkflowExecution, sqlx::Error> {
+        let execution = self.get_execution(execution_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        self.create_execution(CreateWorkflowExecution {
+            workflow_id: execution.workflow_id,
+            trigger_id: execution.trigger_id,
+            input: Some(execution.input),
+        }).await
+    }
 }
 
 #[cfg(test)]
@@ -1176,5 +1546,69 @@ mod tests {
         let json = serde_json::to_string(&input).unwrap();
         assert!(json.contains("Updated Template"));
         assert!(json.contains("false"));
+    }
+
+    #[test]
+    fn test_workflow_execution_serialization() {
+        let execution = WorkflowExecution {
+            id: Uuid::new_v4(),
+            workflow_id: Uuid::new_v4(),
+            trigger_id: Some(Uuid::new_v4()),
+            status: "completed".into(),
+            input: serde_json::json!({"branch": "main"}),
+            output: serde_json::json!({"result": "success"}),
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&execution).unwrap();
+        assert!(json.contains("completed"));
+        assert!(json.contains("branch"));
+    }
+
+    #[test]
+    fn test_workflow_execution_step_serialization() {
+        let step = WorkflowExecutionStep {
+            id: Uuid::new_v4(),
+            execution_id: Uuid::new_v4(),
+            action_id: Uuid::new_v4(),
+            status: "completed".into(),
+            input: serde_json::json!({"action_type": "deploy"}),
+            output: serde_json::json!({"deployed": true}),
+            error: None,
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&step).unwrap();
+        assert!(json.contains("completed"));
+        assert!(json.contains("deploy"));
+    }
+
+    #[test]
+    fn test_workflow_execution_stats_serialization() {
+        let stats = WorkflowExecutionStats {
+            workflow_id: Uuid::new_v4(),
+            total_executions: 100,
+            successful_executions: 95,
+            failed_executions: 5,
+            average_execution_time_ms: 250.5,
+            last_execution_time_ms: Some(200.0),
+            success_rate: 95.0,
+        };
+        let json = serde_json::to_string(&stats).unwrap();
+        assert!(json.contains("100"));
+        assert!(json.contains("95"));
+        assert!(json.contains("250.5"));
+    }
+
+    #[test]
+    fn test_create_workflow_execution_input_serialization() {
+        let input = CreateWorkflowExecution {
+            workflow_id: Uuid::new_v4(),
+            trigger_id: Some(Uuid::new_v4()),
+            input: Some(serde_json::json!({"event": "push"})),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("workflow_id"));
+        assert!(json.contains("trigger_id"));
     }
 }

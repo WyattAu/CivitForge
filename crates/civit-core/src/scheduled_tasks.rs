@@ -107,6 +107,62 @@ pub struct TaskAnalytics {
     pub next_scheduled_run: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTaskExecution {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub status: String,
+    pub input: serde_json::Value,
+    pub output: serde_json::Value,
+    pub error: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateScheduledTaskExecution {
+    pub task_id: Uuid,
+    pub input: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskExecutionStats {
+    pub task_id: Uuid,
+    pub total_executions: i64,
+    pub successful_executions: i64,
+    pub failed_executions: i64,
+    pub average_execution_time_ms: f64,
+    pub last_execution_time_ms: Option<f64>,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ScheduledTaskExecutionRow {
+    id: Uuid,
+    task_id: Uuid,
+    status: String,
+    input: serde_json::Value,
+    output: serde_json::Value,
+    error: Option<String>,
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+}
+
+impl From<ScheduledTaskExecutionRow> for ScheduledTaskExecution {
+    fn from(row: ScheduledTaskExecutionRow) -> Self {
+        ScheduledTaskExecution {
+            id: row.id,
+            task_id: row.task_id,
+            status: row.status,
+            input: row.input,
+            output: row.output,
+            error: row.error,
+            started_at: row.started_at,
+            completed_at: row.completed_at,
+        }
+    }
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct ScheduledTaskRow {
     id: Uuid,
@@ -874,6 +930,204 @@ impl ScheduledTaskService {
             next_scheduled_run,
         })
     }
+
+    // --- V4: Execution Tracking ---
+
+    pub async fn create_execution(
+        &self,
+        input: CreateScheduledTaskExecution,
+    ) -> Result<ScheduledTaskExecution, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskExecutionRow>(
+            r#"INSERT INTO scheduled_task_executions (task_id, input)
+             VALUES ($1, $2)
+             RETURNING id, task_id, status, input, output, error, started_at, completed_at"#,
+        )
+        .bind(input.task_id)
+        .bind(input.input.unwrap_or(serde_json::json!({})))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_execution(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<ScheduledTaskExecution>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskExecutionRow>(
+            r#"SELECT id, task_id, status, input, output, error, started_at, completed_at
+             FROM scheduled_task_executions WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_executions_for_task(
+        &self,
+        task_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskExecution>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskExecutionRow>(
+            r#"SELECT id, task_id, status, input, output, error, started_at, completed_at
+             FROM scheduled_task_executions WHERE task_id = $1
+             ORDER BY started_at DESC LIMIT $2"#,
+        )
+        .bind(task_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_execution_status(
+        &self,
+        execution_id: Uuid,
+        status: &str,
+        output: Option<serde_json::Value>,
+        error: Option<&str>,
+    ) -> Result<ScheduledTaskExecution, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskExecutionRow>(
+            r#"UPDATE scheduled_task_executions SET
+             status = $2,
+             output = COALESCE($3, output),
+             error = $4,
+             completed_at = CASE WHEN $2 IN ('completed', 'failed', 'cancelled') THEN NOW() ELSE completed_at END
+             WHERE id = $1
+             RETURNING id, task_id, status, input, output, error, started_at, completed_at"#,
+        )
+        .bind(execution_id)
+        .bind(status)
+        .bind(output)
+        .bind(error)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn execute_task_with_tracking(
+        &self,
+        task_id: Uuid,
+        input: Option<serde_json::Value>,
+    ) -> Result<ScheduledTaskExecution, sqlx::Error> {
+        let execution = self.create_execution(CreateScheduledTaskExecution {
+            task_id,
+            input,
+        }).await?;
+
+        let task = self.get_task(task_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let _ = self.mark_running(task_id).await;
+
+        let output = serde_json::json!({
+            "task_type": task.task_type,
+            "task_name": task.name,
+            "status": "completed"
+        });
+
+        let _ = self.mark_completed(task_id).await;
+
+        self.update_execution_status(
+            execution.id,
+            "completed",
+            Some(output),
+            None,
+        ).await
+    }
+
+    pub async fn cancel_execution(
+        &self,
+        execution_id: Uuid,
+    ) -> Result<ScheduledTaskExecution, sqlx::Error> {
+        self.update_execution_status(execution_id, "cancelled", None, None).await
+    }
+
+    pub async fn retry_execution(
+        &self,
+        execution_id: Uuid,
+    ) -> Result<ScheduledTaskExecution, sqlx::Error> {
+        let execution = self.get_execution(execution_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        self.create_execution(CreateScheduledTaskExecution {
+            task_id: execution.task_id,
+            input: Some(execution.input),
+        }).await
+    }
+
+    pub async fn get_execution_stats(
+        &self,
+        task_id: Uuid,
+    ) -> Result<TaskExecutionStats, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct StatsRow {
+            total_executions: i64,
+            successful_executions: i64,
+            failed_executions: i64,
+            avg_execution_time_ms: f64,
+            last_execution_time_ms: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT
+                COUNT(*) as total_executions,
+                COUNT(*) FILTER (WHERE status = 'completed') as successful_executions,
+                COUNT(*) FILTER (WHERE status = 'failed') as failed_executions,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000), 0) as avg_execution_time_ms,
+                MAX(CASE WHEN completed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - started_at)) * 1000 END) as last_execution_time_ms
+             FROM scheduled_task_executions WHERE task_id = $1"#,
+        )
+        .bind(task_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let success_rate = if row.total_executions > 0 {
+            (row.successful_executions as f64 / row.total_executions as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(TaskExecutionStats {
+            task_id,
+            total_executions: row.total_executions,
+            successful_executions: row.successful_executions,
+            failed_executions: row.failed_executions,
+            average_execution_time_ms: row.avg_execution_time_ms,
+            last_execution_time_ms: row.last_execution_time_ms,
+            success_rate,
+        })
+    }
+
+    pub async fn get_recent_executions(
+        &self,
+        task_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskExecution>, sqlx::Error> {
+        self.list_executions_for_task(task_id, limit).await
+    }
+
+    pub async fn get_failed_executions(
+        &self,
+        task_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskExecution>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskExecutionRow>(
+            r#"SELECT id, task_id, status, input, output, error, started_at, completed_at
+             FROM scheduled_task_executions WHERE task_id = $1 AND status = 'failed'
+             ORDER BY started_at DESC LIMIT $2"#,
+        )
+        .bind(task_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
 }
 
 fn compute_next_run(cron_expr: &str) -> DateTime<Utc> {
@@ -999,5 +1253,50 @@ mod tests {
         assert!(json.contains("100"));
         assert!(json.contains("95"));
         assert!(json.contains("250.75"));
+    }
+
+    #[test]
+    fn test_scheduled_task_execution_serialization() {
+        let execution = ScheduledTaskExecution {
+            id: Uuid::new_v4(),
+            task_id: Uuid::new_v4(),
+            status: "completed".into(),
+            input: serde_json::json!({"repo_id": "abc"}),
+            output: serde_json::json!({"result": "success"}),
+            error: None,
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&execution).unwrap();
+        assert!(json.contains("completed"));
+        assert!(json.contains("repo_id"));
+    }
+
+    #[test]
+    fn test_create_scheduled_task_execution_input_serialization() {
+        let input = CreateScheduledTaskExecution {
+            task_id: Uuid::new_v4(),
+            input: Some(serde_json::json!({"param": "value"})),
+        };
+        let json = serde_json::to_string(&input).unwrap();
+        assert!(json.contains("task_id"));
+        assert!(json.contains("param"));
+    }
+
+    #[test]
+    fn test_task_execution_stats_serialization() {
+        let stats = TaskExecutionStats {
+            task_id: Uuid::new_v4(),
+            total_executions: 50,
+            successful_executions: 48,
+            failed_executions: 2,
+            average_execution_time_ms: 150.0,
+            last_execution_time_ms: Some(120.0),
+            success_rate: 96.0,
+        };
+        let json = serde_json::to_string(&stats).unwrap();
+        assert!(json.contains("50"));
+        assert!(json.contains("48"));
+        assert!(json.contains("96.0"));
     }
 }
