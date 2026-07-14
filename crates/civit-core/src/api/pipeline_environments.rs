@@ -11,6 +11,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use civit_ci::pipeline;
+use civit_ci::environment_webhooks;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -959,6 +960,523 @@ pub async fn trigger_auto_approve(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Webhook handlers
+// ---------------------------------------------------------------------------
+
+pub async fn list_webhooks(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::list_webhooks(pool, eid).await {
+        Ok(webhooks) => (StatusCode::OK, Json(webhooks)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateWebhookRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::create_webhook(pool, eid, &req.url, &req.events, req.enabled).await {
+        Ok(webhook) => (StatusCode::CREATED, Json(webhook)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, webhook_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::get_webhook(pool, wid).await {
+        Ok(Some(webhook)) => (StatusCode::OK, Json(webhook)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("webhook not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, webhook_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateWebhookRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::update_webhook(pool, wid, req.url.as_deref(), req.events.as_deref(), req.enabled).await {
+        Ok(webhook) => (StatusCode::OK, Json(webhook)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_webhook(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, webhook_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::delete_webhook(pool, wid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("webhook not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_webhook_deliveries(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, webhook_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+    Query(params): Query<ListDeliveriesParams>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
+
+    match environment_webhooks::list_deliveries(pool, wid, params.per_page as i64, offset).await {
+        Ok(deliveries) => (StatusCode::OK, Json(deliveries)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_webhook_stats(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, webhook_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let wid = match Uuid::parse_str(&webhook_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid webhook ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::get_delivery_stats(pool, wid).await {
+        Ok(stats) => (StatusCode::OK, Json(stats)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Notification handlers
+// ---------------------------------------------------------------------------
+
+pub async fn list_notifications(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::list_notifications(pool, eid).await {
+        Ok(notifications) => (StatusCode::OK, Json(notifications)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_notification(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateNotificationRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let config = req.config.unwrap_or(serde_json::json!({}));
+
+    match environment_webhooks::create_notification(pool, eid, &req.notification_type, &config, req.enabled).await {
+        Ok(notification) => (StatusCode::CREATED, Json(notification)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_notification(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, notification_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let nid = match Uuid::parse_str(&notification_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid notification ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::get_notification(pool, nid).await {
+        Ok(Some(notification)) => (StatusCode::OK, Json(notification)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("notification not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_notification(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, notification_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateNotificationRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let nid = match Uuid::parse_str(&notification_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid notification ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::update_notification(pool, nid, req.notification_type.as_deref(), req.config.as_ref(), req.enabled).await {
+        Ok(notification) => (StatusCode::OK, Json(notification)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_notification(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, notification_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let nid = match Uuid::parse_str(&notification_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid notification ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match environment_webhooks::delete_notification(pool, nid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("notification not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateApprovalRuleRequest {
     #[serde(default = "default_one")]
@@ -977,6 +1495,45 @@ pub struct CreateApprovalRequest {
 #[derive(Debug, Deserialize)]
 pub struct UpdateApprovalStatusRequest {
     pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateWebhookRequest {
+    pub url: String,
+    #[serde(default)]
+    pub events: Vec<String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateWebhookRequest {
+    pub url: Option<String>,
+    pub events: Option<Vec<String>>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateNotificationRequest {
+    pub notification_type: String,
+    pub config: Option<serde_json::Value>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateNotificationRequest {
+    pub notification_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListDeliveriesParams {
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_per_page")]
+    pub per_page: u32,
 }
 
 pub fn environment_routes() -> Router<AppState> {
@@ -1026,6 +1583,34 @@ pub fn environment_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/environments/{env_id}/auto-approve",
             post(trigger_auto_approve),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/webhooks",
+            get(list_webhooks).post(create_webhook),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/webhooks/{webhook_id}",
+            get(get_webhook)
+                .patch(update_webhook)
+                .delete(delete_webhook),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/webhooks/{webhook_id}/deliveries",
+            get(list_webhook_deliveries),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/webhooks/{webhook_id}/stats",
+            get(get_webhook_stats),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/notifications",
+            get(list_notifications).post(create_notification),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/notifications/{notification_id}",
+            get(get_notification)
+                .patch(update_notification)
+                .delete(delete_notification),
         )
 }
 

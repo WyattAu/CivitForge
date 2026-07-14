@@ -11,6 +11,7 @@ use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use civit_ci::caches::{self, CacheEntryResponse, CacheListParams, CreateCacheRequest};
+use civit_ci::cache_warming;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -80,6 +81,28 @@ pub fn pipeline_cache_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{repo}/caches/cost",
             get(get_cost_analysis),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/warming-rules",
+            get(list_warming_rules).post(create_warming_rule),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/warming-rules/{rule_id}",
+            get(get_warming_rule)
+                .patch(update_warming_rule)
+                .delete(delete_warming_rule),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/warming-rules/{rule_id}/logs",
+            get(list_warming_logs),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/warming-stats",
+            get(get_warming_stats),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/preheat",
+            post(preheat_cache),
         )
 }
 
@@ -793,6 +816,346 @@ pub async fn get_cost_analysis(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Cache Warming handlers
+// ---------------------------------------------------------------------------
+
+pub async fn list_warming_rules(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::list_warming_rules(pool, repo_id).await {
+        Ok(rules) => (axum::http::StatusCode::OK, Json(rules)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_warming_rule(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateWarmingRuleRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::create_warming_rule(pool, repo_id, &req.name, &req.trigger_type, &req.cache_keys, req.enabled).await {
+        Ok(rule) => (axum::http::StatusCode::CREATED, Json(rule)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_warming_rule(
+    State(state): State<AppState>,
+    Path((owner, repo_name, rule_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let rid = match Uuid::parse_str(&rule_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid rule ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::get_warming_rule(pool, rid).await {
+        Ok(Some(rule)) => (axum::http::StatusCode::OK, Json(rule)).into_response(),
+        Ok(None) => (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("rule not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_warming_rule(
+    State(state): State<AppState>,
+    Path((owner, repo_name, rule_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateWarmingRuleRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let rid = match Uuid::parse_str(&rule_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid rule ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::update_warming_rule(pool, rid, req.name.as_deref(), req.trigger_type.as_deref(), req.cache_keys.as_deref(), req.enabled).await {
+        Ok(rule) => (axum::http::StatusCode::OK, Json(rule)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_warming_rule(
+    State(state): State<AppState>,
+    Path((owner, repo_name, rule_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let rid = match Uuid::parse_str(&rule_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid rule ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::delete_warming_rule(pool, rid).await {
+        Ok(true) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("rule not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_warming_logs(
+    State(state): State<AppState>,
+    Path((owner, repo_name, rule_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    axum::extract::Query(params): axum::extract::Query<WarmingLogsParams>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let rid = match Uuid::parse_str(&rule_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid rule ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
+
+    match cache_warming::list_warming_logs(pool, rid, params.per_page as i64, offset).await {
+        Ok(logs) => (axum::http::StatusCode::OK, Json(logs)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_warming_stats(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::get_warming_stats(pool, repo_id).await {
+        Ok(stats) => (axum::http::StatusCode::OK, Json(stats)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn preheat_cache(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<PreheatCacheRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_warming::preheat_cache(pool, repo_id, &req.cache_keys).await {
+        Ok(result) => (axum::http::StatusCode::OK, Json(result)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CostParams {
     #[serde(default = "default_cost_per_gb")]
@@ -801,4 +1164,46 @@ pub struct CostParams {
 
 fn default_cost_per_gb() -> f64 {
     0.023
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateWarmingRuleRequest {
+    pub name: String,
+    pub trigger_type: String,
+    #[serde(default)]
+    pub cache_keys: Vec<String>,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateWarmingRuleRequest {
+    pub name: Option<String>,
+    pub trigger_type: Option<String>,
+    pub cache_keys: Option<Vec<String>>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PreheatCacheRequest {
+    pub cache_keys: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WarmingLogsParams {
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_per_page")]
+    pub per_page: u32,
+}
+
+fn default_page() -> u32 {
+    1
+}
+fn default_per_page() -> u32 {
+    20
 }

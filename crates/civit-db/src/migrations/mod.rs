@@ -321,6 +321,12 @@ pub const M_191_DISTRIBUTED_TRACING_V3_UP: &str = include_str!("191_add_distribu
 pub const M_191_DISTRIBUTED_TRACING_V3_DOWN: &str = "DROP TABLE IF EXISTS trace_dependencies; DROP TABLE IF EXISTS trace_sampling_rules_v2;";
 pub const M_192_DASHBOARD_REPORTING_V2_UP: &str = include_str!("192_add_dashboard_reporting_v2.sql");
 pub const M_192_DASHBOARD_REPORTING_V2_DOWN: &str = "DROP TABLE IF EXISTS report_schedules; DROP TABLE IF EXISTS dashboard_widgets_v2;";
+pub const M_193_PIPELINE_ACTION_CATEGORIES_UP: &str = include_str!("193_add_pipeline_action_categories.sql");
+pub const M_193_PIPELINE_ACTION_CATEGORIES_DOWN: &str = "DROP TABLE IF EXISTS pipeline_action_category_members; DROP TABLE IF EXISTS pipeline_action_categories;";
+pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_UP: &str = include_str!("194_add_environment_webhooks_notifications.sql");
+pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_DOWN: &str = "DROP TABLE IF EXISTS environment_webhook_deliveries; DROP TABLE IF EXISTS environment_notifications; DROP TABLE IF EXISTS environment_webhooks;";
+pub const M_195_CACHE_WARMING_RULES_UP: &str = include_str!("195_add_cache_warming_rules.sql");
+pub const M_195_CACHE_WARMING_RULES_DOWN: &str = "DROP TABLE IF EXISTS cache_warming_logs; DROP TABLE IF EXISTS cache_warming_rules;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1297,6 +1303,24 @@ impl MigrationManager {
             name: "add_dashboard_reporting_v2".into(),
             up_sql: M_192_DASHBOARD_REPORTING_V2_UP.into(),
             down_sql: M_192_DASHBOARD_REPORTING_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 193,
+            name: "add_pipeline_action_categories".into(),
+            up_sql: M_193_PIPELINE_ACTION_CATEGORIES_UP.into(),
+            down_sql: M_193_PIPELINE_ACTION_CATEGORIES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 194,
+            name: "add_environment_webhooks_notifications".into(),
+            up_sql: M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_UP.into(),
+            down_sql: M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 195,
+            name: "add_cache_warming_rules".into(),
+            up_sql: M_195_CACHE_WARMING_RULES_UP.into(),
+            down_sql: M_195_CACHE_WARMING_RULES_DOWN.into(),
         });
     }
 

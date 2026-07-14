@@ -11,6 +11,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use civit_ci::actions;
+use civit_ci::categories;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -66,6 +67,31 @@ pub struct ForkActionRequest {
     pub new_name: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct CreateCategoryRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub parent_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateCategoryRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub parent_id: Option<Option<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CategorySearchParams {
+    pub search: Option<String>,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+}
+
+fn default_limit() -> i64 {
+    50
+}
+
 pub fn pipeline_action_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -109,6 +135,36 @@ pub fn pipeline_action_routes() -> Router<AppState> {
         .route(
             "/api/v1/pipeline-actions/{action_id}/analytics",
             get(get_analytics),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/categories",
+            get(list_action_cats).post(add_action_to_category),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/categories/{category_id}",
+            delete(remove_action_from_cat),
+        )
+        .route(
+            "/api/v1/pipeline-categories",
+            get(list_categories).post(create_category),
+        )
+        .route(
+            "/api/v1/pipeline-categories/search",
+            get(search_categories),
+        )
+        .route(
+            "/api/v1/pipeline-categories/{category_id}",
+            get(get_category)
+                .patch(update_category)
+                .delete(delete_category),
+        )
+        .route(
+            "/api/v1/pipeline-categories/{category_id}/actions",
+            get(list_category_actions),
+        )
+        .route(
+            "/api/v1/pipeline-categories/{category_id}/analytics",
+            get(get_category_analytics),
         )
 }
 
@@ -623,6 +679,335 @@ pub async fn get_analytics(
     };
 
     match actions::get_action_analytics(pool, aid).await {
+        Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Category handlers
+// ---------------------------------------------------------------------------
+
+pub async fn list_categories(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    match categories::list_categories(pool).await {
+        Ok(cats) => (StatusCode::OK, Json(cats)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_category(
+    State(state): State<AppState>,
+    _auth: AuthUser,
+    Json(req): Json<CreateCategoryRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let parent_id = req.parent_id.as_deref().and_then(|s| Uuid::parse_str(s).ok());
+    let description = req.description.unwrap_or_default();
+
+    match categories::create_category(pool, &req.name, &description, parent_id).await {
+        Ok(cat) => (StatusCode::CREATED, Json(cat)).into_response(),
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("duplicate key") || msg.contains("unique") {
+                (
+                    StatusCode::CONFLICT,
+                    Json(CoreError::BadRequest("category name already exists".into()).error_response()),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(CoreError::Database(msg).error_response()),
+                )
+                    .into_response()
+            }
+        }
+    }
+}
+
+pub async fn get_category(
+    State(state): State<AppState>,
+    Path(category_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::get_category(pool, cid).await {
+        Ok(Some(cat)) => (StatusCode::OK, Json(cat)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("category not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_category(
+    State(state): State<AppState>,
+    Path(category_id): Path<String>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateCategoryRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let parent_id = req.parent_id.map(|opt| opt.and_then(|s| Uuid::parse_str(&s).ok()));
+
+    match categories::update_category(pool, cid, req.name.as_deref(), req.description.as_deref(), parent_id).await {
+        Ok(cat) => (StatusCode::OK, Json(cat)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_category(
+    State(state): State<AppState>,
+    Path(category_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::delete_category(pool, cid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("category not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn search_categories(
+    State(state): State<AppState>,
+    Query(params): Query<CategorySearchParams>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let search = params.search.unwrap_or_default();
+
+    match categories::search_categories(pool, &search, params.limit).await {
+        Ok(cats) => (StatusCode::OK, Json(cats)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_action_cats(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::list_action_categories(pool, aid).await {
+        Ok(cats) => (StatusCode::OK, Json(cats)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn add_action_to_category(
+    State(state): State<AppState>,
+    Path((action_id, category_id)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::add_action_to_category(pool, aid, cid).await {
+        Ok(member) => (StatusCode::CREATED, Json(member)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn remove_action_from_cat(
+    State(state): State<AppState>,
+    Path((action_id, category_id)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::remove_action_from_category(pool, aid, cid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "removed"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("membership not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_category_actions(
+    State(state): State<AppState>,
+    Path(category_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::list_category_actions(pool, cid).await {
+        Ok(actions) => (StatusCode::OK, Json(actions)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_category_analytics(
+    State(state): State<AppState>,
+    Path(category_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let cid = match Uuid::parse_str(&category_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid category ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match categories::get_category_analytics(pool, cid).await {
         Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
