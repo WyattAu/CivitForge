@@ -171,6 +171,53 @@ pub struct Pipeline {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PipelineTemplate {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub yaml_content: String,
+    pub category: String,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PipelineAnalytics {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub total_runs: i32,
+    pub successful_runs: i32,
+    pub failed_runs: i32,
+    pub avg_duration_ms: i32,
+    pub total_duration_ms: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MultiProjectPipeline {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub project_ids: Vec<Uuid>,
+    pub trigger_rules: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct MultiProjectPipelineRun {
+    pub id: Uuid,
+    pub pipeline_id: Uuid,
+    pub status: String,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct ActivityEvent {
     pub id: i64,
     pub actor_id: Uuid,

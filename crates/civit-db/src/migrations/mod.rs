@@ -182,6 +182,12 @@ pub const M_116_CODE_SEARCH_V2_DOWN: &str =
     "DROP TABLE IF EXISTS code_search_queries; DROP TABLE IF EXISTS code_search_index_v2;";
 pub const M_117_CODE_FORMATTERS_UP: &str = include_str!("117_add_code_formatters.sql");
 pub const M_117_CODE_FORMATTERS_DOWN: &str = "DROP TABLE IF EXISTS code_formatters;";
+pub const M_118_PIPELINE_TEMPLATES_UP: &str = include_str!("118_add_pipeline_templates.sql");
+pub const M_118_PIPELINE_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS pipeline_templates;";
+pub const M_119_PIPELINE_ANALYTICS_UP: &str = include_str!("119_add_pipeline_analytics.sql");
+pub const M_119_PIPELINE_ANALYTICS_DOWN: &str = "DROP TABLE IF EXISTS pipeline_analytics;";
+pub const M_120_MULTI_PROJECT_PIPELINES_UP: &str = include_str!("120_add_multi_project_pipelines.sql");
+pub const M_120_MULTI_PROJECT_PIPELINES_DOWN: &str = "DROP TABLE IF EXISTS multi_project_pipeline_runs; DROP TABLE IF EXISTS multi_project_pipelines;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -781,6 +787,24 @@ impl MigrationManager {
             up_sql: M_117_CODE_FORMATTERS_UP.into(),
             down_sql: M_117_CODE_FORMATTERS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 118,
+            name: "add_pipeline_templates".into(),
+            up_sql: M_118_PIPELINE_TEMPLATES_UP.into(),
+            down_sql: M_118_PIPELINE_TEMPLATES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 119,
+            name: "add_pipeline_analytics".into(),
+            up_sql: M_119_PIPELINE_ANALYTICS_UP.into(),
+            down_sql: M_119_PIPELINE_ANALYTICS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 120,
+            name: "add_multi_project_pipelines".into(),
+            up_sql: M_120_MULTI_PROJECT_PIPELINES_UP.into(),
+            down_sql: M_120_MULTI_PROJECT_PIPELINES_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -822,7 +846,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 94);
+        assert_eq!(mgr.all().len(), 97);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -997,13 +1021,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 118,
+            version: 121,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 95);
-        assert_eq!(mgr.all()[94].version, 118);
+        assert_eq!(mgr.all().len(), 98);
+        assert_eq!(mgr.all()[97].version, 121);
     }
 
     #[test]
@@ -1022,13 +1046,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 94);
+        assert_eq!(pending.len(), 97);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(117);
+        let pending = mgr.get_pending(120);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1036,7 +1060,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 93);
+        assert_eq!(pending.len(), 96);
     }
 
     #[test]
