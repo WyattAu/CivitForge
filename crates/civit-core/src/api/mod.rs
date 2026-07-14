@@ -111,6 +111,9 @@ pub mod database_replication_v5_api;
 pub mod encryption_v3_api;
 pub mod encryption_v6_api;
 pub mod data_residency_v2_api;
+pub mod test_suite_management_v5;
+pub mod code_quality_rules_v5;
+pub mod performance_testing_v6;
 pub mod data_residency_v5_api;
 
 use crate::config::AppConfig;
@@ -358,6 +361,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(encryption_v6_api::encryption_v6_routes())
         .merge(data_residency_v2_api::data_residency_v2_routes())
         .merge(data_residency_v5_api::data_residency_v5_routes())
+        .merge(test_suite_management_v5::test_suite_v5_routes())
+        .merge(code_quality_rules_v5::code_quality_v5_routes())
+        .merge(performance_testing_v6::performance_testing_v6_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
