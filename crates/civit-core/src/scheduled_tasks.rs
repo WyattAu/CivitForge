@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
+use civit_db::models::ScheduledTaskTemplateV8;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScheduledTask {
