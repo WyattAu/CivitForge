@@ -63,6 +63,9 @@ pub mod scheduled_tasks;
 pub mod log_aggregation;
 pub mod distributed_tracing_v2;
 pub mod dashboard_reporting;
+pub mod pipeline_secrets_v2;
+pub mod pipeline_runners_v2;
+pub mod environment_variables;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{

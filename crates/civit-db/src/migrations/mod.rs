@@ -245,6 +245,12 @@ pub const M_146_TRACE_SAMPLING_RULES_UP: &str = include_str!("146_add_trace_samp
 pub const M_146_TRACE_SAMPLING_RULES_DOWN: &str = "DROP TABLE IF EXISTS trace_sampling_rules;";
 pub const M_147_DASHBOARD_REPORTING_UP: &str = include_str!("147_add_dashboard_reporting.sql");
 pub const M_147_DASHBOARD_REPORTING_DOWN: &str = "DROP TABLE IF EXISTS reports; DROP TABLE IF EXISTS dashboards;";
+pub const M_148_PIPELINE_SECRETS_V2_UP: &str = include_str!("148_add_pipeline_secrets_v2.sql");
+pub const M_148_PIPELINE_SECRETS_V2_DOWN: &str = "DROP TABLE IF EXISTS secret_access_log; DROP TABLE IF EXISTS secret_rotation_log; DROP TABLE IF EXISTS pipeline_secrets_v2;";
+pub const M_149_PIPELINE_RUNNERS_V2_UP: &str = include_str!("149_add_pipeline_runners_v2.sql");
+pub const M_149_PIPELINE_RUNNERS_V2_DOWN: &str = "DROP TABLE IF EXISTS runner_metrics; DROP TABLE IF EXISTS pipeline_runners_v2;";
+pub const M_150_ENVIRONMENT_VARIABLES_UP: &str = include_str!("150_add_environment_variables.sql");
+pub const M_150_ENVIRONMENT_VARIABLES_DOWN: &str = "DROP TABLE IF EXISTS environment_variable_inheritance; DROP TABLE IF EXISTS environment_variables;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1024,6 +1030,24 @@ impl MigrationManager {
             up_sql: M_147_DASHBOARD_REPORTING_UP.into(),
             down_sql: M_147_DASHBOARD_REPORTING_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 148,
+            name: "add_pipeline_secrets_v2".into(),
+            up_sql: M_148_PIPELINE_SECRETS_V2_UP.into(),
+            down_sql: M_148_PIPELINE_SECRETS_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 149,
+            name: "add_pipeline_runners_v2".into(),
+            up_sql: M_149_PIPELINE_RUNNERS_V2_UP.into(),
+            down_sql: M_149_PIPELINE_RUNNERS_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 150,
+            name: "add_environment_variables".into(),
+            up_sql: M_150_ENVIRONMENT_VARIABLES_UP.into(),
+            down_sql: M_150_ENVIRONMENT_VARIABLES_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1065,7 +1089,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 124);
+        assert_eq!(mgr.all().len(), 127);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1252,19 +1276,25 @@ mod tests {
         assert_eq!(mgr.all()[122].name, "add_trace_sampling_rules");
         assert_eq!(mgr.all()[123].version, 147);
         assert_eq!(mgr.all()[123].name, "add_dashboard_reporting");
+        assert_eq!(mgr.all()[124].version, 148);
+        assert_eq!(mgr.all()[124].name, "add_pipeline_secrets_v2");
+        assert_eq!(mgr.all()[125].version, 149);
+        assert_eq!(mgr.all()[125].name, "add_pipeline_runners_v2");
+        assert_eq!(mgr.all()[126].version, 150);
+        assert_eq!(mgr.all()[126].name, "add_environment_variables");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 142,
+            version: 151,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 122);
-        assert_eq!(mgr.all()[121].version, 142);
+        assert_eq!(mgr.all().len(), 128);
+        assert_eq!(mgr.all()[127].version, 151);
     }
 
     #[test]
@@ -1283,13 +1313,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 124);
+        assert_eq!(pending.len(), 127);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(144);
+        let pending = mgr.get_pending(147);
         assert_eq!(pending.len(), 3);
     }
 
@@ -1297,7 +1327,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 123);
+        assert_eq!(pending.len(), 126);
     }
 
     #[test]
