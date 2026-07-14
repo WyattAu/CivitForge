@@ -801,6 +801,226 @@ pub async fn is_environment_locked(
 }
 
 // ---------------------------------------------------------------------------
+// Environment Approval Rules
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApprovalRuleResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub required_approvers: i32,
+    pub approver_groups: Vec<String>,
+    pub auto_approve_after_hours: Option<i32>,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ApprovalRuleRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub required_approvers: i32,
+    pub approver_groups: Option<Vec<String>>,
+    pub auto_approve_after_hours: Option<i32>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ApprovalRuleRow> for ApprovalRuleResponse {
+    fn from(r: ApprovalRuleRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            required_approvers: r.required_approvers,
+            approver_groups: r.approver_groups.unwrap_or_default(),
+            auto_approve_after_hours: r.auto_approve_after_hours,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvironmentApprovalResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub deployment_id: String,
+    pub approver_id: String,
+    pub status: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct EnvironmentApprovalRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub deployment_id: Uuid,
+    pub approver_id: Uuid,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<EnvironmentApprovalRow> for EnvironmentApprovalResponse {
+    fn from(r: EnvironmentApprovalRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            deployment_id: r.deployment_id.to_string(),
+            approver_id: r.approver_id.to_string(),
+            status: r.status,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create or update approval rules for an environment.
+pub async fn upsert_approval_rules(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    required_approvers: i32,
+    approver_groups: &[String],
+    auto_approve_after_hours: Option<i32>,
+) -> std::result::Result<ApprovalRuleResponse, sqlx::Error> {
+    sqlx::query_as::<_, ApprovalRuleRow>(
+        "INSERT INTO environment_approval_rules (environment_id, required_approvers, approver_groups, auto_approve_after_hours) \
+         VALUES ($1, $2, $3, $4) \
+         ON CONFLICT (environment_id) DO UPDATE \
+         SET required_approvers = $2, approver_groups = $3, auto_approve_after_hours = $4 \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(required_approvers)
+    .bind(approver_groups)
+    .bind(auto_approve_after_hours)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Get approval rules for an environment.
+pub async fn get_approval_rules(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<Option<ApprovalRuleResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ApprovalRuleRow>(
+        "SELECT * FROM environment_approval_rules WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// Create an approval request for a deployment.
+pub async fn create_deployment_approval(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    deployment_id: Uuid,
+    approver_id: Uuid,
+) -> std::result::Result<EnvironmentApprovalResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentApprovalRow>(
+        "INSERT INTO environment_approvals (environment_id, deployment_id, approver_id, status) \
+         VALUES ($1, $2, $3, 'pending') \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(deployment_id)
+    .bind(approver_id)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Approve a deployment.
+pub async fn approve_deployment(
+    pool: &sqlx::PgPool,
+    approval_id: Uuid,
+) -> std::result::Result<EnvironmentApprovalResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentApprovalRow>(
+        "UPDATE environment_approvals SET status = 'approved' WHERE id = $1 RETURNING *",
+    )
+    .bind(approval_id)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Reject a deployment.
+pub async fn reject_deployment(
+    pool: &sqlx::PgPool,
+    approval_id: Uuid,
+) -> std::result::Result<EnvironmentApprovalResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentApprovalRow>(
+        "UPDATE environment_approvals SET status = 'rejected' WHERE id = $1 RETURNING *",
+    )
+    .bind(approval_id)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List approvals for a deployment.
+pub async fn list_deployment_approvals(
+    pool: &sqlx::PgPool,
+    deployment_id: Uuid,
+) -> std::result::Result<Vec<EnvironmentApprovalResponse>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentApprovalRow>(
+        "SELECT * FROM environment_approvals WHERE deployment_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(deployment_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Check if a deployment is fully approved.
+pub async fn is_deployment_approved(
+    pool: &sqlx::PgPool,
+    deployment_id: Uuid,
+    environment_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let rules: Option<ApprovalRuleRow> = sqlx::query_as(
+        "SELECT * FROM environment_approval_rules WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let required = rules.map(|r| r.required_approvers).unwrap_or(0);
+    if required == 0 {
+        return Ok(true);
+    }
+
+    let row: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM environment_approvals \
+         WHERE deployment_id = $1 AND status = 'approved'",
+    )
+    .bind(deployment_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(row.0 >= required as i64)
+}
+
+/// Auto-approve deployments that exceed the auto_approve_after_hours threshold.
+pub async fn auto_approve_pending(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<i64, sqlx::Error> {
+    let result = sqlx::query(
+        "UPDATE environment_approvals ea \
+         SET status = 'approved' \
+         FROM environment_approval_rules ear \
+         WHERE ea.environment_id = ear.environment_id \
+         AND ea.status = 'pending' \
+         AND ear.auto_approve_after_hours IS NOT NULL \
+         AND ea.created_at < NOW() - (ear.auto_approve_after_hours || ' hours')::INTERVAL \
+         AND ea.environment_id = $1",
+    )
+    .bind(environment_id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() as i64)
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline creation logic
 // ---------------------------------------------------------------------------
 

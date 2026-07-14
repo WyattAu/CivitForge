@@ -55,6 +55,17 @@ pub struct RateActionRequest {
     pub rating: f64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ReviewActionRequest {
+    pub rating: i32,
+    pub review: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ForkActionRequest {
+    pub new_name: String,
+}
+
 pub fn pipeline_action_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -74,6 +85,30 @@ pub fn pipeline_action_routes() -> Router<AppState> {
         .route(
             "/api/v1/pipeline-actions/{action_id}/rate",
             post(rate_action),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews",
+            get(list_reviews).post(upsert_review),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/me",
+            get(get_my_review).delete(delete_review),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/fork",
+            post(fork_action_handler),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/forks",
+            get(list_forks),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/recommendations",
+            get(get_recommendations),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/analytics",
+            get(get_analytics),
         )
 }
 
@@ -302,6 +337,293 @@ pub async fn rate_action(
 
     match actions::update_rating(pool, aid, req.rating).await {
         Ok(action) => (StatusCode::OK, Json(action)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_reviews(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::list_action_reviews(pool, aid, 50, 0).await {
+        Ok(reviews) => (StatusCode::OK, Json(reviews)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn upsert_review(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+    Json(req): Json<ReviewActionRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    if req.rating < 1 || req.rating > 5 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("rating must be between 1 and 5".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let review = req.review.unwrap_or_default();
+    match actions::upsert_action_review(pool, aid, uid, req.rating, &review).await {
+        Ok(r) => {
+            let _ = actions::refresh_action_rating(pool, aid).await;
+            (StatusCode::OK, Json(r)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_my_review(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::get_action_review(pool, aid, uid).await {
+        Ok(Some(review)) => (StatusCode::OK, Json(review)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("no review found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_review(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::delete_action_review(pool, aid, uid).await {
+        Ok(true) => {
+            let _ = actions::refresh_action_rating(pool, aid).await;
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"status": "deleted"})),
+            )
+                .into_response()
+        }
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("review not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn fork_action_handler(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+    Json(req): Json<ForkActionRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::fork_action(pool, aid, uid, &req.new_name).await {
+        Ok(action) => (StatusCode::CREATED, Json(action)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_forks(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::list_action_forks(pool, aid).await {
+        Ok(forks) => (StatusCode::OK, Json(forks)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_recommendations(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::get_recommended_actions(pool, aid, 10).await {
+        Ok(actions) => (StatusCode::OK, Json(actions)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_analytics(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::get_action_analytics(pool, aid).await {
+        Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),

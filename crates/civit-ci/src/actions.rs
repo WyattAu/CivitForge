@@ -247,6 +247,281 @@ pub async fn update_rating(
     .map(|r| r.into())
 }
 
+// ---------------------------------------------------------------------------
+// Action Reviews
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionReviewResponse {
+    pub id: String,
+    pub action_id: String,
+    pub user_id: String,
+    pub rating: i32,
+    pub review: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ActionReviewRow {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ActionReviewRow> for ActionReviewResponse {
+    fn from(r: ActionReviewRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            action_id: r.action_id.to_string(),
+            user_id: r.user_id.to_string(),
+            rating: r.rating,
+            review: r.review,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create or update a review for a pipeline action.
+pub async fn upsert_action_review(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+    rating: i32,
+    review: &str,
+) -> std::result::Result<ActionReviewResponse, sqlx::Error> {
+    sqlx::query_as::<_, ActionReviewRow>(
+        "INSERT INTO pipeline_action_reviews (action_id, user_id, rating, review) \
+         VALUES ($1, $2, $3, $4) \
+         ON CONFLICT (action_id, user_id) DO UPDATE \
+         SET rating = $3, review = $4 \
+         RETURNING *",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .bind(rating)
+    .bind(review)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Get a user's review for an action.
+pub async fn get_action_review(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+) -> std::result::Result<Option<ActionReviewResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ActionReviewRow>(
+        "SELECT * FROM pipeline_action_reviews WHERE action_id = $1 AND user_id = $2",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// List reviews for an action.
+pub async fn list_action_reviews(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<ActionReviewResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ActionReviewRow>(
+        "SELECT * FROM pipeline_action_reviews WHERE action_id = $1 \
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(action_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Delete a user's review for an action.
+pub async fn delete_action_review(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "DELETE FROM pipeline_action_reviews WHERE action_id = $1 AND user_id = $2",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Get average rating for an action from reviews.
+pub async fn get_action_average_rating(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<f64, sqlx::Error> {
+    let row: (Option<f64>,) = sqlx::query_as(
+        "SELECT COALESCE(AVG(rating), 0) FROM pipeline_action_reviews WHERE action_id = $1",
+    )
+    .bind(action_id)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0.unwrap_or(0.0))
+}
+
+/// Refresh action rating from reviews.
+pub async fn refresh_action_rating(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<(), sqlx::Error> {
+    let avg = get_action_average_rating(pool, action_id).await?;
+    sqlx::query("UPDATE pipeline_actions SET rating = $2, updated_at = NOW() WHERE id = $1")
+        .bind(action_id)
+        .bind(avg)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Action Forks
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionForkResponse {
+    pub id: String,
+    pub action_id: String,
+    pub forked_by: String,
+    pub new_name: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ActionForkRow {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub forked_by: Uuid,
+    pub new_name: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ActionForkRow> for ActionForkResponse {
+    fn from(r: ActionForkRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            action_id: r.action_id.to_string(),
+            forked_by: r.forked_by.to_string(),
+            new_name: r.new_name,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Fork a pipeline action.
+pub async fn fork_action(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+    new_name: &str,
+) -> std::result::Result<PipelineActionResponse, sqlx::Error> {
+    // Get the source action
+    let source = sqlx::query_as::<_, PipelineActionRow>(
+        "SELECT * FROM pipeline_actions WHERE id = $1",
+    )
+    .bind(action_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+    // Create the fork record
+    sqlx::query(
+        "INSERT INTO pipeline_action_forks (action_id, forked_by, new_name) VALUES ($1, $2, $3)",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .bind(new_name)
+    .execute(pool)
+    .await?;
+
+    // Create the new action as a copy
+    sqlx::query_as::<_, PipelineActionRow>(
+        "INSERT INTO pipeline_actions (name, description, action_type, config, version, author_id) \
+         VALUES ($1, $2, $3, $4, $5, $6) \
+         RETURNING *",
+    )
+    .bind(new_name)
+    .bind(&source.description)
+    .bind(&source.action_type)
+    .bind(&source.config)
+    .bind(&source.version)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List forks for an action.
+pub async fn list_action_forks(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<Vec<ActionForkResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ActionForkRow>(
+        "SELECT * FROM pipeline_action_forks WHERE action_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(action_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get recommended actions based on type and popularity.
+pub async fn get_recommended_actions(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    limit: i64,
+) -> std::result::Result<Vec<PipelineActionResponse>, sqlx::Error> {
+    let rows: Vec<PipelineActionRow> = sqlx::query_as(
+        "SELECT * FROM pipeline_actions \
+         WHERE action_type = (SELECT action_type FROM pipeline_actions WHERE id = $1) \
+         AND id != $1 \
+         ORDER BY downloads DESC, rating DESC \
+         LIMIT $2",
+    )
+    .bind(action_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get action analytics (downloads, reviews count, average rating).
+pub async fn get_action_analytics(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (i32, i64, f64) = sqlx::query_as(
+        "SELECT \
+            COALESCE(downloads, 0), \
+            (SELECT COUNT(*) FROM pipeline_action_reviews WHERE action_id = $1), \
+            COALESCE(rating, 0) \
+         FROM pipeline_actions WHERE id = $1",
+    )
+    .bind(action_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "action_id": action_id.to_string(),
+        "downloads": row.0,
+        "review_count": row.1,
+        "average_rating": row.2
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

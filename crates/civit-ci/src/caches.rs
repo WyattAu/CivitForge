@@ -243,6 +243,309 @@ pub async fn invalidate_cache(
     Ok(result.rows_affected() > 0)
 }
 
+// ---------------------------------------------------------------------------
+// Cache Strategies
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheStrategyResponse {
+    pub id: String,
+    pub repo_id: String,
+    pub name: String,
+    pub strategy_type: String,
+    pub config: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CacheStrategyRow {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub strategy_type: String,
+    pub config: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<CacheStrategyRow> for CacheStrategyResponse {
+    fn from(r: CacheStrategyRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            repo_id: r.repo_id.to_string(),
+            name: r.name,
+            strategy_type: r.strategy_type,
+            config: r.config,
+            enabled: r.enabled,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheAnalyticsResponse {
+    pub id: String,
+    pub cache_id: String,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub size_bytes: i64,
+    pub last_accessed_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CacheAnalyticsRow {
+    pub id: Uuid,
+    pub cache_id: Uuid,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub size_bytes: i64,
+    pub last_accessed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<CacheAnalyticsRow> for CacheAnalyticsResponse {
+    fn from(r: CacheAnalyticsRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            cache_id: r.cache_id.to_string(),
+            hit_count: r.hit_count,
+            miss_count: r.miss_count,
+            size_bytes: r.size_bytes,
+            last_accessed_at: r.last_accessed_at.map(|t| t.to_rfc3339()),
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create a cache strategy.
+pub async fn create_cache_strategy(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    name: &str,
+    strategy_type: &str,
+    config: &serde_json::Value,
+) -> std::result::Result<CacheStrategyResponse, sqlx::Error> {
+    sqlx::query_as::<_, CacheStrategyRow>(
+        "INSERT INTO cache_strategies (repo_id, name, strategy_type, config) \
+         VALUES ($1, $2, $3, $4) \
+         RETURNING *",
+    )
+    .bind(repo_id)
+    .bind(name)
+    .bind(strategy_type)
+    .bind(config)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List cache strategies for a repo.
+pub async fn list_cache_strategies(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<Vec<CacheStrategyResponse>, sqlx::Error> {
+    sqlx::query_as::<_, CacheStrategyRow>(
+        "SELECT * FROM cache_strategies WHERE repo_id = $1 ORDER BY created_at DESC",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get a cache strategy by ID.
+pub async fn get_cache_strategy(
+    pool: &sqlx::PgPool,
+    strategy_id: Uuid,
+) -> std::result::Result<Option<CacheStrategyResponse>, sqlx::Error> {
+    sqlx::query_as::<_, CacheStrategyRow>(
+        "SELECT * FROM cache_strategies WHERE id = $1",
+    )
+    .bind(strategy_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// Update a cache strategy.
+pub async fn update_cache_strategy(
+    pool: &sqlx::PgPool,
+    strategy_id: Uuid,
+    name: Option<&str>,
+    strategy_type: Option<&str>,
+    config: Option<&serde_json::Value>,
+    enabled: Option<bool>,
+) -> std::result::Result<CacheStrategyResponse, sqlx::Error> {
+    sqlx::query_as::<_, CacheStrategyRow>(
+        "UPDATE cache_strategies \
+         SET name = COALESCE($2, name), \
+             strategy_type = COALESCE($3, strategy_type), \
+             config = COALESCE($4, config), \
+             enabled = COALESCE($5, enabled) \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(strategy_id)
+    .bind(name)
+    .bind(strategy_type)
+    .bind(config)
+    .bind(enabled)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Delete a cache strategy.
+pub async fn delete_cache_strategy(
+    pool: &sqlx::PgPool,
+    strategy_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM cache_strategies WHERE id = $1")
+        .bind(strategy_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Record a cache hit in analytics.
+pub async fn record_cache_hit_analytics(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+    size_bytes: i64,
+) -> std::result::Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO cache_analytics (cache_id, hit_count, size_bytes, last_accessed_at) \
+         VALUES ($1, 1, $2, NOW()) \
+         ON CONFLICT (cache_id) DO UPDATE \
+         SET hit_count = cache_analytics.hit_count + 1, \
+             last_accessed_at = NOW()",
+    )
+    .bind(cache_id)
+    .bind(size_bytes)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Record a cache miss in analytics.
+pub async fn record_cache_miss_analytics(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+    size_bytes: i64,
+) -> std::result::Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO cache_analytics (cache_id, miss_count, size_bytes) \
+         VALUES ($1, 1, $2) \
+         ON CONFLICT (cache_id) DO UPDATE \
+         SET miss_count = cache_analytics.miss_count + 1",
+    )
+    .bind(cache_id)
+    .bind(size_bytes)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Get analytics for a specific cache.
+pub async fn get_cache_analytics(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+) -> std::result::Result<Option<CacheAnalyticsResponse>, sqlx::Error> {
+    sqlx::query_as::<_, CacheAnalyticsRow>(
+        "SELECT * FROM cache_analytics WHERE cache_id = $1",
+    )
+    .bind(cache_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// Get cache optimization report (hit rates, sizes, recommendations).
+pub async fn get_cache_optimization_report(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let caches: Vec<(Uuid, String, i64, i32)> = sqlx::query_as(
+        "SELECT id, key, size_bytes, hit_count FROM pipeline_caches_v2 WHERE repo_id = $1",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_size: i64 = caches.iter().map(|c| c.2).sum();
+    let total_hits: i32 = caches.iter().map(|c| c.3).sum();
+
+    let mut recommendations = Vec::new();
+    for (id, key, size, hits) in &caches {
+        if *hits == 0 {
+            recommendations.push(serde_json::json!({
+                "cache_id": id.to_string(),
+                "key": key,
+                "recommendation": "unused_cache",
+                "message": "Cache has never been hit; consider removing it"
+            }));
+        } else if *size > 100_000_000 {
+            recommendations.push(serde_json::json!({
+                "cache_id": id.to_string(),
+                "key": key,
+                "recommendation": "large_cache",
+                "message": format!("Cache is large ({} bytes); consider compression or pruning", size)
+            }));
+        }
+    }
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "total_entries": caches.len(),
+        "total_size_bytes": total_size,
+        "total_hits": total_hits,
+        "average_hit_rate": if caches.is_empty() { 0.0 } else { total_hits as f64 / caches.len() as f64 },
+        "recommendations": recommendations
+    }))
+}
+
+/// Get cache cost analysis (estimated storage costs).
+pub async fn get_cache_cost_analysis(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    cost_per_gb: f64,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COALESCE(SUM(size_bytes), 0), \
+            COALESCE(SUM(hit_count), 0), \
+            COUNT(*) \
+         FROM pipeline_caches_v2 WHERE repo_id = $1",
+    )
+    .bind(repo_id)
+    .fetch_one(pool)
+    .await?;
+
+    let total_size_bytes = row.0.unwrap_or(0);
+    let total_hits = row.1.unwrap_or(0);
+    let entry_count = row.2.unwrap_or(0);
+    let total_size_gb = total_size_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+    let estimated_cost = total_size_gb * cost_per_gb;
+    let cost_per_hit = if total_hits > 0 {
+        estimated_cost / total_hits as f64
+    } else {
+        0.0
+    };
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "total_entries": entry_count,
+        "total_size_bytes": total_size_bytes,
+        "total_size_gb": total_size_gb,
+        "total_hits": total_hits,
+        "cost_per_gb": cost_per_gb,
+        "estimated_monthly_cost": estimated_cost,
+        "cost_per_hit": cost_per_hit
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

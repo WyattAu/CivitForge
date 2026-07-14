@@ -706,6 +706,279 @@ pub async fn remove_lock(
     }
 }
 
+pub async fn get_approval_rules(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::get_approval_rules(pool, eid).await {
+        Ok(Some(rules)) => (StatusCode::OK, Json(rules)).into_response(),
+        Ok(None) => (StatusCode::OK, Json(serde_json::json!({}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn upsert_approval_rules(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateApprovalRuleRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::upsert_approval_rules(
+        pool,
+        eid,
+        req.required_approvers,
+        &req.approver_groups,
+        req.auto_approve_after_hours,
+    )
+    .await
+    {
+        Ok(rules) => (StatusCode::OK, Json(rules)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_approvals(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::list_deployment_approvals(pool, Uuid::nil()).await {
+        Ok(approvals) => (StatusCode::OK, Json(approvals)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_approval(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateApprovalRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let did = match Uuid::parse_str(&req.deployment_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid deployment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let approver_id = match Uuid::parse_str(&req.approver_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid approver ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::create_deployment_approval(pool, eid, did, approver_id).await {
+        Ok(approval) => (StatusCode::CREATED, Json(approval)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_approval_status(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, approval_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateApprovalStatusRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let aid = match Uuid::parse_str(&approval_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid approval ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let result = match req.status.as_str() {
+        "approved" => pipeline::approve_deployment(pool, aid).await,
+        "rejected" => pipeline::reject_deployment(pool, aid).await,
+        _ => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("status must be 'approved' or 'rejected'".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match result {
+        Ok(approval) => (StatusCode::OK, Json(approval)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn trigger_auto_approve(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::auto_approve_pending(pool, eid).await {
+        Ok(count) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"auto_approved": count})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateApprovalRuleRequest {
+    #[serde(default = "default_one")]
+    pub required_approvers: i32,
+    #[serde(default)]
+    pub approver_groups: Vec<String>,
+    pub auto_approve_after_hours: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateApprovalRequest {
+    pub deployment_id: String,
+    pub approver_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateApprovalStatusRequest {
+    pub status: String,
+}
+
 pub fn environment_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -737,6 +1010,22 @@ pub fn environment_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{name}/environments/{env_id}/locks/{lock_id}",
             delete(remove_lock),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/approval-rules",
+            get(get_approval_rules).post(upsert_approval_rules),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/approvals",
+            get(list_approvals).post(create_approval),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/approvals/{approval_id}",
+            patch(update_approval_status),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/auto-approve",
+            post(trigger_auto_approve),
         )
 }
 
