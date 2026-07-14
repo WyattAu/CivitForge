@@ -75,6 +75,9 @@ pub mod ddos_protection;
 pub mod object_storage;
 pub mod backup_encryption;
 pub mod data_retention;
+pub mod database_replication_v2;
+pub mod encryption_v3;
+pub mod data_residency_v2;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
