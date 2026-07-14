@@ -497,6 +497,15 @@ pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_DOWN: &str =
 pub const M_279_CACHE_HIT_ANALYSIS_V3_UP: &str = include_str!("279_add_cache_hit_analysis_v3.sql");
 pub const M_279_CACHE_HIT_ANALYSIS_V3_DOWN: &str =
     "DROP TABLE IF EXISTS cache_performance_insights_v3; DROP TABLE IF EXISTS cache_cost_optimization_v3; DROP TABLE IF EXISTS cache_size_tracking_v3; DROP TABLE IF EXISTS cache_hit_analysis_v3;";
+pub const M_280_TEST_SUITE_METRICS_BASELINES_V3_UP: &str = include_str!("280_add_test_suite_metrics_baselines_v3.sql");
+pub const M_280_TEST_SUITE_METRICS_BASELINES_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines_v3; DROP TABLE IF EXISTS test_suite_metrics_v3;";
+pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_UP: &str = include_str!("281_add_code_quality_metrics_thresholds_v4.sql");
+pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds_v3; DROP TABLE IF EXISTS code_quality_metrics_v4;";
+pub const M_282_PERF_TEST_ALERTS_V4_UP: &str = include_str!("282_add_performance_test_alerts_v4.sql");
+pub const M_282_PERF_TEST_ALERTS_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v4; DROP TABLE IF EXISTS performance_test_alerts_v4;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1870,6 +1879,24 @@ impl MigrationManager {
             up_sql: M_279_CACHE_HIT_ANALYSIS_V3_UP.into(),
             down_sql: M_279_CACHE_HIT_ANALYSIS_V3_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 280,
+            name: "add_test_suite_metrics_baselines_v3".into(),
+            up_sql: M_280_TEST_SUITE_METRICS_BASELINES_V3_UP.into(),
+            down_sql: M_280_TEST_SUITE_METRICS_BASELINES_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 281,
+            name: "add_code_quality_metrics_thresholds_v4".into(),
+            up_sql: M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_UP.into(),
+            down_sql: M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 282,
+            name: "add_performance_test_alerts_v4".into(),
+            up_sql: M_282_PERF_TEST_ALERTS_V4_UP.into(),
+            down_sql: M_282_PERF_TEST_ALERTS_V4_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1911,7 +1938,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 220);
+        assert_eq!(mgr.all().len(), 223);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);

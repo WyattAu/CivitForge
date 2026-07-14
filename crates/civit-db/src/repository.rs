@@ -7,16 +7,18 @@ use crate::models::{
     ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocumentation, ApiVersion,
     ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee, BoardCardLabel, BranchProtectionRule,
     CacheCostOptimizationV3, CacheHitAnalysisV3, CachePerformanceInsightsV3, CacheSizeTrackingV3,
-    CodeQualityMetric, DataArchive, DataMigration, DataResidencyRule, DataResidencyViolation,
-    DatabaseBackup, DatabaseRecoveryPoint, DatabaseReplica, DeploymentAnalyticsV4,
-    DeploymentComparisonV4, EmailVerificationCode, EncryptionPolicy,
-    EnvironmentDeploymentHistoryV4, Issue, MultiProjectPipeline, MultiProjectPipelineRun, Org,
-    PerformanceTest, Pipeline, PipelineActionReviewV4, PipelineAnalytics, PipelineTemplate,
-    PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, RateLimitAlert,
-    RateLimitAlertV2, RateLimitAlertV3, RateLimitOverage, RateLimitTier, RateLimitTierV2,
-    RateLimitTierV3, RateLimitTierV4, RateLimitTierV5, RateLimitUsageV2, Release, ReleaseAsset,
-    Repository, ReviewAssignment,     ReviewHelpfulnessV3, ReviewModerationQueueV3, ReviewRecommendationV3, ReviewAnalyticsV3,
-    ReviewSummary, SshKey, Team, TeamMember, TestCoverage, User,
+    CodeQualityMetric, CodeQualityMetricV4, CodeQualityThresholdV3, DataArchive, DataMigration,
+    DataResidencyRule, DataResidencyViolation, DatabaseBackup, DatabaseRecoveryPoint,
+    DatabaseReplica, DeploymentAnalyticsV4, DeploymentComparisonV4, EmailVerificationCode,
+    EncryptionPolicy, EnvironmentDeploymentHistoryV4, Issue, MultiProjectPipeline,
+    MultiProjectPipelineRun, Org, PerformanceTest, PerformanceTestAlertV4,
+    PerformanceTestAlertHistoryV4, Pipeline, PipelineActionReviewV4, PipelineAnalytics,
+    PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest,
+    RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitOverage, RateLimitTier,
+    RateLimitTierV2, RateLimitTierV3, RateLimitTierV4, RateLimitTierV5, RateLimitUsageV2, Release,
+    ReleaseAsset, Repository, ReviewAssignment, ReviewAnalyticsV3, ReviewHelpfulnessV3,
+    ReviewModerationQueueV3, ReviewRecommendationV3, ReviewSummary, SshKey, Team, TeamMember,
+    TestCoverage, TestSuiteBaselineV3, TestSuiteMetricV3, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -9175,6 +9177,429 @@ impl DbRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| DbError::Database(format!("get_cache_performance_insights: {e}")))
+    }
+
+    // --- Test Suite Metrics v3 ---
+
+    pub async fn create_test_suite_metric_v3(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+    ) -> Result<TestSuiteMetricV3> {
+        let row = sqlx::query_as::<_, TestSuiteMetricV3>(
+            r#"INSERT INTO test_suite_metrics_v3 (suite_id, metric_name, metric_value)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_test_suite_metric_v3: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_test_suite_metrics_v3(
+        &self,
+        suite_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestSuiteMetricV3>> {
+        sqlx::query_as::<_, TestSuiteMetricV3>(
+            "SELECT * FROM test_suite_metrics_v3 WHERE suite_id = $1 ORDER BY measured_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(suite_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_test_suite_metrics_v3: {e}")))
+    }
+
+    pub async fn get_test_suite_latest_metric_v3(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+    ) -> Result<Option<TestSuiteMetricV3>> {
+        sqlx::query_as::<_, TestSuiteMetricV3>(
+            "SELECT * FROM test_suite_metrics_v3 WHERE suite_id = $1 AND metric_name = $2 ORDER BY measured_at DESC LIMIT 1",
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_test_suite_latest_metric_v3: {e}")))
+    }
+
+    // --- Test Suite Baselines v3 ---
+
+    pub async fn create_test_suite_baseline_v3(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+        baseline_value: f64,
+        threshold_percent: f64,
+    ) -> Result<TestSuiteBaselineV3> {
+        let row = sqlx::query_as::<_, TestSuiteBaselineV3>(
+            r#"INSERT INTO test_suite_baselines_v3 (suite_id, metric_name, baseline_value, threshold_percent)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (suite_id, metric_name) DO UPDATE
+               SET baseline_value = $3, threshold_percent = $4
+               RETURNING *"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .bind(baseline_value)
+        .bind(threshold_percent)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_test_suite_baseline_v3: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_test_suite_baselines_v3(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteBaselineV3>> {
+        sqlx::query_as::<_, TestSuiteBaselineV3>(
+            "SELECT * FROM test_suite_baselines_v3 WHERE suite_id = $1 ORDER BY metric_name",
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_test_suite_baselines_v3: {e}")))
+    }
+
+    pub async fn detect_test_suite_regression_v3(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+        current_value: f64,
+    ) -> Result<bool> {
+        let baseline: Option<TestSuiteBaselineV3> = sqlx::query_as::<_, TestSuiteBaselineV3>(
+            "SELECT * FROM test_suite_baselines_v3 WHERE suite_id = $1 AND metric_name = $2",
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("detect_test_suite_regression_v3: {e}")))?;
+
+        match baseline {
+            Some(b) => {
+                let diff = ((current_value - b.baseline_value) / b.baseline_value * 100.0).abs();
+                Ok(diff > b.threshold_percent)
+            }
+            None => Ok(false),
+        }
+    }
+
+    // --- Code Quality Metrics v4 ---
+
+    pub async fn create_code_quality_metric_v4(
+        &self,
+        repo_id: Uuid,
+        file_path: &str,
+        metric_name: &str,
+        metric_value: f64,
+    ) -> Result<CodeQualityMetricV4> {
+        let row = sqlx::query_as::<_, CodeQualityMetricV4>(
+            r#"INSERT INTO code_quality_metrics_v4 (repo_id, file_path, metric_name, metric_value)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(file_path)
+        .bind(metric_name)
+        .bind(metric_value)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_code_quality_metric_v4: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_code_quality_metrics_v4(
+        &self,
+        repo_id: Uuid,
+        metric_name: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CodeQualityMetricV4>> {
+        let rows = if let Some(name) = metric_name {
+            sqlx::query_as::<_, CodeQualityMetricV4>(
+                r#"SELECT * FROM code_quality_metrics_v4
+                   WHERE repo_id = $1 AND metric_name = $2
+                   ORDER BY measured_at DESC
+                   LIMIT $3 OFFSET $4"#,
+            )
+            .bind(repo_id)
+            .bind(name)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, CodeQualityMetricV4>(
+                r#"SELECT * FROM code_quality_metrics_v4
+                   WHERE repo_id = $1
+                   ORDER BY measured_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(repo_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v4: {e}")))
+    }
+
+    pub async fn get_code_quality_score_v4(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<f64> {
+        let row: (Option<f64>,) = sqlx::query_as(
+            r#"SELECT AVG(metric_value) FROM code_quality_metrics_v4 WHERE repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_code_quality_score_v4: {e}")))?;
+        Ok(row.0.unwrap_or(0.0))
+    }
+
+    // --- Code Quality Thresholds v3 ---
+
+    pub async fn create_code_quality_threshold_v3(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+        threshold_value: f64,
+        enabled: bool,
+    ) -> Result<CodeQualityThresholdV3> {
+        let row = sqlx::query_as::<_, CodeQualityThresholdV3>(
+            r#"INSERT INTO code_quality_thresholds_v3 (repo_id, metric_name, threshold_value, enabled)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (repo_id, metric_name) DO UPDATE
+               SET threshold_value = $3, enabled = $4
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .bind(threshold_value)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_code_quality_threshold_v3: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_code_quality_thresholds_v3(
+        &self,
+        repo_id: Uuid,
+        enabled_only: bool,
+    ) -> Result<Vec<CodeQualityThresholdV3>> {
+        let rows = if enabled_only {
+            sqlx::query_as::<_, CodeQualityThresholdV3>(
+                r#"SELECT * FROM code_quality_thresholds_v3
+                   WHERE repo_id = $1 AND enabled = true
+                   ORDER BY metric_name"#,
+            )
+            .bind(repo_id)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, CodeQualityThresholdV3>(
+                r#"SELECT * FROM code_quality_thresholds_v3
+                   WHERE repo_id = $1
+                   ORDER BY metric_name"#,
+            )
+            .bind(repo_id)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| DbError::Database(format!("list_code_quality_thresholds_v3: {e}")))
+    }
+
+    pub async fn check_code_quality_violation_v3(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+    ) -> Result<bool> {
+        let threshold: Option<CodeQualityThresholdV3> =
+            sqlx::query_as::<_, CodeQualityThresholdV3>(
+                r#"SELECT * FROM code_quality_thresholds_v3
+                   WHERE repo_id = $1 AND metric_name = $2 AND enabled = true"#,
+            )
+            .bind(repo_id)
+            .bind(metric_name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("check_code_quality_violation_v3: {e}")))?;
+
+        match threshold {
+            Some(t) => Ok(metric_value > t.threshold_value),
+            None => Ok(false),
+        }
+    }
+
+    pub async fn delete_code_quality_threshold_v3(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM code_quality_thresholds_v3 WHERE repo_id = $1 AND metric_name = $2",
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v3: {e}")))?;
+        Ok(())
+    }
+
+    // --- Performance Test Alerts v4 ---
+
+    pub async fn create_performance_test_alert_v4(
+        &self,
+        baseline_id: Uuid,
+        alert_type: &str,
+        threshold: f64,
+        enabled: bool,
+    ) -> Result<PerformanceTestAlertV4> {
+        let row = sqlx::query_as::<_, PerformanceTestAlertV4>(
+            r#"INSERT INTO performance_test_alerts_v4 (baseline_id, alert_type, threshold, enabled)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(baseline_id)
+        .bind(alert_type)
+        .bind(threshold)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_performance_test_alert_v4: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_performance_test_alerts_v4(
+        &self,
+        baseline_id: Uuid,
+        enabled_only: bool,
+    ) -> Result<Vec<PerformanceTestAlertV4>> {
+        let rows = if enabled_only {
+            sqlx::query_as::<_, PerformanceTestAlertV4>(
+                r#"SELECT * FROM performance_test_alerts_v4
+                   WHERE baseline_id = $1 AND enabled = true
+                   ORDER BY created_at DESC"#,
+            )
+            .bind(baseline_id)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, PerformanceTestAlertV4>(
+                r#"SELECT * FROM performance_test_alerts_v4
+                   WHERE baseline_id = $1
+                   ORDER BY created_at DESC"#,
+            )
+            .bind(baseline_id)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| DbError::Database(format!("list_performance_test_alerts_v4: {e}")))
+    }
+
+    pub async fn update_performance_test_alert_v4(
+        &self,
+        id: Uuid,
+        threshold: Option<f64>,
+        enabled: Option<bool>,
+    ) -> Result<PerformanceTestAlertV4> {
+        let row = sqlx::query_as::<_, PerformanceTestAlertV4>(
+            r#"UPDATE performance_test_alerts_v4
+               SET threshold = COALESCE($2, threshold),
+                   enabled = COALESCE($3, enabled)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(threshold)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_performance_test_alert_v4: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn record_performance_test_alert_v4(
+        &self,
+        alert_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+        threshold: f64,
+    ) -> Result<PerformanceTestAlertHistoryV4> {
+        let row = sqlx::query_as::<_, PerformanceTestAlertHistoryV4>(
+            r#"INSERT INTO performance_test_alert_history_v4 (alert_id, metric_name, metric_value, threshold)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(alert_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .bind(threshold)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v4: {e}")))?;
+
+        sqlx::query(
+            "UPDATE performance_test_alerts_v4 SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v4 update: {e}")))?;
+
+        Ok(row)
+    }
+
+    pub async fn list_performance_test_alert_history_v4(
+        &self,
+        alert_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PerformanceTestAlertHistoryV4>> {
+        sqlx::query_as::<_, PerformanceTestAlertHistoryV4>(
+            "SELECT * FROM performance_test_alert_history_v4 WHERE alert_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(alert_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_performance_test_alert_history_v4: {e}")))
+    }
+
+    pub async fn get_performance_test_alert_analytics_v4(
+        &self,
+        alert_id: Uuid,
+    ) -> Result<(i64, Option<f64>, Option<f64>)> {
+        let row: (i64, Option<f64>, Option<f64>) = sqlx::query_as(
+            r#"SELECT
+                   COUNT(*) as trigger_count,
+                   AVG(metric_value) as avg_value,
+                   MAX(metric_value) as max_value
+               FROM performance_test_alert_history_v4
+               WHERE alert_id = $1"#,
+        )
+        .bind(alert_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_performance_test_alert_analytics_v4: {e}")))?;
+        Ok((row.0, row.1, row.2))
     }
 }
 
