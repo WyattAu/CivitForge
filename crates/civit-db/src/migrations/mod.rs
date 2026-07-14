@@ -479,6 +479,15 @@ pub const M_272_AUTOMATION_RULES_V7_UP: &str = include_str!("272_add_automation_
 pub const M_272_AUTOMATION_RULES_V7_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v7;";
 pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_UP: &str = include_str!("273_add_scheduled_task_templates_v4.sql");
 pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v4;";
+pub const M_274_LOG_AGGREGATION_V6_UP: &str = include_str!("274_add_log_aggregation_v6.sql");
+pub const M_274_LOG_AGGREGATION_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS log_alert_rules_v3; DROP TABLE IF EXISTS log_entries_v6;";
+pub const M_275_DISTRIBUTED_TRACING_V7_UP: &str = include_str!("275_add_distributed_tracing_v7.sql");
+pub const M_275_DISTRIBUTED_TRACING_V7_DOWN: &str =
+    "DROP TABLE IF EXISTS trace_service_dependencies_v3; DROP TABLE IF EXISTS trace_sampling_rules_v6;";
+pub const M_276_DASHBOARD_REPORTING_V6_UP: &str = include_str!("276_add_dashboard_reporting_v6.sql");
+pub const M_276_DASHBOARD_REPORTING_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS report_schedules_v4; DROP TABLE IF EXISTS dashboard_shares_v3;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1815,6 +1824,24 @@ impl MigrationManager {
             name: "add_scheduled_task_templates_v4".into(),
             up_sql: M_273_SCHEDULED_TASK_TEMPLATES_V4_UP.into(),
             down_sql: M_273_SCHEDULED_TASK_TEMPLATES_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 274,
+            name: "add_log_aggregation_v6".into(),
+            up_sql: M_274_LOG_AGGREGATION_V6_UP.into(),
+            down_sql: M_274_LOG_AGGREGATION_V6_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 275,
+            name: "add_distributed_tracing_v7".into(),
+            up_sql: M_275_DISTRIBUTED_TRACING_V7_UP.into(),
+            down_sql: M_275_DISTRIBUTED_TRACING_V7_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 276,
+            name: "add_dashboard_reporting_v6".into(),
+            up_sql: M_276_DASHBOARD_REPORTING_V6_UP.into(),
+            down_sql: M_276_DASHBOARD_REPORTING_V6_DOWN.into(),
         });
     }
 

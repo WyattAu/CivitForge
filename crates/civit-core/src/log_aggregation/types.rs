@@ -375,3 +375,82 @@ pub struct CreateLogNotificationConfig {
     pub endpoint: String,
     pub enabled: Option<bool>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntryV6 {
+    pub id: uuid::Uuid,
+    pub level: LogLevel,
+    pub message: String,
+    pub source: String,
+    pub service: String,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub metadata: serde_json::Value,
+    pub retention_days: i32,
+    pub indexed: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogEntryV6 {
+    pub level: LogLevel,
+    pub message: String,
+    pub source: String,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub retention_days: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchFilterV6 {
+    pub level: Option<LogLevel>,
+    pub source: Option<String>,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub search: Option<String>,
+    pub indexed: Option<bool>,
+    pub since: Option<chrono::DateTime<chrono::Utc>>,
+    pub until: Option<chrono::DateTime<chrono::Utc>>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchResultV6 {
+    pub entries: Vec<LogEntryV6>,
+    pub total_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogAlertRuleV3 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub level: LogLevel,
+    pub pattern: String,
+    pub threshold: i32,
+    pub window_seconds: i32,
+    pub enabled: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogAlertRuleV3 {
+    pub name: String,
+    pub level: LogLevel,
+    pub pattern: String,
+    pub threshold: Option<i32>,
+    pub window_seconds: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateLogAlertRuleV3 {
+    pub name: Option<String>,
+    pub level: Option<LogLevel>,
+    pub pattern: Option<String>,
+    pub threshold: Option<i32>,
+    pub window_seconds: Option<i32>,
+    pub enabled: Option<bool>,
+}
