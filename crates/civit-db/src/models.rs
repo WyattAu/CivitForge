@@ -1104,3 +1104,52 @@ pub struct DataMigration {
     pub started_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Workflow {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub trigger_type: String,
+    pub trigger_config: serde_json::Value,
+    pub steps: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowRun {
+    pub id: Uuid,
+    pub workflow_id: Uuid,
+    pub status: String,
+    pub current_step: i32,
+    pub total_steps: i32,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AutomationRule {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub trigger_type: String,
+    pub conditions: serde_json::Value,
+    pub actions: serde_json::Value,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ScheduledTask {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub cron_expression: String,
+    pub task_type: String,
+    pub task_config: serde_json::Value,
+    pub enabled: bool,
+    pub last_run_at: Option<DateTime<Utc>>,
+    pub next_run_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}

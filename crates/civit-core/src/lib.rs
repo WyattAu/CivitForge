@@ -57,6 +57,9 @@ pub mod data_migration;
 pub mod network_policy;
 pub mod encryption;
 pub mod acl;
+pub mod workflow_engine;
+pub mod automation_rules;
+pub mod scheduled_tasks;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{

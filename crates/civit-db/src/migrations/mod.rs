@@ -232,6 +232,13 @@ pub const M_140_ENCRYPTION_AT_REST_UP: &str = include_str!("140_add_encryption_a
 pub const M_140_ENCRYPTION_AT_REST_DOWN: &str = "DROP TABLE IF EXISTS encrypted_data; DROP TABLE IF EXISTS encryption_keys;";
 pub const M_141_ACCESS_CONTROL_LISTS_UP: &str = include_str!("141_add_access_control_lists.sql");
 pub const M_141_ACCESS_CONTROL_LISTS_DOWN: &str = "DROP TABLE IF EXISTS access_control_lists;";
+pub const M_142_WORKFLOWS_UP: &str = include_str!("142_add_workflows.sql");
+pub const M_142_WORKFLOWS_DOWN: &str =
+    "DROP TABLE IF EXISTS workflow_runs; DROP TABLE IF EXISTS workflows;";
+pub const M_143_AUTOMATION_RULES_UP: &str = include_str!("143_add_automation_rules.sql");
+pub const M_143_AUTOMATION_RULES_DOWN: &str = "DROP TABLE IF EXISTS automation_rules;";
+pub const M_144_SCHEDULED_TASKS_UP: &str = include_str!("144_add_scheduled_tasks.sql");
+pub const M_144_SCHEDULED_TASKS_DOWN: &str = "DROP TABLE IF EXISTS scheduled_tasks;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -975,6 +982,24 @@ impl MigrationManager {
             up_sql: M_141_ACCESS_CONTROL_LISTS_UP.into(),
             down_sql: M_141_ACCESS_CONTROL_LISTS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 142,
+            name: "add_workflows".into(),
+            up_sql: M_142_WORKFLOWS_UP.into(),
+            down_sql: M_142_WORKFLOWS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 143,
+            name: "add_automation_rules".into(),
+            up_sql: M_143_AUTOMATION_RULES_UP.into(),
+            down_sql: M_143_AUTOMATION_RULES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 144,
+            name: "add_scheduled_tasks".into(),
+            up_sql: M_144_SCHEDULED_TASKS_UP.into(),
+            down_sql: M_144_SCHEDULED_TASKS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1016,7 +1041,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 118);
+        assert_eq!(mgr.all().len(), 121);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1191,6 +1216,12 @@ mod tests {
         assert_eq!(mgr.all()[116].name, "add_encryption_at_rest");
         assert_eq!(mgr.all()[117].version, 141);
         assert_eq!(mgr.all()[117].name, "add_access_control_lists");
+        assert_eq!(mgr.all()[118].version, 142);
+        assert_eq!(mgr.all()[118].name, "add_workflows");
+        assert_eq!(mgr.all()[119].version, 143);
+        assert_eq!(mgr.all()[119].name, "add_automation_rules");
+        assert_eq!(mgr.all()[120].version, 144);
+        assert_eq!(mgr.all()[120].name, "add_scheduled_tasks");
     }
 
     #[test]
@@ -1202,8 +1233,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 119);
-        assert_eq!(mgr.all()[118].version, 142);
+        assert_eq!(mgr.all().len(), 122);
+        assert_eq!(mgr.all()[121].version, 142);
     }
 
     #[test]
@@ -1222,13 +1253,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 118);
+        assert_eq!(pending.len(), 121);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(141);
+        let pending = mgr.get_pending(144);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1236,7 +1267,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 117);
+        assert_eq!(pending.len(), 120);
     }
 
     #[test]
