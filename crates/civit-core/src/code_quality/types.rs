@@ -322,3 +322,131 @@ pub struct RuleEnforcementTrend {
     pub enforcement_count: i64,
     pub violation_count: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityRuleV3 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub rule_type: RuleType,
+    pub severity: Severity,
+    pub pattern: Option<String>,
+    pub auto_fix: bool,
+    pub fix_config: serde_json::Value,
+    pub enabled: bool,
+    pub version: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateQualityRuleV3Request {
+    pub name: String,
+    pub description: String,
+    pub rule_type: RuleType,
+    pub severity: Severity,
+    pub pattern: Option<String>,
+    pub auto_fix: Option<bool>,
+    pub fix_config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateQualityRuleV3Request {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub rule_type: Option<RuleType>,
+    pub severity: Option<Severity>,
+    pub pattern: Option<String>,
+    pub auto_fix: Option<bool>,
+    pub fix_config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum EnforcementType {
+    #[serde(rename = "warn")]
+    Warn,
+    #[serde(rename = "block")]
+    Block,
+    #[serde(rename = "audit")]
+    Audit,
+}
+
+impl std::fmt::Display for EnforcementType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Warn => write!(f, "warn"),
+            Self::Block => write!(f, "block"),
+            Self::Audit => write!(f, "audit"),
+        }
+    }
+}
+
+impl std::str::FromStr for EnforcementType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "warn" => Ok(Self::Warn),
+            "block" => Ok(Self::Block),
+            "audit" => Ok(Self::Audit),
+            _ => Err(format!("unknown enforcement type: {s}")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QualityRuleEnforcement {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub enforcement_type: EnforcementType,
+    pub threshold: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateEnforcementRequest {
+    pub enforcement_type: Option<String>,
+    pub threshold: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateEnforcementRequest {
+    pub enforcement_type: Option<String>,
+    pub threshold: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnforcementAnalytics {
+    pub rule_id: Uuid,
+    pub total_enforcements: i64,
+    pub blocked_count: i64,
+    pub warned_count: i64,
+    pub audited_count: i64,
+    pub avg_violations_per_run: f64,
+    pub last_enforced_at: Option<DateTime<Utc>>,
+    pub trend: Vec<EnforcementTrend>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnforcementTrend {
+    pub date: chrono::NaiveDate,
+    pub enforcement_count: i64,
+    pub blocked_count: i64,
+    pub warned_count: i64,
+    pub audited_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnforcementThresholdResult {
+    pub rule_id: Uuid,
+    pub rule_name: String,
+    pub enforcement_type: String,
+    pub threshold: i32,
+    pub current_violations: i64,
+    pub would_block: bool,
+}

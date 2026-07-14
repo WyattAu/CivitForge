@@ -224,3 +224,56 @@ pub struct TestSchedule {
     pub enabled: bool,
     pub next_run_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteTag {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub tag: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteTagRequest {
+    pub tag: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteDependency {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub depends_on_suite_id: Uuid,
+    pub dependency_type: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteDependencyRequest {
+    pub depends_on_suite_id: Uuid,
+    pub dependency_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestExecutionOrder {
+    pub suite_id: Uuid,
+    pub suite_name: String,
+    pub order: i32,
+    pub dependencies: Vec<Uuid>,
+    pub can_run_parallel: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutionPlan {
+    pub repo_id: Uuid,
+    pub execution_groups: Vec<Vec<TestExecutionOrder>>,
+    pub total_suites: i32,
+    pub estimated_duration_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteDependencySummary {
+    pub total_dependencies: i64,
+    pub circular_dependencies_detected: i64,
+    pub suites_with_dependencies: i64,
+    pub suites_without_dependencies: i64,
+}

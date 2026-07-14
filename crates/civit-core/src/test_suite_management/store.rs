@@ -2,6 +2,8 @@ use super::types::*;
 use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
+use std::future::Future;
+use std::pin::Pin;
 
 pub struct TestSuiteStore {
     pool: PgPool,
@@ -521,6 +523,302 @@ impl TestSuiteStore {
         Ok(result.rows_affected() > 0)
     }
 
+    pub async fn create_tag(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteTagRequest,
+    ) -> Result<TestSuiteTag, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_tags (id, suite_id, tag, created_at)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (suite_id, tag) DO NOTHING"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.tag)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteTag {
+            id,
+            suite_id,
+            tag: req.tag,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_tags(&self, suite_id: Uuid) -> Result<Vec<TestSuiteTag>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TagRow>(
+            r#"SELECT id, suite_id, tag, created_at
+               FROM test_suite_tags
+               WHERE suite_id = $1
+               ORDER BY tag"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteTag::from).collect())
+    }
+
+    pub async fn delete_tag(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM test_suite_tags WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn list_suites_by_tag(
+        &self,
+        repo_id: Uuid,
+        tag: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestSuite>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, SuiteRow>(
+            r#"SELECT ts.id, ts.repo_id, ts.name, ts.description, ts.test_type, ts.config, ts.enabled, ts.created_at
+               FROM test_suites ts
+               JOIN test_suite_tags tst ON ts.id = tst.suite_id
+               WHERE ts.repo_id = $1 AND tst.tag = $2
+               ORDER BY ts.created_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(repo_id)
+        .bind(tag)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuite::from).collect())
+    }
+
+    pub async fn list_suites_by_tags(
+        &self,
+        repo_id: Uuid,
+        tags: &[String],
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestSuite>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, SuiteRow>(
+            r#"SELECT DISTINCT ts.id, ts.repo_id, ts.name, ts.description, ts.test_type, ts.config, ts.enabled, ts.created_at
+               FROM test_suites ts
+               JOIN test_suite_tags tst ON ts.id = tst.suite_id
+               WHERE ts.repo_id = $1 AND tst.tag = ANY($2)
+               ORDER BY ts.created_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(repo_id)
+        .bind(tags)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuite::from).collect())
+    }
+
+    pub async fn create_dependency(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteDependencyRequest,
+    ) -> Result<TestSuiteDependency, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let dependency_type = req.dependency_type.unwrap_or_else(|| "blocks".to_string());
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_dependencies (id, suite_id, depends_on_suite_id, dependency_type, created_at)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (suite_id, depends_on_suite_id) DO NOTHING"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(req.depends_on_suite_id)
+        .bind(&dependency_type)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteDependency {
+            id,
+            suite_id,
+            depends_on_suite_id: req.depends_on_suite_id,
+            dependency_type,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_dependencies(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteDependency>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DependencyRow>(
+            r#"SELECT id, suite_id, depends_on_suite_id, dependency_type, created_at
+               FROM test_suite_dependencies
+               WHERE suite_id = $1
+               ORDER BY created_at"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteDependency::from).collect())
+    }
+
+    pub async fn list_reverse_dependencies(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteDependency>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DependencyRow>(
+            r#"SELECT id, suite_id, depends_on_suite_id, dependency_type, created_at
+               FROM test_suite_dependencies
+               WHERE depends_on_suite_id = $1
+               ORDER BY created_at"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteDependency::from).collect())
+    }
+
+    pub async fn delete_dependency(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM test_suite_dependencies WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_dependency_summary(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<TestSuiteDependencySummary, sqlx::Error> {
+        let total_row = sqlx::query_as::<_, DependencySummaryRow>(
+            r#"SELECT
+                COUNT(*) as total_dependencies,
+                0 as circular_dependencies_detected,
+                COUNT(DISTINCT suite_id) as suites_with_dependencies,
+                (SELECT COUNT(*) FROM test_suites WHERE repo_id = $1) - COUNT(DISTINCT suite_id) as suites_without_dependencies
+               FROM test_suite_dependencies tsd
+               JOIN test_suites ts ON tsd.suite_id = ts.id
+               WHERE ts.repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(TestSuiteDependencySummary {
+            total_dependencies: total_row.total_dependencies,
+            circular_dependencies_detected: total_row.circular_dependencies_detected,
+            suites_with_dependencies: total_row.suites_with_dependencies,
+            suites_without_dependencies: total_row.suites_without_dependencies,
+        })
+    }
+
+    pub async fn get_execution_order(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<ExecutionPlan, sqlx::Error> {
+        let suites = self.list_suites(repo_id, None, 1000, 0).await?;
+        let mut execution_orders = Vec::new();
+        let mut visited = std::collections::HashSet::new();
+        let mut in_stack = std::collections::HashSet::new();
+
+        for suite in &suites {
+            if !visited.contains(&suite.id) {
+                Box::pin(self.topological_sort(
+                    suite.id,
+                    &suites,
+                    &mut visited,
+                    &mut in_stack,
+                    &mut execution_orders,
+                ))
+                .await?;
+            }
+        }
+
+        let mut groups = Vec::new();
+        let mut current_group = Vec::new();
+        let mut last_deps = Vec::new();
+
+        for order in execution_orders {
+            if order.dependencies != last_deps && !current_group.is_empty() {
+                groups.push(current_group);
+                current_group = Vec::new();
+            }
+            last_deps = order.dependencies.clone();
+            current_group.push(order);
+        }
+        if !current_group.is_empty() {
+            groups.push(current_group);
+        }
+
+        Ok(ExecutionPlan {
+            repo_id,
+            execution_groups: groups,
+            total_suites: suites.len() as i32,
+            estimated_duration_ms: 0,
+        })
+    }
+
+    fn topological_sort<'a>(
+        &'a self,
+        suite_id: Uuid,
+        all_suites: &'a [TestSuite],
+        visited: &'a mut std::collections::HashSet<Uuid>,
+        in_stack: &'a mut std::collections::HashSet<Uuid>,
+        result: &'a mut Vec<TestExecutionOrder>,
+    ) -> Pin<Box<dyn Future<Output = Result<(), sqlx::Error>> + Send + 'a>> {
+        Box::pin(async move {
+            if in_stack.contains(&suite_id) {
+                return Ok(());
+            }
+            if visited.contains(&suite_id) {
+                return Ok(());
+            }
+
+            visited.insert(suite_id);
+            in_stack.insert(suite_id);
+
+            let deps = self.list_dependencies(suite_id).await?;
+            let mut dep_ids = Vec::new();
+
+            for dep in &deps {
+                dep_ids.push(dep.depends_on_suite_id);
+                Box::pin(self.topological_sort(
+                    dep.depends_on_suite_id,
+                    all_suites,
+                    visited,
+                    in_stack,
+                    result,
+                ))
+                .await?;
+            }
+
+            in_stack.remove(&suite_id);
+
+            if let Some(suite) = all_suites.iter().find(|s| s.id == suite_id) {
+                let can_run_parallel = deps.is_empty();
+                result.push(TestExecutionOrder {
+                    suite_id,
+                    suite_name: suite.name.clone(),
+                    order: result.len() as i32,
+                    dependencies: dep_ids,
+                    can_run_parallel,
+                });
+            }
+
+            Ok(())
+        })
+    }
+
     pub async fn get_analytics(
         &self,
         repo_id: Uuid,
@@ -763,4 +1061,52 @@ impl From<FailureTrendRow> for FailureTrend {
             failure_rate: row.failure_rate,
         }
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct TagRow {
+    id: Uuid,
+    suite_id: Uuid,
+    tag: String,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<TagRow> for TestSuiteTag {
+    fn from(row: TagRow) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            tag: row.tag,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct DependencyRow {
+    id: Uuid,
+    suite_id: Uuid,
+    depends_on_suite_id: Uuid,
+    dependency_type: String,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<DependencyRow> for TestSuiteDependency {
+    fn from(row: DependencyRow) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            depends_on_suite_id: row.depends_on_suite_id,
+            dependency_type: row.dependency_type,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct DependencySummaryRow {
+    total_dependencies: i64,
+    circular_dependencies_detected: i64,
+    suites_with_dependencies: i64,
+    suites_without_dependencies: i64,
 }

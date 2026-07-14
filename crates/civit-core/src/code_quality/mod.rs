@@ -12,4 +12,7 @@ pub use types::{
     QualityRuleV2, CreateQualityRuleV2Request, UpdateQualityRuleV2Request,
     QualityRuleVersion, QualityRuleTestResult, RuleTestRequest,
     RuleVersionDiff, RuleAnalytics, RuleEnforcementTrend,
+    QualityRuleV3, CreateQualityRuleV3Request, UpdateQualityRuleV3Request,
+    EnforcementType, QualityRuleEnforcement, CreateEnforcementRequest, UpdateEnforcementRequest,
+    EnforcementAnalytics, EnforcementTrend, EnforcementThresholdResult,
 };

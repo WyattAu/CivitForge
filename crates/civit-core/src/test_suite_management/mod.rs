@@ -11,4 +11,7 @@ pub use types::{
     TestSuiteConfiguration, CreateTestSuiteConfigRequest, UpdateTestSuiteConfigRequest,
     TestSuiteNotification, CreateTestSuiteNotificationRequest, UpdateTestSuiteNotificationRequest,
     TestSuiteAnalytics, SuiteActivity, FailureTrend, TestSchedule,
+    TestSuiteTag, CreateTestSuiteTagRequest,
+    TestSuiteDependency, CreateTestSuiteDependencyRequest,
+    TestExecutionOrder, ExecutionPlan, TestSuiteDependencySummary,
 };

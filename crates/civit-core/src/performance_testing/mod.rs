@@ -13,4 +13,6 @@ pub use types::{
     PerformanceRegression, RegressionStatusUpdate,
     PerformanceTrendData, RecordTrendDataRequest, PerformanceTrendAnalysis,
     PerformanceAlert, PerformanceBaselineSummary,
+    PerformanceTestAlertConfig, CreateAlertConfigRequest, UpdateAlertConfigRequest,
+    PerformanceAlertHistory, AlertNotification, AlertAnalytics, AlertTriggerTrend,
 };
