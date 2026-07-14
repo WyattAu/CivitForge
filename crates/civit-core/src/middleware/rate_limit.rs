@@ -5,6 +5,7 @@
 //! - Authenticated: 300 requests/minute (by user ID)
 //! - Admin: 1000 requests/minute (by user ID)
 //!
+//! Also supports token bucket rate limiting via database-backed policies.
 //! Returns 429 Too Many Requests with `Retry-After` header.
 //! Adds `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` headers.
 
@@ -18,6 +19,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
+use chrono::{DateTime, Utc};
 use std::{
     collections::HashMap,
     net::IpAddr,
@@ -26,6 +28,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 use tracing::warn;
+use uuid::Uuid;
 
 /// Rate limit tiers based on user role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -70,11 +73,24 @@ struct Bucket {
     window_start: Instant,
 }
 
+/// Token bucket state for database-backed rate limiting.
+#[derive(Debug, Clone)]
+struct TokenBucket {
+    tokens: i32,
+    last_refill: Instant,
+    max_tokens: i32,
+    refill_rate: f64, // tokens per second
+}
+
 /// Per-key (IP or user ID) sliding window state. Thread-safe via tokio Mutex.
 #[derive(Debug, Clone)]
 pub struct RateLimiter {
     config: RateLimitConfig,
     buckets: Arc<Mutex<HashMap<String, Bucket>>>,
+    /// Token buckets for database-backed rate limiting
+    token_buckets: Arc<Mutex<HashMap<String, TokenBucket>>>,
+    /// Admin bypass flag
+    admin_bypass: bool,
 }
 
 impl RateLimiter {
@@ -82,6 +98,8 @@ impl RateLimiter {
         Self {
             config,
             buckets: Arc::new(Mutex::new(HashMap::new())),
+            token_buckets: Arc::new(Mutex::new(HashMap::new())),
+            admin_bypass: true,
         }
     }
 
@@ -119,6 +137,95 @@ impl RateLimiter {
         bucket.count += 1;
         let remaining = max_requests.saturating_sub(bucket.count);
         (true, 0, remaining, max_requests, reset_seconds)
+    }
+
+    /// Check token bucket rate limiting. Returns `(allowed, retry_after_ms)`.
+    pub async fn check_token_bucket(
+        &self,
+        key: &str,
+        max_tokens: i32,
+        refill_rate: f64,
+        burst_size: i32,
+    ) -> (bool, u64) {
+        let mut token_buckets = self.token_buckets.lock().await;
+        let now = Instant::now();
+
+        let bucket = token_buckets
+            .entry(key.to_string())
+            .or_insert_with(|| TokenBucket {
+                tokens: max_tokens,
+                last_refill: now,
+                max_tokens,
+                refill_rate,
+            });
+
+        // Refill tokens based on elapsed time
+        let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
+        let new_tokens = (elapsed * refill_rate) as i32;
+        if new_tokens > 0 {
+            bucket.tokens = (bucket.tokens + new_tokens).min(bucket.max_tokens);
+            bucket.last_refill = now;
+        }
+
+        // Check if we have enough tokens (accounting for burst)
+        let effective_max = bucket.max_tokens + burst_size;
+        if bucket.tokens <= 0 {
+            // Calculate retry time until next token
+            let wait_time = if bucket.refill_rate > 0.0 {
+                ((1.0 / bucket.refill_rate) * 1000.0) as u64
+            } else {
+                1000
+            };
+            return (false, wait_time);
+        }
+
+        bucket.tokens -= 1;
+        (true, 0)
+    }
+
+    /// Check rate limit with policy-based limits. Returns `(allowed, retry_after_seconds, remaining, limit, reset_seconds)`.
+    pub async fn check_with_policy(
+        &self,
+        key: &str,
+        rate_limit: i32,
+        window_seconds: i32,
+        burst_size: i32,
+    ) -> (bool, u32, u32, u32, u64) {
+        let window = Duration::from_secs(window_seconds as u64);
+        let max_requests = rate_limit as u32;
+
+        let mut buckets = self.buckets.lock().await;
+        let now = Instant::now();
+
+        let bucket = buckets.entry(key.to_string()).or_insert(Bucket {
+            count: 0,
+            window_start: now,
+        });
+
+        // Sliding window: reset if window expired
+        if now.duration_since(bucket.window_start) >= window {
+            bucket.count = 0;
+            bucket.window_start = now;
+        }
+
+        let reset_seconds = window
+            .saturating_sub(now.duration_since(bucket.window_start))
+            .as_secs();
+
+        let effective_limit = max_requests + burst_size as u32;
+        if bucket.count >= effective_limit {
+            let retry_after = reset_seconds as u32 + u32::from(reset_seconds == 0);
+            return (false, retry_after, 0, max_requests, reset_seconds);
+        }
+
+        bucket.count += 1;
+        let remaining = effective_limit.saturating_sub(bucket.count);
+        (true, 0, remaining, max_requests, reset_seconds)
+    }
+
+    /// Check if admin bypass is enabled
+    pub fn is_admin_bypass_enabled(&self) -> bool {
+        self.admin_bypass
     }
 }
 
@@ -187,6 +294,12 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
 
     let ip = extract_client_ip(&req);
     let (tier, user_key) = extract_tier_info(&req, &ip, &jwt_service);
+
+    // Admin bypass check
+    if tier == RateLimitTier::Admin && limiter.is_admin_bypass_enabled() {
+        return next.run(req).await;
+    }
+
     let (allowed, retry_after, remaining, limit, reset_seconds) =
         limiter.check(&user_key, tier).await;
 
@@ -344,6 +457,92 @@ mod tests {
         assert!(allowed);
         assert_eq!(remaining, 59);
         assert_eq!(limit, 60);
+    }
+
+    #[tokio::test]
+    async fn test_token_bucket_rate_limiting() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+        let key = "user:test1";
+
+        // Should allow requests up to max_tokens
+        for _ in 0..10 {
+            let (allowed, _) = limiter
+                .check_token_bucket(key, 10, 1.0, 0)
+                .await;
+            assert!(allowed);
+        }
+
+        // Should be blocked after max_tokens
+        let (allowed, retry_ms) = limiter
+            .check_token_bucket(key, 10, 1.0, 0)
+            .await;
+        assert!(!allowed);
+        assert!(retry_ms > 0);
+    }
+
+    #[tokio::test]
+    async fn test_token_bucket_refill() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+        let key = "user:test2";
+
+        // Exhaust tokens
+        for _ in 0..5 {
+            limiter.check_token_bucket(key, 5, 2.0, 0).await;
+        }
+
+        let (allowed, _) = limiter.check_token_bucket(key, 5, 2.0, 0).await;
+        assert!(!allowed);
+
+        // Wait for refill
+        tokio::time::sleep(Duration::from_millis(600)).await;
+
+        let (allowed, _) = limiter.check_token_bucket(key, 5, 2.0, 0).await;
+        assert!(allowed);
+    }
+
+    #[tokio::test]
+    async fn test_policy_based_rate_limiting() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+        let key = "user:policy1";
+
+        // Should allow up to rate_limit
+        for _ in 0..5 {
+            let (allowed, _, _, _, _) = limiter
+                .check_with_policy(key, 5, 60, 0)
+                .await;
+            assert!(allowed);
+        }
+
+        let (allowed, _, _, _, _) = limiter.check_with_policy(key, 5, 60, 0).await;
+        assert!(!allowed);
+    }
+
+    #[tokio::test]
+    async fn test_policy_with_burst() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+        let key = "user:burst1";
+
+        // Should allow up to rate_limit + burst_size
+        for _ in 0..7 {
+            let (allowed, _, _, _, _) = limiter
+                .check_with_policy(key, 5, 60, 2)
+                .await;
+            assert!(allowed);
+        }
+
+        let (allowed, _, _, _, _) = limiter.check_with_policy(key, 5, 60, 2).await;
+        assert!(!allowed);
+    }
+
+    #[tokio::test]
+    async fn test_admin_bypass() {
+        let config = RateLimitConfig::default();
+        let limiter = RateLimiter::new(config);
+        assert!(limiter.is_admin_bypass_enabled());
     }
 
     #[test]

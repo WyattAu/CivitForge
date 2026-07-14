@@ -3,6 +3,8 @@
 pub mod activity;
 pub mod admin_dashboard;
 pub mod api_analytics;
+pub mod api_gateway;
+pub mod api_transforms;
 pub mod artifact_serving;
 pub mod audit_admin;
 pub mod auth_routes;
@@ -298,6 +300,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(chaos::chaos_routes())
         .merge(resilience::resilience_routes())
         .merge(circuit_breaker::circuit_breaker_routes())
+        .merge(api_gateway::gateway_routes())
+        .merge(api_transforms::transform_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

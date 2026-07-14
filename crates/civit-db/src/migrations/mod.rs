@@ -160,6 +160,14 @@ pub const M_107_APM_TRANSACTIONS_SPANS_UP: &str = include_str!("107_add_apm_tran
 pub const M_107_APM_TRANSACTIONS_SPANS_DOWN: &str = "DROP TABLE IF EXISTS apm_spans; DROP TABLE IF EXISTS apm_transactions;";
 pub const M_108_ERROR_TRACKING_UP: &str = include_str!("108_add_error_tracking.sql");
 pub const M_108_ERROR_TRACKING_DOWN: &str = "DROP TABLE IF EXISTS error_tracking;";
+pub const M_109_API_GATEWAY_UP: &str = include_str!("109_add_api_gateway.sql");
+pub const M_109_API_GATEWAY_DOWN: &str =
+    "DROP TABLE IF EXISTS api_gateway_keys; DROP TABLE IF EXISTS api_gateway_routes;";
+pub const M_110_RATE_LIMIT_POLICIES_UP: &str = include_str!("110_add_rate_limit_policies.sql");
+pub const M_110_RATE_LIMIT_POLICIES_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_buckets; DROP TABLE IF EXISTS rate_limit_policies;";
+pub const M_111_API_TRANSFORMS_UP: &str = include_str!("111_add_api_transforms.sql");
+pub const M_111_API_TRANSFORMS_DOWN: &str = "DROP TABLE IF EXISTS api_transforms;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -705,6 +713,24 @@ impl MigrationManager {
             up_sql: M_108_ERROR_TRACKING_UP.into(),
             down_sql: M_108_ERROR_TRACKING_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 109,
+            name: "add_api_gateway".into(),
+            up_sql: M_109_API_GATEWAY_UP.into(),
+            down_sql: M_109_API_GATEWAY_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 110,
+            name: "add_rate_limit_policies".into(),
+            up_sql: M_110_RATE_LIMIT_POLICIES_UP.into(),
+            down_sql: M_110_RATE_LIMIT_POLICIES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 111,
+            name: "add_api_transforms".into(),
+            up_sql: M_111_API_TRANSFORMS_UP.into(),
+            down_sql: M_111_API_TRANSFORMS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -746,7 +772,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 85);
+        assert_eq!(mgr.all().len(), 88);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -903,19 +929,25 @@ mod tests {
         assert_eq!(mgr.all()[77].name, "add_events_and_subscriptions");
         assert_eq!(mgr.all()[78].version, 102);
         assert_eq!(mgr.all()[78].name, "add_event_queues");
+        assert_eq!(mgr.all()[85].version, 109);
+        assert_eq!(mgr.all()[85].name, "add_api_gateway");
+        assert_eq!(mgr.all()[86].version, 110);
+        assert_eq!(mgr.all()[86].name, "add_rate_limit_policies");
+        assert_eq!(mgr.all()[87].version, 111);
+        assert_eq!(mgr.all()[87].name, "add_api_transforms");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 109,
+            version: 112,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 86);
-        assert_eq!(mgr.all()[85].version, 109);
+        assert_eq!(mgr.all().len(), 89);
+        assert_eq!(mgr.all()[88].version, 112);
     }
 
     #[test]
@@ -934,13 +966,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 85);
+        assert_eq!(pending.len(), 88);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(108);
+        let pending = mgr.get_pending(111);
         assert_eq!(pending.len(), 0);
     }
 
@@ -948,7 +980,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 84);
+        assert_eq!(pending.len(), 87);
     }
 
     #[test]
