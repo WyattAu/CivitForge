@@ -8,4 +8,7 @@ pub use types::{
     InfrastructureTemplate, InfrastructureDeployment,
     CreateTemplateRequest, UpdateTemplateRequest,
     DeployRequest, InfraDeploymentStatus,
+    InfrastructureModule, CreateModuleRequest, UpdateModuleRequest,
+    ModuleDependency, CreateModuleDependencyRequest,
+    ModuleVersion, ModuleMarketplaceItem,
 };

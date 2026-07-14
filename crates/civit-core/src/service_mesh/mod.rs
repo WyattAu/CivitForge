@@ -8,4 +8,7 @@ pub use types::{
     ServiceMeshService, ServiceMeshRoute, ServiceStatus,
     CreateServiceRequest, UpdateServiceRequest,
     CreateRouteRequest, UpdateRouteRequest,
+    ServiceMeshPolicy, CreatePolicyRequest, UpdatePolicyRequest,
+    ServiceMeshMetric, CreateMetricRequest,
+    TrafficAnalysis, PerformanceMetrics,
 };

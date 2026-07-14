@@ -84,3 +84,64 @@ pub struct DeployRequest {
     pub environment: String,
     pub variables: Option<serde_json::Value>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InfrastructureModule {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub provider: String,
+    pub module_type: String,
+    pub config: serde_json::Value,
+    pub version: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateModuleRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub provider: String,
+    pub module_type: String,
+    pub config: Option<serde_json::Value>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateModuleRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub provider: Option<String>,
+    pub module_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleDependency {
+    pub id: Uuid,
+    pub module_id: Uuid,
+    pub dependency_id: Uuid,
+    pub version_constraint: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateModuleDependencyRequest {
+    pub dependency_id: Uuid,
+    pub version_constraint: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleVersion {
+    pub version: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModuleMarketplaceItem {
+    pub module: InfrastructureModule,
+    pub download_count: u64,
+    pub rating: f64,
+    pub dependencies: Vec<ModuleDependency>,
+}

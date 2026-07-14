@@ -66,3 +66,60 @@ pub struct UpdateStrategyRequest {
     pub config: Option<serde_json::Value>,
     pub enabled: Option<bool>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrategyConfig {
+    pub id: Uuid,
+    pub strategy_id: Uuid,
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateStrategyConfigRequest {
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrategyLog {
+    pub id: Uuid,
+    pub strategy_id: Uuid,
+    pub action: String,
+    pub status: String,
+    pub details: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateStrategyLogRequest {
+    pub action: String,
+    pub status: Option<String>,
+    pub details: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrategyTestResult {
+    pub strategy_id: Uuid,
+    pub test_name: String,
+    pub passed: bool,
+    pub duration_ms: u64,
+    pub details: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrategyComparison {
+    pub strategy_a_id: Uuid,
+    pub strategy_b_id: Uuid,
+    pub metrics: Vec<StrategyComparisonMetric>,
+    pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StrategyComparisonMetric {
+    pub metric_name: String,
+    pub strategy_a_value: f64,
+    pub strategy_b_value: f64,
+    pub winner: String,
+}

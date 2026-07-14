@@ -297,6 +297,12 @@ pub const M_173_API_WEBHOOKS_V2_DOWN: &str =
     "DROP TABLE IF EXISTS api_webhook_deliveries_v2; DROP TABLE IF EXISTS api_webhooks_v2;";
 pub const M_174_API_ANALYTICS_V4_UP: &str = include_str!("174_add_api_analytics_v4.sql");
 pub const M_174_API_ANALYTICS_V4_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v4;";
+pub const M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_UP: &str = include_str!("175_add_deployment_strategy_configs_logs.sql");
+pub const M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_DOWN: &str = "DROP TABLE IF EXISTS deployment_strategy_logs; DROP TABLE IF EXISTS deployment_strategy_configs;";
+pub const M_176_INFRASTRUCTURE_MODULES_UP: &str = include_str!("176_add_infrastructure_modules.sql");
+pub const M_176_INFRASTRUCTURE_MODULES_DOWN: &str = "DROP TABLE IF EXISTS infrastructure_module_deps; DROP TABLE IF EXISTS infrastructure_modules;";
+pub const M_177_SERVICE_MESH_POLICIES_METRICS_UP: &str = include_str!("177_add_service_mesh_policies_metrics.sql");
+pub const M_177_SERVICE_MESH_POLICIES_METRICS_DOWN: &str = "DROP TABLE IF EXISTS service_mesh_metrics; DROP TABLE IF EXISTS service_mesh_policies;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1202,6 +1208,24 @@ impl MigrationManager {
             up_sql: M_174_API_ANALYTICS_V4_UP.into(),
             down_sql: M_174_API_ANALYTICS_V4_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 175,
+            name: "add_deployment_strategy_configs_logs".into(),
+            up_sql: M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_UP.into(),
+            down_sql: M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 176,
+            name: "add_infrastructure_modules".into(),
+            up_sql: M_176_INFRASTRUCTURE_MODULES_UP.into(),
+            down_sql: M_176_INFRASTRUCTURE_MODULES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 177,
+            name: "add_service_mesh_policies_metrics".into(),
+            up_sql: M_177_SERVICE_MESH_POLICIES_METRICS_UP.into(),
+            down_sql: M_177_SERVICE_MESH_POLICIES_METRICS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1243,7 +1267,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 145);
+        assert_eq!(mgr.all().len(), 148);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1478,13 +1502,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 175,
+            version: 178,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 146);
-        assert_eq!(mgr.all()[145].version, 175);
+        assert_eq!(mgr.all().len(), 149);
+        assert_eq!(mgr.all()[148].version, 178);
     }
 
     #[test]
@@ -1503,13 +1527,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 145);
+        assert_eq!(pending.len(), 148);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(174);
+        let pending = mgr.get_pending(177);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1517,7 +1541,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 144);
+        assert_eq!(pending.len(), 147);
     }
 
     #[test]
