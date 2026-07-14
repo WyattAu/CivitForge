@@ -1,6 +1,6 @@
 use super::types::*;
 use chrono::Utc;
-use sqlx::PgPool;
+use sqlx::{PgPool, QueryBuilder};
 use uuid::Uuid;
 use std::future::Future;
 use std::pin::Pin;
@@ -1184,6 +1184,469 @@ impl TestSuiteStore {
             last_measured_at,
         })
     }
+
+    pub async fn create_metric_v2(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteMetricV2Request,
+    ) -> Result<TestSuiteMetricV2, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_metrics_v2 (id, suite_id, metric_name, metric_value, measured_at)
+               VALUES ($1, $2, $3, $4, $5)"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.metric_name)
+        .bind(req.metric_value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteMetricV2 {
+            id,
+            suite_id,
+            metric_name: req.metric_name,
+            metric_value: req.metric_value,
+            measured_at: now,
+        })
+    }
+
+    pub async fn list_metrics_v2(
+        &self,
+        suite_id: Uuid,
+        metric_name: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestSuiteMetricV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, MetricV2Row>(
+            r#"SELECT id, suite_id, metric_name, metric_value, measured_at
+               FROM test_suite_metrics_v2
+               WHERE suite_id = $1
+                 AND ($2::varchar IS NULL OR metric_name = $2)
+               ORDER BY measured_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteMetricV2::from).collect())
+    }
+
+    pub async fn get_metric_summary_v2(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+    ) -> Result<Option<MetricSummaryV2>, sqlx::Error> {
+        let row = sqlx::query_as::<_, MetricSummaryV2Row>(
+            r#"SELECT
+                metric_name,
+                (SELECT metric_value FROM test_suite_metrics_v2 WHERE suite_id = $1 AND metric_name = $2 ORDER BY measured_at DESC LIMIT 1) as latest_value,
+                COALESCE(AVG(metric_value), 0) as avg_value,
+                COALESCE(MIN(metric_value), 0) as min_value,
+                COALESCE(MAX(metric_value), 0) as max_value,
+                COUNT(*) as measurement_count,
+                COUNT(DISTINCT suite_id) as suites_affected
+               FROM test_suite_metrics_v2
+               WHERE suite_id = $1 AND metric_name = $2"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(MetricSummaryV2::from))
+    }
+
+    pub async fn create_baseline_v2(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteBaselineV2Request,
+    ) -> Result<TestSuiteBaselineV2, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let threshold_percent = req.threshold_percent.unwrap_or(10.0);
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_baselines_v2 (id, suite_id, metric_name, baseline_value, threshold_percent, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (suite_id, metric_name) DO UPDATE SET baseline_value = $4, threshold_percent = $5"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.metric_name)
+        .bind(req.baseline_value)
+        .bind(threshold_percent)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteBaselineV2 {
+            id,
+            suite_id,
+            metric_name: req.metric_name,
+            baseline_value: req.baseline_value,
+            threshold_percent,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_baselines_v2(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteBaselineV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, BaselineV2Row>(
+            r#"SELECT id, suite_id, metric_name, baseline_value, threshold_percent, created_at
+               FROM test_suite_baselines_v2
+               WHERE suite_id = $1
+               ORDER BY metric_name"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteBaselineV2::from).collect())
+    }
+
+    pub async fn update_baseline_v2(
+        &self,
+        id: Uuid,
+        req: UpdateTestSuiteBaselineV2Request,
+    ) -> Result<TestSuiteBaselineV2, sqlx::Error> {
+        if let Some(value) = req.baseline_value {
+            sqlx::query(r#"UPDATE test_suite_baselines_v2 SET baseline_value = $1 WHERE id = $2"#)
+                .bind(value)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(threshold) = req.threshold_percent {
+            sqlx::query(r#"UPDATE test_suite_baselines_v2 SET threshold_percent = $1 WHERE id = $2"#)
+                .bind(threshold)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        let row = sqlx::query_as::<_, BaselineV2Row>(
+            r#"SELECT id, suite_id, metric_name, baseline_value, threshold_percent, created_at
+               FROM test_suite_baselines_v2 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(TestSuiteBaselineV2::from(row))
+    }
+
+    pub async fn delete_baseline_v2(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM test_suite_baselines_v2 WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn detect_regressions_v2(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteRegressionV2>, sqlx::Error> {
+        let baselines = self.list_baselines_v2(suite_id).await?;
+        let mut regressions = Vec::new();
+
+        for baseline in baselines {
+            if let Some(latest_metric) = sqlx::query_as::<_, MetricV2Row>(
+                r#"SELECT id, suite_id, metric_name, metric_value, measured_at
+                   FROM test_suite_metrics_v2
+                   WHERE suite_id = $1 AND metric_name = $2
+                   ORDER BY measured_at DESC
+                   LIMIT 1"#,
+            )
+            .bind(suite_id)
+            .bind(&baseline.metric_name)
+            .fetch_optional(&self.pool)
+            .await?
+            {
+                let current_value = latest_metric.metric_value;
+                let regression_percent = if baseline.baseline_value != 0.0 {
+                    ((current_value - baseline.baseline_value) / baseline.baseline_value) * 100.0
+                } else {
+                    0.0
+                };
+
+                if regression_percent > baseline.threshold_percent {
+                    let severity = if regression_percent > 50.0 {
+                        "critical"
+                    } else if regression_percent > 25.0 {
+                        "high"
+                    } else if regression_percent > 10.0 {
+                        "medium"
+                    } else {
+                        "low"
+                    };
+
+                    regressions.push(TestSuiteRegressionV2 {
+                        id: Uuid::new_v4(),
+                        baseline_id: baseline.id,
+                        metric_name: baseline.metric_name,
+                        baseline_value: baseline.baseline_value,
+                        current_value,
+                        regression_percent,
+                        threshold_percent: baseline.threshold_percent,
+                        status: "open".to_string(),
+                        detected_at: Utc::now(),
+                    });
+                }
+            }
+        }
+
+        Ok(regressions)
+    }
+
+    pub async fn get_metrics_summary_v2(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<TestSuiteMetricsSummaryV2, sqlx::Error> {
+        let metrics = self.list_metrics_v2(suite_id, None, 1000, 0).await?;
+        let baselines = self.list_baselines_v2(suite_id).await?;
+        let regressions = self.detect_regressions_v2(suite_id).await?;
+
+        let active_regressions = regressions.iter().filter(|r| r.status == "open").count() as i64;
+        let resolved_regressions = regressions.iter().filter(|r| r.status == "resolved").count() as i64;
+
+        Ok(TestSuiteMetricsSummaryV2 {
+            suite_id,
+            total_metrics: metrics.len() as i64,
+            total_baselines: baselines.len() as i64,
+            active_regressions,
+            resolved_regressions,
+            metrics,
+            baselines,
+        })
+    }
+
+    pub async fn get_performance_report_v2(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<TestSuitePerformanceReportV2, sqlx::Error> {
+        let suite = self.get_suite(suite_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let metrics_summary = self.get_metrics_summary_v2(suite_id).await?;
+        let regressions = self.detect_regressions_v2(suite_id).await?;
+
+        let mut alerts = Vec::new();
+        for regression in &regressions {
+            alerts.push(TestSuitePerformanceAlertV2 {
+                id: Uuid::new_v4(),
+                suite_id,
+                metric_name: regression.metric_name.clone(),
+                baseline_value: regression.baseline_value,
+                current_value: regression.current_value,
+                regression_percent: regression.regression_percent,
+                threshold_percent: regression.threshold_percent,
+                severity: if regression.regression_percent > 50.0 {
+                    "critical".to_string()
+                } else if regression.regression_percent > 25.0 {
+                    "high".to_string()
+                } else if regression.regression_percent > 10.0 {
+                    "medium".to_string()
+                } else {
+                    "low".to_string()
+                },
+                message: format!(
+                    "Performance regression detected: {} regressed by {:.1}% (threshold: {:.1}%)",
+                    regression.metric_name, regression.regression_percent, regression.threshold_percent
+                ),
+                created_at: Utc::now(),
+            });
+        }
+
+        let overall_score = if metrics_summary.total_baselines > 0 {
+            let passing_baselines = metrics_summary.total_baselines - metrics_summary.active_regressions;
+            (passing_baselines as f64 / metrics_summary.total_baselines as f64) * 100.0
+        } else {
+            100.0
+        };
+
+        let last_measured_at = metrics_summary.metrics.iter().map(|m| m.measured_at).max();
+
+        Ok(TestSuitePerformanceReportV2 {
+            suite_id,
+            suite_name: suite.name,
+            metrics_summary,
+            regressions,
+            alerts,
+            overall_score,
+            last_measured_at,
+        })
+    }
+
+    pub async fn create_alert_config(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteAlertConfigRequest,
+    ) -> Result<TestSuitePerformanceAlertConfig, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let enabled = req.enabled.unwrap_or(true);
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_alert_configs (id, suite_id, alert_type, threshold, enabled, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.alert_type)
+        .bind(req.threshold)
+        .bind(enabled)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuitePerformanceAlertConfig {
+            id,
+            suite_id,
+            alert_type: req.alert_type,
+            threshold: req.threshold,
+            enabled,
+            last_triggered_at: None,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_alert_config(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<TestSuitePerformanceAlertConfig>, sqlx::Error> {
+        let row = sqlx::query_as::<_, AlertConfigV2Row>(
+            r#"SELECT id, suite_id, alert_type, threshold, enabled, last_triggered_at, created_at
+               FROM test_suite_alert_configs WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(TestSuitePerformanceAlertConfig::from))
+    }
+
+    pub async fn list_alert_configs(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuitePerformanceAlertConfig>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AlertConfigV2Row>(
+            r#"SELECT id, suite_id, alert_type, threshold, enabled, last_triggered_at, created_at
+               FROM test_suite_alert_configs
+               WHERE suite_id = $1
+               ORDER BY created_at"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuitePerformanceAlertConfig::from).collect())
+    }
+
+    pub async fn update_alert_config(
+        &self,
+        id: Uuid,
+        req: UpdateTestSuiteAlertConfigRequest,
+    ) -> Result<TestSuitePerformanceAlertConfig, sqlx::Error> {
+        if let Some(ref alert_type) = req.alert_type {
+            sqlx::query(r#"UPDATE test_suite_alert_configs SET alert_type = $1 WHERE id = $2"#)
+                .bind(alert_type)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(threshold) = req.threshold {
+            sqlx::query(r#"UPDATE test_suite_alert_configs SET threshold = $1 WHERE id = $2"#)
+                .bind(threshold)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(enabled) = req.enabled {
+            sqlx::query(r#"UPDATE test_suite_alert_configs SET enabled = $1 WHERE id = $2"#)
+                .bind(enabled)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        self.get_alert_config(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    pub async fn delete_alert_config(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM test_suite_alert_configs WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn trigger_alert(
+        &self,
+        alert_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+        threshold: f64,
+    ) -> Result<TestSuiteAlertHistory, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_alert_history (id, alert_id, metric_name, metric_value, threshold, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(alert_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .bind(threshold)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(r#"UPDATE test_suite_alert_configs SET last_triggered_at = $1 WHERE id = $2"#)
+            .bind(now)
+            .bind(alert_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(TestSuiteAlertHistory {
+            id,
+            alert_id,
+            metric_name: metric_name.to_string(),
+            metric_value,
+            threshold,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_alert_history(
+        &self,
+        alert_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<TestSuiteAlertHistory>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AlertHistoryV2Row>(
+            r#"SELECT id, alert_id, metric_name, metric_value, threshold, created_at
+               FROM test_suite_alert_history
+               WHERE alert_id = $1
+               ORDER BY created_at DESC
+               LIMIT $2"#,
+        )
+        .bind(alert_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteAlertHistory::from).collect())
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -1486,6 +1949,133 @@ impl From<BaselineRow> for TestSuiteBaseline {
             metric_name: row.metric_name,
             baseline_value: row.baseline_value,
             threshold_percent: row.threshold_percent,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MetricV2Row {
+    id: Uuid,
+    suite_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    measured_at: chrono::DateTime<Utc>,
+}
+
+impl From<MetricV2Row> for TestSuiteMetricV2 {
+    fn from(row: MetricV2Row) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            measured_at: row.measured_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MetricSummaryV2Row {
+    metric_name: String,
+    latest_value: f64,
+    avg_value: f64,
+    min_value: f64,
+    max_value: f64,
+    measurement_count: i64,
+    suites_affected: i64,
+}
+
+struct MetricSummaryV2 {
+    metric_name: String,
+    latest_value: f64,
+    avg_value: f64,
+    min_value: f64,
+    max_value: f64,
+    measurement_count: i64,
+    suites_affected: i64,
+}
+
+impl From<MetricSummaryV2Row> for MetricSummaryV2 {
+    fn from(row: MetricSummaryV2Row) -> Self {
+        Self {
+            metric_name: row.metric_name,
+            latest_value: row.latest_value,
+            avg_value: row.avg_value,
+            min_value: row.min_value,
+            max_value: row.max_value,
+            measurement_count: row.measurement_count,
+            suites_affected: row.suites_affected,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct BaselineV2Row {
+    id: Uuid,
+    suite_id: Uuid,
+    metric_name: String,
+    baseline_value: f64,
+    threshold_percent: f64,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<BaselineV2Row> for TestSuiteBaselineV2 {
+    fn from(row: BaselineV2Row) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            metric_name: row.metric_name,
+            baseline_value: row.baseline_value,
+            threshold_percent: row.threshold_percent,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct AlertConfigV2Row {
+    id: Uuid,
+    suite_id: Uuid,
+    alert_type: String,
+    threshold: f64,
+    enabled: bool,
+    last_triggered_at: Option<chrono::DateTime<Utc>>,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<AlertConfigV2Row> for TestSuitePerformanceAlertConfig {
+    fn from(row: AlertConfigV2Row) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            alert_type: row.alert_type,
+            threshold: row.threshold,
+            enabled: row.enabled,
+            last_triggered_at: row.last_triggered_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct AlertHistoryV2Row {
+    id: Uuid,
+    alert_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    threshold: f64,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<AlertHistoryV2Row> for TestSuiteAlertHistory {
+    fn from(row: AlertHistoryV2Row) -> Self {
+        Self {
+            id: row.id,
+            alert_id: row.alert_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            threshold: row.threshold,
             created_at: row.created_at,
         }
     }

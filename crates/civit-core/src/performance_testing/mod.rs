@@ -15,4 +15,6 @@ pub use types::{
     PerformanceAlert, PerformanceBaselineSummary,
     PerformanceTestAlertConfig, CreateAlertConfigRequest, UpdateAlertConfigRequest,
     PerformanceAlertHistory, AlertNotification, AlertAnalytics, AlertTriggerTrend,
+    PerformanceTestAlertConfigV3, CreateAlertConfigV3Request, UpdateAlertConfigV3Request,
+    PerformanceAlertHistoryV3, AlertNotificationV3, AlertAnalyticsV3, AlertTriggerTrendV3,
 };

@@ -1072,6 +1072,365 @@ impl PerformanceTestStore {
 
         Ok(notifications)
     }
+
+    pub async fn create_alert_config_v3(
+        &self,
+        baseline_id: Uuid,
+        req: CreateAlertConfigV3Request,
+    ) -> Result<PerformanceTestAlertConfigV3, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let enabled = req.enabled.unwrap_or(true);
+
+        sqlx::query(
+            r#"INSERT INTO performance_test_alerts_v3 (id, baseline_id, alert_type, threshold, enabled, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(baseline_id)
+        .bind(&req.alert_type)
+        .bind(req.threshold)
+        .bind(enabled)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(PerformanceTestAlertConfigV3 {
+            id,
+            baseline_id,
+            alert_type: req.alert_type,
+            threshold: req.threshold,
+            enabled,
+            last_triggered_at: None,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_alert_config_v3(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<PerformanceTestAlertConfigV3>, sqlx::Error> {
+        let row = sqlx::query_as::<_, AlertConfigV3Row>(
+            r#"SELECT id, baseline_id, alert_type, threshold, enabled, last_triggered_at, created_at
+               FROM performance_test_alerts_v3 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(PerformanceTestAlertConfigV3::from))
+    }
+
+    pub async fn list_alert_configs_v3(
+        &self,
+        baseline_id: Uuid,
+    ) -> Result<Vec<PerformanceTestAlertConfigV3>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AlertConfigV3Row>(
+            r#"SELECT id, baseline_id, alert_type, threshold, enabled, last_triggered_at, created_at
+               FROM performance_test_alerts_v3
+               WHERE baseline_id = $1
+               ORDER BY created_at"#,
+        )
+        .bind(baseline_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(PerformanceTestAlertConfigV3::from).collect())
+    }
+
+    pub async fn list_alert_configs_v3_for_repo(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<PerformanceTestAlertConfigV3>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AlertConfigV3Row>(
+            r#"SELECT pta.id, pta.baseline_id, pta.alert_type, pta.threshold, pta.enabled, pta.last_triggered_at, pta.created_at
+               FROM performance_test_alerts_v3 pta
+               JOIN performance_baselines pb ON pta.baseline_id = pb.id
+               WHERE pb.repo_id = $1
+               ORDER BY pta.created_at"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(PerformanceTestAlertConfigV3::from).collect())
+    }
+
+    pub async fn update_alert_config_v3(
+        &self,
+        id: Uuid,
+        req: UpdateAlertConfigV3Request,
+    ) -> Result<PerformanceTestAlertConfigV3, sqlx::Error> {
+        if let Some(ref alert_type) = req.alert_type {
+            sqlx::query(r#"UPDATE performance_test_alerts_v3 SET alert_type = $1 WHERE id = $2"#)
+                .bind(alert_type)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(threshold) = req.threshold {
+            sqlx::query(r#"UPDATE performance_test_alerts_v3 SET threshold = $1 WHERE id = $2"#)
+                .bind(threshold)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(enabled) = req.enabled {
+            sqlx::query(r#"UPDATE performance_test_alerts_v3 SET enabled = $1 WHERE id = $2"#)
+                .bind(enabled)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        self.get_alert_config_v3(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    pub async fn delete_alert_config_v3(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM performance_test_alerts_v3 WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn trigger_alert_v3(
+        &self,
+        alert_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+        threshold: f64,
+    ) -> Result<PerformanceAlertHistoryV3, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO performance_test_alert_history_v3 (id, alert_id, metric_name, metric_value, threshold, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(alert_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .bind(threshold)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        sqlx::query(r#"UPDATE performance_test_alerts_v3 SET last_triggered_at = $1 WHERE id = $2"#)
+            .bind(now)
+            .bind(alert_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(PerformanceAlertHistoryV3 {
+            id,
+            alert_id,
+            metric_name: metric_name.to_string(),
+            metric_value,
+            threshold,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_alert_history_v3(
+        &self,
+        alert_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<PerformanceAlertHistoryV3>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AlertHistoryV3Row>(
+            r#"SELECT id, alert_id, metric_name, metric_value, threshold, created_at
+               FROM performance_test_alert_history_v3
+               WHERE alert_id = $1
+               ORDER BY created_at DESC
+               LIMIT $2"#,
+        )
+        .bind(alert_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(PerformanceAlertHistoryV3::from).collect())
+    }
+
+    pub async fn get_alert_notifications_v3(
+        &self,
+        baseline_id: Uuid,
+    ) -> Result<Vec<AlertNotificationV3>, sqlx::Error> {
+        let alerts = sqlx::query_as::<_, AlertConfigV3Row>(
+            r#"SELECT pta.id, pta.baseline_id, pta.alert_type, pta.threshold, pta.enabled, pta.last_triggered_at, pta.created_at
+               FROM performance_test_alerts_v3 pta
+               WHERE pta.baseline_id = $1 AND pta.enabled = true"#,
+        )
+        .bind(baseline_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut notifications = Vec::new();
+        for alert in alerts {
+            let baseline = self.get_baseline(alert.baseline_id).await?;
+            if let Some(baseline) = baseline {
+                notifications.push(AlertNotificationV3 {
+                    alert_id: alert.id,
+                    metric_name: baseline.metric_name,
+                    current_value: baseline.baseline_value,
+                    threshold: alert.threshold,
+                    severity: if alert.threshold > 50.0 {
+                        "critical".to_string()
+                    } else if alert.threshold > 25.0 {
+                        "high".to_string()
+                    } else {
+                        "medium".to_string()
+                    },
+                    message: format!(
+                        "Alert configured: {} exceeds {}",
+                        alert.alert_type, alert.threshold
+                    ),
+                });
+            }
+        }
+
+        Ok(notifications)
+    }
+
+    pub async fn get_alert_analytics_v3(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<AlertAnalyticsV3, sqlx::Error> {
+        let alerts = self.list_alert_configs_v3_for_repo(repo_id).await?;
+        let total_alerts = alerts.len() as i64;
+        let active_alerts = alerts.iter().filter(|a| a.enabled).count() as i64;
+
+        let total_triggers = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*)
+               FROM performance_test_alert_history_v3 pah
+               JOIN performance_test_alerts_v3 pta ON pah.alert_id = pta.id
+               JOIN performance_baselines pb ON pta.baseline_id = pb.id
+               WHERE pb.repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let triggers_by_type = sqlx::query_as::<_, AlertTypeCountV3Row>(
+            r#"SELECT pta.alert_type, COUNT(*) as count
+               FROM performance_test_alert_history_v3 pah
+               JOIN performance_test_alerts_v3 pta ON pah.alert_id = pta.id
+               JOIN performance_baselines pb ON pta.baseline_id = pb.id
+               WHERE pb.repo_id = $1
+               GROUP BY pta.alert_type"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut triggers_by_type_map = serde_json::json!({});
+        for row in triggers_by_type {
+            triggers_by_type_map[row.alert_type] = serde_json::json!(row.count);
+        }
+
+        let last_triggered = alerts.iter().filter_map(|a| a.last_triggered_at).max();
+
+        let trigger_rows = sqlx::query_as::<_, AlertTriggerTrendV3Row>(
+            r#"SELECT
+                DATE(pah.created_at) as date,
+                COUNT(*) as trigger_count
+               FROM performance_test_alert_history_v3 pah
+               JOIN performance_test_alerts_v3 pta ON pah.alert_id = pta.id
+               JOIN performance_baselines pb ON pta.baseline_id = pb.id
+               WHERE pb.repo_id = $1
+                 AND pah.created_at >= NOW() - INTERVAL '30 days'
+               GROUP BY DATE(pah.created_at)
+               ORDER BY DATE(pah.created_at) DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrendV3::from).collect();
+
+        Ok(AlertAnalyticsV3 {
+            total_alerts,
+            active_alerts,
+            total_triggers,
+            triggers_by_type: triggers_by_type_map,
+            avg_time_between_triggers_ms: 0.0,
+            last_triggered_at: last_triggered,
+            trigger_trend,
+        })
+    }
+
+    pub async fn check_and_trigger_alerts_v3(
+        &self,
+        test_id: Uuid,
+        repo_id: Uuid,
+    ) -> Result<Vec<AlertNotificationV3>, sqlx::Error> {
+        let baselines = self.list_baselines(repo_id).await?;
+        let mut notifications = Vec::new();
+
+        for baseline in baselines {
+            if let Some(result) = sqlx::query_as::<_, TestResultRow>(
+                r#"SELECT id, test_id, metric_name, metric_value, percentile, recorded_at
+                   FROM performance_test_results
+                   WHERE test_id = $1 AND metric_name = $2 AND percentile IS NULL
+                   LIMIT 1"#,
+            )
+            .bind(test_id)
+            .bind(&baseline.metric_name)
+            .fetch_optional(&self.pool)
+            .await?
+            {
+                let current_value = result.metric_value;
+                let alerts = sqlx::query_as::<_, AlertConfigV3Row>(
+                    r#"SELECT id, baseline_id, alert_type, threshold, enabled, last_triggered_at, created_at
+                       FROM performance_test_alerts_v3
+                       WHERE baseline_id = $1 AND enabled = true"#,
+                )
+                .bind(baseline.id)
+                .fetch_all(&self.pool)
+                .await?;
+
+                for alert in alerts {
+                    let triggered = match alert.alert_type.as_str() {
+                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
+                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "absolute" => current_value > alert.threshold,
+                        _ => false,
+                    };
+
+                    if triggered {
+                        self.trigger_alert_v3(
+                            alert.id,
+                            &baseline.metric_name,
+                            current_value,
+                            alert.threshold,
+                        )
+                        .await?;
+
+                        notifications.push(AlertNotificationV3 {
+                            alert_id: alert.id,
+                            metric_name: baseline.metric_name.clone(),
+                            current_value,
+                            threshold: alert.threshold,
+                            severity: if alert.threshold > 50.0 {
+                                "critical".to_string()
+                            } else if alert.threshold > 25.0 {
+                                "high".to_string()
+                            } else {
+                                "medium".to_string()
+                            },
+                            message: format!(
+                                "Performance alert triggered: {} {} (current: {}, threshold: {})",
+                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                            ),
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(notifications)
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -1318,6 +1677,76 @@ struct AlertTriggerTrendRow {
 
 impl From<AlertTriggerTrendRow> for AlertTriggerTrend {
     fn from(row: AlertTriggerTrendRow) -> Self {
+        Self {
+            date: row.date,
+            trigger_count: row.trigger_count,
+            alert_types: Vec::new(),
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct AlertConfigV3Row {
+    id: Uuid,
+    baseline_id: Uuid,
+    alert_type: String,
+    threshold: f64,
+    enabled: bool,
+    last_triggered_at: Option<chrono::DateTime<Utc>>,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<AlertConfigV3Row> for PerformanceTestAlertConfigV3 {
+    fn from(row: AlertConfigV3Row) -> Self {
+        Self {
+            id: row.id,
+            baseline_id: row.baseline_id,
+            alert_type: row.alert_type,
+            threshold: row.threshold,
+            enabled: row.enabled,
+            last_triggered_at: row.last_triggered_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct AlertHistoryV3Row {
+    id: Uuid,
+    alert_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    threshold: f64,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<AlertHistoryV3Row> for PerformanceAlertHistoryV3 {
+    fn from(row: AlertHistoryV3Row) -> Self {
+        Self {
+            id: row.id,
+            alert_id: row.alert_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            threshold: row.threshold,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct AlertTypeCountV3Row {
+    alert_type: String,
+    count: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct AlertTriggerTrendV3Row {
+    date: chrono::NaiveDate,
+    trigger_count: i64,
+}
+
+impl From<AlertTriggerTrendV3Row> for AlertTriggerTrendV3 {
+    fn from(row: AlertTriggerTrendV3Row) -> Self {
         Self {
             date: row.date,
             trigger_count: row.trigger_count,

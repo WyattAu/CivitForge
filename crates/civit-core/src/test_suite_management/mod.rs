@@ -18,4 +18,10 @@ pub use types::{
     TestSuiteBaseline, CreateTestSuiteBaselineRequest, UpdateTestSuiteBaselineRequest,
     TestSuiteRegression, TestSuitePerformanceAlert,
     TestSuiteMetricsSummary, TestSuitePerformanceReport,
+    TestSuiteMetricV2, CreateTestSuiteMetricV2Request,
+    TestSuiteBaselineV2, CreateTestSuiteBaselineV2Request, UpdateTestSuiteBaselineV2Request,
+    TestSuiteRegressionV2, TestSuitePerformanceAlertV2,
+    TestSuiteMetricsSummaryV2, TestSuitePerformanceReportV2,
+    TestSuitePerformanceAlertConfig, CreateTestSuiteAlertConfigRequest, UpdateTestSuiteAlertConfigRequest,
+    TestSuiteAlertHistory,
 };

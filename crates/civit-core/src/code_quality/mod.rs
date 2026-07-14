@@ -15,4 +15,8 @@ pub use types::{
     QualityRuleV3, CreateQualityRuleV3Request, UpdateQualityRuleV3Request,
     EnforcementType, QualityRuleEnforcement, CreateEnforcementRequest, UpdateEnforcementRequest,
     EnforcementAnalytics, EnforcementTrend, EnforcementThresholdResult,
+    CodeQualityMetricV3, RecordMetricV3Request,
+    CodeQualityThresholdV2, CreateCodeQualityThresholdV2Request, UpdateCodeQualityThresholdV2Request,
+    CodeQualityViolation, CodeQualityEnforcementReportV2, CodeQualityScoreV2,
+    CodeQualityMetricSummaryV2,
 };

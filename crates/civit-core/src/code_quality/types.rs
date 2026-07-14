@@ -450,3 +450,89 @@ pub struct EnforcementThresholdResult {
     pub current_violations: i64,
     pub would_block: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityMetricV3 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub file_path: String,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordMetricV3Request {
+    pub file_path: String,
+    pub metric_name: String,
+    pub metric_value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityThresholdV2 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub metric_name: String,
+    pub threshold_value: f64,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCodeQualityThresholdV2Request {
+    pub metric_name: String,
+    pub threshold_value: f64,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateCodeQualityThresholdV2Request {
+    pub threshold_value: Option<f64>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityViolation {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub file_path: String,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub threshold_value: f64,
+    pub severity: String,
+    pub detected_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityEnforcementReportV2 {
+    pub repo_id: Uuid,
+    pub total_thresholds: i64,
+    pub active_thresholds: i64,
+    pub total_violations: i64,
+    pub violations_by_severity: serde_json::Value,
+    pub violations_by_metric: serde_json::Value,
+    pub violations: Vec<CodeQualityViolation>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityScoreV2 {
+    pub repo_id: Uuid,
+    pub overall_score: f64,
+    pub metrics_evaluated: i64,
+    pub thresholds_passed: i64,
+    pub thresholds_failed: i64,
+    pub score_breakdown: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityMetricSummaryV2 {
+    pub metric_name: String,
+    pub latest_value: f64,
+    pub avg_value: f64,
+    pub min_value: f64,
+    pub max_value: f64,
+    pub measurement_count: i64,
+    pub files_affected: i64,
+    pub threshold: Option<f64>,
+    pub threshold_exceeded: bool,
+}
