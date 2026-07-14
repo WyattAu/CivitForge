@@ -14,4 +14,8 @@ pub use types::{
     TestSuiteTag, CreateTestSuiteTagRequest,
     TestSuiteDependency, CreateTestSuiteDependencyRequest,
     TestExecutionOrder, ExecutionPlan, TestSuiteDependencySummary,
+    TestSuiteMetric, CreateTestSuiteMetricRequest,
+    TestSuiteBaseline, CreateTestSuiteBaselineRequest, UpdateTestSuiteBaselineRequest,
+    TestSuiteRegression, TestSuitePerformanceAlert,
+    TestSuiteMetricsSummary, TestSuitePerformanceReport,
 };

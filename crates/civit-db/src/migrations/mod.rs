@@ -398,6 +398,18 @@ pub const M_234_DASHBOARD_REPORTING_V4_UP: &str =
     include_str!("234_add_dashboard_reporting_v4.sql");
 pub const M_234_DASHBOARD_REPORTING_V4_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v2; DROP TABLE IF EXISTS dashboard_shares;";
+pub const M_238_TEST_SUITE_METRICS_BASELINES_UP: &str =
+    include_str!("238_add_test_suite_metrics_baselines.sql");
+pub const M_238_TEST_SUITE_METRICS_BASELINES_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines; DROP TABLE IF EXISTS test_suite_metrics;";
+pub const M_239_CODE_QUALITY_METRICS_THRESHOLDS_UP: &str =
+    include_str!("239_add_code_quality_metrics_thresholds.sql");
+pub const M_239_CODE_QUALITY_METRICS_THRESHOLDS_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds; DROP TABLE IF EXISTS code_quality_metrics_v2;";
+pub const M_240_PERF_TEST_ALERTS_V2_UP: &str =
+    include_str!("240_add_performance_test_alerts_v2.sql");
+pub const M_240_PERF_TEST_ALERTS_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v2; DROP TABLE IF EXISTS performance_test_alerts_v2;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1572,6 +1584,24 @@ impl MigrationManager {
             name: "add_dashboard_reporting_v4".into(),
             up_sql: M_234_DASHBOARD_REPORTING_V4_UP.into(),
             down_sql: M_234_DASHBOARD_REPORTING_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 238,
+            name: "add_test_suite_metrics_baselines".into(),
+            up_sql: M_238_TEST_SUITE_METRICS_BASELINES_UP.into(),
+            down_sql: M_238_TEST_SUITE_METRICS_BASELINES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 239,
+            name: "add_code_quality_metrics_thresholds".into(),
+            up_sql: M_239_CODE_QUALITY_METRICS_THRESHOLDS_UP.into(),
+            down_sql: M_239_CODE_QUALITY_METRICS_THRESHOLDS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 240,
+            name: "add_performance_test_alerts_v2".into(),
+            up_sql: M_240_PERF_TEST_ALERTS_V2_UP.into(),
+            down_sql: M_240_PERF_TEST_ALERTS_V2_DOWN.into(),
         });
     }
 
