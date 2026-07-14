@@ -3,8 +3,8 @@
 use crate::error::{DbError, Result};
 use crate::models::{
     ActivityEvent, ApiAnalyticV2, ApiAnalyticV3, ApiAnalyticV4, ApiAnalyticV5, ApiAnalyticV6,
-    ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticV9, ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation,
-    ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8,
+    ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticV9, ApiAnalyticV10, ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation,
+    ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8, ApiDocsV9,
     ApiDocumentation, ApiVersion, ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee,
     BoardCardLabel, BranchProtectionRule, CacheCostOptimizationV3, CacheHitAnalysisV3,
     CachePerformanceInsightsV3, CacheSizeTrackingV3, CodeQualityMetric, CodeQualityMetricV4,
@@ -17,9 +17,9 @@ use crate::models::{
     MultiProjectPipelineRun, Org, PerformanceTest, PerformanceTestAlertV4,
     PerformanceTestAlertHistoryV4, Pipeline, PipelineActionReviewV4, PipelineAnalytics,
     PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest,
-    RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitAlertV4, RateLimitOverage,
+    RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitAlertV4, RateLimitAlertV5, RateLimitOverage,
     RateLimitTier, RateLimitTierV2, RateLimitTierV3, RateLimitTierV4, RateLimitTierV5,
-    RateLimitTierV6, RateLimitUsageV2, Release, ReleaseAsset, Repository, ReviewAssignment,
+    RateLimitTierV6, RateLimitTierV7, RateLimitUsageV2, Release, ReleaseAsset, Repository, ReviewAssignment,
     ReviewAnalyticsV3, ReviewHelpfulnessV3, ReviewModerationQueueV3, ReviewRecommendationV3,
     ReviewSummary, SshKey, Team, TeamMember, TestCoverage, TestSuiteBaselineV3,
     TestSuiteMetricV3, User,

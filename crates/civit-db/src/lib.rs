@@ -13,6 +13,7 @@ pub use models::{
     PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release, ReleaseAsset, Repository, SshKey,
     Team, TeamMember, User, WebAuthnCredential, FeatureFlag, FeatureFlagEvent, AdminDashboardConfig,
     DatabaseBackup, DatabaseRecoveryPoint, DataArchive, DataMigration,
+    ApiDocsV9, RateLimitTierV7, RateLimitAlertV5, ApiAnalyticV10,
 };
 pub use pool::DatabasePool;
 pub use repository::{DbRepository, OrgUsage};
