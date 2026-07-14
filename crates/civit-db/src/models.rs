@@ -2064,3 +2064,135 @@ pub struct ApiAnalyticV10 {
     pub cost_cents: i32,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PipelineActionReviewV7 {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub helpful_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReviewHelpfulnessV7 {
+    pub id: Uuid,
+    pub review_id: Uuid,
+    pub user_id: Uuid,
+    pub helpful: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReviewModerationQueueV7 {
+    pub id: Uuid,
+    pub review_id: Uuid,
+    pub status: String,
+    pub moderator_id: Option<Uuid>,
+    pub reason: Option<String>,
+    pub moderated_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReviewAnalyticsV7 {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub total_reviews: i32,
+    pub avg_rating: f64,
+    pub rating_distribution: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ReviewRecommendationV7 {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub user_id: Uuid,
+    pub reason: String,
+    pub confidence: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct EnvironmentDeploymentHistoryV7 {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub version: String,
+    pub sha: String,
+    pub status: String,
+    pub deployed_by: Uuid,
+    pub rollback_of: Option<Uuid>,
+    pub metadata: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DeploymentComparisonV7 {
+    pub id: Uuid,
+    pub from_deployment_id: Uuid,
+    pub to_deployment_id: Uuid,
+    pub diff_summary: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DeploymentAnalyticsV7 {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub total_deployments: i32,
+    pub successful_deployments: i32,
+    pub failed_deployments: i32,
+    pub avg_deploy_time_ms: i64,
+    pub rollback_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CacheHitAnalysisV6 {
+    pub id: Uuid,
+    pub cache_id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub avg_hit_size_bytes: i64,
+    pub total_size_bytes: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CacheSizeTrackingV6 {
+    pub id: Uuid,
+    pub cache_id: Uuid,
+    pub measured_at: DateTime<Utc>,
+    pub size_bytes: i64,
+    pub item_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CacheCostOptimizationV6 {
+    pub id: Uuid,
+    pub cache_id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub estimated_savings_bytes: i64,
+    pub recommended_actions: serde_json::Value,
+    pub applied_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CachePerformanceInsightsV6 {
+    pub id: Uuid,
+    pub cache_id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub hit_rate: f64,
+    pub avg_hit_latency_ms: i64,
+    pub avg_miss_latency_ms: i64,
+    pub eviction_count: i32,
+    pub created_at: DateTime<Utc>,
+}

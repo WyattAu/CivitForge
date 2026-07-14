@@ -596,6 +596,15 @@ pub const M_338_DISTRIBUTED_TRACING_V10_UP: &str = include_str!("338_add_distrib
 pub const M_338_DISTRIBUTED_TRACING_V10_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v6; DROP TABLE IF EXISTS trace_sampling_rules_v9;";
 pub const M_339_DASHBOARD_REPORTING_V9_UP: &str = include_str!("339_add_dashboard_reporting_v9.sql");
 pub const M_339_DASHBOARD_REPORTING_V9_DOWN: &str = "DROP TABLE IF EXISTS report_schedules_v7; DROP TABLE IF EXISTS dashboard_shares_v6;";
+pub const M_340_PIPELINE_ACTION_REVIEWS_V7_UP: &str = include_str!("340_add_pipeline_action_reviews_v7.sql");
+pub const M_340_PIPELINE_ACTION_REVIEWS_V7_DOWN: &str =
+    "DROP TABLE IF EXISTS review_recommendations_v7; DROP TABLE IF EXISTS review_analytics_v7; DROP TABLE IF EXISTS review_moderation_queue_v7; DROP TABLE IF EXISTS review_helpfulness_v7; DROP TABLE IF EXISTS pipeline_action_reviews_v7;";
+pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_UP: &str = include_str!("341_add_environment_deployment_history_v7.sql");
+pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_DOWN: &str =
+    "DROP TABLE IF EXISTS deployment_analytics_v7; DROP TABLE IF EXISTS deployment_comparison_v7; DROP TABLE IF EXISTS environment_deployment_history_v7;";
+pub const M_342_CACHE_HIT_ANALYSIS_V6_UP: &str = include_str!("342_add_cache_hit_analysis_v6.sql");
+pub const M_342_CACHE_HIT_ANALYSIS_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS cache_performance_insights_v6; DROP TABLE IF EXISTS cache_cost_optimization_v6; DROP TABLE IF EXISTS cache_size_tracking_v6; DROP TABLE IF EXISTS cache_hit_analysis_v6;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2167,6 +2176,24 @@ impl MigrationManager {
             up_sql: M_339_DASHBOARD_REPORTING_V9_UP.into(),
             down_sql: M_339_DASHBOARD_REPORTING_V9_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 340,
+            name: "add_pipeline_action_reviews_v7".into(),
+            up_sql: M_340_PIPELINE_ACTION_REVIEWS_V7_UP.into(),
+            down_sql: M_340_PIPELINE_ACTION_REVIEWS_V7_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 341,
+            name: "add_environment_deployment_history_v7".into(),
+            up_sql: M_341_ENVIRONMENT_DEPLOYMENT_V7_UP.into(),
+            down_sql: M_341_ENVIRONMENT_DEPLOYMENT_V7_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 342,
+            name: "add_cache_hit_analysis_v6".into(),
+            up_sql: M_342_CACHE_HIT_ANALYSIS_V6_UP.into(),
+            down_sql: M_342_CACHE_HIT_ANALYSIS_V6_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2208,7 +2235,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 256);
+        assert_eq!(mgr.all().len(), 259);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -2454,8 +2481,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 257);
-        assert_eq!(mgr.all()[256].version, 400);
+        assert_eq!(mgr.all().len(), 260);
+        assert_eq!(mgr.all()[259].version, 400);
     }
 
     #[test]
@@ -2474,7 +2501,7 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 256);
+        assert_eq!(pending.len(), 259);
     }
 
     #[test]
@@ -2488,7 +2515,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 255);
+        assert_eq!(pending.len(), 258);
     }
 
     #[test]
