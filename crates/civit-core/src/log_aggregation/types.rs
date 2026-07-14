@@ -48,6 +48,9 @@ pub struct LogEntry {
     pub level: LogLevel,
     pub message: String,
     pub source: String,
+    pub service: String,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
     pub metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
 }
@@ -57,6 +60,9 @@ pub struct CreateLogEntry {
     pub level: LogLevel,
     pub message: String,
     pub source: String,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
     pub metadata: Option<serde_json::Value>,
 }
 
@@ -64,6 +70,8 @@ pub struct CreateLogEntry {
 pub struct LogSearchFilter {
     pub level: Option<LogLevel>,
     pub source: Option<String>,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
     pub search: Option<String>,
     pub since: Option<DateTime<Utc>>,
     pub until: Option<DateTime<Utc>>,
@@ -103,4 +111,37 @@ pub struct LogExportResult {
     pub entries: Vec<LogEntry>,
     pub format: LogExportFormat,
     pub exported_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogRetentionPolicy {
+    pub id: Uuid,
+    pub service: String,
+    pub level: LogLevel,
+    pub retention_days: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogRetentionPolicy {
+    pub service: String,
+    pub level: LogLevel,
+    pub retention_days: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateLogRetentionPolicy {
+    pub service: Option<String>,
+    pub level: Option<LogLevel>,
+    pub retention_days: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogServiceStats {
+    pub total_entries: i64,
+    pub level_counts: std::collections::HashMap<String, i64>,
+    pub service_counts: std::collections::HashMap<String, i64>,
 }

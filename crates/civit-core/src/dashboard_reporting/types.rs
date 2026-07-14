@@ -98,3 +98,105 @@ pub struct DashboardStats {
     pub total_reports: i64,
     pub scheduled_reports: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardWidgetV2 {
+    pub id: Uuid,
+    pub dashboard_id: Uuid,
+    pub widget_type: String,
+    pub config: serde_json::Value,
+    pub position: serde_json::Value,
+    pub size: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardWidgetV2 {
+    pub dashboard_id: Uuid,
+    pub widget_type: String,
+    pub config: Option<serde_json::Value>,
+    pub position: Option<serde_json::Value>,
+    pub size: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateDashboardWidgetV2 {
+    pub widget_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub position: Option<serde_json::Value>,
+    pub size: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportScheduleV2 {
+    pub id: Uuid,
+    pub report_id: Uuid,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<DateTime<Utc>>,
+    pub next_run_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportScheduleV2 {
+    pub report_id: Uuid,
+    pub cron_expression: String,
+    pub enabled: Option<bool>,
+    pub next_run_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportScheduleV2 {
+    pub cron_expression: Option<String>,
+    pub enabled: Option<bool>,
+    pub next_run_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShareRequest {
+    pub dashboard_id: Uuid,
+    pub user_id: Uuid,
+    pub permission: DashboardPermission,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum DashboardPermission {
+    View,
+    Edit,
+    Admin,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShare {
+    pub id: Uuid,
+    pub dashboard_id: Uuid,
+    pub user_id: Uuid,
+    pub permission: DashboardPermission,
+    pub shared_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportExportRequest {
+    pub report_id: Uuid,
+    pub format: ReportExportFormat,
+    pub since: Option<DateTime<Utc>>,
+    pub until: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ReportExportFormat {
+    Json,
+    Csv,
+    Pdf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportExportResult {
+    pub report_id: Uuid,
+    pub format: ReportExportFormat,
+    pub data: serde_json::Value,
+    pub exported_at: DateTime<Utc>,
+}

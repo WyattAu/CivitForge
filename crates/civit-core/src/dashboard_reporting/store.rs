@@ -54,6 +54,56 @@ impl From<ReportRow> for Report {
     }
 }
 
+#[derive(Debug, sqlx::FromRow)]
+struct WidgetV2Row {
+    id: Uuid,
+    dashboard_id: Uuid,
+    widget_type: String,
+    config: serde_json::Value,
+    position: serde_json::Value,
+    size: serde_json::Value,
+    created_at: DateTime<Utc>,
+}
+
+impl From<WidgetV2Row> for DashboardWidgetV2 {
+    fn from(row: WidgetV2Row) -> Self {
+        DashboardWidgetV2 {
+            id: row.id,
+            dashboard_id: row.dashboard_id,
+            widget_type: row.widget_type,
+            config: row.config,
+            position: row.position,
+            size: row.size,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ReportScheduleV2Row {
+    id: Uuid,
+    report_id: Uuid,
+    cron_expression: String,
+    enabled: bool,
+    last_run_at: Option<DateTime<Utc>>,
+    next_run_at: DateTime<Utc>,
+    created_at: DateTime<Utc>,
+}
+
+impl From<ReportScheduleV2Row> for ReportScheduleV2 {
+    fn from(row: ReportScheduleV2Row) -> Self {
+        ReportScheduleV2 {
+            id: row.id,
+            report_id: row.report_id,
+            cron_expression: row.cron_expression,
+            enabled: row.enabled,
+            last_run_at: row.last_run_at,
+            next_run_at: row.next_run_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
 pub struct DashboardReportingService {
     pool: PgPool,
 }
@@ -310,5 +360,253 @@ impl DashboardReportingService {
             total_reports: report_stats.total_reports,
             scheduled_reports: report_stats.scheduled_reports,
         })
+    }
+
+    // V2: Widget configuration
+
+    pub async fn create_widget_v2(
+        &self,
+        input: CreateDashboardWidgetV2,
+    ) -> Result<DashboardWidgetV2, sqlx::Error> {
+        let row = sqlx::query_as::<_, WidgetV2Row>(
+            r#"INSERT INTO dashboard_widgets_v2 (dashboard_id, widget_type, config, position, size)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, dashboard_id, widget_type, config, position, size, created_at"#,
+        )
+        .bind(input.dashboard_id)
+        .bind(&input.widget_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.position.unwrap_or(serde_json::json!({"x": 0, "y": 0})))
+        .bind(input.size.unwrap_or(serde_json::json!({"width": 6, "height": 4})))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_widget_v2(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<DashboardWidgetV2>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WidgetV2Row>(
+            r#"SELECT id, dashboard_id, widget_type, config, position, size, created_at
+             FROM dashboard_widgets_v2 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_widgets_for_dashboard(
+        &self,
+        dashboard_id: Uuid,
+    ) -> Result<Vec<DashboardWidgetV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WidgetV2Row>(
+            r#"SELECT id, dashboard_id, widget_type, config, position, size, created_at
+             FROM dashboard_widgets_v2 WHERE dashboard_id = $1
+             ORDER BY created_at ASC"#,
+        )
+        .bind(dashboard_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_widget_v2(
+        &self,
+        id: Uuid,
+        input: UpdateDashboardWidgetV2,
+    ) -> Result<DashboardWidgetV2, sqlx::Error> {
+        let row = sqlx::query_as::<_, WidgetV2Row>(
+            r#"UPDATE dashboard_widgets_v2 SET
+             widget_type = COALESCE($2, widget_type),
+             config = COALESCE($3, config),
+             position = COALESCE($4, position),
+             size = COALESCE($5, size)
+             WHERE id = $1
+             RETURNING id, dashboard_id, widget_type, config, position, size, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.widget_type)
+        .bind(&input.config)
+        .bind(&input.position)
+        .bind(&input.size)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_widget_v2(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM dashboard_widgets_v2 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V2: Report scheduling
+
+    pub async fn create_report_schedule(
+        &self,
+        input: CreateReportScheduleV2,
+    ) -> Result<ReportScheduleV2, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"INSERT INTO report_schedules (report_id, cron_expression, enabled, next_run_at)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(input.report_id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled.unwrap_or(true))
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_report_schedule(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<ReportScheduleV2>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_report_schedules(
+        &self,
+    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_due_schedules(
+        &self,
+    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules WHERE enabled = true AND next_run_at <= NOW()
+             ORDER BY next_run_at ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_report_schedule(
+        &self,
+        id: Uuid,
+        input: UpdateReportScheduleV2,
+    ) -> Result<ReportScheduleV2, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"UPDATE report_schedules SET
+             cron_expression = COALESCE($2, cron_expression),
+             enabled = COALESCE($3, enabled),
+             next_run_at = COALESCE($4, next_run_at)
+             WHERE id = $1
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled)
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn mark_schedule_executed(
+        &self,
+        id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"UPDATE report_schedules SET last_run_at = NOW() WHERE id = $1"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_report_schedule(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM report_schedules WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V2: Report export
+
+    pub async fn export_report(
+        &self,
+        request: ReportExportRequest,
+    ) -> Result<ReportExportResult, sqlx::Error> {
+        let report = self.get_report(request.report_id).await?;
+        let report = report.ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let data = serde_json::json!({
+            "report": {
+                "id": report.id,
+                "name": report.name,
+                "report_type": report.report_type,
+                "config": report.config,
+            },
+            "format": request.format,
+            "filters": {
+                "since": request.since,
+                "until": request.until,
+            },
+            "generated_at": Utc::now()
+        });
+
+        Ok(ReportExportResult {
+            report_id: request.report_id,
+            format: request.format,
+            data,
+            exported_at: Utc::now(),
+        })
+    }
+
+    pub async fn list_public_dashboards(
+        &self,
+    ) -> Result<Vec<Dashboard>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DashboardRow>(
+            r#"SELECT id, name, description, widgets, layout, is_public, created_at
+             FROM dashboards WHERE is_public = true
+             ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 }

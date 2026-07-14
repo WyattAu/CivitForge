@@ -10,6 +10,9 @@ struct LogEntryRow {
     level: String,
     message: String,
     source: String,
+    service: String,
+    trace_id: Option<String>,
+    span_id: Option<String>,
     metadata: serde_json::Value,
     created_at: DateTime<Utc>,
 }
@@ -21,7 +24,33 @@ impl From<LogEntryRow> for LogEntry {
             level: row.level.parse().unwrap_or(LogLevel::Info),
             message: row.message,
             source: row.source,
+            service: row.service,
+            trace_id: row.trace_id,
+            span_id: row.span_id,
             metadata: row.metadata,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RetentionPolicyRow {
+    id: Uuid,
+    service: String,
+    level: String,
+    retention_days: i32,
+    enabled: bool,
+    created_at: DateTime<Utc>,
+}
+
+impl From<RetentionPolicyRow> for LogRetentionPolicy {
+    fn from(row: RetentionPolicyRow) -> Self {
+        LogRetentionPolicy {
+            id: row.id,
+            service: row.service,
+            level: row.level.parse().unwrap_or(LogLevel::Info),
+            retention_days: row.retention_days,
+            enabled: row.enabled,
             created_at: row.created_at,
         }
     }
@@ -41,13 +70,16 @@ impl LogAggregationService {
         input: CreateLogEntry,
     ) -> Result<LogEntry, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryRow>(
-            r#"INSERT INTO log_entries (level, message, source, metadata)
-             VALUES ($1, $2, $3, $4)
-             RETURNING id, level, message, source, metadata, created_at"#,
+            r#"INSERT INTO log_entries_v2 (level, message, source, service, trace_id, span_id, metadata)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id, level, message, source, service, trace_id, span_id, metadata, created_at"#,
         )
         .bind(input.level.to_string())
         .bind(&input.message)
         .bind(&input.source)
+        .bind(input.service.as_deref().unwrap_or("civitforge"))
+        .bind(&input.trace_id)
+        .bind(&input.span_id)
         .bind(input.metadata.unwrap_or(serde_json::json!({})))
         .fetch_one(&self.pool)
         .await?;
@@ -66,15 +98,19 @@ impl LogAggregationService {
         let search_pattern = filter.search.map(|s| format!("%{}%", s));
 
         let total_count = sqlx::query_scalar::<_, i64>(
-            r#"SELECT COUNT(*) FROM log_entries
+            r#"SELECT COUNT(*) FROM log_entries_v2
              WHERE ($1::text IS NULL OR level = $1)
              AND ($2::text IS NULL OR source = $2)
-             AND ($3::text IS NULL OR message ILIKE $3)
-             AND ($4::timestamptz IS NULL OR created_at >= $4)
-             AND ($5::timestamptz IS NULL OR created_at <= $5)"#,
+             AND ($3::text IS NULL OR service = $3)
+             AND ($4::text IS NULL OR trace_id = $4)
+             AND ($5::text IS NULL OR message ILIKE $5)
+             AND ($6::timestamptz IS NULL OR created_at >= $6)
+             AND ($7::timestamptz IS NULL OR created_at <= $7)"#,
         )
         .bind(&level_str)
         .bind(&filter.source)
+        .bind(&filter.service)
+        .bind(&filter.trace_id)
         .bind(&search_pattern)
         .bind(filter.since)
         .bind(filter.until)
@@ -82,16 +118,20 @@ impl LogAggregationService {
         .await?;
 
         let entries = sqlx::query_as::<_, LogEntryRow>(
-            r#"SELECT id, level, message, source, metadata, created_at FROM log_entries
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, created_at FROM log_entries_v2
              WHERE ($1::text IS NULL OR level = $1)
              AND ($2::text IS NULL OR source = $2)
-             AND ($3::text IS NULL OR message ILIKE $3)
-             AND ($4::timestamptz IS NULL OR created_at >= $4)
-             AND ($5::timestamptz IS NULL OR created_at <= $5)
-             ORDER BY created_at DESC LIMIT $6 OFFSET $7"#,
+             AND ($3::text IS NULL OR service = $3)
+             AND ($4::text IS NULL OR trace_id = $4)
+             AND ($5::text IS NULL OR message ILIKE $5)
+             AND ($6::timestamptz IS NULL OR created_at >= $6)
+             AND ($7::timestamptz IS NULL OR created_at <= $7)
+             ORDER BY created_at DESC LIMIT $8 OFFSET $9"#,
         )
         .bind(&level_str)
         .bind(&filter.source)
+        .bind(&filter.service)
+        .bind(&filter.trace_id)
         .bind(&search_pattern)
         .bind(filter.since)
         .bind(filter.until)
@@ -111,8 +151,8 @@ impl LogAggregationService {
         id: Uuid,
     ) -> Result<Option<LogEntry>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryRow>(
-            r#"SELECT id, level, message, source, metadata, created_at
-             FROM log_entries WHERE id = $1"#,
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, created_at
+             FROM log_entries_v2 WHERE id = $1"#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -126,7 +166,7 @@ impl LogAggregationService {
         max_age_days: i32,
     ) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
-            "DELETE FROM log_entries WHERE created_at < NOW() - make_interval(days => $1::int)",
+            "DELETE FROM log_entries_v2 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
         .bind(max_age_days)
         .execute(&self.pool)
@@ -150,7 +190,7 @@ impl LogAggregationService {
 
     pub async fn get_log_stats(
         &self,
-    ) -> Result<LogStats, sqlx::Error> {
+    ) -> Result<LogServiceStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LevelCount {
             level: String,
@@ -158,7 +198,7 @@ impl LogAggregationService {
         }
 
         let rows = sqlx::query_as::<_, LevelCount>(
-            r#"SELECT level, COUNT(*) as count FROM log_entries GROUP BY level ORDER BY count DESC"#,
+            r#"SELECT level, COUNT(*) as count FROM log_entries_v2 GROUP BY level ORDER BY count DESC"#,
         )
         .fetch_all(&self.pool)
         .await?;
@@ -170,15 +210,142 @@ impl LogAggregationService {
             .map(|r| (r.level, r.count))
             .collect();
 
-        Ok(LogStats {
+        #[derive(Debug, sqlx::FromRow)]
+        struct ServiceCount {
+            service: String,
+            count: i64,
+        }
+
+        let svc_rows = sqlx::query_as::<_, ServiceCount>(
+            r#"SELECT service, COUNT(*) as count FROM log_entries_v2 GROUP BY service ORDER BY count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let service_counts: std::collections::HashMap<String, i64> = svc_rows
+            .into_iter()
+            .map(|r| (r.service, r.count))
+            .collect();
+
+        Ok(LogServiceStats {
             total_entries: total,
             level_counts,
+            service_counts,
         })
     }
-}
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct LogStats {
-    pub total_entries: i64,
-    pub level_counts: std::collections::HashMap<String, i64>,
+    pub async fn search_by_trace(
+        &self,
+        trace_id: &str,
+    ) -> Result<Vec<LogEntry>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, LogEntryRow>(
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, created_at
+             FROM log_entries_v2 WHERE trace_id = $1
+             ORDER BY created_at ASC"#,
+        )
+        .bind(trace_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn create_retention_policy(
+        &self,
+        input: CreateLogRetentionPolicy,
+    ) -> Result<LogRetentionPolicy, sqlx::Error> {
+        let row = sqlx::query_as::<_, RetentionPolicyRow>(
+            r#"INSERT INTO log_retention_policies (service, level, retention_days, enabled)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, service, level, retention_days, enabled, created_at"#,
+        )
+        .bind(&input.service)
+        .bind(input.level.to_string())
+        .bind(input.retention_days.unwrap_or(30))
+        .bind(input.enabled.unwrap_or(true))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn list_retention_policies(
+        &self,
+    ) -> Result<Vec<LogRetentionPolicy>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, RetentionPolicyRow>(
+            r#"SELECT id, service, level, retention_days, enabled, created_at
+             FROM log_retention_policies ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_retention_policy(
+        &self,
+        id: Uuid,
+        input: UpdateLogRetentionPolicy,
+    ) -> Result<LogRetentionPolicy, sqlx::Error> {
+        let row = sqlx::query_as::<_, RetentionPolicyRow>(
+            r#"UPDATE log_retention_policies SET
+             service = COALESCE($2, service),
+             level = COALESCE($3, level),
+             retention_days = COALESCE($4, retention_days),
+             enabled = COALESCE($5, enabled)
+             WHERE id = $1
+             RETURNING id, service, level, retention_days, enabled, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.service)
+        .bind(input.level.map(|l| l.to_string()))
+        .bind(input.retention_days)
+        .bind(input.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_retention_policy(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM log_retention_policies WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn apply_retention_policies(
+        &self,
+    ) -> Result<i64, sqlx::Error> {
+        let policies = sqlx::query_as::<_, RetentionPolicyRow>(
+            r#"SELECT id, service, level, retention_days, enabled, created_at
+             FROM log_retention_policies WHERE enabled = true"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut total_deleted: i64 = 0;
+
+        for policy in policies {
+            let result = sqlx::query(
+                r#"DELETE FROM log_entries_v2
+                 WHERE service = $1 AND level = $2
+                 AND created_at < NOW() - make_interval(days => $3::int)"#,
+            )
+            .bind(&policy.service)
+            .bind(&policy.level)
+            .bind(policy.retention_days)
+            .execute(&self.pool)
+            .await?;
+
+            total_deleted += result.rows_affected() as i64;
+        }
+
+        Ok(total_deleted)
+    }
 }
