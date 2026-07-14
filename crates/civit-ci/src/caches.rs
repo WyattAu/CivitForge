@@ -15,6 +15,18 @@ pub struct CacheEntryResponse {
     pub expires_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheEntryV2Response {
+    pub id: String,
+    pub key: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub hit_count: i32,
+    pub last_hit_at: Option<String>,
+    pub expires_at: String,
+    pub created_at: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateCacheRequest {
     pub key: String,
@@ -35,6 +47,15 @@ pub struct CacheListParams {
 
 pub fn default_limit() -> i64 {
     50
+}
+
+#[derive(Debug, Serialize)]
+pub struct CacheStats {
+    pub total_entries: i64,
+    pub total_size_bytes: i64,
+    pub total_hits: i64,
+    pub average_hit_count: f64,
+    pub expired_entries: i64,
 }
 
 type CacheRow = (
@@ -87,6 +108,139 @@ pub async fn list_caches_db(
             },
         )
         .collect())
+}
+
+type CacheV2Row = (
+    Uuid,
+    String,
+    String,
+    i64,
+    i32,
+    Option<chrono::DateTime<Utc>>,
+    chrono::DateTime<Utc>,
+    chrono::DateTime<Utc>,
+);
+
+/// List caches v2 for a repo.
+pub async fn list_caches_v2(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    limit: i64,
+    offset: i64,
+    prefix: Option<&str>,
+) -> std::result::Result<Vec<CacheEntryV2Response>, sqlx::Error> {
+    let rows: Vec<CacheV2Row> = if let Some(pfx) = prefix {
+        sqlx::query_as(
+            "SELECT id, key, path, size_bytes, hit_count, last_hit_at, expires_at, created_at FROM pipeline_caches_v2
+             WHERE repo_id = $1 AND key LIKE $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+        )
+        .bind(repo_id)
+        .bind(format!("{pfx}%"))
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT id, key, path, size_bytes, hit_count, last_hit_at, expires_at, created_at FROM pipeline_caches_v2
+             WHERE repo_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(repo_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(pool)
+        .await?
+    };
+
+    Ok(rows
+        .into_iter()
+        .map(
+            |(id, key, path, size_bytes, hit_count, last_hit_at, expires_at, created_at)| {
+                CacheEntryV2Response {
+                    id: id.to_string(),
+                    key,
+                    path,
+                    size_bytes,
+                    hit_count,
+                    last_hit_at: last_hit_at.map(|t| t.to_rfc3339()),
+                    expires_at: expires_at.to_rfc3339(),
+                    created_at: created_at.to_rfc3339(),
+                }
+            },
+        )
+        .collect())
+}
+
+/// Get cache hit statistics for a repo.
+pub async fn get_cache_stats(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<CacheStats, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>, Option<f64>, Option<i64>) = sqlx::query_as(
+        "SELECT
+            COUNT(*) as total_entries,
+            COALESCE(SUM(size_bytes), 0) as total_size_bytes,
+            COALESCE(SUM(hit_count), 0) as total_hits,
+            COALESCE(AVG(hit_count), 0) as average_hit_count,
+            COUNT(*) FILTER (WHERE expires_at < NOW()) as expired_entries
+         FROM pipeline_caches_v2 WHERE repo_id = $1",
+    )
+    .bind(repo_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(CacheStats {
+        total_entries: row.0.unwrap_or(0),
+        total_size_bytes: row.1.unwrap_or(0),
+        total_hits: row.2.unwrap_or(0),
+        average_hit_count: row.3.unwrap_or(0.0),
+        expired_entries: row.4.unwrap_or(0),
+    })
+}
+
+/// Record a cache hit.
+pub async fn record_cache_hit(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    key: &str,
+) -> std::result::Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE pipeline_caches_v2 SET hit_count = hit_count + 1, last_hit_at = NOW()
+         WHERE repo_id = $1 AND key = $2",
+    )
+    .bind(repo_id)
+    .bind(key)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Invalidate (delete) expired caches for a repo.
+pub async fn invalidate_expired_caches(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<i64, sqlx::Error> {
+    let result = sqlx::query(
+        "DELETE FROM pipeline_caches_v2 WHERE repo_id = $1 AND expires_at < NOW()",
+    )
+    .bind(repo_id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() as i64)
+}
+
+/// Invalidate (delete) a specific cache by key.
+pub async fn invalidate_cache(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    key: &str,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM pipeline_caches_v2 WHERE repo_id = $1 AND key = $2")
+        .bind(repo_id)
+        .bind(key)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
 }
 
 #[cfg(test)]

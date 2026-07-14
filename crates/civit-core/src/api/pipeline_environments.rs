@@ -22,6 +22,7 @@ pub struct CreateEnvironmentRequest {
     pub protected: bool,
     #[serde(default = "default_true")]
     pub auto_deploy: bool,
+    pub deployment_branch_policy: Option<serde_json::Value>,
 }
 
 fn default_true() -> bool {
@@ -34,6 +35,7 @@ pub struct UpdateEnvironmentRequest {
     pub url: Option<Option<String>>,
     pub protected: Option<bool>,
     pub auto_deploy: Option<bool>,
+    pub deployment_branch_policy: Option<Option<serde_json::Value>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -274,6 +276,7 @@ pub async fn update_environment(
     };
 
     let url = req.url.unwrap_or(None);
+    let deployment_branch_policy = req.deployment_branch_policy.unwrap_or(None);
 
     match pipeline::update_environment(
         pool,

@@ -7,7 +7,7 @@ use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::routing::{delete, get};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use civit_ci::caches::{self, CacheEntryResponse, CacheListParams, CreateCacheRequest};
@@ -22,6 +22,26 @@ pub fn pipeline_cache_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{repo}/caches/{cache_key}",
             delete(delete_cache),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v2",
+            get(list_caches_v2),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v2/stats",
+            get(get_cache_statistics),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v2/{cache_key}/hit",
+            post(record_hit),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v2/{cache_key}/invalidate",
+            post(invalidate_specific_cache),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v2/invalidate-expired",
+            post(invalidate_expired),
         )
 }
 
@@ -181,6 +201,202 @@ pub async fn delete_cache(
         Ok(_) => (
             axum::http::StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("cache entry not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_caches_v2(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+    axum::extract::Query(params): axum::extract::Query<CacheListParams>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::list_caches_v2(
+        pool,
+        repo_id,
+        params.limit,
+        params.offset,
+        params.prefix.as_deref(),
+    )
+    .await
+    {
+        Ok(c) => (axum::http::StatusCode::OK, Json(c)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_cache_statistics(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_cache_stats(pool, repo_id).await {
+        Ok(stats) => (axum::http::StatusCode::OK, Json(stats)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn record_hit(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_key)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::record_cache_hit(pool, repo_id, &cache_key).await {
+        Ok(()) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "hit recorded"})),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn invalidate_specific_cache(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_key)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::invalidate_cache(pool, repo_id, &cache_key).await {
+        Ok(true) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "invalidated"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("cache entry not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn invalidate_expired(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::invalidate_expired_caches(pool, repo_id).await {
+        Ok(count) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"invalidated": count})),
         )
             .into_response(),
         Err(e) => (

@@ -59,6 +59,7 @@ pub mod orgs;
 pub mod pages;
 pub mod password;
 pub mod performance_metrics;
+pub mod pipeline_actions;
 pub mod pipeline_caches;
 pub mod pipeline_log_stream;
 pub mod pipeline_schedules;
@@ -191,6 +192,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(pipeline_schedules::schedule_routes())
         .merge(badges::badge_routes())
         .merge(pipeline_secrets::pipeline_secret_routes())
+        .merge(pipeline_actions::pipeline_action_routes())
         .merge(pipeline_caches::pipeline_cache_routes())
         .merge(runners::runner_routes())
         .merge(oci::registry_routes())

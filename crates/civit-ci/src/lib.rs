@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod actions;
 pub mod badges;
 pub mod caches;
 pub mod graph;

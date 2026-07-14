@@ -257,6 +257,7 @@ pub struct EnvironmentResponse {
     pub url: Option<String>,
     pub protected: bool,
     pub auto_deploy: bool,
+    pub deployment_branch_policy: Option<serde_json::Value>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -269,6 +270,7 @@ pub struct EnvironmentRow {
     pub url: Option<String>,
     pub protected: bool,
     pub auto_deploy: bool,
+    pub deployment_branch_policy: Option<serde_json::Value>,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
@@ -282,6 +284,7 @@ impl From<EnvironmentRow> for EnvironmentResponse {
             url: r.url,
             protected: r.protected,
             auto_deploy: r.auto_deploy,
+            deployment_branch_policy: r.deployment_branch_policy,
             created_at: r.created_at.to_rfc3339(),
             updated_at: r.updated_at.to_rfc3339(),
         }
@@ -493,6 +496,32 @@ pub async fn create_environment(
     .map(|r| r.into())
 }
 
+/// Create a new environment v2 with deployment branch policy.
+pub async fn create_environment_v2(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    name: &str,
+    url: Option<&str>,
+    protected: bool,
+    auto_deploy: bool,
+    deployment_branch_policy: Option<&serde_json::Value>,
+) -> std::result::Result<EnvironmentResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>(
+        "INSERT INTO pipeline_environments_v2 (repo_id, name, url, protected, auto_deploy, deployment_branch_policy) \
+         VALUES ($1, $2, $3, $4, $5, $6) \
+         RETURNING *",
+    )
+    .bind(repo_id)
+    .bind(name)
+    .bind(url)
+    .bind(protected)
+    .bind(auto_deploy)
+    .bind(deployment_branch_policy)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
 /// List environments for a repo.
 pub async fn list_environments(
     pool: &sqlx::PgPool,
@@ -500,6 +529,20 @@ pub async fn list_environments(
 ) -> std::result::Result<Vec<EnvironmentResponse>, sqlx::Error> {
     sqlx::query_as::<_, EnvironmentRow>(
         "SELECT * FROM pipeline_environments WHERE repo_id = $1 ORDER BY name",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// List environments v2 for a repo.
+pub async fn list_environments_v2(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<Vec<EnvironmentResponse>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>(
+        "SELECT * FROM pipeline_environments_v2 WHERE repo_id = $1 ORDER BY name",
     )
     .bind(repo_id)
     .fetch_all(pool)
@@ -542,6 +585,38 @@ pub async fn update_environment(
     .bind(url)
     .bind(protected)
     .bind(auto_deploy)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Update environment v2 with deployment branch policy.
+pub async fn update_environment_v2(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    name: Option<&str>,
+    url: Option<&str>,
+    protected: Option<bool>,
+    auto_deploy: Option<bool>,
+    deployment_branch_policy: Option<&serde_json::Value>,
+) -> std::result::Result<EnvironmentResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentRow>(
+        "UPDATE pipeline_environments_v2 \
+         SET name = COALESCE($2, name), \
+             url = COALESCE($3, url), \
+             protected = COALESCE($4, protected), \
+             auto_deploy = COALESCE($5, auto_deploy), \
+             deployment_branch_policy = COALESCE($6, deployment_branch_policy), \
+             updated_at = NOW() \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(name)
+    .bind(url)
+    .bind(protected)
+    .bind(auto_deploy)
+    .bind(deployment_branch_policy)
     .fetch_one(pool)
     .await
     .map(|r| r.into())
