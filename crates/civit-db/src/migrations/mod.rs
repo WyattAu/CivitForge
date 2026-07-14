@@ -239,6 +239,12 @@ pub const M_143_AUTOMATION_RULES_UP: &str = include_str!("143_add_automation_rul
 pub const M_143_AUTOMATION_RULES_DOWN: &str = "DROP TABLE IF EXISTS automation_rules;";
 pub const M_144_SCHEDULED_TASKS_UP: &str = include_str!("144_add_scheduled_tasks.sql");
 pub const M_144_SCHEDULED_TASKS_DOWN: &str = "DROP TABLE IF EXISTS scheduled_tasks;";
+pub const M_145_LOG_AGGREGATION_UP: &str = include_str!("145_add_log_aggregation.sql");
+pub const M_145_LOG_AGGREGATION_DOWN: &str = "DROP TABLE IF EXISTS log_entries;";
+pub const M_146_TRACE_SAMPLING_RULES_UP: &str = include_str!("146_add_trace_sampling_rules.sql");
+pub const M_146_TRACE_SAMPLING_RULES_DOWN: &str = "DROP TABLE IF EXISTS trace_sampling_rules;";
+pub const M_147_DASHBOARD_REPORTING_UP: &str = include_str!("147_add_dashboard_reporting.sql");
+pub const M_147_DASHBOARD_REPORTING_DOWN: &str = "DROP TABLE IF EXISTS reports; DROP TABLE IF EXISTS dashboards;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1000,6 +1006,24 @@ impl MigrationManager {
             up_sql: M_144_SCHEDULED_TASKS_UP.into(),
             down_sql: M_144_SCHEDULED_TASKS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 145,
+            name: "add_log_aggregation".into(),
+            up_sql: M_145_LOG_AGGREGATION_UP.into(),
+            down_sql: M_145_LOG_AGGREGATION_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 146,
+            name: "add_trace_sampling_rules".into(),
+            up_sql: M_146_TRACE_SAMPLING_RULES_UP.into(),
+            down_sql: M_146_TRACE_SAMPLING_RULES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 147,
+            name: "add_dashboard_reporting".into(),
+            up_sql: M_147_DASHBOARD_REPORTING_UP.into(),
+            down_sql: M_147_DASHBOARD_REPORTING_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1041,7 +1065,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 121);
+        assert_eq!(mgr.all().len(), 124);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1222,6 +1246,12 @@ mod tests {
         assert_eq!(mgr.all()[119].name, "add_automation_rules");
         assert_eq!(mgr.all()[120].version, 144);
         assert_eq!(mgr.all()[120].name, "add_scheduled_tasks");
+        assert_eq!(mgr.all()[121].version, 145);
+        assert_eq!(mgr.all()[121].name, "add_log_aggregation");
+        assert_eq!(mgr.all()[122].version, 146);
+        assert_eq!(mgr.all()[122].name, "add_trace_sampling_rules");
+        assert_eq!(mgr.all()[123].version, 147);
+        assert_eq!(mgr.all()[123].name, "add_dashboard_reporting");
     }
 
     #[test]
@@ -1253,21 +1283,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 121);
+        assert_eq!(pending.len(), 124);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(144);
-        assert_eq!(pending.len(), 0);
+        assert_eq!(pending.len(), 3);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 120);
+        assert_eq!(pending.len(), 123);
     }
 
     #[test]

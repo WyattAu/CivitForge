@@ -60,6 +60,9 @@ pub mod acl;
 pub mod workflow_engine;
 pub mod automation_rules;
 pub mod scheduled_tasks;
+pub mod log_aggregation;
+pub mod distributed_tracing_v2;
+pub mod dashboard_reporting;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
