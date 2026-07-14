@@ -20,6 +20,9 @@ pub mod chaos;
 pub mod code_browser;
 pub mod codeowners;
 pub mod compliance;
+pub mod deployment_strategy;
+pub mod infrastructure;
+pub mod service_mesh;
 pub mod data_export;
 pub mod deploy_keys;
 pub mod deployments;
@@ -308,6 +311,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(circuit_breaker::circuit_breaker_routes())
         .merge(api_gateway::gateway_routes())
         .merge(api_transforms::transform_routes())
+        .merge(deployment_strategy::deployment_strategy_routes())
+        .merge(infrastructure::infrastructure_routes())
+        .merge(service_mesh::service_mesh_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

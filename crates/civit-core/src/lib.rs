@@ -46,6 +46,9 @@ pub mod vuln_scanner;
 pub mod security_scanner;
 pub mod compliance;
 pub mod audit_trail;
+pub mod deployment_strategy;
+pub mod infrastructure;
+pub mod service_mesh;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
