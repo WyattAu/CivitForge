@@ -345,6 +345,12 @@ pub const M_203_ENCRYPTION_V3_UP: &str = include_str!("203_add_encryption_v3.sql
 pub const M_203_ENCRYPTION_V3_DOWN: &str = "DROP TABLE IF EXISTS encryption_audit_logs; DROP TABLE IF EXISTS encryption_key_rotations;";
 pub const M_204_DATA_RESIDENCY_V2_UP: &str = include_str!("204_add_data_residency_v2.sql");
 pub const M_204_DATA_RESIDENCY_V2_DOWN: &str = "DROP TABLE IF EXISTS data_residency_migrations; DROP TABLE IF EXISTS data_residency_audits;";
+pub const M_205_SECURITY_SCAN_V3_UP: &str = include_str!("205_add_security_scan_rules_v3_fixes.sql");
+pub const M_205_SECURITY_SCAN_V3_DOWN: &str = "DROP TABLE IF EXISTS security_scan_fixes; DROP TABLE IF EXISTS security_scan_rules_v3;";
+pub const M_206_COMPLIANCE_V3_UP: &str = include_str!("206_add_compliance_frameworks_v3_evidence_v2.sql");
+pub const M_206_COMPLIANCE_V3_DOWN: &str = "DROP TABLE IF EXISTS compliance_evidence_v2; DROP TABLE IF EXISTS compliance_frameworks_v3;";
+pub const M_207_AUDIT_TRAIL_V4_UP: &str = include_str!("207_add_audit_trail_v4.sql");
+pub const M_207_AUDIT_TRAIL_V4_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v4;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1394,6 +1400,24 @@ impl MigrationManager {
             up_sql: M_204_DATA_RESIDENCY_V2_UP.into(),
             down_sql: M_204_DATA_RESIDENCY_V2_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 205,
+            name: "add_security_scan_rules_v3_fixes".into(),
+            up_sql: M_205_SECURITY_SCAN_V3_UP.into(),
+            down_sql: M_205_SECURITY_SCAN_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 206,
+            name: "add_compliance_frameworks_v3_evidence_v2".into(),
+            up_sql: M_206_COMPLIANCE_V3_UP.into(),
+            down_sql: M_206_COMPLIANCE_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 207,
+            name: "add_audit_trail_v4".into(),
+            up_sql: M_207_AUDIT_TRAIL_V4_UP.into(),
+            down_sql: M_207_AUDIT_TRAIL_V4_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1435,7 +1459,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 163);
+        assert_eq!(mgr.all().len(), 172);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1676,13 +1700,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 193,
+            version: 208,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 164);
-        assert_eq!(mgr.all()[163].version, 193);
+        assert_eq!(mgr.all().len(), 173);
+        assert_eq!(mgr.all()[172].version, 208);
     }
 
     #[test]
@@ -1701,21 +1725,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 163);
+        assert_eq!(pending.len(), 172);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 3);
+        assert_eq!(pending.len(), 15);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 162);
+        assert_eq!(pending.len(), 171);
     }
 
     #[test]
