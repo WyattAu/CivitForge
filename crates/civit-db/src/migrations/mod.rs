@@ -154,6 +154,12 @@ pub const M_104_RESILIENCE_TESTS_UP: &str = include_str!("104_add_resilience_tes
 pub const M_104_RESILIENCE_TESTS_DOWN: &str = "DROP TABLE IF EXISTS resilience_tests;";
 pub const M_105_CIRCUIT_BREAKERS_UP: &str = include_str!("105_add_circuit_breakers.sql");
 pub const M_105_CIRCUIT_BREAKERS_DOWN: &str = "DROP TABLE IF EXISTS circuit_breakers;";
+pub const M_106_DISTRIBUTED_TRACES_UP: &str = include_str!("106_add_distributed_traces.sql");
+pub const M_106_DISTRIBUTED_TRACES_DOWN: &str = "DROP TABLE IF EXISTS distributed_traces;";
+pub const M_107_APM_TRANSACTIONS_SPANS_UP: &str = include_str!("107_add_apm_transactions_spans.sql");
+pub const M_107_APM_TRANSACTIONS_SPANS_DOWN: &str = "DROP TABLE IF EXISTS apm_spans; DROP TABLE IF EXISTS apm_transactions;";
+pub const M_108_ERROR_TRACKING_UP: &str = include_str!("108_add_error_tracking.sql");
+pub const M_108_ERROR_TRACKING_DOWN: &str = "DROP TABLE IF EXISTS error_tracking;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -681,6 +687,24 @@ impl MigrationManager {
             up_sql: M_105_CIRCUIT_BREAKERS_UP.into(),
             down_sql: M_105_CIRCUIT_BREAKERS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 106,
+            name: "add_distributed_traces".into(),
+            up_sql: M_106_DISTRIBUTED_TRACES_UP.into(),
+            down_sql: M_106_DISTRIBUTED_TRACES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 107,
+            name: "add_apm_transactions_spans".into(),
+            up_sql: M_107_APM_TRANSACTIONS_SPANS_UP.into(),
+            down_sql: M_107_APM_TRANSACTIONS_SPANS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 108,
+            name: "add_error_tracking".into(),
+            up_sql: M_108_ERROR_TRACKING_UP.into(),
+            down_sql: M_108_ERROR_TRACKING_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -722,7 +746,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 82);
+        assert_eq!(mgr.all().len(), 85);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -885,13 +909,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 106,
+            version: 109,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 83);
-        assert_eq!(mgr.all()[82].version, 106);
+        assert_eq!(mgr.all().len(), 86);
+        assert_eq!(mgr.all()[85].version, 109);
     }
 
     #[test]
@@ -910,13 +934,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 82);
+        assert_eq!(pending.len(), 85);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(105);
+        let pending = mgr.get_pending(108);
         assert_eq!(pending.len(), 0);
     }
 
@@ -924,7 +948,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 75);
+        assert_eq!(pending.len(), 84);
     }
 
     #[test]

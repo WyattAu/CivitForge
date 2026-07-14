@@ -42,6 +42,14 @@ pub mod ssh;
 pub mod storage;
 pub mod telemetry;
 pub mod vuln_scanner;
+
+pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
+pub use telemetry::distributed_tracing::{
+    DistributedTracer, DistributedTracingConfig, TraceSpan, TraceEvent,
+    TRACEPARENT_HEADER, TRACESTATE_HEADER,
+    parse_traceparent, format_traceparent, generate_trace_id, generate_span_id,
+};
+pub use telemetry::error_tracking::{ErrorTracker, ErrorTrackingConfig, ErrorRecord, ErrorSummary};
 pub mod webhook;
 pub mod webhooks;
 pub mod wiki;
