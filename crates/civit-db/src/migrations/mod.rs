@@ -148,6 +148,12 @@ pub const M_101_EVENTS_AND_SUBSCRIPTIONS_UP: &str = include_str!("101_add_events
 pub const M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN: &str = "DROP TABLE IF EXISTS event_subscriptions; DROP TABLE IF EXISTS events;";
 pub const M_102_EVENT_QUEUES_UP: &str = include_str!("102_add_event_queues.sql");
 pub const M_102_EVENT_QUEUES_DOWN: &str = "DROP TABLE IF EXISTS event_queue_messages; DROP TABLE IF EXISTS event_queues;";
+pub const M_103_CHAOS_ENGINEERING_UP: &str = include_str!("103_add_chaos_engineering.sql");
+pub const M_103_CHAOS_ENGINEERING_DOWN: &str = "DROP TABLE IF EXISTS chaos_results; DROP TABLE IF EXISTS chaos_experiments;";
+pub const M_104_RESILIENCE_TESTS_UP: &str = include_str!("104_add_resilience_tests.sql");
+pub const M_104_RESILIENCE_TESTS_DOWN: &str = "DROP TABLE IF EXISTS resilience_tests;";
+pub const M_105_CIRCUIT_BREAKERS_UP: &str = include_str!("105_add_circuit_breakers.sql");
+pub const M_105_CIRCUIT_BREAKERS_DOWN: &str = "DROP TABLE IF EXISTS circuit_breakers;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -657,6 +663,24 @@ impl MigrationManager {
             up_sql: M_102_EVENT_QUEUES_UP.into(),
             down_sql: M_102_EVENT_QUEUES_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 103,
+            name: "add_chaos_engineering".into(),
+            up_sql: M_103_CHAOS_ENGINEERING_UP.into(),
+            down_sql: M_103_CHAOS_ENGINEERING_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 104,
+            name: "add_resilience_tests".into(),
+            up_sql: M_104_RESILIENCE_TESTS_UP.into(),
+            down_sql: M_104_RESILIENCE_TESTS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 105,
+            name: "add_circuit_breakers".into(),
+            up_sql: M_105_CIRCUIT_BREAKERS_UP.into(),
+            down_sql: M_105_CIRCUIT_BREAKERS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -698,7 +722,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 79);
+        assert_eq!(mgr.all().len(), 82);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -861,13 +885,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 103,
+            version: 106,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 80);
-        assert_eq!(mgr.all()[79].version, 103);
+        assert_eq!(mgr.all().len(), 83);
+        assert_eq!(mgr.all()[82].version, 106);
     }
 
     #[test]
@@ -886,13 +910,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 79);
+        assert_eq!(pending.len(), 82);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(102);
+        let pending = mgr.get_pending(105);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1145,5 +1169,63 @@ mod tests {
         assert_ne!(M_102_EVENT_QUEUES_DOWN, "");
         assert!(M_102_EVENT_QUEUES_DOWN.contains("DROP TABLE IF EXISTS event_queue_messages"));
         assert!(M_102_EVENT_QUEUES_DOWN.contains("DROP TABLE IF EXISTS event_queues"));
+    }
+
+    #[test]
+    fn test_chaos_engineering_sql_not_empty() {
+        assert_ne!(M_103_CHAOS_ENGINEERING_UP, "");
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("CREATE TABLE IF NOT EXISTS chaos_experiments"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("CREATE TABLE IF NOT EXISTS chaos_results"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("experiment_type"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("target"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("parameters"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("status"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("metric_name"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("metric_value"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("baseline_value"));
+        assert!(M_103_CHAOS_ENGINEERING_UP.contains("impact"));
+    }
+
+    #[test]
+    fn test_chaos_engineering_down_sql_not_empty() {
+        assert_ne!(M_103_CHAOS_ENGINEERING_DOWN, "");
+        assert!(M_103_CHAOS_ENGINEERING_DOWN.contains("DROP TABLE IF EXISTS chaos_results"));
+        assert!(M_103_CHAOS_ENGINEERING_DOWN.contains("DROP TABLE IF EXISTS chaos_experiments"));
+    }
+
+    #[test]
+    fn test_resilience_tests_sql_not_empty() {
+        assert_ne!(M_104_RESILIENCE_TESTS_UP, "");
+        assert!(M_104_RESILIENCE_TESTS_UP.contains("CREATE TABLE IF NOT EXISTS resilience_tests"));
+        assert!(M_104_RESILIENCE_TESTS_UP.contains("test_type"));
+        assert!(M_104_RESILIENCE_TESTS_UP.contains("target"));
+        assert!(M_104_RESILIENCE_TESTS_UP.contains("parameters"));
+        assert!(M_104_RESILIENCE_TESTS_UP.contains("status"));
+        assert!(M_104_RESILIENCE_TESTS_UP.contains("score"));
+    }
+
+    #[test]
+    fn test_resilience_tests_down_sql_not_empty() {
+        assert_ne!(M_104_RESILIENCE_TESTS_DOWN, "");
+        assert!(M_104_RESILIENCE_TESTS_DOWN.contains("DROP TABLE IF EXISTS resilience_tests"));
+    }
+
+    #[test]
+    fn test_circuit_breakers_sql_not_empty() {
+        assert_ne!(M_105_CIRCUIT_BREAKERS_UP, "");
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("CREATE TABLE IF NOT EXISTS circuit_breakers"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("state"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("failure_count"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("failure_threshold"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("success_threshold"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("timeout_seconds"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("last_failure_at"));
+        assert!(M_105_CIRCUIT_BREAKERS_UP.contains("last_state_change"));
+    }
+
+    #[test]
+    fn test_circuit_breakers_down_sql_not_empty() {
+        assert_ne!(M_105_CIRCUIT_BREAKERS_DOWN, "");
+        assert!(M_105_CIRCUIT_BREAKERS_DOWN.contains("DROP TABLE IF EXISTS circuit_breakers"));
     }
 }

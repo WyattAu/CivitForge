@@ -10,6 +10,8 @@ pub mod auth;
 pub mod badges;
 pub mod boards;
 pub mod branch_protection;
+pub mod circuit_breaker;
+pub mod chaos;
 pub mod code_browser;
 pub mod codeowners;
 pub mod compliance;
@@ -60,6 +62,7 @@ pub mod pr_templates;
 pub mod pull_requests;
 pub mod releases;
 pub mod repos;
+pub mod resilience;
 pub mod runners;
 pub mod saml;
 pub mod scim;
@@ -292,6 +295,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(data_export::export_routes())
         .merge(compliance::compliance_routes())
         .merge(observability_routes())
+        .merge(chaos::chaos_routes())
+        .merge(resilience::resilience_routes())
+        .merge(circuit_breaker::circuit_breaker_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
