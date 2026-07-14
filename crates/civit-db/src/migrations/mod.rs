@@ -590,6 +590,12 @@ pub const M_335_AUTOMATION_RULES_V10_UP: &str = include_str!("335_add_automation
 pub const M_335_AUTOMATION_RULES_V10_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v10;";
 pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_UP: &str = include_str!("336_add_scheduled_task_templates_v7.sql");
 pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v7;";
+pub const M_337_LOG_AGGREGATION_V9_UP: &str = include_str!("337_add_log_aggregation_v9.sql");
+pub const M_337_LOG_AGGREGATION_V9_DOWN: &str = "DROP TABLE IF EXISTS log_alert_rules_v6; DROP TABLE IF EXISTS log_entries_v9;";
+pub const M_338_DISTRIBUTED_TRACING_V10_UP: &str = include_str!("338_add_distributed_tracing_v10.sql");
+pub const M_338_DISTRIBUTED_TRACING_V10_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v6; DROP TABLE IF EXISTS trace_sampling_rules_v9;";
+pub const M_339_DASHBOARD_REPORTING_V9_UP: &str = include_str!("339_add_dashboard_reporting_v9.sql");
+pub const M_339_DASHBOARD_REPORTING_V9_DOWN: &str = "DROP TABLE IF EXISTS report_schedules_v7; DROP TABLE IF EXISTS dashboard_shares_v6;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2143,6 +2149,24 @@ impl MigrationManager {
             up_sql: M_336_SCHEDULED_TASK_TEMPLATES_V7_UP.into(),
             down_sql: M_336_SCHEDULED_TASK_TEMPLATES_V7_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 337,
+            name: "add_log_aggregation_v9".into(),
+            up_sql: M_337_LOG_AGGREGATION_V9_UP.into(),
+            down_sql: M_337_LOG_AGGREGATION_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 338,
+            name: "add_distributed_tracing_v10".into(),
+            up_sql: M_338_DISTRIBUTED_TRACING_V10_UP.into(),
+            down_sql: M_338_DISTRIBUTED_TRACING_V10_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 339,
+            name: "add_dashboard_reporting_v9".into(),
+            up_sql: M_339_DASHBOARD_REPORTING_V9_UP.into(),
+            down_sql: M_339_DASHBOARD_REPORTING_V9_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2184,7 +2208,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 247);
+        assert_eq!(mgr.all().len(), 256);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -2430,8 +2454,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 248);
-        assert_eq!(mgr.all()[238].version, 400);
+        assert_eq!(mgr.all().len(), 257);
+        assert_eq!(mgr.all()[256].version, 400);
     }
 
     #[test]
@@ -2450,21 +2474,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 244);
+        assert_eq!(pending.len(), 256);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 84);
+        assert_eq!(pending.len(), 99);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 243);
+        assert_eq!(pending.len(), 255);
     }
 
     #[test]
