@@ -614,6 +614,13 @@ pub const M_344_CODE_QUALITY_RULES_V9_DOWN: &str =
 pub const M_345_PERFORMANCE_TESTING_V10_UP: &str = include_str!("345_add_performance_testing_v10.sql");
 pub const M_345_PERFORMANCE_TESTING_V10_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v7; DROP TABLE IF EXISTS performance_test_alerts_v7;";
+pub const M_346_API_DOCS_V11_UP: &str = include_str!("346_add_api_docs_v11.sql");
+pub const M_346_API_DOCS_V11_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v11;";
+pub const M_347_RATE_LIMIT_TIERS_V9_UP: &str = include_str!("347_add_rate_limit_tiers_v9.sql");
+pub const M_347_RATE_LIMIT_TIERS_V9_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v6; DROP TABLE IF EXISTS rate_limit_tiers_v9;";
+pub const M_348_API_ANALYTICS_V12_UP: &str = include_str!("348_add_api_analytics_v12.sql");
+pub const M_348_API_ANALYTICS_V12_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v12;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2221,6 +2228,24 @@ impl MigrationManager {
             up_sql: M_345_PERFORMANCE_TESTING_V10_UP.into(),
             down_sql: M_345_PERFORMANCE_TESTING_V10_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 346,
+            name: "add_api_docs_v11".into(),
+            up_sql: M_346_API_DOCS_V11_UP.into(),
+            down_sql: M_346_API_DOCS_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 347,
+            name: "add_rate_limit_tiers_v9".into(),
+            up_sql: M_347_RATE_LIMIT_TIERS_V9_UP.into(),
+            down_sql: M_347_RATE_LIMIT_TIERS_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 348,
+            name: "add_api_analytics_v12".into(),
+            up_sql: M_348_API_ANALYTICS_V12_UP.into(),
+            down_sql: M_348_API_ANALYTICS_V12_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2262,7 +2287,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 259);
+        assert_eq!(mgr.all().len(), 262);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -2508,7 +2533,7 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 260);
+        assert_eq!(mgr.all().len(), 263);
         assert_eq!(mgr.all()[259].version, 400);
     }
 
@@ -2528,7 +2553,7 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 259);
+        assert_eq!(pending.len(), 262);
     }
 
     #[test]
