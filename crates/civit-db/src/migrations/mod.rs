@@ -464,6 +464,15 @@ pub const M_263_RATE_LIMIT_TIERS_V5_UP: &str = include_str!("263_add_rate_limit_
 pub const M_263_RATE_LIMIT_TIERS_V5_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v2; DROP TABLE IF EXISTS rate_limit_tiers_v5;";
 pub const M_264_API_ANALYTICS_V8_UP: &str = include_str!("264_add_api_analytics_v8.sql");
 pub const M_264_API_ANALYTICS_V8_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v8;";
+pub const M_265_DATABASE_REPLICATION_V5_UP: &str = include_str!("265_add_database_replication_v5.sql");
+pub const M_265_DATABASE_REPLICATION_V5_DOWN: &str =
+    "DROP TABLE IF EXISTS database_replication_alerts_v3; DROP TABLE IF EXISTS database_replication_config_v3;";
+pub const M_266_ENCRYPTION_V6_UP: &str = include_str!("266_add_encryption_v6.sql");
+pub const M_266_ENCRYPTION_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_compliance_checks_v3; DROP TABLE IF EXISTS encryption_key_versions_v3;";
+pub const M_267_DATA_RESIDENCY_V5_UP: &str = include_str!("267_add_data_residency_v5.sql");
+pub const M_267_DATA_RESIDENCY_V5_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance_v3; DROP TABLE IF EXISTS data_residency_reports_v3;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1765,6 +1774,24 @@ impl MigrationManager {
             up_sql: M_264_API_ANALYTICS_V8_UP.into(),
             down_sql: M_264_API_ANALYTICS_V8_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 265,
+            name: "add_database_replication_v5".into(),
+            up_sql: M_265_DATABASE_REPLICATION_V5_UP.into(),
+            down_sql: M_265_DATABASE_REPLICATION_V5_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 266,
+            name: "add_encryption_v6".into(),
+            up_sql: M_266_ENCRYPTION_V6_UP.into(),
+            down_sql: M_266_ENCRYPTION_V6_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 267,
+            name: "add_data_residency_v5".into(),
+            up_sql: M_267_DATA_RESIDENCY_V5_UP.into(),
+            down_sql: M_267_DATA_RESIDENCY_V5_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1806,7 +1833,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 208);
+        assert_eq!(mgr.all().len(), 214);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -2047,13 +2074,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 214,
+            version: 268,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 185);
-        assert_eq!(mgr.all()[181].version, 214);
+        assert_eq!(mgr.all().len(), 215);
+        assert_eq!(mgr.all()[214].version, 268);
     }
 
     #[test]
@@ -2072,21 +2099,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 184);
+        assert_eq!(pending.len(), 214);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 27);
+        assert_eq!(pending.len(), 57);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 180);
+        assert_eq!(pending.len(), 213);
     }
 
     #[test]

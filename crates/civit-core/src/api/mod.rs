@@ -104,8 +104,11 @@ pub mod webauthn;
 pub mod webhooks;
 pub mod wiki;
 pub mod database_replication_v2_api;
+pub mod database_replication_v5_api;
 pub mod encryption_v3_api;
+pub mod encryption_v6_api;
 pub mod data_residency_v2_api;
+pub mod data_residency_v5_api;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -344,8 +347,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(infrastructure::infrastructure_routes())
         .merge(service_mesh::service_mesh_routes())
         .merge(database_replication_v2_api::replication_v2_routes())
+        .merge(database_replication_v5_api::replication_v5_routes())
         .merge(encryption_v3_api::encryption_v3_routes())
+        .merge(encryption_v6_api::encryption_v6_routes())
         .merge(data_residency_v2_api::data_residency_v2_routes())
+        .merge(data_residency_v5_api::data_residency_v5_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
