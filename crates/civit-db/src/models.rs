@@ -852,3 +852,42 @@ pub struct PerformanceMetric {
     pub labels: serde_json::Value,
     pub recorded_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiDocumentation {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub summary: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+    pub request_body: Option<serde_json::Value>,
+    pub responses: serde_json::Value,
+    pub tags: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiVersion {
+    pub id: Uuid,
+    pub version: String,
+    pub status: String,
+    pub release_date: DateTime<Utc>,
+    pub deprecation_date: Option<DateTime<Utc>>,
+    pub sunset_date: Option<DateTime<Utc>>,
+    pub changelog: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiAnalyticV2 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub status_code: i32,
+    pub response_time_ms: i32,
+    pub user_id: Option<Uuid>,
+    pub request_size_bytes: i32,
+    pub response_size_bytes: i32,
+    pub created_at: DateTime<Utc>,
+}

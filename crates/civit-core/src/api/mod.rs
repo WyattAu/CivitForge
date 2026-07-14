@@ -3,8 +3,11 @@
 pub mod activity;
 pub mod admin_dashboard;
 pub mod api_analytics;
+pub mod api_analytics_v2;
+pub mod api_documentation;
 pub mod api_gateway;
 pub mod api_transforms;
+pub mod api_versioning;
 pub mod artifact_serving;
 pub mod audit_admin;
 pub mod auth_routes;
@@ -293,6 +296,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(feature_flags::feature_flag_routes())
         .merge(admin_dashboard::admin_dashboard_routes())
         .merge(api_analytics::api_analytics_routes())
+        .merge(api_analytics_v2::api_analytics_v2_routes())
+        .merge(api_documentation::api_documentation_routes())
+        .merge(api_versioning::api_version_routes())
         .merge(usage_quotas::usage_quota_routes())
         .merge(data_export::export_routes())
         .merge(compliance::compliance_routes())

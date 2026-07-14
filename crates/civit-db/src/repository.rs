@@ -2,10 +2,11 @@
 
 use crate::error::{DbError, Result};
 use crate::models::{
-    ActivityEvent, BoardCardAssignee, BoardCardLabel, BranchProtectionRule, EmailVerificationCode,
-    Issue, MultiProjectPipeline, MultiProjectPipelineRun, Org, Pipeline, PipelineAnalytics,
-    PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release,
-    ReleaseAsset, Repository, ReviewAssignment, ReviewSummary, SshKey, Team, TeamMember, User,
+    ActivityEvent, ApiAnalyticV2, ApiDocumentation, ApiVersion, BoardCardAssignee, BoardCardLabel,
+    BranchProtectionRule, EmailVerificationCode, Issue, MultiProjectPipeline, MultiProjectPipelineRun,
+    Org, Pipeline, PipelineAnalytics, PipelineTemplate, PrComment, PrReviewer, PrStatusCheck,
+    PrTimeline, PullRequest, Release, ReleaseAsset, Repository, ReviewAssignment, ReviewSummary,
+    SshKey, Team, TeamMember, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -4474,6 +4475,259 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_performance_metric_summary: {e}")))?;
         Ok(row)
+    }
+
+    // --- API Documentation ---
+
+    pub async fn create_api_documentation(
+        &self,
+        endpoint: &str,
+        method: &str,
+        summary: &str,
+        description: &str,
+        parameters: serde_json::Value,
+        request_body: Option<serde_json::Value>,
+        responses: serde_json::Value,
+        tags: &[String],
+    ) -> Result<ApiDocumentation> {
+        let row = sqlx::query_as::<_, ApiDocumentation>(
+            r#"INSERT INTO api_documentation (endpoint, method, summary, description, parameters, request_body, responses, tags)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (endpoint, method) DO UPDATE SET
+                   summary = EXCLUDED.summary,
+                   description = EXCLUDED.description,
+                   parameters = EXCLUDED.parameters,
+                   request_body = EXCLUDED.request_body,
+                   responses = EXCLUDED.responses,
+                   tags = EXCLUDED.tags
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(summary)
+        .bind(description)
+        .bind(parameters)
+        .bind(request_body)
+        .bind(responses)
+        .bind(tags)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_documentation: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_documentation(
+        &self,
+        endpoint: &str,
+        method: &str,
+    ) -> Result<ApiDocumentation> {
+        sqlx::query_as::<_, ApiDocumentation>(
+            "SELECT * FROM api_documentation WHERE endpoint = $1 AND method = $2",
+        )
+        .bind(endpoint)
+        .bind(method)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_documentation: {e}")))
+    }
+
+    pub async fn list_api_documentation(&self, limit: i64, offset: i64) -> Result<Vec<ApiDocumentation>> {
+        sqlx::query_as::<_, ApiDocumentation>(
+            "SELECT * FROM api_documentation ORDER BY endpoint, method LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_documentation: {e}")))
+    }
+
+    pub async fn search_api_documentation_by_tag(&self, tag: &str) -> Result<Vec<ApiDocumentation>> {
+        sqlx::query_as::<_, ApiDocumentation>(
+            "SELECT * FROM api_documentation WHERE $1 = ANY(tags) ORDER BY endpoint, method",
+        )
+        .bind(tag)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("search_api_documentation_by_tag: {e}")))
+    }
+
+    // --- API Versions ---
+
+    pub async fn create_api_version(
+        &self,
+        version: &str,
+        status: &str,
+        changelog: &str,
+    ) -> Result<ApiVersion> {
+        let row = sqlx::query_as::<_, ApiVersion>(
+            r#"INSERT INTO api_versions (version, status, changelog)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(version)
+        .bind(status)
+        .bind(changelog)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_version: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_version(&self, version: &str) -> Result<ApiVersion> {
+        sqlx::query_as::<_, ApiVersion>("SELECT * FROM api_versions WHERE version = $1")
+            .bind(version)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_api_version: {e}")))
+    }
+
+    pub async fn list_api_versions(&self) -> Result<Vec<ApiVersion>> {
+        sqlx::query_as::<_, ApiVersion>("SELECT * FROM api_versions ORDER BY release_date DESC")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_api_versions: {e}")))
+    }
+
+    pub async fn update_api_version_status(
+        &self,
+        version: &str,
+        status: &str,
+    ) -> Result<ApiVersion> {
+        let row = sqlx::query_as::<_, ApiVersion>(
+            r#"UPDATE api_versions SET status = $2 WHERE version = $1
+               RETURNING *"#,
+        )
+        .bind(version)
+        .bind(status)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_api_version_status: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn deprecate_api_version(
+        &self,
+        version: &str,
+        deprecation_date: chrono::DateTime<chrono::Utc>,
+        sunset_date: chrono::DateTime<chrono::Utc>,
+    ) -> Result<ApiVersion> {
+        let row = sqlx::query_as::<_, ApiVersion>(
+            r#"UPDATE api_versions SET status = 'deprecated', deprecation_date = $2, sunset_date = $3
+               WHERE version = $1
+               RETURNING *"#,
+        )
+        .bind(version)
+        .bind(deprecation_date)
+        .bind(sunset_date)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("deprecate_api_version: {e}")))?;
+        Ok(row)
+    }
+
+    // --- API Analytics V2 ---
+
+    pub async fn record_api_analytic_v2(
+        &self,
+        endpoint: &str,
+        method: &str,
+        status_code: i32,
+        response_time_ms: i32,
+        user_id: Option<Uuid>,
+        request_size_bytes: i32,
+        response_size_bytes: i32,
+    ) -> Result<ApiAnalyticV2> {
+        let row = sqlx::query_as::<_, ApiAnalyticV2>(
+            r#"INSERT INTO api_analytics_v2 (endpoint, method, status_code, response_time_ms, user_id, request_size_bytes, response_size_bytes)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(status_code)
+        .bind(response_time_ms)
+        .bind(user_id)
+        .bind(request_size_bytes)
+        .bind(response_size_bytes)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_api_analytic_v2: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_analytics_v2(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV2>> {
+        sqlx::query_as::<_, ApiAnalyticV2>(
+            "SELECT * FROM api_analytics_v2 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v2: {e}")))
+    }
+
+    pub async fn get_api_analytics_v2_by_endpoint(
+        &self,
+        endpoint: &str,
+        limit: i64,
+    ) -> Result<Vec<ApiAnalyticV2>> {
+        sqlx::query_as::<_, ApiAnalyticV2>(
+            "SELECT * FROM api_analytics_v2 WHERE endpoint = $1 ORDER BY created_at DESC LIMIT $2",
+        )
+        .bind(endpoint)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v2_by_endpoint: {e}")))
+    }
+
+    pub async fn get_api_analytics_v2_summary(
+        &self,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'total_requests', COUNT(*),
+                'avg_response_time_ms', AVG(response_time_ms),
+                'error_rate', COUNT(*) FILTER (WHERE status_code >= 400)::float / NULLIF(COUNT(*), 0),
+                'unique_users', COUNT(DISTINCT user_id),
+                'total_request_bytes', SUM(request_size_bytes),
+                'total_response_bytes', SUM(response_size_bytes)
+             )
+             FROM api_analytics_v2
+             WHERE created_at >= $1"#,
+        )
+        .bind(since)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v2_summary: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_analytics_v2_error_breakdown(
+        &self,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<serde_json::Value>> {
+        sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'status_code', status_code,
+                'count', COUNT(*),
+                'avg_response_time_ms', AVG(response_time_ms)
+             )
+             FROM api_analytics_v2
+             WHERE created_at >= $1 AND status_code >= 400
+             GROUP BY status_code
+             ORDER BY COUNT(*) DESC"#,
+        )
+        .bind(since)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v2_error_breakdown: {e}")))
     }
 }
 
