@@ -72,6 +72,9 @@ pub mod quality_gates;
 pub mod firewall;
 pub mod intrusion_detection;
 pub mod ddos_protection;
+pub mod object_storage;
+pub mod backup_encryption;
+pub mod data_retention;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{

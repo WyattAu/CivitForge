@@ -282,6 +282,14 @@ pub const M_167_INTRUSION_DETECTIONS_DOWN: &str =
 pub const M_168_DDOS_PROTECTION_UP: &str = include_str!("168_add_ddos_protection.sql");
 pub const M_168_DDOS_PROTECTION_DOWN: &str =
     "DROP TABLE IF EXISTS ddos_events; DROP TABLE IF EXISTS ddos_protection;";
+pub const M_169_OBJECT_STORAGE_UP: &str = include_str!("169_add_object_storage.sql");
+pub const M_169_OBJECT_STORAGE_DOWN: &str =
+    "DROP TABLE IF EXISTS object_storage_objects; DROP TABLE IF EXISTS object_storage_buckets;";
+pub const M_170_BACKUP_ENCRYPTION_UP: &str = include_str!("170_add_backup_encryption.sql");
+pub const M_170_BACKUP_ENCRYPTION_DOWN: &str = "DROP TABLE IF EXISTS backup_encryption_keys;";
+pub const M_171_DATA_RETENTION_UP: &str = include_str!("171_add_data_retention.sql");
+pub const M_171_DATA_RETENTION_DOWN: &str =
+    "DROP TABLE IF EXISTS data_retention_actions; DROP TABLE IF EXISTS data_retention_policies;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1151,6 +1159,24 @@ impl MigrationManager {
             up_sql: M_168_DDOS_PROTECTION_UP.into(),
             down_sql: M_168_DDOS_PROTECTION_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 169,
+            name: "add_object_storage".into(),
+            up_sql: M_169_OBJECT_STORAGE_UP.into(),
+            down_sql: M_169_OBJECT_STORAGE_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 170,
+            name: "add_backup_encryption".into(),
+            up_sql: M_170_BACKUP_ENCRYPTION_UP.into(),
+            down_sql: M_170_BACKUP_ENCRYPTION_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 171,
+            name: "add_data_retention".into(),
+            up_sql: M_171_DATA_RETENTION_UP.into(),
+            down_sql: M_171_DATA_RETENTION_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1192,7 +1218,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 139);
+        assert_eq!(mgr.all().len(), 142);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1409,13 +1435,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 169,
+            version: 172,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 140);
-        assert_eq!(mgr.all()[139].version, 169);
+        assert_eq!(mgr.all().len(), 143);
+        assert_eq!(mgr.all()[142].version, 172);
     }
 
     #[test]
@@ -1434,13 +1460,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 139);
+        assert_eq!(pending.len(), 142);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(168);
+        let pending = mgr.get_pending(171);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1448,7 +1474,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 138);
+        assert_eq!(pending.len(), 141);
     }
 
     #[test]
