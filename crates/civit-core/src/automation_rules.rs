@@ -264,6 +264,81 @@ impl From<AutomationRuleV5Row> for AutomationRuleV5 {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRuleV6 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub trigger_type: String,
+    pub conditions: serde_json::Value,
+    pub actions: serde_json::Value,
+    pub priority: i32,
+    pub enabled: bool,
+    pub last_run_at: Option<DateTime<Utc>>,
+    pub run_count: i32,
+    pub success_rate: f64,
+    pub avg_execution_time_ms: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAutomationRuleV6 {
+    pub repo_id: Uuid,
+    pub name: String,
+    pub trigger_type: String,
+    pub conditions: Option<serde_json::Value>,
+    pub actions: Option<serde_json::Value>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateAutomationRuleV6 {
+    pub name: Option<String>,
+    pub trigger_type: Option<String>,
+    pub conditions: Option<serde_json::Value>,
+    pub actions: Option<serde_json::Value>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct AutomationRuleV6Row {
+    id: Uuid,
+    repo_id: Uuid,
+    name: String,
+    trigger_type: String,
+    conditions: serde_json::Value,
+    actions: serde_json::Value,
+    priority: i32,
+    enabled: bool,
+    last_run_at: Option<DateTime<Utc>>,
+    run_count: i32,
+    success_rate: f64,
+    avg_execution_time_ms: i32,
+    created_at: DateTime<Utc>,
+}
+
+impl From<AutomationRuleV6Row> for AutomationRuleV6 {
+    fn from(row: AutomationRuleV6Row) -> Self {
+        AutomationRuleV6 {
+            id: row.id,
+            repo_id: row.repo_id,
+            name: row.name,
+            trigger_type: row.trigger_type,
+            conditions: row.conditions,
+            actions: row.actions,
+            priority: row.priority,
+            enabled: row.enabled,
+            last_run_at: row.last_run_at,
+            run_count: row.run_count,
+            success_rate: row.success_rate,
+            avg_execution_time_ms: row.avg_execution_time_ms,
+            created_at: row.created_at,
+        }
+    }
+}
+
 #[derive(Debug, sqlx::FromRow)]
 struct AutomationRuleV4Row {
     id: Uuid,
@@ -1745,6 +1820,316 @@ impl AutomationRuleService {
                 suggested_changes: serde_json::json!({
                     "action": "review_conditions",
                     "current_success_rate": rule.success_rate
+                }),
+            });
+        }
+
+        Ok(recommendations)
+    }
+
+    // --- V6: Execution Time Tracking, Performance Analytics, Rule Optimization, Rule Recommendations ---
+
+    pub async fn create_rule_v6(
+        &self,
+        input: CreateAutomationRuleV6,
+    ) -> Result<AutomationRuleV6, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV6Row>(
+            r#"INSERT INTO automation_rules_v6 (repo_id, name, trigger_type, conditions, actions, priority, enabled)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at"#,
+        )
+        .bind(input.repo_id)
+        .bind(&input.name)
+        .bind(&input.trigger_type)
+        .bind(input.conditions.unwrap_or(serde_json::json!({})))
+        .bind(input.actions.unwrap_or(serde_json::json!([])))
+        .bind(input.priority.unwrap_or(0))
+        .bind(input.enabled.unwrap_or(true))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_rule_v6(&self, id: Uuid) -> Result<Option<AutomationRuleV6>, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV6Row>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v6 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_rules_v6_for_repo(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<AutomationRuleV6>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleV6Row>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v6 WHERE repo_id = $1 ORDER BY priority DESC, created_at DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_enabled_rules_v6_for_repo(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<AutomationRuleV6>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleV6Row>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v6 WHERE repo_id = $1 AND enabled = true
+             ORDER BY priority DESC, created_at DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_rule_v6(
+        &self,
+        id: Uuid,
+        input: UpdateAutomationRuleV6,
+    ) -> Result<AutomationRuleV6, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV6Row>(
+            r#"UPDATE automation_rules_v6 SET
+             name = COALESCE($2, name),
+             trigger_type = COALESCE($3, trigger_type),
+             conditions = COALESCE($4, conditions),
+             actions = COALESCE($5, actions),
+             priority = COALESCE($6, priority),
+             enabled = COALESCE($7, enabled)
+             WHERE id = $1
+             RETURNING id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.trigger_type)
+        .bind(&input.conditions)
+        .bind(&input.actions)
+        .bind(input.priority)
+        .bind(input.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_rule_v6(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM automation_rules_v6 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn execute_rule_v6(
+        &self,
+        rule_id: Uuid,
+        context: &serde_json::Value,
+    ) -> Result<RuleExecutionRecord, sqlx::Error> {
+        let rule = self.get_rule_v6(rule_id).await?.ok_or_else(|| {
+            sqlx::Error::RowNotFound
+        })?;
+
+        let start_time = std::time::Instant::now();
+
+        let mut matched_conditions = Vec::new();
+        let mut failed_conditions = Vec::new();
+
+        if let Some(obj) = rule.conditions.as_object() {
+            for (key, expected) in obj {
+                match context.get(key) {
+                    Some(val) if val == expected => {
+                        matched_conditions.push(key.clone());
+                    }
+                    _ => {
+                        failed_conditions.push(key.clone());
+                    }
+                }
+            }
+        }
+
+        let all_matched = failed_conditions.is_empty();
+
+        let mut actions_executed = Vec::new();
+        if all_matched {
+            if let Some(action_list) = rule.actions.as_array() {
+                for action in action_list {
+                    if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
+                        actions_executed.push(action_type.to_string());
+                    }
+                }
+            }
+        }
+
+        let elapsed_ms = start_time.elapsed().as_millis() as i32;
+        let status = if all_matched { "matched" } else { "not_matched" };
+
+        let new_success_rate = if all_matched {
+            (rule.success_rate * 0.9) + (100.0 * 0.1)
+        } else {
+            (rule.success_rate * 0.9) + (0.0 * 0.1)
+        };
+
+        let new_avg_time = if rule.run_count == 0 {
+            elapsed_ms
+        } else {
+            ((rule.avg_execution_time_ms as f64 * 0.9) + (elapsed_ms as f64 * 0.1)) as i32
+        };
+
+        sqlx::query(
+            r#"UPDATE automation_rules_v6 SET
+             run_count = run_count + 1,
+             last_run_at = NOW(),
+             success_rate = $2,
+             avg_execution_time_ms = $3
+             WHERE id = $1"#,
+        )
+        .bind(rule_id)
+        .bind(new_success_rate)
+        .bind(new_avg_time)
+        .execute(&self.pool)
+        .await?;
+
+        self.record_execution(
+            rule_id,
+            status,
+            &matched_conditions,
+            &failed_conditions,
+            &actions_executed,
+            None,
+        )
+        .await
+    }
+
+    pub async fn get_rule_v6_performance_metrics(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<RulePerformanceMetrics, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct MetricsRow {
+            total_runs: i64,
+            successful_runs: i64,
+            failed_runs: i64,
+            avg_execution_time_ms: f64,
+            last_execution_time_ms: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, MetricsRow>(
+            r#"SELECT
+                COUNT(*) as total_runs,
+                COUNT(*) FILTER (WHERE status = 'matched') as successful_runs,
+                COUNT(*) FILTER (WHERE status = 'not_matched') as failed_runs,
+                COALESCE(AVG(EXTRACT(EPOCH FROM (executed_at - executed_at)) * 1000), 0) as avg_execution_time_ms,
+                MAX(CASE WHEN executed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (executed_at - executed_at)) * 1000 END) as last_execution_time_ms
+             FROM rule_execution_history WHERE rule_id = $1"#,
+        )
+        .bind(rule_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let success_rate = if row.total_runs > 0 {
+            (row.successful_runs as f64 / row.total_runs as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(RulePerformanceMetrics {
+            rule_id,
+            total_runs: row.total_runs,
+            successful_runs: row.successful_runs,
+            failed_runs: row.failed_runs,
+            average_execution_time_ms: row.avg_execution_time_ms,
+            last_execution_time_ms: row.last_execution_time_ms,
+            success_rate,
+        })
+    }
+
+    pub async fn get_rules_v6_with_slowest_execution(
+        &self,
+        repo_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<AutomationRuleV6>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleV6Row>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v6 WHERE repo_id = $1 AND run_count > 0
+             ORDER BY avg_execution_time_ms DESC LIMIT $2"#,
+        )
+        .bind(repo_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_rule_v6_optimization_suggestions(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<Vec<RuleRecommendation>, sqlx::Error> {
+        let rule = self.get_rule_v6(rule_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let metrics = self.get_rule_v6_performance_metrics(rule_id).await?;
+        let mut recommendations = Vec::new();
+
+        if rule.avg_execution_time_ms > 5000 {
+            recommendations.push(RuleRecommendation {
+                rule_id,
+                recommendation_type: "slow_execution".into(),
+                description: format!("Rule takes {:.0}ms on average. Consider optimizing conditions or actions.", rule.avg_execution_time_ms as f64),
+                confidence: 0.9,
+                suggested_changes: serde_json::json!({
+                    "action": "optimize",
+                    "current_avg_time_ms": rule.avg_execution_time_ms
+                }),
+            });
+        }
+
+        if metrics.total_runs == 0 {
+            recommendations.push(RuleRecommendation {
+                rule_id,
+                recommendation_type: "never_triggered".into(),
+                description: "Rule has never been triggered. Consider reviewing trigger conditions.".into(),
+                confidence: 0.9,
+                suggested_changes: serde_json::json!({
+                    "action": "review_trigger",
+                    "current_trigger": rule.trigger_type
+                }),
+            });
+        } else if rule.success_rate < 50.0 {
+            recommendations.push(RuleRecommendation {
+                rule_id,
+                recommendation_type: "low_success_rate".into(),
+                description: format!("Rule has a low success rate of {:.1}%. Consider reviewing conditions.", rule.success_rate),
+                confidence: 0.85,
+                suggested_changes: serde_json::json!({
+                    "action": "review_conditions",
+                    "current_success_rate": rule.success_rate
+                }),
+            });
+        }
+
+        if rule.run_count > 100 && rule.success_rate > 95.0 {
+            recommendations.push(RuleRecommendation {
+                rule_id,
+                recommendation_type: "high_performance".into(),
+                description: "Rule is performing well with high success rate. Consider promoting to higher priority.".into(),
+                confidence: 0.8,
+                suggested_changes: serde_json::json!({
+                    "action": "increase_priority",
+                    "current_priority": rule.priority,
+                    "suggested_priority": rule.priority + 5
                 }),
             });
         }
