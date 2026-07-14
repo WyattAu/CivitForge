@@ -768,6 +768,64 @@ mod tests {
         assert_eq!(de.required_approving_reviews, 2);
         assert!(de.enforce_admins);
     }
+
+    #[test]
+    fn test_test_coverage_serialization() {
+        let coverage = TestCoverage {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            file_path: "src/main.rs".into(),
+            line_coverage: 85.5,
+            branch_coverage: 72.3,
+            function_coverage: 90.0,
+            total_lines: 200,
+            covered_lines: 171,
+            measured_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&coverage).unwrap();
+        let de: TestCoverage = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.file_path, "src/main.rs");
+        assert!((de.line_coverage - 85.5).abs() < f64::EPSILON);
+        assert_eq!(de.total_lines, 200);
+    }
+
+    #[test]
+    fn test_code_quality_metric_serialization() {
+        let metric = CodeQualityMetric {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            metric_name: "cyclomatic_complexity".into(),
+            metric_value: 12.5,
+            file_path: Some("src/lib.rs".into()),
+            measured_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&metric).unwrap();
+        let de: CodeQualityMetric = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.metric_name, "cyclomatic_complexity");
+        assert!((de.metric_value - 12.5).abs() < f64::EPSILON);
+        assert_eq!(de.file_path.as_deref(), Some("src/lib.rs"));
+    }
+
+    #[test]
+    fn test_performance_test_serialization() {
+        let test = PerformanceTest {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            name: "load test api".into(),
+            test_type: "load".into(),
+            endpoint: Some("/api/v1/users".into()),
+            config: serde_json::json!({"concurrent_users": 100, "duration_seconds": 60}),
+            status: "completed".into(),
+            results: serde_json::json!({"avg_response_ms": 150, "p95_response_ms": 300, "error_rate": 0.01}),
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&test).unwrap();
+        let de: PerformanceTest = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.test_type, "load");
+        assert_eq!(de.status, "completed");
+        assert!(de.completed_at.is_some());
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -890,4 +948,41 @@ pub struct ApiAnalyticV2 {
     pub request_size_bytes: i32,
     pub response_size_bytes: i32,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct TestCoverage {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub file_path: String,
+    pub line_coverage: f64,
+    pub branch_coverage: f64,
+    pub function_coverage: f64,
+    pub total_lines: i32,
+    pub covered_lines: i32,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CodeQualityMetric {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub file_path: Option<String>,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PerformanceTest {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub test_type: String,
+    pub endpoint: Option<String>,
+    pub config: serde_json::Value,
+    pub status: String,
+    pub results: serde_json::Value,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
 }

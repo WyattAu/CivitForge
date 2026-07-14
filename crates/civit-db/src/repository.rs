@@ -3,10 +3,10 @@
 use crate::error::{DbError, Result};
 use crate::models::{
     ActivityEvent, ApiAnalyticV2, ApiDocumentation, ApiVersion, BoardCardAssignee, BoardCardLabel,
-    BranchProtectionRule, EmailVerificationCode, Issue, MultiProjectPipeline, MultiProjectPipelineRun,
-    Org, Pipeline, PipelineAnalytics, PipelineTemplate, PrComment, PrReviewer, PrStatusCheck,
-    PrTimeline, PullRequest, Release, ReleaseAsset, Repository, ReviewAssignment, ReviewSummary,
-    SshKey, Team, TeamMember, User,
+    BranchProtectionRule, CodeQualityMetric, EmailVerificationCode, Issue, MultiProjectPipeline,
+    MultiProjectPipelineRun, Org, PerformanceTest, Pipeline, PipelineAnalytics, PipelineTemplate,
+    PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release, ReleaseAsset,
+    Repository, ReviewAssignment, ReviewSummary, SshKey, Team, TeamMember, TestCoverage, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -4728,6 +4728,530 @@ impl DbRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| DbError::Database(format!("get_api_analytics_v2_error_breakdown: {e}")))
+    }
+
+    // --- Test Coverage ---
+
+    pub async fn upload_test_coverage(
+        &self,
+        repo_id: Uuid,
+        file_path: &str,
+        line_coverage: f64,
+        branch_coverage: f64,
+        function_coverage: f64,
+        total_lines: i32,
+        covered_lines: i32,
+    ) -> Result<TestCoverage> {
+        let row = sqlx::query_as::<_, TestCoverage>(
+            r#"INSERT INTO test_coverage (repo_id, file_path, line_coverage, branch_coverage, function_coverage, total_lines, covered_lines)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(file_path)
+        .bind(line_coverage)
+        .bind(branch_coverage)
+        .bind(function_coverage)
+        .bind(total_lines)
+        .bind(covered_lines)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("upload_test_coverage: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_coverage_for_repo(
+        &self,
+        repo_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestCoverage>> {
+        let rows = sqlx::query_as::<_, TestCoverage>(
+            r#"SELECT * FROM test_coverage
+               WHERE repo_id = $1
+               ORDER BY measured_at DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(repo_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_coverage_for_repo: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_coverage_statistics(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'avg_line_coverage', AVG(line_coverage),
+                'avg_branch_coverage', AVG(branch_coverage),
+                'avg_function_coverage', AVG(function_coverage),
+                'total_files', COUNT(DISTINCT file_path),
+                'total_lines', SUM(total_lines),
+                'total_covered_lines', SUM(covered_lines),
+                'overall_coverage', CASE WHEN SUM(total_lines) > 0 THEN SUM(covered_lines)::float / SUM(total_lines)::float * 100 ELSE 0 END
+             )
+             FROM test_coverage
+             WHERE repo_id = $1
+               AND measured_at = (SELECT MAX(measured_at) FROM test_coverage WHERE repo_id = $1)"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_coverage_statistics: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_coverage_trends(
+        &self,
+        repo_id: Uuid,
+        days: i64,
+    ) -> Result<Vec<serde_json::Value>> {
+        let rows = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'date', DATE(measured_at),
+                'avg_line_coverage', AVG(line_coverage),
+                'avg_branch_coverage', AVG(branch_coverage),
+                'avg_function_coverage', AVG(function_coverage),
+                'file_count', COUNT(DISTINCT file_path)
+             )
+             FROM test_coverage
+             WHERE repo_id = $1
+               AND measured_at >= NOW() - ($2 || ' days')::INTERVAL
+             GROUP BY DATE(measured_at)
+             ORDER BY DATE(measured_at) DESC"#,
+        )
+        .bind(repo_id)
+        .bind(days)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_coverage_trends: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn check_coverage_enforcement(
+        &self,
+        repo_id: Uuid,
+        min_line_coverage: f64,
+        min_branch_coverage: f64,
+        min_function_coverage: f64,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'passes', bool_and(
+                    line_coverage >= $2
+                    AND branch_coverage >= $3
+                    AND function_coverage >= $4
+                ),
+                'files_checked', COUNT(*),
+                'files_passing', COUNT(*) FILTER (WHERE line_coverage >= $2 AND branch_coverage >= $3 AND function_coverage >= $4),
+                'files_failing', COUNT(*) FILTER (WHERE line_coverage < $2 OR branch_coverage < $3 OR function_coverage < $4)
+             )
+             FROM test_coverage
+             WHERE repo_id = $1
+               AND measured_at = (SELECT MAX(measured_at) FROM test_coverage WHERE repo_id = $1)"#,
+        )
+        .bind(repo_id)
+        .bind(min_line_coverage)
+        .bind(min_branch_coverage)
+        .bind(min_function_coverage)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("check_coverage_enforcement: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_old_coverage(
+        &self,
+        repo_id: Uuid,
+        older_than_days: i64,
+    ) -> Result<i64> {
+        let result = sqlx::query(
+            r#"DELETE FROM test_coverage
+               WHERE repo_id = $1
+                 AND measured_at < NOW() - ($2 || ' days')::INTERVAL"#,
+        )
+        .bind(repo_id)
+        .bind(older_than_days)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_old_coverage: {e}")))?;
+        Ok(result.rows_affected() as i64)
+    }
+
+    // --- Code Quality Metrics ---
+
+    pub async fn record_code_quality_metric(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+        file_path: Option<&str>,
+    ) -> Result<CodeQualityMetric> {
+        let row = sqlx::query_as::<_, CodeQualityMetric>(
+            r#"INSERT INTO code_quality_metrics (repo_id, metric_name, metric_value, file_path)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .bind(file_path)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_code_quality_metric: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_code_quality_metrics(
+        &self,
+        repo_id: Uuid,
+        metric_name: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CodeQualityMetric>> {
+        let rows = if let Some(name) = metric_name {
+            sqlx::query_as::<_, CodeQualityMetric>(
+                r#"SELECT * FROM code_quality_metrics
+                   WHERE repo_id = $1 AND metric_name = $2
+                   ORDER BY measured_at DESC
+                   LIMIT $3 OFFSET $4"#,
+            )
+            .bind(repo_id)
+            .bind(name)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, CodeQualityMetric>(
+                r#"SELECT * FROM code_quality_metrics
+                   WHERE repo_id = $1
+                   ORDER BY measured_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(repo_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| DbError::Database(format!("get_code_quality_metrics: {e}")))
+    }
+
+    pub async fn get_quality_metrics_summary(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let rows = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'metric_name', metric_name,
+                'latest_value', (SELECT metric_value FROM code_quality_metrics WHERE repo_id = $1 AND metric_name = cqm.metric_name ORDER BY measured_at DESC LIMIT 1),
+                'avg_value', AVG(metric_value),
+                'min_value', MIN(metric_value),
+                'max_value', MAX(metric_value),
+                'measurement_count', COUNT(*),
+                'files_affected', COUNT(DISTINCT file_path)
+             )
+             FROM code_quality_metrics cqm
+             WHERE repo_id = $1
+             GROUP BY metric_name
+             ORDER BY metric_name"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_quality_metrics_summary: {e}")))?;
+        Ok(serde_json::json!(rows))
+    }
+
+    pub async fn get_quality_trends(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+        days: i64,
+    ) -> Result<Vec<serde_json::Value>> {
+        let rows = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'date', DATE(measured_at),
+                'avg_value', AVG(metric_value),
+                'min_value', MIN(metric_value),
+                'max_value', MAX(metric_value),
+                'measurement_count', COUNT(*)
+             )
+             FROM code_quality_metrics
+             WHERE repo_id = $1
+               AND metric_name = $2
+               AND measured_at >= NOW() - ($3 || ' days')::INTERVAL
+             GROUP BY DATE(measured_at)
+             ORDER BY DATE(measured_at) DESC"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .bind(days)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_quality_trends: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn get_complexity_analysis(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'avg_complexity', AVG(metric_value) FILTER (WHERE metric_name = 'cyclomatic_complexity'),
+                'max_complexity', MAX(metric_value) FILTER (WHERE metric_name = 'cyclomatic_complexity'),
+                'avg_cognitive_complexity', AVG(metric_value) FILTER (WHERE metric_name = 'cognitive_complexity'),
+                'high_complexity_files', COUNT(DISTINCT file_path) FILTER (WHERE metric_name = 'cyclomatic_complexity' AND metric_value > 15),
+                'total_measurements', COUNT(*)
+             )
+             FROM code_quality_metrics
+             WHERE repo_id = $1
+               AND metric_name IN ('cyclomatic_complexity', 'cognitive_complexity')
+               AND measured_at = (SELECT MAX(measured_at) FROM code_quality_metrics WHERE repo_id = $1 AND metric_name IN ('cyclomatic_complexity', 'cognitive_complexity'))"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_complexity_analysis: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_duplication_detection(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'duplication_ratio', AVG(metric_value) FILTER (WHERE metric_name = 'duplication_ratio'),
+                'total_duplicated_lines', SUM(metric_value) FILTER (WHERE metric_name = 'duplicated_lines'),
+                'files_with_duplication', COUNT(DISTINCT file_path) FILTER (WHERE metric_name = 'duplication_ratio' AND metric_value > 0)
+             )
+             FROM code_quality_metrics
+             WHERE repo_id = $1
+               AND metric_name IN ('duplication_ratio', 'duplicated_lines')
+               AND measured_at = (SELECT MAX(measured_at) FROM code_quality_metrics WHERE repo_id = $1 AND metric_name IN ('duplication_ratio', 'duplicated_lines'))"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_duplication_detection: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_code_smells(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'total_smells', SUM(metric_value) FILTER (WHERE metric_name = 'code_smells'),
+                'smell_density', AVG(metric_value) FILTER (WHERE metric_name = 'smell_density'),
+                'files_with_smells', COUNT(DISTINCT file_path) FILTER (WHERE metric_name = 'code_smells' AND metric_value > 0),
+                'critical_smells', SUM(metric_value) FILTER (WHERE metric_name = 'critical_smells'),
+                'major_smells', SUM(metric_value) FILTER (WHERE metric_name = 'major_smells'),
+                'minor_smells', SUM(metric_value) FILTER (WHERE metric_name = 'minor_smells')
+             )
+             FROM code_quality_metrics
+             WHERE repo_id = $1
+               AND metric_name IN ('code_smells', 'smell_density', 'critical_smells', 'major_smells', 'minor_smells')
+               AND measured_at = (SELECT MAX(measured_at) FROM code_quality_metrics WHERE repo_id = $1 AND metric_name IN ('code_smells', 'smell_density', 'critical_smells', 'major_smells', 'minor_smells'))"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_code_smells: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_technical_debt(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'total_debt_hours', SUM(metric_value) FILTER (WHERE metric_name = 'technical_debt_hours'),
+                'debt_ratio', AVG(metric_value) FILTER (WHERE metric_name = 'debt_ratio'),
+                'debt_per_file', AVG(metric_value) FILTER (WHERE metric_name = 'debt_per_file'),
+                'remediation_time_priority', AVG(metric_value) FILTER (WHERE metric_name = 'remediation_time_priority'),
+                'files_with_debt', COUNT(DISTINCT file_path) FILTER (WHERE metric_name = 'technical_debt_hours' AND metric_value > 0)
+             )
+             FROM code_quality_metrics
+             WHERE repo_id = $1
+               AND metric_name IN ('technical_debt_hours', 'debt_ratio', 'debt_per_file', 'remediation_time_priority')
+               AND measured_at = (SELECT MAX(measured_at) FROM code_quality_metrics WHERE repo_id = $1 AND metric_name IN ('technical_debt_hours', 'debt_ratio', 'debt_per_file', 'remediation_time_priority'))"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_technical_debt: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Performance Tests ---
+
+    pub async fn create_performance_test(
+        &self,
+        repo_id: Uuid,
+        name: &str,
+        test_type: &str,
+        endpoint: Option<&str>,
+        config: &serde_json::Value,
+    ) -> Result<PerformanceTest> {
+        let row = sqlx::query_as::<_, PerformanceTest>(
+            r#"INSERT INTO performance_tests (repo_id, name, test_type, endpoint, config)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(name)
+        .bind(test_type)
+        .bind(endpoint)
+        .bind(config)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_performance_test: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_performance_test(&self, id: Uuid) -> Result<PerformanceTest> {
+        sqlx::query_as::<_, PerformanceTest>("SELECT * FROM performance_tests WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_performance_test: {e}")))
+    }
+
+    pub async fn list_performance_tests(
+        &self,
+        repo_id: Uuid,
+        test_type: Option<&str>,
+        status: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PerformanceTest>> {
+        let rows = sqlx::query_as::<_, PerformanceTest>(
+            r#"SELECT * FROM performance_tests
+               WHERE repo_id = $1
+                 AND ($2::varchar IS NULL OR test_type = $2)
+                 AND ($3::varchar IS NULL OR status = $3)
+               ORDER BY started_at DESC
+               LIMIT $4 OFFSET $5"#,
+        )
+        .bind(repo_id)
+        .bind(test_type)
+        .bind(status)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_performance_tests: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn start_performance_test(
+        &self,
+        id: Uuid,
+    ) -> Result<PerformanceTest> {
+        let row = sqlx::query_as::<_, PerformanceTest>(
+            r#"UPDATE performance_tests
+               SET status = 'running', started_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("start_performance_test: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn complete_performance_test(
+        &self,
+        id: Uuid,
+        status: &str,
+        results: &serde_json::Value,
+    ) -> Result<PerformanceTest> {
+        let row = sqlx::query_as::<_, PerformanceTest>(
+            r#"UPDATE performance_tests
+               SET status = $2, results = $3, completed_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(results)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("complete_performance_test: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn update_performance_test_results(
+        &self,
+        id: Uuid,
+        results: &serde_json::Value,
+    ) -> Result<PerformanceTest> {
+        let row = sqlx::query_as::<_, PerformanceTest>(
+            r#"UPDATE performance_tests
+               SET results = results || $2
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(results)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_performance_test_results: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_performance_test(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM performance_tests WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_performance_test: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn get_performance_test_summary(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value> {
+        let row = sqlx::query_scalar::<_, serde_json::Value>(
+            r#"SELECT json_build_object(
+                'total_tests', COUNT(*),
+                'completed_tests', COUNT(*) FILTER (WHERE status = 'completed'),
+                'failed_tests', COUNT(*) FILTER (WHERE status = 'failed'),
+                'running_tests', COUNT(*) FILTER (WHERE status = 'running'),
+                'pending_tests', COUNT(*) FILTER (WHERE status = 'pending'),
+                'by_type', json_build_object(
+                    'load', COUNT(*) FILTER (WHERE test_type = 'load'),
+                    'stress', COUNT(*) FILTER (WHERE test_type = 'stress'),
+                    'soak', COUNT(*) FILTER (WHERE test_type = 'soak'),
+                    'benchmark', COUNT(*) FILTER (WHERE test_type = 'benchmark')
+                ),
+                'latest_results', (
+                    SELECT results FROM performance_tests
+                    WHERE repo_id = $1 AND status = 'completed'
+                    ORDER BY completed_at DESC LIMIT 1
+                )
+             )
+             FROM performance_tests
+             WHERE repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_performance_test_summary: {e}")))?;
+        Ok(row)
     }
 }
 
