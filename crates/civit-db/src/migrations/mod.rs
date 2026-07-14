@@ -174,6 +174,14 @@ pub const M_113_REALTIME_CHANNELS_UP: &str = include_str!("113_add_realtime_chan
 pub const M_113_REALTIME_CHANNELS_DOWN: &str = "DROP TABLE IF EXISTS realtime_messages; DROP TABLE IF EXISTS realtime_channels;";
 pub const M_114_LIVE_COLLABORATION_UP: &str = include_str!("114_add_live_collaboration.sql");
 pub const M_114_LIVE_COLLABORATION_DOWN: &str = "DROP TABLE IF EXISTS live_collaboration_sessions;";
+pub const M_115_CODE_INTELLIGENCE_UP: &str = include_str!("115_add_code_intelligence.sql");
+pub const M_115_CODE_INTELLIGENCE_DOWN: &str =
+    "DROP TABLE IF EXISTS code_intelligence_references; DROP TABLE IF EXISTS code_intelligence_symbols;";
+pub const M_116_CODE_SEARCH_V2_UP: &str = include_str!("116_add_code_search_v2.sql");
+pub const M_116_CODE_SEARCH_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS code_search_queries; DROP TABLE IF EXISTS code_search_index_v2;";
+pub const M_117_CODE_FORMATTERS_UP: &str = include_str!("117_add_code_formatters.sql");
+pub const M_117_CODE_FORMATTERS_DOWN: &str = "DROP TABLE IF EXISTS code_formatters;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -755,6 +763,24 @@ impl MigrationManager {
             up_sql: M_114_LIVE_COLLABORATION_UP.into(),
             down_sql: M_114_LIVE_COLLABORATION_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 115,
+            name: "add_code_intelligence".into(),
+            up_sql: M_115_CODE_INTELLIGENCE_UP.into(),
+            down_sql: M_115_CODE_INTELLIGENCE_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 116,
+            name: "add_code_search_v2".into(),
+            up_sql: M_116_CODE_SEARCH_V2_UP.into(),
+            down_sql: M_116_CODE_SEARCH_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 117,
+            name: "add_code_formatters".into(),
+            up_sql: M_117_CODE_FORMATTERS_UP.into(),
+            down_sql: M_117_CODE_FORMATTERS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -796,7 +822,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 91);
+        assert_eq!(mgr.all().len(), 94);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -971,13 +997,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 115,
+            version: 118,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 92);
-        assert_eq!(mgr.all()[91].version, 115);
+        assert_eq!(mgr.all().len(), 95);
+        assert_eq!(mgr.all()[94].version, 118);
     }
 
     #[test]
@@ -996,13 +1022,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 91);
+        assert_eq!(pending.len(), 94);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(114);
+        let pending = mgr.get_pending(117);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1010,7 +1036,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 90);
+        assert_eq!(pending.len(), 93);
     }
 
     #[test]
