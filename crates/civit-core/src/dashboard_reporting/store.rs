@@ -1717,6 +1717,273 @@ impl DashboardReportingService {
             total_views: view_stats.total_views,
         })
     }
+
+    // V8: Dashboard sharing v5
+
+    pub async fn create_dashboard_share_v5(
+        &self,
+        input: CreateDashboardShareV5,
+    ) -> Result<DashboardShareV5, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardShareV5Row>(
+            r#"INSERT INTO dashboard_shares_v5 (dashboard_id, user_id, permission)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (dashboard_id, user_id) DO UPDATE SET permission = $3
+             RETURNING id, dashboard_id, user_id, permission, created_at"#,
+        )
+        .bind(input.dashboard_id)
+        .bind(input.user_id)
+        .bind(input.permission.unwrap_or_else(|| "view".to_string()))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_dashboard_share_v5(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<DashboardShareV5>, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardShareV5Row>(
+            r#"SELECT id, dashboard_id, user_id, permission, created_at
+             FROM dashboard_shares_v5 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_dashboard_shares_v5(
+        &self,
+        dashboard_id: Uuid,
+    ) -> Result<Vec<DashboardShareV5>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DashboardShareV5Row>(
+            r#"SELECT id, dashboard_id, user_id, permission, created_at
+             FROM dashboard_shares_v5 WHERE dashboard_id = $1
+             ORDER BY created_at DESC"#,
+        )
+        .bind(dashboard_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_dashboard_share_v5(
+        &self,
+        id: Uuid,
+        permission: &str,
+    ) -> Result<DashboardShareV5, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardShareV5Row>(
+            r#"UPDATE dashboard_shares_v5 SET permission = $2
+             WHERE id = $1
+             RETURNING id, dashboard_id, user_id, permission, created_at"#,
+        )
+        .bind(id)
+        .bind(permission)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_dashboard_share_v5(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM dashboard_shares_v5 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V8: Report scheduling v6
+
+    pub async fn create_report_schedule_v6(
+        &self,
+        input: CreateReportScheduleV6,
+    ) -> Result<ReportScheduleV6, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV6Row>(
+            r#"INSERT INTO report_schedules_v6 (report_id, cron_expression, enabled, next_run_at)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(input.report_id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled.unwrap_or(true))
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_report_schedule_v6(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<ReportScheduleV6>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV6Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v6 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_report_schedules_v6(
+        &self,
+    ) -> Result<Vec<ReportScheduleV6>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV6Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v6 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_report_schedule_v6(
+        &self,
+        id: Uuid,
+        input: UpdateReportScheduleV6,
+    ) -> Result<ReportScheduleV6, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV6Row>(
+            r#"UPDATE report_schedules_v6 SET
+             cron_expression = COALESCE($2, cron_expression),
+             enabled = COALESCE($3, enabled),
+             next_run_at = COALESCE($4, next_run_at)
+             WHERE id = $1
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled)
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_report_schedule_v6(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM report_schedules_v6 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_due_schedules_v6(
+        &self,
+    ) -> Result<Vec<ReportScheduleV6>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV6Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v6 WHERE enabled = true AND next_run_at <= NOW()
+             ORDER BY next_run_at ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn mark_schedule_executed_v6(
+        &self,
+        id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"UPDATE report_schedules_v6 SET last_run_at = NOW() WHERE id = $1"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    // V8: Dashboard stats v8
+
+    pub async fn get_dashboard_stats_v8(
+        &self,
+    ) -> Result<DashboardStatsV8, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct StatsRow {
+            total_dashboards: i64,
+            public_dashboards: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ReportStatsRow {
+            total_reports: i64,
+            scheduled_reports: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ShareStatsRow {
+            total_shares: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ScheduleStatsRow {
+            total_schedules: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct AvgShareRow {
+            avg_shares: f64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ViewStatsRow {
+            total_views: i64,
+        }
+
+        let dash_stats = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT COUNT(*) as total_dashboards,
+             COUNT(*) FILTER (WHERE is_public) as public_dashboards
+             FROM dashboards"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let report_stats = sqlx::query_as::<_, ReportStatsRow>(
+            r#"SELECT COUNT(*) as total_reports,
+             COUNT(*) FILTER (WHERE schedule IS NOT NULL) as scheduled_reports
+             FROM reports"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let share_stats = sqlx::query_as::<_, ShareStatsRow>(
+            r#"SELECT COUNT(*) as total_shares FROM dashboard_shares_v5"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let schedule_stats = sqlx::query_as::<_, ScheduleStatsRow>(
+            r#"SELECT COUNT(*) as total_schedules FROM report_schedules_v6"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let avg_shares = sqlx::query_as::<_, AvgShareRow>(
+            r#"SELECT COALESCE(COUNT(ds.id)::float / NULLIF(COUNT(DISTINCT d.id), 0), 0.0) as avg_shares
+             FROM dashboards d LEFT JOIN dashboard_shares_v5 ds ON d.id = ds.dashboard_id"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let view_stats = sqlx::query_as::<_, ViewStatsRow>(
+            r#"SELECT COALESCE(SUM(view_count), 0) as total_views FROM dashboard_analytics"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(DashboardStatsV8 {
+            total_dashboards: dash_stats.total_dashboards,
+            public_dashboards: dash_stats.public_dashboards,
+            total_reports: report_stats.total_reports,
+            scheduled_reports: report_stats.scheduled_reports,
+            total_shares: share_stats.total_shares,
+            total_schedules: schedule_stats.total_schedules,
+            avg_shares_per_dashboard: avg_shares.avg_shares,
+            total_views: view_stats.total_views,
+        })
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -1904,6 +2171,52 @@ struct ReportScheduleV5Row {
 impl From<ReportScheduleV5Row> for ReportScheduleV5 {
     fn from(row: ReportScheduleV5Row) -> Self {
         ReportScheduleV5 {
+            id: row.id,
+            report_id: row.report_id,
+            cron_expression: row.cron_expression,
+            enabled: row.enabled,
+            last_run_at: row.last_run_at,
+            next_run_at: row.next_run_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct DashboardShareV5Row {
+    id: Uuid,
+    dashboard_id: Uuid,
+    user_id: Uuid,
+    permission: String,
+    created_at: DateTime<Utc>,
+}
+
+impl From<DashboardShareV5Row> for DashboardShareV5 {
+    fn from(row: DashboardShareV5Row) -> Self {
+        DashboardShareV5 {
+            id: row.id,
+            dashboard_id: row.dashboard_id,
+            user_id: row.user_id,
+            permission: row.permission,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ReportScheduleV6Row {
+    id: Uuid,
+    report_id: Uuid,
+    cron_expression: String,
+    enabled: bool,
+    last_run_at: Option<DateTime<Utc>>,
+    next_run_at: DateTime<Utc>,
+    created_at: DateTime<Utc>,
+}
+
+impl From<ReportScheduleV6Row> for ReportScheduleV6 {
+    fn from(row: ReportScheduleV6Row) -> Self {
+        ReportScheduleV6 {
             id: row.id,
             report_id: row.report_id,
             cron_expression: row.cron_expression,
