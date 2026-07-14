@@ -28,6 +28,7 @@ pub mod notifications;
 pub mod performance;
 pub mod policy;
 pub mod protection;
+pub mod realtime;
 pub mod provenance;
 pub mod release;
 pub mod release_manager;

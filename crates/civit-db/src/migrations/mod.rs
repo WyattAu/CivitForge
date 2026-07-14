@@ -168,6 +168,12 @@ pub const M_110_RATE_LIMIT_POLICIES_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_buckets; DROP TABLE IF EXISTS rate_limit_policies;";
 pub const M_111_API_TRANSFORMS_UP: &str = include_str!("111_add_api_transforms.sql");
 pub const M_111_API_TRANSFORMS_DOWN: &str = "DROP TABLE IF EXISTS api_transforms;";
+pub const M_112_GRAPHQL_SUBSCRIPTIONS_UP: &str = include_str!("112_add_graphql_subscriptions.sql");
+pub const M_112_GRAPHQL_SUBSCRIPTIONS_DOWN: &str = "DROP TABLE IF EXISTS graphql_subscriptions;";
+pub const M_113_REALTIME_CHANNELS_UP: &str = include_str!("113_add_realtime_channels.sql");
+pub const M_113_REALTIME_CHANNELS_DOWN: &str = "DROP TABLE IF EXISTS realtime_messages; DROP TABLE IF EXISTS realtime_channels;";
+pub const M_114_LIVE_COLLABORATION_UP: &str = include_str!("114_add_live_collaboration.sql");
+pub const M_114_LIVE_COLLABORATION_DOWN: &str = "DROP TABLE IF EXISTS live_collaboration_sessions;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -731,6 +737,24 @@ impl MigrationManager {
             up_sql: M_111_API_TRANSFORMS_UP.into(),
             down_sql: M_111_API_TRANSFORMS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 112,
+            name: "add_graphql_subscriptions".into(),
+            up_sql: M_112_GRAPHQL_SUBSCRIPTIONS_UP.into(),
+            down_sql: M_112_GRAPHQL_SUBSCRIPTIONS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 113,
+            name: "add_realtime_channels".into(),
+            up_sql: M_113_REALTIME_CHANNELS_UP.into(),
+            down_sql: M_113_REALTIME_CHANNELS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 114,
+            name: "add_live_collaboration".into(),
+            up_sql: M_114_LIVE_COLLABORATION_UP.into(),
+            down_sql: M_114_LIVE_COLLABORATION_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -772,7 +796,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 88);
+        assert_eq!(mgr.all().len(), 91);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -935,19 +959,25 @@ mod tests {
         assert_eq!(mgr.all()[86].name, "add_rate_limit_policies");
         assert_eq!(mgr.all()[87].version, 111);
         assert_eq!(mgr.all()[87].name, "add_api_transforms");
+        assert_eq!(mgr.all()[88].version, 112);
+        assert_eq!(mgr.all()[88].name, "add_graphql_subscriptions");
+        assert_eq!(mgr.all()[89].version, 113);
+        assert_eq!(mgr.all()[89].name, "add_realtime_channels");
+        assert_eq!(mgr.all()[90].version, 114);
+        assert_eq!(mgr.all()[90].name, "add_live_collaboration");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 112,
+            version: 115,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 89);
-        assert_eq!(mgr.all()[88].version, 112);
+        assert_eq!(mgr.all().len(), 92);
+        assert_eq!(mgr.all()[91].version, 115);
     }
 
     #[test]
@@ -966,13 +996,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 88);
+        assert_eq!(pending.len(), 91);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(111);
+        let pending = mgr.get_pending(114);
         assert_eq!(pending.len(), 0);
     }
 
@@ -980,7 +1010,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 87);
+        assert_eq!(pending.len(), 90);
     }
 
     #[test]

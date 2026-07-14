@@ -52,7 +52,7 @@ pub async fn graphql_endpoint(
     if trimmed.starts_with("query") || trimmed.starts_with("{") {
         handle_query(&state, trimmed).await
     } else if trimmed.starts_with("mutation") {
-        handle_mutation(trimmed).await
+        handle_mutation(&state, trimmed).await
     } else {
         (
             StatusCode::BAD_REQUEST,
@@ -265,7 +265,7 @@ async fn handle_query(state: &AppState, query: &str) -> Response {
     }
 }
 
-async fn handle_mutation(mutation: &str) -> Response {
+async fn handle_mutation(state: &AppState, mutation: &str) -> Response {
     let m_lower = mutation.to_lowercase();
 
     if m_lower.contains("create_issue") {
@@ -329,9 +329,50 @@ async fn handle_mutation(mutation: &str) -> Response {
             }),
         )
             .into_response()
+    } else if m_lower.contains("create_subscription") || m_lower.contains("subscribe") {
+        handle_create_subscription(state).await
+    } else if m_lower.contains("unsubscribe") {
+        handle_unsubscribe(state).await
     } else {
         (StatusCode::BAD_REQUEST, error_response("Unknown mutation")).into_response()
     }
+}
+
+async fn handle_create_subscription(state: &AppState) -> Response {
+    let id = uuid::Uuid::new_v4();
+    let channel = "default".to_string();
+
+    (
+        StatusCode::OK,
+        Json(GraphQLResponse {
+            data: Some(json!({
+                "createSubscription": {
+                    "id": id.to_string(),
+                    "channel": channel,
+                    "enabled": true,
+                    "message": "Subscription created. Use SSE endpoint /graphql/subscribe for real-time updates.",
+                }
+            })),
+            errors: None,
+        }),
+    )
+        .into_response()
+}
+
+async fn handle_unsubscribe(_state: &AppState) -> Response {
+    (
+        StatusCode::OK,
+        Json(GraphQLResponse {
+            data: Some(json!({
+                "unsubscribe": {
+                    "success": true,
+                    "message": "Subscription removed.",
+                }
+            })),
+            errors: None,
+        }),
+    )
+        .into_response()
 }
 
 pub async fn graphql_playground() -> impl IntoResponse {
@@ -350,7 +391,8 @@ pub async fn graphql_playground() -> impl IntoResponse {
                 endpoint: '/graphql',
                 settings: {
                     'request.editor.reuse': true,
-                }
+                },
+                subscriptionEndpoint: '/graphql/subscribe',
             });
         });
     </script>
