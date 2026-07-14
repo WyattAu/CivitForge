@@ -145,3 +145,57 @@ pub struct LogServiceStats {
     pub level_counts: std::collections::HashMap<String, i64>,
     pub service_counts: std::collections::HashMap<String, i64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntryV3 {
+    pub id: uuid::Uuid,
+    pub level: LogLevel,
+    pub message: String,
+    pub source: String,
+    pub service: String,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub metadata: serde_json::Value,
+    pub retention_days: i32,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogEntryV3 {
+    pub level: LogLevel,
+    pub message: String,
+    pub source: String,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub retention_days: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchFilterV3 {
+    pub level: Option<LogLevel>,
+    pub source: Option<String>,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub search: Option<String>,
+    pub full_text_search: Option<String>,
+    pub since: Option<chrono::DateTime<chrono::Utc>>,
+    pub until: Option<chrono::DateTime<chrono::Utc>>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchResultV3 {
+    pub entries: Vec<LogEntryV3>,
+    pub total_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogCorrelation {
+    pub trace_id: String,
+    pub entries: Vec<LogEntryV3>,
+    pub service_count: i64,
+    pub entry_count: i64,
+}

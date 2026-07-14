@@ -609,4 +609,399 @@ impl DashboardReportingService {
 
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
+
+    // V3: Template management
+
+    pub async fn create_dashboard_template(
+        &self,
+        input: CreateDashboardTemplate,
+    ) -> Result<DashboardTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardTemplateRow>(
+            r#"INSERT INTO dashboard_templates (name, description, template_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.template_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_dashboard_template(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<DashboardTemplate>, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM dashboard_templates WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_dashboard_templates(
+        &self,
+    ) -> Result<Vec<DashboardTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DashboardTemplateRow>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
+             FROM dashboard_templates ORDER BY usage_count DESC, created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_dashboard_template(
+        &self,
+        id: Uuid,
+        input: UpdateDashboardTemplate,
+    ) -> Result<DashboardTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardTemplateRow>(
+            r#"UPDATE dashboard_templates SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             template_type = COALESCE($4, template_type),
+             config = COALESCE($5, config),
+             is_public = COALESCE($6, is_public)
+             WHERE id = $1
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.template_type)
+        .bind(&input.config)
+        .bind(input.is_public)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_dashboard_template(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM dashboard_templates WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn use_dashboard_template(
+        &self,
+        id: Uuid,
+    ) -> Result<DashboardTemplate, sqlx::Error> {
+        sqlx::query("UPDATE dashboard_templates SET usage_count = usage_count + 1 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        self.get_dashboard_template(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    pub async fn create_report_template(
+        &self,
+        input: CreateReportTemplate,
+    ) -> Result<ReportTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportTemplateRow>(
+            r#"INSERT INTO report_templates (name, description, report_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, report_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.report_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_report_template(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<ReportTemplate>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportTemplateRow>(
+            r#"SELECT id, name, description, report_type, config, is_public, author_id, usage_count, created_at
+             FROM report_templates WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_report_templates(
+        &self,
+    ) -> Result<Vec<ReportTemplate>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportTemplateRow>(
+            r#"SELECT id, name, description, report_type, config, is_public, author_id, usage_count, created_at
+             FROM report_templates ORDER BY usage_count DESC, created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_report_template(
+        &self,
+        id: Uuid,
+        input: UpdateReportTemplate,
+    ) -> Result<ReportTemplate, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportTemplateRow>(
+            r#"UPDATE report_templates SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             report_type = COALESCE($4, report_type),
+             config = COALESCE($5, config),
+             is_public = COALESCE($6, is_public)
+             WHERE id = $1
+             RETURNING id, name, description, report_type, config, is_public, author_id, usage_count, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.report_type)
+        .bind(&input.config)
+        .bind(input.is_public)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_report_template(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM report_templates WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn use_report_template(
+        &self,
+        id: Uuid,
+    ) -> Result<ReportTemplate, sqlx::Error> {
+        sqlx::query("UPDATE report_templates SET usage_count = usage_count + 1 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        self.get_report_template(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    // V3: Template marketplace
+
+    pub async fn list_marketplace_templates(
+        &self,
+        template_type: Option<&str>,
+    ) -> Result<Vec<TemplateMarketplaceItem>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct MarketplaceRow {
+            id: Uuid,
+            name: String,
+            description: String,
+            template_type: String,
+            author_id: Option<Uuid>,
+            usage_count: i64,
+        }
+
+        let rows = if let Some(t) = template_type {
+            sqlx::query_as::<_, MarketplaceRow>(
+                r#"SELECT id, name, description, template_type, author_id, usage_count
+                 FROM dashboard_templates WHERE is_public = true AND template_type = $1
+                 ORDER BY usage_count DESC"#,
+            )
+            .bind(t)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query_as::<_, MarketplaceRow>(
+                r#"SELECT id, name, description, template_type, author_id, usage_count
+                 FROM dashboard_templates WHERE is_public = true
+                 ORDER BY usage_count DESC"#,
+            )
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|r| TemplateMarketplaceItem {
+                id: r.id,
+                name: r.name,
+                description: r.description,
+                template_type: r.template_type,
+                author_id: r.author_id,
+                usage_count: r.usage_count,
+                rating: None,
+                tags: vec![],
+            })
+            .collect())
+    }
+
+    pub async fn share_dashboard(
+        &self,
+        dashboard_id: Uuid,
+        user_id: Uuid,
+        permission: DashboardPermission,
+    ) -> Result<DashboardShare, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let permission_str = match permission {
+            DashboardPermission::View => "view",
+            DashboardPermission::Edit => "edit",
+            DashboardPermission::Admin => "admin",
+        };
+
+        sqlx::query(
+            r#"INSERT INTO dashboard_shares (id, dashboard_id, user_id, permission)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (dashboard_id, user_id) DO UPDATE SET permission = $4"#,
+        )
+        .bind(id)
+        .bind(dashboard_id)
+        .bind(user_id)
+        .bind(permission_str)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(DashboardShare {
+            id,
+            dashboard_id,
+            user_id,
+            permission,
+            shared_at: Utc::now(),
+        })
+    }
+
+    pub async fn get_dashboard_stats_v3(
+        &self,
+    ) -> Result<DashboardStats, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct StatsRow {
+            total_dashboards: i64,
+            public_dashboards: i64,
+        }
+
+        #[derive(Debug, sqlx::FromRow)]
+        struct ReportStatsRow {
+            total_reports: i64,
+            scheduled_reports: i64,
+        }
+
+        #[derive(Debug, sqlx::FromRow)]
+        struct TemplateStatsRow {
+            total_templates: i64,
+            public_templates: i64,
+        }
+
+        let dash_stats = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT
+             COUNT(*) as total_dashboards,
+             COUNT(*) FILTER (WHERE is_public) as public_dashboards
+             FROM dashboards"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let report_stats = sqlx::query_as::<_, ReportStatsRow>(
+            r#"SELECT
+             COUNT(*) as total_reports,
+             COUNT(*) FILTER (WHERE schedule IS NOT NULL) as scheduled_reports
+             FROM reports"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(DashboardStats {
+            total_dashboards: dash_stats.total_dashboards,
+            public_dashboards: dash_stats.public_dashboards,
+            total_reports: report_stats.total_reports,
+            scheduled_reports: report_stats.scheduled_reports,
+        })
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct DashboardTemplateRow {
+    id: Uuid,
+    name: String,
+    description: String,
+    template_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<Uuid>,
+    usage_count: i64,
+    created_at: DateTime<Utc>,
+}
+
+impl From<DashboardTemplateRow> for DashboardTemplate {
+    fn from(row: DashboardTemplateRow) -> Self {
+        DashboardTemplate {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            template_type: row.template_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ReportTemplateRow {
+    id: Uuid,
+    name: String,
+    description: String,
+    report_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<Uuid>,
+    usage_count: i64,
+    created_at: DateTime<Utc>,
+}
+
+impl From<ReportTemplateRow> for ReportTemplate {
+    fn from(row: ReportTemplateRow) -> Self {
+        ReportTemplate {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            report_type: row.report_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            created_at: row.created_at,
+        }
+    }
 }

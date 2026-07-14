@@ -200,3 +200,87 @@ pub struct ReportExportResult {
     pub data: serde_json::Value,
     pub exported_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardTemplate {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardTemplate {
+    pub name: String,
+    pub description: Option<String>,
+    pub template_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateDashboardTemplate {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub template_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportTemplate {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub report_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportTemplate {
+    pub name: String,
+    pub description: Option<String>,
+    pub report_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportTemplate {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub report_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateMarketplaceItem {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i64,
+    pub rating: Option<f64>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateAnalytics {
+    pub template_id: Uuid,
+    pub usage_count: i64,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub popular_configs: Vec<serde_json::Value>,
+}

@@ -169,3 +169,78 @@ pub struct TraceDependencyStats {
     pub unique_parent_traces: i64,
     pub unique_child_traces: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SamplingRuleV3 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: f64,
+    pub max_traces_per_second: i32,
+    pub priority: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSamplingRuleV3 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateSamplingRuleV3 {
+    pub service_name: Option<String>,
+    pub endpoint: Option<String>,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceMapEntry {
+    pub id: Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub call_count: i64,
+    pub avg_duration_ms: f64,
+    pub error_rate: f64,
+    pub last_updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceMap {
+    pub services: Vec<ServiceMapEntry>,
+    pub total_services: i64,
+    pub total_endpoints: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDependency {
+    pub from_service: String,
+    pub to_service: String,
+    pub call_count: i64,
+    pub avg_duration_ms: f64,
+    pub error_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyAnalysis {
+    pub dependencies: Vec<ServiceDependency>,
+    pub total_dependencies: i64,
+    pub critical_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapacityPlanningData {
+    pub service_name: String,
+    pub current_load: f64,
+    pub projected_load: f64,
+    pub recommended_capacity: f64,
+    pub bottleneck_endpoints: Vec<String>,
+}
