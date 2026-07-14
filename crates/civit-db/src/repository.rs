@@ -4,7 +4,8 @@ use crate::error::{DbError, Result};
 use crate::models::{
     ActivityEvent, ApiAnalyticV2, ApiAnalyticV3, ApiDocsV2, ApiDocumentation, ApiVersion,
     BoardCardAssignee, BoardCardLabel, BranchProtectionRule, CodeQualityMetric, DataArchive,
-    DataMigration, DatabaseBackup, DatabaseRecoveryPoint, EmailVerificationCode, Issue,
+    DataMigration, DataResidencyRule, DataResidencyViolation, DatabaseBackup,
+    DatabaseRecoveryPoint, DatabaseReplica, EmailVerificationCode, EncryptionPolicy, Issue,
     MultiProjectPipeline, MultiProjectPipelineRun, Org, PerformanceTest, Pipeline,
     PipelineAnalytics, PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline,
     PullRequest, RateLimitTier, Release, ReleaseAsset, Repository, ReviewAssignment,
@@ -5884,6 +5885,345 @@ impl DbRepository {
             "avg_request_size_bytes": row.2,
             "avg_response_size_bytes": row.3,
         }))
+    }
+
+    // --- Database Replication ---
+
+    pub async fn register_replica(
+        &self,
+        name: &str,
+        host: &str,
+        port: i32,
+    ) -> Result<DatabaseReplica> {
+        let row = sqlx::query_as::<_, DatabaseReplica>(
+            r#"INSERT INTO database_replicas (name, host, port)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(host)
+        .bind(port)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("register_replica: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_replica(&self, id: Uuid) -> Result<DatabaseReplica> {
+        sqlx::query_as::<_, DatabaseReplica>("SELECT * FROM database_replicas WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_replica: {e}")))
+    }
+
+    pub async fn list_replicas(&self) -> Result<Vec<DatabaseReplica>> {
+        sqlx::query_as::<_, DatabaseReplica>("SELECT * FROM database_replicas ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_replicas: {e}")))
+    }
+
+    pub async fn update_replica_status(
+        &self,
+        id: Uuid,
+        status: &str,
+        lag_ms: i32,
+    ) -> Result<DatabaseReplica> {
+        let row = sqlx::query_as::<_, DatabaseReplica>(
+            r#"UPDATE database_replicas
+               SET status = $2, lag_ms = $3, last_sync_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(lag_ms)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_replica_status: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_replica(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM database_replicas WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_replica: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn get_healthy_replicas(&self) -> Result<Vec<DatabaseReplica>> {
+        sqlx::query_as::<_, DatabaseReplica>(
+            "SELECT * FROM database_replicas WHERE status = 'healthy' ORDER BY lag_ms ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_healthy_replicas: {e}")))
+    }
+
+    // --- Encryption Policies ---
+
+    pub async fn create_encryption_policy(
+        &self,
+        name: &str,
+        description: &str,
+        data_types: &[String],
+        algorithm: &str,
+        key_rotation_days: i32,
+    ) -> Result<EncryptionPolicy> {
+        let row = sqlx::query_as::<_, EncryptionPolicy>(
+            r#"INSERT INTO encryption_policies (name, description, data_types, algorithm, key_rotation_days)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(data_types)
+        .bind(algorithm)
+        .bind(key_rotation_days)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_encryption_policy: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_encryption_policy(&self, id: Uuid) -> Result<EncryptionPolicy> {
+        sqlx::query_as::<_, EncryptionPolicy>("SELECT * FROM encryption_policies WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_encryption_policy: {e}")))
+    }
+
+    pub async fn list_encryption_policies(&self) -> Result<Vec<EncryptionPolicy>> {
+        sqlx::query_as::<_, EncryptionPolicy>("SELECT * FROM encryption_policies ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_encryption_policies: {e}")))
+    }
+
+    pub async fn update_encryption_policy(
+        &self,
+        id: Uuid,
+        description: Option<&str>,
+        data_types: Option<&[String]>,
+        algorithm: Option<&str>,
+        key_rotation_days: Option<i32>,
+        enabled: Option<bool>,
+    ) -> Result<EncryptionPolicy> {
+        let row = sqlx::query_as::<_, EncryptionPolicy>(
+            r#"UPDATE encryption_policies
+               SET description = COALESCE($2, description),
+                   data_types = COALESCE($3, data_types),
+                   algorithm = COALESCE($4, algorithm),
+                   key_rotation_days = COALESCE($5, key_rotation_days),
+                   enabled = COALESCE($6, enabled)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(description)
+        .bind(data_types)
+        .bind(algorithm)
+        .bind(key_rotation_days)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_encryption_policy: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_encryption_policy(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM encryption_policies WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_encryption_policy: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn get_enabled_encryption_policies(&self) -> Result<Vec<EncryptionPolicy>> {
+        sqlx::query_as::<_, EncryptionPolicy>(
+            "SELECT * FROM encryption_policies WHERE enabled = true ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_enabled_encryption_policies: {e}")))
+    }
+
+    // --- Data Residency ---
+
+    pub async fn create_data_residency_rule(
+        &self,
+        name: &str,
+        description: &str,
+        data_types: &[String],
+        allowed_regions: &[String],
+    ) -> Result<DataResidencyRule> {
+        let row = sqlx::query_as::<_, DataResidencyRule>(
+            r#"INSERT INTO data_residency_rules (name, description, data_types, allowed_regions)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(data_types)
+        .bind(allowed_regions)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_data_residency_rule: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_data_residency_rule(&self, id: Uuid) -> Result<DataResidencyRule> {
+        sqlx::query_as::<_, DataResidencyRule>(
+            "SELECT * FROM data_residency_rules WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_data_residency_rule: {e}")))
+    }
+
+    pub async fn list_data_residency_rules(&self) -> Result<Vec<DataResidencyRule>> {
+        sqlx::query_as::<_, DataResidencyRule>(
+            "SELECT * FROM data_residency_rules ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_data_residency_rules: {e}")))
+    }
+
+    pub async fn update_data_residency_rule(
+        &self,
+        id: Uuid,
+        description: Option<&str>,
+        data_types: Option<&[String]>,
+        allowed_regions: Option<&[String]>,
+        enabled: Option<bool>,
+    ) -> Result<DataResidencyRule> {
+        let row = sqlx::query_as::<_, DataResidencyRule>(
+            r#"UPDATE data_residency_rules
+               SET description = COALESCE($2, description),
+                   data_types = COALESCE($3, data_types),
+                   allowed_regions = COALESCE($4, allowed_regions),
+                   enabled = COALESCE($5, enabled)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(description)
+        .bind(data_types)
+        .bind(allowed_regions)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_data_residency_rule: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_data_residency_rule(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM data_residency_rules WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_data_residency_rule: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn record_residency_violation(
+        &self,
+        rule_id: Uuid,
+        data_type: &str,
+        data_id: Uuid,
+        region: &str,
+    ) -> Result<DataResidencyViolation> {
+        let row = sqlx::query_as::<_, DataResidencyViolation>(
+            r#"INSERT INTO data_residency_violations (rule_id, data_type, data_id, region)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(rule_id)
+        .bind(data_type)
+        .bind(data_id)
+        .bind(region)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_residency_violation: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_residency_violations(
+        &self,
+        rule_id: Option<Uuid>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DataResidencyViolation>> {
+        let rows = match rule_id {
+            Some(rid) => {
+                sqlx::query_as::<_, DataResidencyViolation>(
+                    r#"SELECT * FROM data_residency_violations
+                       WHERE rule_id = $1
+                       ORDER BY detected_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(rid)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+            None => {
+                sqlx::query_as::<_, DataResidencyViolation>(
+                    r#"SELECT * FROM data_residency_violations
+                       ORDER BY detected_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+        };
+        rows.map_err(|e| DbError::Database(format!("list_residency_violations: {e}")))
+    }
+
+    pub async fn get_residency_violations_by_data_type(
+        &self,
+        data_type: &str,
+    ) -> Result<Vec<DataResidencyViolation>> {
+        sqlx::query_as::<_, DataResidencyViolation>(
+            r#"SELECT * FROM data_residency_violations
+               WHERE data_type = $1
+               ORDER BY detected_at DESC"#,
+        )
+        .bind(data_type)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_residency_violations_by_data_type: {e}")))
+    }
+
+    pub async fn check_region_compliance(
+        &self,
+        data_type: &str,
+        region: &str,
+    ) -> Result<bool> {
+        let result = sqlx::query_scalar::<_, bool>(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM data_residency_rules
+                   WHERE enabled = true
+                     AND $1::text = ANY(data_types)
+                     AND $2::text = ANY(allowed_regions)
+               )"#,
+        )
+        .bind(data_type)
+        .bind(region)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("check_region_compliance: {e}")))?;
+        Ok(result)
     }
 }
 

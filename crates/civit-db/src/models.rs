@@ -1195,3 +1195,48 @@ pub struct ApiAnalyticV3 {
     pub cache_hit: bool,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DatabaseReplica {
+    pub id: Uuid,
+    pub name: String,
+    pub host: String,
+    pub port: i32,
+    pub status: String,
+    pub lag_ms: i32,
+    pub last_sync_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct EncryptionPolicy {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub data_types: Vec<String>,
+    pub algorithm: String,
+    pub key_rotation_days: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DataResidencyRule {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub data_types: Vec<String>,
+    pub allowed_regions: Vec<String>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DataResidencyViolation {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub data_type: String,
+    pub data_id: Uuid,
+    pub region: String,
+    pub detected_at: DateTime<Utc>,
+}
