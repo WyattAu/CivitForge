@@ -1632,6 +1632,91 @@ impl DashboardReportingService {
             avg_shares_per_dashboard: avg_shares.avg_shares,
         })
     }
+
+    // V7: Dashboard stats v7
+
+    pub async fn get_dashboard_stats_v7(
+        &self,
+    ) -> Result<DashboardStatsV7, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct StatsRow {
+            total_dashboards: i64,
+            public_dashboards: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ReportStatsRow {
+            total_reports: i64,
+            scheduled_reports: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ShareStatsRow {
+            total_shares: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ScheduleStatsRow {
+            total_schedules: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct AvgShareRow {
+            avg_shares: f64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ViewStatsRow {
+            total_views: i64,
+        }
+
+        let dash_stats = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT COUNT(*) as total_dashboards,
+             COUNT(*) FILTER (WHERE is_public) as public_dashboards
+             FROM dashboards"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let report_stats = sqlx::query_as::<_, ReportStatsRow>(
+            r#"SELECT COUNT(*) as total_reports,
+             COUNT(*) FILTER (WHERE schedule IS NOT NULL) as scheduled_reports
+             FROM reports"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let share_stats = sqlx::query_as::<_, ShareStatsRow>(
+            r#"SELECT COUNT(*) as total_shares FROM dashboard_shares_v4"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let schedule_stats = sqlx::query_as::<_, ScheduleStatsRow>(
+            r#"SELECT COUNT(*) as total_schedules FROM report_schedules_v5"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let avg_shares = sqlx::query_as::<_, AvgShareRow>(
+            r#"SELECT COALESCE(COUNT(ds.id)::float / NULLIF(COUNT(DISTINCT d.id), 0), 0.0) as avg_shares
+             FROM dashboards d LEFT JOIN dashboard_shares_v4 ds ON d.id = ds.dashboard_id"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let view_stats = sqlx::query_as::<_, ViewStatsRow>(
+            r#"SELECT COALESCE(SUM(view_count), 0) as total_views FROM dashboard_analytics"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(DashboardStatsV7 {
+            total_dashboards: dash_stats.total_dashboards,
+            public_dashboards: dash_stats.public_dashboards,
+            total_reports: report_stats.total_reports,
+            scheduled_reports: report_stats.scheduled_reports,
+            total_shares: share_stats.total_shares,
+            total_schedules: schedule_stats.total_schedules,
+            avg_shares_per_dashboard: avg_shares.avg_shares,
+            total_views: view_stats.total_views,
+        })
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -1773,6 +1858,52 @@ struct ReportScheduleV4Row {
 impl From<ReportScheduleV4Row> for ReportScheduleV4 {
     fn from(row: ReportScheduleV4Row) -> Self {
         ReportScheduleV4 {
+            id: row.id,
+            report_id: row.report_id,
+            cron_expression: row.cron_expression,
+            enabled: row.enabled,
+            last_run_at: row.last_run_at,
+            next_run_at: row.next_run_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct DashboardShareV4Row {
+    id: Uuid,
+    dashboard_id: Uuid,
+    user_id: Uuid,
+    permission: String,
+    created_at: DateTime<Utc>,
+}
+
+impl From<DashboardShareV4Row> for DashboardShareV4 {
+    fn from(row: DashboardShareV4Row) -> Self {
+        DashboardShareV4 {
+            id: row.id,
+            dashboard_id: row.dashboard_id,
+            user_id: row.user_id,
+            permission: row.permission,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ReportScheduleV5Row {
+    id: Uuid,
+    report_id: Uuid,
+    cron_expression: String,
+    enabled: bool,
+    last_run_at: Option<DateTime<Utc>>,
+    next_run_at: DateTime<Utc>,
+    created_at: DateTime<Utc>,
+}
+
+impl From<ReportScheduleV5Row> for ReportScheduleV5 {
+    fn from(row: ReportScheduleV5Row) -> Self {
+        ReportScheduleV5 {
             id: row.id,
             report_id: row.report_id,
             cron_expression: row.cron_expression,

@@ -490,3 +490,130 @@ pub struct CapacityPlanningDataV3 {
     pub time_to_capacity_hours: f64,
     pub utilization_score: f64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SamplingRuleV7 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: f64,
+    pub max_traces_per_second: i32,
+    pub priority: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSamplingRuleV7 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateSamplingRuleV7 {
+    pub service_name: Option<String>,
+    pub endpoint: Option<String>,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceServiceDependencyV4 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub depends_on_service: String,
+    pub call_count: i64,
+    pub avg_duration_ms: f64,
+    pub error_rate: f64,
+    pub last_updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceServiceDependencyV4 {
+    pub service_name: String,
+    pub depends_on_service: String,
+    pub call_count: Option<i64>,
+    pub avg_duration_ms: Option<f64>,
+    pub error_rate: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDependencyGraphV4 {
+    pub dependencies: Vec<TraceServiceDependencyV4>,
+    pub total_services: i64,
+    pub total_dependencies: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencyAnalysisV4 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub avg_latency_ms: f64,
+    pub p50_latency_ms: f64,
+    pub p95_latency_ms: f64,
+    pub p99_latency_ms: f64,
+    pub sample_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorCorrelationV6 {
+    pub id: Uuid,
+    pub trace_id: String,
+    pub error_type: String,
+    pub error_message: String,
+    pub service_name: String,
+    pub endpoint: String,
+    pub span_id: Option<String>,
+    pub correlated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapacityPlanningDataV4 {
+    pub service_name: String,
+    pub current_load: f64,
+    pub projected_load: f64,
+    pub recommended_capacity: f64,
+    pub bottleneck_endpoints: Vec<String>,
+    pub growth_rate: f64,
+    pub time_to_capacity_hours: f64,
+    pub utilization_score: f64,
+    pub recommended_replicas: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencyTrend {
+    pub service_name: String,
+    pub endpoint: String,
+    pub timestamp: DateTime<Utc>,
+    pub avg_latency_ms: f64,
+    pub p95_latency_ms: f64,
+    pub request_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorCorrelationSummary {
+    pub service_name: String,
+    pub endpoint: String,
+    pub error_type: String,
+    pub error_count: i64,
+    pub first_seen_at: DateTime<Utc>,
+    pub last_seen_at: DateTime<Utc>,
+    pub affected_traces: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapacityRecommendation {
+    pub service_name: String,
+    pub current_capacity: f64,
+    pub projected_peak: f64,
+    pub recommended_capacity: f64,
+    pub scale_up_threshold: f64,
+    pub scale_down_threshold: f64,
+    pub estimated_cost_impact: f64,
+}
