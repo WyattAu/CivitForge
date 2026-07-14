@@ -506,6 +506,13 @@ pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_DOWN: &str =
 pub const M_282_PERF_TEST_ALERTS_V4_UP: &str = include_str!("282_add_performance_test_alerts_v4.sql");
 pub const M_282_PERF_TEST_ALERTS_V4_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v4; DROP TABLE IF EXISTS performance_test_alerts_v4;";
+pub const M_283_API_DOCS_V8_UP: &str = include_str!("283_add_api_docs_v8.sql");
+pub const M_283_API_DOCS_V8_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v8;";
+pub const M_284_RATE_LIMIT_TIERS_V6_UP: &str = include_str!("284_add_rate_limit_tiers_v6.sql");
+pub const M_284_RATE_LIMIT_TIERS_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v3; DROP TABLE IF EXISTS rate_limit_tiers_v6;";
+pub const M_285_API_ANALYTICS_V9_UP: &str = include_str!("285_add_api_analytics_v9.sql");
+pub const M_285_API_ANALYTICS_V9_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v9;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1896,6 +1903,24 @@ impl MigrationManager {
             name: "add_performance_test_alerts_v4".into(),
             up_sql: M_282_PERF_TEST_ALERTS_V4_UP.into(),
             down_sql: M_282_PERF_TEST_ALERTS_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 283,
+            name: "add_api_docs_v8".into(),
+            up_sql: M_283_API_DOCS_V8_UP.into(),
+            down_sql: M_283_API_DOCS_V8_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 284,
+            name: "add_rate_limit_tiers_v6".into(),
+            up_sql: M_284_RATE_LIMIT_TIERS_V6_UP.into(),
+            down_sql: M_284_RATE_LIMIT_TIERS_V6_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 285,
+            name: "add_api_analytics_v9".into(),
+            up_sql: M_285_API_ANALYTICS_V9_UP.into(),
+            down_sql: M_285_API_ANALYTICS_V9_DOWN.into(),
         });
     }
 
