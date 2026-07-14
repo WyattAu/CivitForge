@@ -265,6 +265,14 @@ pub const M_158_ENCRYPTION_POLICIES_DOWN: &str = "DROP TABLE IF EXISTS encryptio
 pub const M_159_DATA_RESIDENCY_UP: &str = include_str!("159_add_data_residency.sql");
 pub const M_159_DATA_RESIDENCY_DOWN: &str =
     "DROP TABLE IF EXISTS data_residency_violations; DROP TABLE IF EXISTS data_residency_rules;";
+pub const M_160_SECURITY_SCAN_RULES_UP: &str = include_str!("160_add_security_scan_rules.sql");
+pub const M_160_SECURITY_SCAN_RULES_DOWN: &str = "DROP TABLE IF EXISTS security_scan_rules;";
+pub const M_161_COMPLIANCE_REQUIREMENTS_UP: &str =
+    include_str!("161_add_compliance_requirements.sql");
+pub const M_161_COMPLIANCE_REQUIREMENTS_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_check_results; DROP TABLE IF EXISTS compliance_evidence; DROP TABLE IF EXISTS compliance_requirements;";
+pub const M_162_AUDIT_TRAIL_V2_UP: &str = include_str!("162_add_audit_trail_v2.sql");
+pub const M_162_AUDIT_TRAIL_V2_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v2;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1098,6 +1106,24 @@ impl MigrationManager {
             up_sql: M_159_DATA_RESIDENCY_UP.into(),
             down_sql: M_159_DATA_RESIDENCY_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 160,
+            name: "add_security_scan_rules".into(),
+            up_sql: M_160_SECURITY_SCAN_RULES_UP.into(),
+            down_sql: M_160_SECURITY_SCAN_RULES_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 161,
+            name: "add_compliance_requirements".into(),
+            up_sql: M_161_COMPLIANCE_REQUIREMENTS_UP.into(),
+            down_sql: M_161_COMPLIANCE_REQUIREMENTS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 162,
+            name: "add_audit_trail_v2".into(),
+            up_sql: M_162_AUDIT_TRAIL_V2_UP.into(),
+            down_sql: M_162_AUDIT_TRAIL_V2_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1139,7 +1165,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 133);
+        assert_eq!(mgr.all().len(), 136);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1344,19 +1370,25 @@ mod tests {
         assert_eq!(mgr.all()[131].name, "add_encryption_policies");
         assert_eq!(mgr.all()[132].version, 159);
         assert_eq!(mgr.all()[132].name, "add_data_residency");
+        assert_eq!(mgr.all()[133].version, 160);
+        assert_eq!(mgr.all()[133].name, "add_security_scan_rules");
+        assert_eq!(mgr.all()[134].version, 161);
+        assert_eq!(mgr.all()[134].name, "add_compliance_requirements");
+        assert_eq!(mgr.all()[135].version, 162);
+        assert_eq!(mgr.all()[135].name, "add_audit_trail_v2");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 160,
+            version: 163,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 134);
-        assert_eq!(mgr.all()[133].version, 160);
+        assert_eq!(mgr.all().len(), 137);
+        assert_eq!(mgr.all()[136].version, 163);
     }
 
     #[test]
@@ -1375,13 +1407,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 133);
+        assert_eq!(pending.len(), 136);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(159);
+        let pending = mgr.get_pending(162);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1389,7 +1421,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 132);
+        assert_eq!(pending.len(), 135);
     }
 
     #[test]

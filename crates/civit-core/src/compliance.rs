@@ -2,6 +2,281 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceRequirementRecord {
+    pub id: String,
+    pub framework_id: String,
+    pub requirement_id: String,
+    pub description: String,
+    pub severity: RequirementSeverity,
+    pub automated_check: bool,
+    pub check_config: HashMap<String, serde_json::Value>,
+    pub evidence_config: HashMap<String, serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl ComplianceRequirementRecord {
+    pub fn new(
+        framework_id: String,
+        requirement_id: String,
+        description: String,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            framework_id,
+            requirement_id,
+            description,
+            severity: RequirementSeverity::Medium,
+            automated_check: false,
+            check_config: HashMap::new(),
+            evidence_config: HashMap::new(),
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub fn with_severity(mut self, severity: RequirementSeverity) -> Self {
+        self.severity = severity;
+        self
+    }
+
+    pub fn with_automated_check(mut self, config: HashMap<String, serde_json::Value>) -> Self {
+        self.automated_check = true;
+        self.check_config = config;
+        self
+    }
+
+    pub fn with_evidence_config(mut self, config: HashMap<String, serde_json::Value>) -> Self {
+        self.evidence_config = config;
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementSeverity {
+    Critical,
+    High,
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceEvidence {
+    pub id: String,
+    pub requirement_id: String,
+    pub assessment_id: String,
+    pub evidence_type: EvidenceType,
+    pub content: HashMap<String, serde_json::Value>,
+    pub collected_by: Option<String>,
+    pub collected_at: DateTime<Utc>,
+}
+
+impl ComplianceEvidence {
+    pub fn new(
+        requirement_id: String,
+        assessment_id: String,
+        evidence_type: EvidenceType,
+    ) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            requirement_id,
+            assessment_id,
+            evidence_type,
+            content: HashMap::new(),
+            collected_by: None,
+            collected_at: Utc::now(),
+        }
+    }
+
+    pub fn with_content(mut self, content: HashMap<String, serde_json::Value>) -> Self {
+        self.content = content;
+        self
+    }
+
+    pub fn with_collected_by(mut self, user_id: &str) -> Self {
+        self.collected_by = Some(user_id.into());
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceType {
+    Manual,
+    Automated,
+    SystemGenerated,
+    External,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceCheckResult {
+    pub id: String,
+    pub requirement_id: String,
+    pub assessment_id: String,
+    pub status: CheckStatus,
+    pub result_details: HashMap<String, serde_json::Value>,
+    pub score: u32,
+    pub executed_at: DateTime<Utc>,
+}
+
+impl ComplianceCheckResult {
+    pub fn new(
+        requirement_id: String,
+        assessment_id: String,
+        status: CheckStatus,
+    ) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            requirement_id,
+            assessment_id,
+            status,
+            result_details: HashMap::new(),
+            score: 0,
+            executed_at: Utc::now(),
+        }
+    }
+
+    pub fn with_score(mut self, score: u32) -> Self {
+        self.score = score;
+        self
+    }
+
+    pub fn with_details(mut self, details: HashMap<String, serde_json::Value>) -> Self {
+        self.result_details = details;
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckStatus {
+    Pending,
+    Running,
+    Passed,
+    Failed,
+    Skipped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomatedCheckExecutor;
+
+impl AutomatedCheckExecutor {
+    pub fn execute_check(
+        requirement: &ComplianceRequirementRecord,
+        target_data: &str,
+    ) -> ComplianceCheckResult {
+        if !requirement.automated_check {
+            return ComplianceCheckResult::new(
+                requirement.id.clone(),
+                String::new(),
+                CheckStatus::Skipped,
+            );
+        }
+
+        let passed = Self::evaluate_check(requirement, target_data);
+        let status = if passed {
+            CheckStatus::Passed
+        } else {
+            CheckStatus::Failed
+        };
+
+        let mut result = ComplianceCheckResult::new(
+            requirement.id.clone(),
+            String::new(),
+            status,
+        );
+        result.score = if passed { 100 } else { 0 };
+        result.result_details.insert(
+            "automated_check".into(),
+            serde_json::Value::Bool(true),
+        );
+        result
+    }
+
+    fn evaluate_check(requirement: &ComplianceRequirementRecord, target_data: &str) -> bool {
+        if let Some(pattern) = requirement.check_config.get("pattern") {
+            if let Some(pat_str) = pattern.as_str() {
+                match regex::Regex::new(pat_str) {
+                    Ok(re) => return re.is_match(target_data),
+                    Err(_) => return false,
+                }
+            }
+        }
+        if let Some(keyword) = requirement.check_config.get("keyword") {
+            if let Some(kw_str) = keyword.as_str() {
+                return target_data.contains(kw_str);
+            }
+        }
+        !target_data.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceScoringEngine;
+
+impl ComplianceScoringEngine {
+    pub fn calculate_framework_score(
+        requirements: &[ComplianceRequirementRecord],
+        check_results: &[ComplianceCheckResult],
+    ) -> ComplianceScore {
+        let total = requirements.len() as u32;
+        if total == 0 {
+            return ComplianceScore {
+                overall: 100,
+                by_severity: HashMap::new(),
+                total_requirements: 0,
+                passed: 0,
+                failed: 0,
+                skipped: 0,
+            };
+        }
+
+        let mut passed = 0u32;
+        let mut failed = 0u32;
+        let mut skipped = 0u32;
+        let mut severity_scores: HashMap<String, (u32, u32)> = HashMap::new();
+
+        for result in check_results {
+            match result.status {
+                CheckStatus::Passed => passed += 1,
+                CheckStatus::Failed => failed += 1,
+                CheckStatus::Skipped => skipped += 1,
+                _ => {}
+            }
+        }
+
+        let applicable = total - skipped;
+        let overall = if applicable > 0 {
+            ((passed as f64 / applicable as f64) * 100.0) as u32
+        } else {
+            100
+        };
+
+        ComplianceScore {
+            overall,
+            by_severity: severity_scores,
+            total_requirements: total,
+            passed,
+            failed,
+            skipped,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComplianceScore {
+    pub overall: u32,
+    pub by_severity: HashMap<String, (u32, u32)>,
+    pub total_requirements: u32,
+    pub passed: u32,
+    pub failed: u32,
+    pub skipped: u32,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ComplianceFramework {
@@ -501,6 +776,183 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&FindingStatus::NonCompliant).unwrap(),
             "\"non_compliant\""
+        );
+    }
+
+    #[test]
+    fn test_compliance_requirement_record_new() {
+        let req = ComplianceRequirementRecord::new(
+            "fw-1".into(),
+            "R1".into(),
+            "Test requirement".into(),
+        );
+        assert_eq!(req.framework_id, "fw-1");
+        assert_eq!(req.requirement_id, "R1");
+        assert_eq!(req.severity, RequirementSeverity::Medium);
+        assert!(!req.automated_check);
+    }
+
+    #[test]
+    fn test_compliance_requirement_record_with_severity() {
+        let req = ComplianceRequirementRecord::new(
+            "fw-1".into(),
+            "R1".into(),
+            "Desc".into(),
+        )
+        .with_severity(RequirementSeverity::Critical);
+        assert_eq!(req.severity, RequirementSeverity::Critical);
+    }
+
+    #[test]
+    fn test_compliance_requirement_record_with_automated_check() {
+        let mut config = std::collections::HashMap::new();
+        config.insert("pattern".into(), serde_json::Value::String("test".into()));
+        let req = ComplianceRequirementRecord::new(
+            "fw-1".into(),
+            "R1".into(),
+            "Desc".into(),
+        )
+        .with_automated_check(config);
+        assert!(req.automated_check);
+        assert!(req.check_config.contains_key("pattern"));
+    }
+
+    #[test]
+    fn test_compliance_evidence_new() {
+        let evidence = ComplianceEvidence::new(
+            "req-1".into(),
+            "assess-1".into(),
+            EvidenceType::Automated,
+        );
+        assert_eq!(evidence.requirement_id, "req-1");
+        assert_eq!(evidence.evidence_type, EvidenceType::Automated);
+        assert!(evidence.collected_by.is_none());
+    }
+
+    #[test]
+    fn test_compliance_evidence_with_collected_by() {
+        let evidence = ComplianceEvidence::new(
+            "req-1".into(),
+            "assess-1".into(),
+            EvidenceType::Manual,
+        )
+        .with_collected_by("user-1");
+        assert_eq!(evidence.collected_by.as_deref(), Some("user-1"));
+    }
+
+    #[test]
+    fn test_compliance_check_result_new() {
+        let result = ComplianceCheckResult::new(
+            "req-1".into(),
+            "assess-1".into(),
+            CheckStatus::Passed,
+        );
+        assert_eq!(result.status, CheckStatus::Passed);
+        assert_eq!(result.score, 0);
+    }
+
+    #[test]
+    fn test_compliance_check_result_with_score() {
+        let result = ComplianceCheckResult::new(
+            "req-1".into(),
+            "assess-1".into(),
+            CheckStatus::Passed,
+        )
+        .with_score(85);
+        assert_eq!(result.score, 85);
+    }
+
+    #[test]
+    fn test_automated_check_executor_pass() {
+        let mut config = std::collections::HashMap::new();
+        config.insert("keyword".into(), serde_json::Value::String("compliant".into()));
+        let req = ComplianceRequirementRecord::new(
+            "fw-1".into(),
+            "R1".into(),
+            "Desc".into(),
+        )
+        .with_automated_check(config);
+        let result = AutomatedCheckExecutor::execute_check(&req, "this is compliant data");
+        assert_eq!(result.status, CheckStatus::Passed);
+        assert_eq!(result.score, 100);
+    }
+
+    #[test]
+    fn test_automated_check_executor_fail() {
+        let mut config = std::collections::HashMap::new();
+        config.insert("keyword".into(), serde_json::Value::String("missing".into()));
+        let req = ComplianceRequirementRecord::new(
+            "fw-1".into(),
+            "R1".into(),
+            "Desc".into(),
+        )
+        .with_automated_check(config);
+        let result = AutomatedCheckExecutor::execute_check(&req, "this does not contain it");
+        assert_eq!(result.status, CheckStatus::Failed);
+        assert_eq!(result.score, 0);
+    }
+
+    #[test]
+    fn test_automated_check_executor_skip() {
+        let req = ComplianceRequirementRecord::new(
+            "fw-1".into(),
+            "R1".into(),
+            "Desc".into(),
+        );
+        let result = AutomatedCheckExecutor::execute_check(&req, "data");
+        assert_eq!(result.status, CheckStatus::Skipped);
+    }
+
+    #[test]
+    fn test_compliance_scoring_engine() {
+        let requirements = vec![
+            ComplianceRequirementRecord::new("fw".into(), "R1".into(), "".into()),
+            ComplianceRequirementRecord::new("fw".into(), "R2".into(), "".into()),
+        ];
+        let check_results = vec![
+            ComplianceCheckResult::new("R1".into(), "a".into(), CheckStatus::Passed),
+            ComplianceCheckResult::new("R2".into(), "a".into(), CheckStatus::Failed),
+        ];
+        let score = ComplianceScoringEngine::calculate_framework_score(&requirements, &check_results);
+        assert_eq!(score.total_requirements, 2);
+        assert_eq!(score.passed, 1);
+        assert_eq!(score.failed, 1);
+        assert_eq!(score.overall, 50);
+    }
+
+    #[test]
+    fn test_compliance_scoring_engine_all_passed() {
+        let requirements = vec![
+            ComplianceRequirementRecord::new("fw".into(), "R1".into(), "".into()),
+        ];
+        let check_results = vec![
+            ComplianceCheckResult::new("R1".into(), "a".into(), CheckStatus::Passed),
+        ];
+        let score = ComplianceScoringEngine::calculate_framework_score(&requirements, &check_results);
+        assert_eq!(score.overall, 100);
+    }
+
+    #[test]
+    fn test_requirement_severity_serialization() {
+        assert_eq!(
+            serde_json::to_string(&RequirementSeverity::Critical).unwrap(),
+            "\"critical\""
+        );
+    }
+
+    #[test]
+    fn test_evidence_type_serialization() {
+        assert_eq!(
+            serde_json::to_string(&EvidenceType::Automated).unwrap(),
+            "\"automated\""
+        );
+    }
+
+    #[test]
+    fn test_check_status_serialization() {
+        assert_eq!(
+            serde_json::to_string(&CheckStatus::Passed).unwrap(),
+            "\"passed\""
         );
     }
 }
