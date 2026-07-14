@@ -12,6 +12,7 @@ use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use civit_ci::pipeline;
 use civit_ci::environment_webhooks;
+use civit_ci::health_checks;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -1477,6 +1478,235 @@ pub async fn delete_notification(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Health Check handlers
+// ---------------------------------------------------------------------------
+
+pub async fn list_health_checks(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match health_checks::list_health_checks(pool, eid).await {
+        Ok(checks) => (StatusCode::OK, Json(checks)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_health_check(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateHealthCheckRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match health_checks::create_health_check(
+        pool,
+        eid,
+        &req.check_type,
+        req.endpoint.as_deref(),
+        req.interval_seconds,
+        req.timeout_seconds,
+    )
+    .await
+    {
+        Ok(check) => (StatusCode::CREATED, Json(check)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_health_check(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, check_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&check_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid check ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // For now, return the check if found in the list
+    let eid_uuid = Uuid::parse_str(&env_id).unwrap_or_default();
+    match health_checks::list_health_checks(pool, eid_uuid).await {
+        Ok(checks) => {
+            if let Some(check) = checks.into_iter().find(|c| c.id == check_id) {
+                (StatusCode::OK, Json(check)).into_response()
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("health check not found".into()).error_response()),
+                )
+                    .into_response()
+            }
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_health_check_status(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, check_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateHealthCheckStatusRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&check_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid check ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match health_checks::update_health_check_status(pool, cid, &req.status).await {
+        Ok(check) => (StatusCode::OK, Json(check)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_health_check(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, check_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&check_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid check ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match health_checks::delete_health_check(pool, cid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("health check not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct CreateApprovalRuleRequest {
     #[serde(default = "default_one")]
@@ -1534,6 +1764,29 @@ pub struct ListDeliveriesParams {
     pub page: u32,
     #[serde(default = "default_per_page")]
     pub per_page: u32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateHealthCheckRequest {
+    pub check_type: String,
+    pub endpoint: Option<String>,
+    #[serde(default = "default_sixty")]
+    pub interval_seconds: i32,
+    #[serde(default = "default_ten")]
+    pub timeout_seconds: i32,
+}
+
+fn default_sixty() -> i32 {
+    60
+}
+
+fn default_ten() -> i32 {
+    10
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateHealthCheckStatusRequest {
+    pub status: String,
 }
 
 pub fn environment_routes() -> Router<AppState> {
@@ -1611,6 +1864,16 @@ pub fn environment_routes() -> Router<AppState> {
             get(get_notification)
                 .patch(update_notification)
                 .delete(delete_notification),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/health-checks",
+            get(list_health_checks).post(create_health_check),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/health-checks/{check_id}",
+            get(get_health_check)
+                .patch(update_health_check_status)
+                .delete(delete_health_check),
         )
 }
 

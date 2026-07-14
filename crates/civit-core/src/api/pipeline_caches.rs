@@ -11,6 +11,7 @@ use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use civit_ci::caches::{self, CacheEntryResponse, CacheListParams, CreateCacheRequest};
+use civit_ci::cache_eviction;
 use civit_ci::cache_warming;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -28,6 +29,28 @@ pub struct UpdateCacheStrategyRequest {
     pub strategy_type: Option<String>,
     pub config: Option<serde_json::Value>,
     pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateEvictionPolicyRequest {
+    pub name: String,
+    pub policy_type: String,
+    #[serde(default)]
+    pub config: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateEvictionPolicyRequest {
+    pub name: Option<String>,
+    pub policy_type: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LogEvictionRequest {
+    pub cache_key: String,
+    pub eviction_reason: String,
 }
 
 pub fn pipeline_cache_routes() -> Router<AppState> {
@@ -103,6 +126,24 @@ pub fn pipeline_cache_routes() -> Router<AppState> {
         .route(
             "/api/v1/repos/{owner}/{repo}/caches/preheat",
             post(preheat_cache),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/eviction-policies",
+            get(list_eviction_policies).post(create_eviction_policy),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/eviction-policies/{policy_id}",
+            get(get_eviction_policy)
+                .patch(update_eviction_policy)
+                .delete(delete_eviction_policy),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/eviction-policies/{policy_id}/logs",
+            get(list_eviction_logs).post(log_eviction),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/eviction-stats",
+            get(get_eviction_stats),
         )
 }
 
@@ -1206,4 +1247,358 @@ fn default_page() -> u32 {
 }
 fn default_per_page() -> u32 {
     20
+}
+
+// ---------------------------------------------------------------------------
+// Cache Eviction handlers
+// ---------------------------------------------------------------------------
+
+pub async fn list_eviction_policies(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::list_eviction_policies(pool, repo_id).await {
+        Ok(policies) => (axum::http::StatusCode::OK, Json(policies)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_eviction_policy(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CreateEvictionPolicyRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::create_eviction_policy(pool, repo_id, &req.name, &req.policy_type, &req.config).await {
+        Ok(policy) => (axum::http::StatusCode::CREATED, Json(policy)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_eviction_policy(
+    State(state): State<AppState>,
+    Path((owner, repo_name, policy_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let pid = match Uuid::parse_str(&policy_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid policy ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // For now, return from list
+    match cache_eviction::list_eviction_policies(pool, _repo_id).await {
+        Ok(policies) => {
+            if let Some(policy) = policies.into_iter().find(|p| p.id == policy_id) {
+                (axum::http::StatusCode::OK, Json(policy)).into_response()
+            } else {
+                (
+                    axum::http::StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("policy not found".into()).error_response()),
+                )
+                    .into_response()
+            }
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn update_eviction_policy(
+    State(state): State<AppState>,
+    Path((owner, repo_name, policy_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<UpdateEvictionPolicyRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let pid = match Uuid::parse_str(&policy_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid policy ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::update_eviction_policy(pool, pid, req.name.as_deref(), req.policy_type.as_deref(), req.config.as_ref(), req.enabled).await {
+        Ok(policy) => (axum::http::StatusCode::OK, Json(policy)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_eviction_policy(
+    State(state): State<AppState>,
+    Path((owner, repo_name, policy_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let pid = match Uuid::parse_str(&policy_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid policy ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::delete_eviction_policy(pool, pid).await {
+        Ok(true) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            axum::http::StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("policy not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn list_eviction_logs(
+    State(state): State<AppState>,
+    Path((owner, repo_name, policy_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let pid = match Uuid::parse_str(&policy_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid policy ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::list_eviction_logs(pool, pid, 50, 0).await {
+        Ok(logs) => (axum::http::StatusCode::OK, Json(logs)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn log_eviction(
+    State(state): State<AppState>,
+    Path((owner, repo_name, policy_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<LogEvictionRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let pid = match Uuid::parse_str(&policy_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid policy ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::log_eviction(pool, pid, &req.cache_key, &req.eviction_reason).await {
+        Ok(log) => (axum::http::StatusCode::CREATED, Json(log)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_eviction_stats(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match cache_eviction::get_eviction_stats(pool, repo_id).await {
+        Ok(stats) => (axum::http::StatusCode::OK, Json(stats)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }

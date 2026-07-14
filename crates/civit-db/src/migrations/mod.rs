@@ -363,6 +363,12 @@ pub const M_212_DISTRIBUTED_TRACING_V4_UP: &str = include_str!("212_add_distribu
 pub const M_212_DISTRIBUTED_TRACING_V4_DOWN: &str = "DROP TABLE IF EXISTS trace_service_map; DROP TABLE IF EXISTS trace_sampling_rules_v3;";
 pub const M_213_DASHBOARD_REPORTING_V3_UP: &str = include_str!("213_add_dashboard_reporting_v3.sql");
 pub const M_213_DASHBOARD_REPORTING_V3_DOWN: &str = "DROP TABLE IF EXISTS report_templates; DROP TABLE IF EXISTS dashboard_templates;";
+pub const M_214_PIPELINE_ACTION_INSTALLATIONS_UP: &str = include_str!("214_add_pipeline_action_installations.sql");
+pub const M_214_PIPELINE_ACTION_INSTALLATIONS_DOWN: &str = "DROP TABLE IF EXISTS pipeline_action_installations;";
+pub const M_215_ENVIRONMENT_HEALTH_CHECKS_UP: &str = include_str!("215_add_environment_health_checks.sql");
+pub const M_215_ENVIRONMENT_HEALTH_CHECKS_DOWN: &str = "DROP TABLE IF EXISTS environment_health_checks;";
+pub const M_216_CACHE_EVICTION_POLICIES_LOGS_UP: &str = include_str!("216_add_cache_eviction_policies_logs.sql");
+pub const M_216_CACHE_EVICTION_POLICIES_LOGS_DOWN: &str = "DROP TABLE IF EXISTS cache_eviction_logs; DROP TABLE IF EXISTS cache_eviction_policies;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");

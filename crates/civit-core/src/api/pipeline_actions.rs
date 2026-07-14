@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
+use civit_ci::action_installations;
 use civit_ci::actions;
 use civit_ci::categories;
 use serde::Deserialize;
@@ -92,6 +93,13 @@ fn default_limit() -> i64 {
     50
 }
 
+#[derive(Debug, Deserialize)]
+pub struct InstallActionRequest {
+    pub version: String,
+    #[serde(default)]
+    pub config: serde_json::Value,
+}
+
 pub fn pipeline_action_routes() -> Router<AppState> {
     Router::new()
         .route(
@@ -165,6 +173,14 @@ pub fn pipeline_action_routes() -> Router<AppState> {
         .route(
             "/api/v1/pipeline-categories/{category_id}/analytics",
             get(get_category_analytics),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/action-installations",
+            get(list_repo_installations).post(install_action_to_repo),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/action-installations/{installation_id}",
+            delete(uninstall_action_from_repo),
         )
 }
 
@@ -1009,6 +1025,175 @@ pub async fn get_category_analytics(
 
     match categories::get_category_analytics(pool, cid).await {
         Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Action Installation handlers
+// ---------------------------------------------------------------------------
+
+async fn resolve_repo_id_for_install(
+    pool: &sqlx::PgPool,
+    owner: &str,
+    name: &str,
+) -> std::result::Result<Uuid, Response> {
+    let owner_uuid = if let Ok(id) = Uuid::parse_str(owner) {
+        id
+    } else {
+        let user_row = sqlx::query_as::<_, (Uuid,)>("SELECT id FROM users WHERE username = $1")
+            .bind(owner)
+            .fetch_optional(pool)
+            .await;
+
+        match user_row {
+            Ok(Some((id,))) => id,
+            Ok(None) => {
+                return Err((
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("user not found".into()).error_response())
+                        .into_response(),
+                )
+                    .into_response());
+            }
+            Err(e) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(CoreError::Database(e.to_string()).error_response())
+                        .into_response(),
+                )
+                    .into_response());
+            }
+        }
+    };
+
+    let repo_row = sqlx::query_as::<_, (Uuid,)>(
+        "SELECT id FROM repositories WHERE owner_id = $1 AND name = $2",
+    )
+    .bind(owner_uuid)
+    .bind(name)
+    .fetch_optional(pool)
+    .await;
+
+    match repo_row {
+        Ok(Some((id,))) => Ok(id),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("repository not found".into()).error_response())
+                .into_response(),
+        )
+            .into_response()),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response())
+                .into_response(),
+        )
+            .into_response()),
+    }
+}
+
+pub async fn list_repo_installations(
+    State(state): State<AppState>,
+    Path((owner, name)): Path<(String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let repo_id = match resolve_repo_id_for_install(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    match action_installations::list_installations(pool, repo_id).await {
+        Ok(installations) => (StatusCode::OK, Json(installations)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn install_action_to_repo(
+    State(state): State<AppState>,
+    Path((owner, name, action_id)): Path<(String, String, String)>,
+    auth: AuthUser,
+    Json(req): Json<InstallActionRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let repo_id = match resolve_repo_id_for_install(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match action_installations::install_action(pool, aid, repo_id, uid, &req.version, &req.config).await {
+        Ok(installation) => (StatusCode::CREATED, Json(installation)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn uninstall_action_from_repo(
+    State(state): State<AppState>,
+    Path((owner, name, installation_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_install(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let iid = match Uuid::parse_str(&installation_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid installation ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match action_installations::uninstall_action(pool, iid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "uninstalled"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("installation not found".into()).error_response()),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
