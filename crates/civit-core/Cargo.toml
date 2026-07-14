@@ -39,6 +39,7 @@ pkcs8 = { version = "0.10", features = ["alloc"] }
 zstd = { workspace = true }
 russh = { workspace = true, optional = true }
 rand = "0.10"
+aes-gcm = { workspace = true }
 flate2 = { workspace = true }
 regex = { workspace = true }
 schemars = { workspace = true }

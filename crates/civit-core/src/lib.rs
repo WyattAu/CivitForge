@@ -54,6 +54,9 @@ pub mod code_quality;
 pub mod performance_testing;
 pub mod data_archival;
 pub mod data_migration;
+pub mod network_policy;
+pub mod encryption;
+pub mod acl;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
