@@ -488,6 +488,15 @@ pub const M_275_DISTRIBUTED_TRACING_V7_DOWN: &str =
 pub const M_276_DASHBOARD_REPORTING_V6_UP: &str = include_str!("276_add_dashboard_reporting_v6.sql");
 pub const M_276_DASHBOARD_REPORTING_V6_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v4; DROP TABLE IF EXISTS dashboard_shares_v3;";
+pub const M_277_PIPELINE_ACTION_REVIEWS_V4_UP: &str = include_str!("277_add_pipeline_action_reviews_v4.sql");
+pub const M_277_PIPELINE_ACTION_REVIEWS_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS review_recommendations_v3; DROP TABLE IF EXISTS review_analytics_v3; DROP TABLE IF EXISTS review_moderation_queue_v3; DROP TABLE IF EXISTS review_helpfulness_v3; DROP TABLE IF EXISTS pipeline_action_reviews_v4;";
+pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_UP: &str = include_str!("278_add_environment_deployment_history_v4.sql");
+pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS deployment_analytics_v4; DROP TABLE IF EXISTS deployment_comparison_v4; DROP TABLE IF EXISTS environment_deployment_history_v4;";
+pub const M_279_CACHE_HIT_ANALYSIS_V3_UP: &str = include_str!("279_add_cache_hit_analysis_v3.sql");
+pub const M_279_CACHE_HIT_ANALYSIS_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS cache_performance_insights_v3; DROP TABLE IF EXISTS cache_cost_optimization_v3; DROP TABLE IF EXISTS cache_size_tracking_v3; DROP TABLE IF EXISTS cache_hit_analysis_v3;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1843,6 +1852,24 @@ impl MigrationManager {
             up_sql: M_276_DASHBOARD_REPORTING_V6_UP.into(),
             down_sql: M_276_DASHBOARD_REPORTING_V6_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 277,
+            name: "add_pipeline_action_reviews_v4".into(),
+            up_sql: M_277_PIPELINE_ACTION_REVIEWS_V4_UP.into(),
+            down_sql: M_277_PIPELINE_ACTION_REVIEWS_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 278,
+            name: "add_environment_deployment_history_v4".into(),
+            up_sql: M_278_ENVIRONMENT_DEPLOYMENT_V4_UP.into(),
+            down_sql: M_278_ENVIRONMENT_DEPLOYMENT_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 279,
+            name: "add_cache_hit_analysis_v3".into(),
+            up_sql: M_279_CACHE_HIT_ANALYSIS_V3_UP.into(),
+            down_sql: M_279_CACHE_HIT_ANALYSIS_V3_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1884,7 +1911,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 217);
+        assert_eq!(mgr.all().len(), 220);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);

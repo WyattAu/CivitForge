@@ -6,14 +6,17 @@ use crate::models::{
     ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation, ApiDocsV2,
     ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocumentation, ApiVersion,
     ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee, BoardCardLabel, BranchProtectionRule,
+    CacheCostOptimizationV3, CacheHitAnalysisV3, CachePerformanceInsightsV3, CacheSizeTrackingV3,
     CodeQualityMetric, DataArchive, DataMigration, DataResidencyRule, DataResidencyViolation,
-    DatabaseBackup, DatabaseRecoveryPoint, DatabaseReplica, EmailVerificationCode, EncryptionPolicy,
-    Issue, MultiProjectPipeline, MultiProjectPipelineRun, Org, PerformanceTest, Pipeline,
-    PipelineAnalytics, PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline,
-    PullRequest, RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitOverage,
-    RateLimitTier, RateLimitTierV2, RateLimitTierV3, RateLimitTierV4, RateLimitTierV5,
-    RateLimitUsageV2, Release, ReleaseAsset, Repository, ReviewAssignment, ReviewSummary, SshKey,
-    Team, TeamMember, TestCoverage, User,
+    DatabaseBackup, DatabaseRecoveryPoint, DatabaseReplica, DeploymentAnalyticsV4,
+    DeploymentComparisonV4, EmailVerificationCode, EncryptionPolicy,
+    EnvironmentDeploymentHistoryV4, Issue, MultiProjectPipeline, MultiProjectPipelineRun, Org,
+    PerformanceTest, Pipeline, PipelineActionReviewV4, PipelineAnalytics, PipelineTemplate,
+    PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, RateLimitAlert,
+    RateLimitAlertV2, RateLimitAlertV3, RateLimitOverage, RateLimitTier, RateLimitTierV2,
+    RateLimitTierV3, RateLimitTierV4, RateLimitTierV5, RateLimitUsageV2, Release, ReleaseAsset,
+    Repository, ReviewAssignment,     ReviewHelpfulnessV3, ReviewModerationQueueV3, ReviewRecommendationV3, ReviewAnalyticsV3,
+    ReviewSummary, SshKey, Team, TeamMember, TestCoverage, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -8863,6 +8866,315 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_capacity_planning_v8: {e}")))?;
         Ok(rows)
+    }
+
+    // --- Pipeline Action Reviews v4 ---
+
+    pub async fn create_pipeline_action_review(
+        &self,
+        action_id: Uuid,
+        user_id: Uuid,
+        rating: i32,
+        review: &str,
+    ) -> Result<PipelineActionReviewV4> {
+        let row = sqlx::query_as::<_, PipelineActionReviewV4>(
+            r#"INSERT INTO pipeline_action_reviews_v4 (action_id, user_id, rating, review)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(action_id)
+        .bind(user_id)
+        .bind(rating)
+        .bind(review)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_pipeline_action_review: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_pipeline_action_reviews(
+        &self,
+        action_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PipelineActionReviewV4>> {
+        sqlx::query_as::<_, PipelineActionReviewV4>(
+            "SELECT * FROM pipeline_action_reviews_v4 WHERE action_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(action_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_pipeline_action_reviews: {e}")))
+    }
+
+    pub async fn update_review_helpfulness(
+        &self,
+        review_id: Uuid,
+        user_id: Uuid,
+        helpful: bool,
+    ) -> Result<ReviewHelpfulnessV3> {
+        let row = sqlx::query_as::<_, ReviewHelpfulnessV3>(
+            r#"INSERT INTO review_helpfulness_v3 (review_id, user_id, helpful)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (review_id, user_id) DO UPDATE SET helpful = $3
+               RETURNING *"#,
+        )
+        .bind(review_id)
+        .bind(user_id)
+        .bind(helpful)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_review_helpfulness: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn moderate_review(
+        &self,
+        review_id: Uuid,
+        moderator_id: Uuid,
+        status: &str,
+        reason: Option<&str>,
+    ) -> Result<ReviewModerationQueueV3> {
+        let row = sqlx::query_as::<_, ReviewModerationQueueV3>(
+            r#"INSERT INTO review_moderation_queue_v3 (review_id, status, moderator_id, reason, moderated_at)
+               VALUES ($1, $2, $3, $4, NOW())
+               ON CONFLICT (review_id) DO UPDATE SET status = $2, moderator_id = $3, reason = $4, moderated_at = NOW()
+               RETURNING *"#,
+        )
+        .bind(review_id)
+        .bind(status)
+        .bind(moderator_id)
+        .bind(reason)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("moderate_review: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_review_analytics(
+        &self,
+        action_id: Uuid,
+        period_start: DateTime<Utc>,
+    ) -> Result<Vec<ReviewAnalyticsV3>> {
+        sqlx::query_as::<_, ReviewAnalyticsV3>(
+            "SELECT * FROM review_analytics_v3 WHERE action_id = $1 AND period_start >= $2 ORDER BY period_start DESC",
+        )
+        .bind(action_id)
+        .bind(period_start)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_review_analytics: {e}")))
+    }
+
+    pub async fn get_review_recommendations(
+        &self,
+        action_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<ReviewRecommendationV3>> {
+        sqlx::query_as::<_, ReviewRecommendationV3>(
+            "SELECT * FROM review_recommendations_v3 WHERE action_id = $1 ORDER BY confidence DESC LIMIT $2",
+        )
+        .bind(action_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_review_recommendations: {e}")))
+    }
+
+    // --- Environment Deployment History v4 ---
+
+    pub async fn create_deployment_history_v4(
+        &self,
+        environment_id: Uuid,
+        version: &str,
+        sha: &str,
+        status: &str,
+        deployed_by: Uuid,
+        rollback_of: Option<Uuid>,
+        metadata: serde_json::Value,
+    ) -> Result<EnvironmentDeploymentHistoryV4> {
+        let row = sqlx::query_as::<_, EnvironmentDeploymentHistoryV4>(
+            r#"INSERT INTO environment_deployment_history_v4 (environment_id, version, sha, status, deployed_by, rollback_of, metadata)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               RETURNING *"#,
+        )
+        .bind(environment_id)
+        .bind(version)
+        .bind(sha)
+        .bind(status)
+        .bind(deployed_by)
+        .bind(rollback_of)
+        .bind(metadata)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_deployment_history_v4: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_deployment_history_v4(
+        &self,
+        environment_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<EnvironmentDeploymentHistoryV4>> {
+        sqlx::query_as::<_, EnvironmentDeploymentHistoryV4>(
+            "SELECT * FROM environment_deployment_history_v4 WHERE environment_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(environment_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_deployment_history_v4: {e}")))
+    }
+
+    pub async fn rollback_deployment_v4(
+        &self,
+        original_id: Uuid,
+        deployed_by: Uuid,
+    ) -> Result<EnvironmentDeploymentHistoryV4> {
+        let original = sqlx::query_as::<_, EnvironmentDeploymentHistoryV4>(
+            "SELECT * FROM environment_deployment_history_v4 WHERE id = $1",
+        )
+        .bind(original_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("rollback_deployment_v4 original: {e}")))?;
+
+        let new_version = format!("rollback-{}", original.version);
+        self.create_deployment_history_v4(
+            original.environment_id,
+            &new_version,
+            &original.sha,
+            "deployed",
+            deployed_by,
+            Some(original_id),
+            original.metadata,
+        )
+        .await
+    }
+
+    pub async fn compare_deployments(
+        &self,
+        from_deployment_id: Uuid,
+        to_deployment_id: Uuid,
+    ) -> Result<Option<DeploymentComparisonV4>> {
+        sqlx::query_as::<_, DeploymentComparisonV4>(
+            "SELECT * FROM deployment_comparison_v4 WHERE from_deployment_id = $1 AND to_deployment_id = $2",
+        )
+        .bind(from_deployment_id)
+        .bind(to_deployment_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("compare_deployments: {e}")))
+    }
+
+    pub async fn get_deployment_analytics_v4(
+        &self,
+        environment_id: Uuid,
+        period_start: DateTime<Utc>,
+    ) -> Result<Vec<DeploymentAnalyticsV4>> {
+        sqlx::query_as::<_, DeploymentAnalyticsV4>(
+            "SELECT * FROM deployment_analytics_v4 WHERE environment_id = $1 AND period_start >= $2 ORDER BY period_start DESC",
+        )
+        .bind(environment_id)
+        .bind(period_start)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_deployment_analytics_v4: {e}")))
+    }
+
+    // --- Cache Hit Analysis v3 ---
+
+    pub async fn create_cache_hit_analysis(
+        &self,
+        cache_id: Uuid,
+        period_start: DateTime<Utc>,
+        hit_count: i32,
+        miss_count: i32,
+        avg_hit_size_bytes: i64,
+        total_size_bytes: i64,
+    ) -> Result<CacheHitAnalysisV3> {
+        let row = sqlx::query_as::<_, CacheHitAnalysisV3>(
+            r#"INSERT INTO cache_hit_analysis_v3 (cache_id, period_start, hit_count, miss_count, avg_hit_size_bytes, total_size_bytes)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING *"#,
+        )
+        .bind(cache_id)
+        .bind(period_start)
+        .bind(hit_count)
+        .bind(miss_count)
+        .bind(avg_hit_size_bytes)
+        .bind(total_size_bytes)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_cache_hit_analysis: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_cache_hit_analysis(
+        &self,
+        cache_id: Uuid,
+        period_start: DateTime<Utc>,
+    ) -> Result<Vec<CacheHitAnalysisV3>> {
+        sqlx::query_as::<_, CacheHitAnalysisV3>(
+            "SELECT * FROM cache_hit_analysis_v3 WHERE cache_id = $1 AND period_start >= $2 ORDER BY period_start DESC",
+        )
+        .bind(cache_id)
+        .bind(period_start)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_cache_hit_analysis: {e}")))
+    }
+
+    pub async fn track_cache_size(
+        &self,
+        cache_id: Uuid,
+        size_bytes: i64,
+        item_count: i32,
+    ) -> Result<CacheSizeTrackingV3> {
+        let row = sqlx::query_as::<_, CacheSizeTrackingV3>(
+            r#"INSERT INTO cache_size_tracking_v3 (cache_id, size_bytes, item_count)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(cache_id)
+        .bind(size_bytes)
+        .bind(item_count)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("track_cache_size: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_cache_optimization_suggestions(
+        &self,
+        cache_id: Uuid,
+    ) -> Result<Vec<CacheCostOptimizationV3>> {
+        sqlx::query_as::<_, CacheCostOptimizationV3>(
+            "SELECT * FROM cache_cost_optimization_v3 WHERE cache_id = $1 ORDER BY period_start DESC",
+        )
+        .bind(cache_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_cache_optimization_suggestions: {e}")))
+    }
+
+    pub async fn get_cache_performance_insights(
+        &self,
+        cache_id: Uuid,
+        period_start: DateTime<Utc>,
+    ) -> Result<Vec<CachePerformanceInsightsV3>> {
+        sqlx::query_as::<_, CachePerformanceInsightsV3>(
+            "SELECT * FROM cache_performance_insights_v3 WHERE cache_id = $1 AND period_start >= $2 ORDER BY period_start DESC",
+        )
+        .bind(cache_id)
+        .bind(period_start)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_cache_performance_insights: {e}")))
     }
 }
 
