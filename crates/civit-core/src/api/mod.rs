@@ -5,8 +5,10 @@ pub mod admin_dashboard;
 pub mod api_analytics;
 pub mod api_analytics_v2;
 pub mod api_analytics_v3;
+pub mod api_analytics_v5;
 pub mod api_documentation;
 pub mod api_docs_v2;
+pub mod api_docs_v4;
 pub mod api_gateway;
 pub mod api_transforms;
 pub mod api_versioning;
@@ -77,6 +79,7 @@ pub mod pull_requests;
 pub mod releases;
 pub mod repos;
 pub mod rate_limiting_v2;
+pub mod rate_limiting_v3;
 pub mod resilience;
 pub mod runners;
 pub mod saml;
@@ -312,10 +315,13 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(api_analytics::api_analytics_routes())
         .merge(api_analytics_v2::api_analytics_v2_routes())
         .merge(api_analytics_v3::api_analytics_v3_routes())
+        .merge(api_analytics_v5::api_analytics_v5_routes())
         .merge(api_documentation::api_documentation_routes())
         .merge(api_docs_v2::api_docs_v2_routes())
+        .merge(api_docs_v4::api_docs_v4_routes())
         .merge(api_versioning::api_version_routes())
         .merge(rate_limiting_v2::rate_limiting_v2_routes())
+        .merge(rate_limiting_v3::rate_limiting_v3_routes())
         .merge(usage_quotas::usage_quota_routes())
         .merge(data_export::export_routes())
         .merge(compliance::compliance_routes())

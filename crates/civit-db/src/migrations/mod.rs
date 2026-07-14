@@ -333,6 +333,12 @@ pub const M_197_CODE_QUALITY_RULES_V2_UP: &str = include_str!("197_add_code_qual
 pub const M_197_CODE_QUALITY_RULES_V2_DOWN: &str = "DROP TABLE IF EXISTS code_quality_rule_test_results; DROP TABLE IF EXISTS code_quality_rule_versions; DROP TABLE IF EXISTS code_quality_rules_v2;";
 pub const M_198_PERF_BASELINES_REGRESSIONS_UP: &str = include_str!("198_add_performance_baselines_regressions.sql");
 pub const M_198_PERF_BASELINES_REGRESSIONS_DOWN: &str = "DROP TABLE IF EXISTS performance_trend_data; DROP TABLE IF EXISTS performance_regressions; DROP TABLE IF EXISTS performance_baselines;";
+pub const M_199_API_DOCS_V4_UP: &str = include_str!("199_add_api_docs_v4.sql");
+pub const M_199_API_DOCS_V4_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v4;";
+pub const M_200_RATE_LIMIT_TIERS_V2_UP: &str = include_str!("200_add_rate_limit_tiers_v2.sql");
+pub const M_200_RATE_LIMIT_TIERS_V2_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_usage_v2; DROP TABLE IF EXISTS rate_limit_tiers_v2;";
+pub const M_201_API_ANALYTICS_V5_UP: &str = include_str!("201_add_api_analytics_v5.sql");
+pub const M_201_API_ANALYTICS_V5_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v5;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1346,6 +1352,24 @@ impl MigrationManager {
             up_sql: M_198_PERF_BASELINES_REGRESSIONS_UP.into(),
             down_sql: M_198_PERF_BASELINES_REGRESSIONS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 199,
+            name: "add_api_docs_v4".into(),
+            up_sql: M_199_API_DOCS_V4_UP.into(),
+            down_sql: M_199_API_DOCS_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 200,
+            name: "add_rate_limit_tiers_v2".into(),
+            up_sql: M_200_RATE_LIMIT_TIERS_V2_UP.into(),
+            down_sql: M_200_RATE_LIMIT_TIERS_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 201,
+            name: "add_api_analytics_v5".into(),
+            up_sql: M_201_API_ANALYTICS_V5_UP.into(),
+            down_sql: M_201_API_ANALYTICS_V5_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1387,7 +1411,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 157);
+        assert_eq!(mgr.all().len(), 160);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1633,8 +1657,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 158);
-        assert_eq!(mgr.all()[157].version, 193);
+        assert_eq!(mgr.all().len(), 161);
+        assert_eq!(mgr.all()[160].version, 193);
     }
 
     #[test]
@@ -1653,7 +1677,7 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 157);
+        assert_eq!(pending.len(), 160);
     }
 
     #[test]
