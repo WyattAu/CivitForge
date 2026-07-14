@@ -69,6 +69,9 @@ pub mod environment_variables;
 pub mod test_suite_management;
 pub mod review_automation;
 pub mod quality_gates;
+pub mod firewall;
+pub mod intrusion_detection;
+pub mod ddos_protection;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
