@@ -639,6 +639,18 @@ pub const M_365_CODE_QUALITY_RULES_V10_DOWN: &str =
 pub const M_366_PERFORMANCE_TESTING_V11_UP: &str = include_str!("366_add_performance_testing_v11.sql");
 pub const M_366_PERFORMANCE_TESTING_V11_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v8; DROP TABLE IF EXISTS performance_test_alerts_v8;";
+pub const M_370_DATABASE_REPLICATION_V10_UP: &str =
+    include_str!("370_add_database_replication_v10.sql");
+pub const M_370_DATABASE_REPLICATION_V10_DOWN: &str =
+    "DROP TABLE IF EXISTS database_replication_alerts_v8; DROP TABLE IF EXISTS database_replication_config_v8;";
+pub const M_371_ENCRYPTION_V11_UP: &str =
+    include_str!("371_add_encryption_v11.sql");
+pub const M_371_ENCRYPTION_V11_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_compliance_checks_v8; DROP TABLE IF EXISTS encryption_key_versions_v8;";
+pub const M_372_DATA_RESIDENCY_V10_UP: &str =
+    include_str!("372_add_data_residency_v10.sql");
+pub const M_372_DATA_RESIDENCY_V10_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance_v8; DROP TABLE IF EXISTS data_residency_reports_v8;";
 
 pub const M_352_SECURITY_SCAN_V11_UP: &str = include_str!("352_add_security_scan_v11.sql");
 pub const M_352_SECURITY_SCAN_V11_DOWN: &str =
@@ -2352,6 +2364,24 @@ impl MigrationManager {
             up_sql: M_366_PERFORMANCE_TESTING_V11_UP.into(),
             down_sql: M_366_PERFORMANCE_TESTING_V11_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 370,
+            name: "add_database_replication_v10".into(),
+            up_sql: M_370_DATABASE_REPLICATION_V10_UP.into(),
+            down_sql: M_370_DATABASE_REPLICATION_V10_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 371,
+            name: "add_encryption_v11".into(),
+            up_sql: M_371_ENCRYPTION_V11_UP.into(),
+            down_sql: M_371_ENCRYPTION_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 372,
+            name: "add_data_residency_v10".into(),
+            up_sql: M_372_DATA_RESIDENCY_V10_UP.into(),
+            down_sql: M_372_DATA_RESIDENCY_V10_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2393,7 +2423,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 268);
+        assert_eq!(mgr.all().len(), 271);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
