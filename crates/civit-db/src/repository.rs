@@ -3,7 +3,8 @@
 use crate::error::{DbError, Result};
 use crate::models::{
     ActivityEvent, ApiAnalyticV2, ApiDocumentation, ApiVersion, BoardCardAssignee, BoardCardLabel,
-    BranchProtectionRule, CodeQualityMetric, EmailVerificationCode, Issue, MultiProjectPipeline,
+    BranchProtectionRule, CodeQualityMetric, DataArchive, DataMigration, DatabaseBackup,
+    DatabaseRecoveryPoint, EmailVerificationCode, Issue, MultiProjectPipeline,
     MultiProjectPipelineRun, Org, PerformanceTest, Pipeline, PipelineAnalytics, PipelineTemplate,
     PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, Release, ReleaseAsset,
     Repository, ReviewAssignment, ReviewSummary, SshKey, Team, TeamMember, TestCoverage, User,
@@ -5252,6 +5253,366 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_performance_test_summary: {e}")))?;
         Ok(row)
+    }
+
+    // --- Database Backups ---
+
+    pub async fn create_database_backup(
+        &self,
+        backup_type: &str,
+    ) -> Result<DatabaseBackup> {
+        let row = sqlx::query_as::<_, DatabaseBackup>(
+            r#"INSERT INTO database_backups (backup_type)
+               VALUES ($1)
+               RETURNING *"#,
+        )
+        .bind(backup_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_database_backup: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_database_backup(&self, id: Uuid) -> Result<DatabaseBackup> {
+        sqlx::query_as::<_, DatabaseBackup>("SELECT * FROM database_backups WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_database_backup: {e}")))
+    }
+
+    pub async fn update_database_backup(
+        &self,
+        id: Uuid,
+        status: Option<&str>,
+        file_path: Option<&str>,
+        file_size_bytes: Option<i64>,
+        checksum: Option<&str>,
+    ) -> Result<DatabaseBackup> {
+        let row = sqlx::query_as::<_, DatabaseBackup>(
+            r#"UPDATE database_backups
+               SET status = COALESCE($2, status),
+                   file_path = COALESCE($3, file_path),
+                   file_size_bytes = COALESCE($4, file_size_bytes),
+                   checksum = COALESCE($5, checksum),
+                   completed_at = CASE WHEN $2 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(file_path)
+        .bind(file_size_bytes)
+        .bind(checksum)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_database_backup: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_database_backups(
+        &self,
+        backup_type: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DatabaseBackup>> {
+        let rows = if let Some(bt) = backup_type {
+            sqlx::query_as::<_, DatabaseBackup>(
+                r#"SELECT * FROM database_backups
+                   WHERE backup_type = $1
+                   ORDER BY started_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(bt)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, DatabaseBackup>(
+                r#"SELECT * FROM database_backups
+                   ORDER BY started_at DESC
+                   LIMIT $1 OFFSET $2"#,
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| DbError::Database(format!("list_database_backups: {e}")))
+    }
+
+    pub async fn delete_database_backup(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM database_backups WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_database_backup: {e}")))?;
+        Ok(())
+    }
+
+    // --- Database Recovery Points ---
+
+    pub async fn create_recovery_point(
+        &self,
+        backup_id: Uuid,
+        name: &str,
+        description: &str,
+    ) -> Result<DatabaseRecoveryPoint> {
+        let row = sqlx::query_as::<_, DatabaseRecoveryPoint>(
+            r#"INSERT INTO database_recovery_points (backup_id, name, description)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(backup_id)
+        .bind(name)
+        .bind(description)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_recovery_point: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_recovery_point(&self, id: Uuid) -> Result<DatabaseRecoveryPoint> {
+        sqlx::query_as::<_, DatabaseRecoveryPoint>(
+            "SELECT * FROM database_recovery_points WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_recovery_point: {e}")))
+    }
+
+    pub async fn list_recovery_points(
+        &self,
+        backup_id: Uuid,
+    ) -> Result<Vec<DatabaseRecoveryPoint>> {
+        let rows = sqlx::query_as::<_, DatabaseRecoveryPoint>(
+            "SELECT * FROM database_recovery_points WHERE backup_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(backup_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_recovery_points: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn delete_recovery_point(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM database_recovery_points WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_recovery_point: {e}")))?;
+        Ok(())
+    }
+
+    // --- Data Archives ---
+
+    pub async fn create_data_archive(
+        &self,
+        repo_id: Uuid,
+        archive_type: &str,
+        retention_days: i32,
+    ) -> Result<DataArchive> {
+        let row = sqlx::query_as::<_, DataArchive>(
+            r#"INSERT INTO data_archives (repo_id, archive_type, retention_days, expires_at)
+               VALUES ($1, $2, $3, NOW() + ($3 || ' days')::INTERVAL)
+               RETURNING *"#,
+        )
+        .bind(repo_id)
+        .bind(archive_type)
+        .bind(retention_days)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_data_archive: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_data_archive(&self, id: Uuid) -> Result<DataArchive> {
+        sqlx::query_as::<_, DataArchive>("SELECT * FROM data_archives WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_data_archive: {e}")))
+    }
+
+    pub async fn update_data_archive(
+        &self,
+        id: Uuid,
+        status: Option<&str>,
+        file_path: Option<&str>,
+        file_size_bytes: Option<i64>,
+    ) -> Result<DataArchive> {
+        let row = sqlx::query_as::<_, DataArchive>(
+            r#"UPDATE data_archives
+               SET status = COALESCE($2, status),
+                   file_path = COALESCE($3, file_path),
+                   file_size_bytes = COALESCE($4, file_size_bytes)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(file_path)
+        .bind(file_size_bytes)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_data_archive: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_data_archives(
+        &self,
+        repo_id: Uuid,
+        archive_type: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DataArchive>> {
+        let rows = if let Some(at) = archive_type {
+            sqlx::query_as::<_, DataArchive>(
+                r#"SELECT * FROM data_archives
+                   WHERE repo_id = $1 AND archive_type = $2
+                   ORDER BY created_at DESC
+                   LIMIT $3 OFFSET $4"#,
+            )
+            .bind(repo_id)
+            .bind(at)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        } else {
+            sqlx::query_as::<_, DataArchive>(
+                r#"SELECT * FROM data_archives
+                   WHERE repo_id = $1
+                   ORDER BY created_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(repo_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await
+        };
+        rows.map_err(|e| DbError::Database(format!("list_data_archives: {e}")))
+    }
+
+    pub async fn delete_data_archive(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM data_archives WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_data_archive: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn enforce_archive_retention(&self) -> Result<i64> {
+        let result = sqlx::query("DELETE FROM data_archives WHERE expires_at IS NOT NULL AND expires_at < NOW()")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("enforce_archive_retention: {e}")))?;
+        Ok(result.rows_affected() as i64)
+    }
+
+    // --- Data Migrations ---
+
+    pub async fn create_data_migration(
+        &self,
+        source: &str,
+        destination: &str,
+        migration_type: &str,
+    ) -> Result<DataMigration> {
+        let row = sqlx::query_as::<_, DataMigration>(
+            r#"INSERT INTO data_migrations (source, destination, migration_type)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(source)
+        .bind(destination)
+        .bind(migration_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_data_migration: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_data_migration(&self, id: Uuid) -> Result<DataMigration> {
+        sqlx::query_as::<_, DataMigration>("SELECT * FROM data_migrations WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_data_migration: {e}")))
+    }
+
+    pub async fn update_data_migration(
+        &self,
+        id: Uuid,
+        status: Option<&str>,
+        progress: Option<f64>,
+    ) -> Result<DataMigration> {
+        let row = sqlx::query_as::<_, DataMigration>(
+            r#"UPDATE data_migrations
+               SET status = COALESCE($2, status),
+                   progress = COALESCE($3, progress),
+                   completed_at = CASE WHEN $2 IN ('completed', 'failed', 'rolled_back') THEN NOW() ELSE completed_at END
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(progress)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_data_migration: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_data_migrations(
+        &self,
+        migration_type: Option<&str>,
+        status: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DataMigration>> {
+        let rows = sqlx::query_as::<_, DataMigration>(
+            r#"SELECT * FROM data_migrations
+               WHERE ($1::varchar IS NULL OR migration_type = $1)
+                 AND ($2::varchar IS NULL OR status = $2)
+               ORDER BY started_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(migration_type)
+        .bind(status)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_data_migrations: {e}")))?;
+        Ok(rows)
+    }
+
+    pub async fn rollback_data_migration(&self, id: Uuid) -> Result<DataMigration> {
+        let row = sqlx::query_as::<_, DataMigration>(
+            r#"UPDATE data_migrations
+               SET status = 'rolled_back',
+                   completed_at = NOW()
+               WHERE id = $1 AND status IN ('completed', 'in_progress')
+               RETURNING *"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("rollback_data_migration: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_data_migration(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM data_migrations WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_data_migration: {e}")))?;
+        Ok(())
     }
 }
 

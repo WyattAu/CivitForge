@@ -826,6 +826,78 @@ mod tests {
         assert_eq!(de.status, "completed");
         assert!(de.completed_at.is_some());
     }
+
+    #[test]
+    fn test_database_backup_serialization() {
+        let backup = DatabaseBackup {
+            id: Uuid::nil(),
+            backup_type: "full".into(),
+            status: "completed".into(),
+            file_path: Some("/backups/db_001.dump".into()),
+            file_size_bytes: 1024000,
+            checksum: Some("sha256:abc123".into()),
+            started_at: Utc::now(),
+            completed_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&backup).unwrap();
+        let de: DatabaseBackup = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.backup_type, "full");
+        assert_eq!(de.status, "completed");
+        assert_eq!(de.file_size_bytes, 1024000);
+    }
+
+    #[test]
+    fn test_database_recovery_point_serialization() {
+        let point = DatabaseRecoveryPoint {
+            id: Uuid::nil(),
+            backup_id: Uuid::nil(),
+            name: "pre-deploy-1.0".into(),
+            description: "Recovery point before v1.0 deploy".into(),
+            created_at: Utc::now(),
+        };
+        let json = serde_json::to_string(&point).unwrap();
+        let de: DatabaseRecoveryPoint = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.name, "pre-deploy-1.0");
+        assert!(de.description.contains("v1.0"));
+    }
+
+    #[test]
+    fn test_data_archive_serialization() {
+        let archive = DataArchive {
+            id: Uuid::nil(),
+            repo_id: Uuid::nil(),
+            archive_type: "code".into(),
+            status: "archived".into(),
+            file_path: Some("/archives/repo.tar.gz".into()),
+            file_size_bytes: 52428800,
+            retention_days: 365,
+            created_at: Utc::now(),
+            expires_at: Some(Utc::now()),
+        };
+        let json = serde_json::to_string(&archive).unwrap();
+        let de: DataArchive = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.archive_type, "code");
+        assert_eq!(de.retention_days, 365);
+    }
+
+    #[test]
+    fn test_data_migration_serialization() {
+        let migration = DataMigration {
+            id: Uuid::nil(),
+            source: "postgres://old-host/repo".into(),
+            destination: "postgres://new-host/repo".into(),
+            migration_type: "full".into(),
+            status: "in_progress".into(),
+            progress: 45.5,
+            started_at: Utc::now(),
+            completed_at: None,
+        };
+        let json = serde_json::to_string(&migration).unwrap();
+        let de: DataMigration = serde_json::from_str(&json).unwrap();
+        assert_eq!(de.source, "postgres://old-host/repo");
+        assert!((de.progress - 45.5).abs() < f64::EPSILON);
+        assert!(de.completed_at.is_none());
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -983,6 +1055,52 @@ pub struct PerformanceTest {
     pub config: serde_json::Value,
     pub status: String,
     pub results: serde_json::Value,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DatabaseBackup {
+    pub id: Uuid,
+    pub backup_type: String,
+    pub status: String,
+    pub file_path: Option<String>,
+    pub file_size_bytes: i64,
+    pub checksum: Option<String>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DatabaseRecoveryPoint {
+    pub id: Uuid,
+    pub backup_id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DataArchive {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub archive_type: String,
+    pub status: String,
+    pub file_path: Option<String>,
+    pub file_size_bytes: i64,
+    pub retention_days: i32,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DataMigration {
+    pub id: Uuid,
+    pub source: String,
+    pub destination: String,
+    pub migration_type: String,
+    pub status: String,
+    pub progress: f64,
     pub started_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
 }

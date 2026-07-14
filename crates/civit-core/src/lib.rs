@@ -52,6 +52,8 @@ pub mod service_mesh;
 pub mod test_coverage;
 pub mod code_quality;
 pub mod performance_testing;
+pub mod data_archival;
+pub mod data_migration;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{

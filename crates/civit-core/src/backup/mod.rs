@@ -209,6 +209,197 @@ impl BackupManager for InMemoryBackupManager {
     }
 }
 
+// --- Database Backup / Recovery ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DatabaseBackupType {
+    Full,
+    Incremental,
+    Differential,
+}
+
+impl DatabaseBackupType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DatabaseBackupType::Full => "full",
+            DatabaseBackupType::Incremental => "incremental",
+            DatabaseBackupType::Differential => "differential",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseBackupRequest {
+    pub backup_type: DatabaseBackupType,
+    pub recovery_point_name: Option<String>,
+    pub recovery_point_description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseBackupResult {
+    pub backup_id: String,
+    pub file_path: String,
+    pub file_size_bytes: u64,
+    pub checksum: String,
+    pub duration_ms: u64,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoveryPoint {
+    pub id: String,
+    pub backup_id: String,
+    pub name: String,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreFromBackupRequest {
+    pub backup_id: String,
+    pub target_recovery_point: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreFromBackupResult {
+    pub backup_id: String,
+    pub tables_restored: Vec<String>,
+    pub duration_ms: u64,
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupSchedule {
+    pub backup_type: DatabaseBackupType,
+    pub cron_expression: String,
+    pub retention_count: u32,
+    pub enabled: bool,
+}
+
+pub trait DatabaseBackupManager: Send + Sync {
+    fn create_backup(
+        &self,
+        request: &DatabaseBackupRequest,
+    ) -> Result<DatabaseBackupResult, String>;
+    fn restore_from_backup(
+        &self,
+        request: &RestoreFromBackupRequest,
+    ) -> Result<RestoreFromBackupResult, String>;
+    fn create_recovery_point(
+        &self,
+        backup_id: &str,
+        name: &str,
+        description: &str,
+    ) -> Result<RecoveryPoint, String>;
+    fn list_recovery_points(&self, backup_id: &str) -> Vec<RecoveryPoint>;
+    fn schedule_backup(&self, schedule: &BackupSchedule) -> Result<(), String>;
+}
+
+pub struct InMemoryDatabaseBackupManager {
+    backups: std::sync::Mutex<Vec<(String, DatabaseBackupType, u64, String, DateTime<Utc>)>>,
+    recovery_points: std::sync::Mutex<Vec<RecoveryPoint>>,
+}
+
+impl InMemoryDatabaseBackupManager {
+    pub fn new() -> Self {
+        Self {
+            backups: std::sync::Mutex::new(Vec::new()),
+            recovery_points: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+}
+
+impl Default for InMemoryDatabaseBackupManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DatabaseBackupManager for InMemoryDatabaseBackupManager {
+    fn create_backup(
+        &self,
+        request: &DatabaseBackupRequest,
+    ) -> Result<DatabaseBackupResult, String> {
+        let start = std::time::Instant::now();
+        let id = uuid::Uuid::new_v4().to_string();
+        let file_path = format!("/var/lib/civitforge/backups/db_{}.dump", id);
+
+        let mut backups = self.backups.lock().unwrap();
+        backups.push((
+            id.clone(),
+            request.backup_type.clone(),
+            1024,
+            file_path.clone(),
+            Utc::now(),
+        ));
+
+        Ok(DatabaseBackupResult {
+            backup_id: id,
+            file_path,
+            file_size_bytes: 1024,
+            checksum: "sha256_placeholder".to_string(),
+            duration_ms: start.elapsed().as_millis() as u64,
+            success: true,
+            error: None,
+        })
+    }
+
+    fn restore_from_backup(
+        &self,
+        request: &RestoreFromBackupRequest,
+    ) -> Result<RestoreFromBackupResult, String> {
+        let start = std::time::Instant::now();
+        let backups = self.backups.lock().unwrap();
+        let _ = backups
+            .iter()
+            .find(|(id, _, _, _, _)| id == &request.backup_id)
+            .ok_or_else(|| format!("backup {} not found", request.backup_id))?;
+
+        Ok(RestoreFromBackupResult {
+            backup_id: request.backup_id.clone(),
+            tables_restored: vec!["users".into(), "repositories".into(), "issues".into()],
+            duration_ms: start.elapsed().as_millis() as u64,
+            success: true,
+            error: None,
+        })
+    }
+
+    fn create_recovery_point(
+        &self,
+        backup_id: &str,
+        name: &str,
+        description: &str,
+    ) -> Result<RecoveryPoint, String> {
+        let point = RecoveryPoint {
+            id: uuid::Uuid::new_v4().to_string(),
+            backup_id: backup_id.to_string(),
+            name: name.to_string(),
+            description: description.to_string(),
+            created_at: Utc::now(),
+        };
+
+        let mut points = self.recovery_points.lock().unwrap();
+        points.push(point.clone());
+
+        Ok(point)
+    }
+
+    fn list_recovery_points(&self, backup_id: &str) -> Vec<RecoveryPoint> {
+        let points = self.recovery_points.lock().unwrap();
+        points
+            .iter()
+            .filter(|p| p.backup_id == backup_id)
+            .cloned()
+            .collect()
+    }
+
+    fn schedule_backup(&self, _schedule: &BackupSchedule) -> Result<(), String> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -399,5 +590,107 @@ mod tests {
         let config = BackupConfig::default();
         let result = mgr.create_backup(&config).unwrap();
         assert!(result.duration_ms < 1000);
+    }
+
+    // --- Database Backup Tests ---
+
+    #[test]
+    fn test_database_backup_type_as_str() {
+        assert_eq!(DatabaseBackupType::Full.as_str(), "full");
+        assert_eq!(DatabaseBackupType::Incremental.as_str(), "incremental");
+        assert_eq!(DatabaseBackupType::Differential.as_str(), "differential");
+    }
+
+    #[test]
+    fn test_in_memory_db_create_backup() {
+        let mgr = InMemoryDatabaseBackupManager::new();
+        let request = DatabaseBackupRequest {
+            backup_type: DatabaseBackupType::Full,
+            recovery_point_name: None,
+            recovery_point_description: None,
+        };
+        let result = mgr.create_backup(&request).unwrap();
+        assert!(result.success);
+        assert!(!result.backup_id.is_empty());
+    }
+
+    #[test]
+    fn test_in_memory_db_restore_backup() {
+        let mgr = InMemoryDatabaseBackupManager::new();
+        let request = DatabaseBackupRequest {
+            backup_type: DatabaseBackupType::Full,
+            recovery_point_name: None,
+            recovery_point_description: None,
+        };
+        let backup = mgr.create_backup(&request).unwrap();
+        let restore = RestoreFromBackupRequest {
+            backup_id: backup.backup_id,
+            target_recovery_point: None,
+        };
+        let result = mgr.restore_from_backup(&restore).unwrap();
+        assert!(result.success);
+        assert!(!result.tables_restored.is_empty());
+    }
+
+    #[test]
+    fn test_in_memory_db_restore_nonexistent() {
+        let mgr = InMemoryDatabaseBackupManager::new();
+        let restore = RestoreFromBackupRequest {
+            backup_id: "nonexistent".to_string(),
+            target_recovery_point: None,
+        };
+        assert!(mgr.restore_from_backup(&restore).is_err());
+    }
+
+    #[test]
+    fn test_in_memory_recovery_point() {
+        let mgr = InMemoryDatabaseBackupManager::new();
+        let request = DatabaseBackupRequest {
+            backup_type: DatabaseBackupType::Full,
+            recovery_point_name: None,
+            recovery_point_description: None,
+        };
+        let backup = mgr.create_backup(&request).unwrap();
+        let point = mgr
+            .create_recovery_point(&backup.backup_id, "pre-deploy", "Before v1.0")
+            .unwrap();
+        assert_eq!(point.name, "pre-deploy");
+        assert_eq!(point.backup_id, backup.backup_id);
+    }
+
+    #[test]
+    fn test_in_memory_list_recovery_points() {
+        let mgr = InMemoryDatabaseBackupManager::new();
+        let request = DatabaseBackupRequest {
+            backup_type: DatabaseBackupType::Full,
+            recovery_point_name: None,
+            recovery_point_description: None,
+        };
+        let backup = mgr.create_backup(&request).unwrap();
+        mgr.create_recovery_point(&backup.backup_id, "rp1", "desc1")
+            .unwrap();
+        mgr.create_recovery_point(&backup.backup_id, "rp2", "desc2")
+            .unwrap();
+        let points = mgr.list_recovery_points(&backup.backup_id);
+        assert_eq!(points.len(), 2);
+    }
+
+    #[test]
+    fn test_in_memory_schedule_backup() {
+        let mgr = InMemoryDatabaseBackupManager::new();
+        let schedule = BackupSchedule {
+            backup_type: DatabaseBackupType::Full,
+            cron_expression: "0 2 * * *".to_string(),
+            retention_count: 7,
+            enabled: true,
+        };
+        assert!(mgr.schedule_backup(&schedule).is_ok());
+    }
+
+    #[test]
+    fn test_db_backup_manager_default() {
+        let mgr = InMemoryDatabaseBackupManager::default();
+        let points = mgr.list_recovery_points("nonexistent");
+        assert!(points.is_empty());
     }
 }
