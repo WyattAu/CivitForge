@@ -473,6 +473,12 @@ pub const M_266_ENCRYPTION_V6_DOWN: &str =
 pub const M_267_DATA_RESIDENCY_V5_UP: &str = include_str!("267_add_data_residency_v5.sql");
 pub const M_267_DATA_RESIDENCY_V5_DOWN: &str =
     "DROP TABLE IF EXISTS data_residency_compliance_v3; DROP TABLE IF EXISTS data_residency_reports_v3;";
+pub const M_271_WORKFLOW_TEMPLATES_V4_UP: &str = include_str!("271_add_workflow_templates_v4.sql");
+pub const M_271_WORKFLOW_TEMPLATES_V4_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v3; DROP TABLE IF EXISTS workflow_templates_v4;";
+pub const M_272_AUTOMATION_RULES_V7_UP: &str = include_str!("272_add_automation_rules_v7.sql");
+pub const M_272_AUTOMATION_RULES_V7_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v7;";
+pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_UP: &str = include_str!("273_add_scheduled_task_templates_v4.sql");
+pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v4;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1792,6 +1798,24 @@ impl MigrationManager {
             up_sql: M_267_DATA_RESIDENCY_V5_UP.into(),
             down_sql: M_267_DATA_RESIDENCY_V5_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 271,
+            name: "add_workflow_templates_v4".into(),
+            up_sql: M_271_WORKFLOW_TEMPLATES_V4_UP.into(),
+            down_sql: M_271_WORKFLOW_TEMPLATES_V4_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 272,
+            name: "add_automation_rules_v7".into(),
+            up_sql: M_272_AUTOMATION_RULES_V7_UP.into(),
+            down_sql: M_272_AUTOMATION_RULES_V7_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 273,
+            name: "add_scheduled_task_templates_v4".into(),
+            up_sql: M_273_SCHEDULED_TASK_TEMPLATES_V4_UP.into(),
+            down_sql: M_273_SCHEDULED_TASK_TEMPLATES_V4_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1833,7 +1857,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 214);
+        assert_eq!(mgr.all().len(), 217);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
