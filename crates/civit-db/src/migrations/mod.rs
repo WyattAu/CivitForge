@@ -290,6 +290,13 @@ pub const M_170_BACKUP_ENCRYPTION_DOWN: &str = "DROP TABLE IF EXISTS backup_encr
 pub const M_171_DATA_RETENTION_UP: &str = include_str!("171_add_data_retention.sql");
 pub const M_171_DATA_RETENTION_DOWN: &str =
     "DROP TABLE IF EXISTS data_retention_actions; DROP TABLE IF EXISTS data_retention_policies;";
+pub const M_172_API_DOCS_V3_UP: &str = include_str!("172_add_api_docs_v3.sql");
+pub const M_172_API_DOCS_V3_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v3;";
+pub const M_173_API_WEBHOOKS_V2_UP: &str = include_str!("173_add_api_webhooks_v2.sql");
+pub const M_173_API_WEBHOOKS_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS api_webhook_deliveries_v2; DROP TABLE IF EXISTS api_webhooks_v2;";
+pub const M_174_API_ANALYTICS_V4_UP: &str = include_str!("174_add_api_analytics_v4.sql");
+pub const M_174_API_ANALYTICS_V4_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v4;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1177,6 +1184,24 @@ impl MigrationManager {
             up_sql: M_171_DATA_RETENTION_UP.into(),
             down_sql: M_171_DATA_RETENTION_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 172,
+            name: "add_api_docs_v3".into(),
+            up_sql: M_172_API_DOCS_V3_UP.into(),
+            down_sql: M_172_API_DOCS_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 173,
+            name: "add_api_webhooks_v2".into(),
+            up_sql: M_173_API_WEBHOOKS_V2_UP.into(),
+            down_sql: M_173_API_WEBHOOKS_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 174,
+            name: "add_api_analytics_v4".into(),
+            up_sql: M_174_API_ANALYTICS_V4_UP.into(),
+            down_sql: M_174_API_ANALYTICS_V4_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -1218,7 +1243,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 142);
+        assert_eq!(mgr.all().len(), 145);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -1429,19 +1454,37 @@ mod tests {
         assert_eq!(mgr.all()[134].name, "add_compliance_requirements");
         assert_eq!(mgr.all()[135].version, 162);
         assert_eq!(mgr.all()[135].name, "add_audit_trail_v2");
+        assert_eq!(mgr.all()[136].version, 166);
+        assert_eq!(mgr.all()[136].name, "add_firewall_rules");
+        assert_eq!(mgr.all()[137].version, 167);
+        assert_eq!(mgr.all()[137].name, "add_intrusion_detections");
+        assert_eq!(mgr.all()[138].version, 168);
+        assert_eq!(mgr.all()[138].name, "add_ddos_protection");
+        assert_eq!(mgr.all()[139].version, 169);
+        assert_eq!(mgr.all()[139].name, "add_object_storage");
+        assert_eq!(mgr.all()[140].version, 170);
+        assert_eq!(mgr.all()[140].name, "add_backup_encryption");
+        assert_eq!(mgr.all()[141].version, 171);
+        assert_eq!(mgr.all()[141].name, "add_data_retention");
+        assert_eq!(mgr.all()[142].version, 172);
+        assert_eq!(mgr.all()[142].name, "add_api_docs_v3");
+        assert_eq!(mgr.all()[143].version, 173);
+        assert_eq!(mgr.all()[143].name, "add_api_webhooks_v2");
+        assert_eq!(mgr.all()[144].version, 174);
+        assert_eq!(mgr.all()[144].name, "add_api_analytics_v4");
     }
 
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 172,
+            version: 175,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 143);
-        assert_eq!(mgr.all()[142].version, 172);
+        assert_eq!(mgr.all().len(), 146);
+        assert_eq!(mgr.all()[145].version, 175);
     }
 
     #[test]
@@ -1460,13 +1503,13 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 142);
+        assert_eq!(pending.len(), 145);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
-        let pending = mgr.get_pending(171);
+        let pending = mgr.get_pending(174);
         assert_eq!(pending.len(), 0);
     }
 
@@ -1474,7 +1517,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 141);
+        assert_eq!(pending.len(), 144);
     }
 
     #[test]

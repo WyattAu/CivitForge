@@ -2,14 +2,15 @@
 
 use crate::error::{DbError, Result};
 use crate::models::{
-    ActivityEvent, ApiAnalyticV2, ApiAnalyticV3, ApiDocsV2, ApiDocumentation, ApiVersion,
-    BoardCardAssignee, BoardCardLabel, BranchProtectionRule, CodeQualityMetric, DataArchive,
-    DataMigration, DataResidencyRule, DataResidencyViolation, DatabaseBackup,
-    DatabaseRecoveryPoint, DatabaseReplica, EmailVerificationCode, EncryptionPolicy, Issue,
-    MultiProjectPipeline, MultiProjectPipelineRun, Org, PerformanceTest, Pipeline,
-    PipelineAnalytics, PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline,
-    PullRequest, RateLimitTier, Release, ReleaseAsset, Repository, ReviewAssignment,
-    ReviewSummary, SshKey, Team, TeamMember, TestCoverage, User,
+    ActivityEvent, ApiAnalyticV2, ApiAnalyticV3, ApiAnalyticV4, ApiDocsV2, ApiDocsV3,
+    ApiDocumentation, ApiVersion, ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee,
+    BoardCardLabel, BranchProtectionRule, CodeQualityMetric, DataArchive, DataMigration,
+    DataResidencyRule, DataResidencyViolation, DatabaseBackup, DatabaseRecoveryPoint,
+    DatabaseReplica, EmailVerificationCode, EncryptionPolicy, Issue, MultiProjectPipeline,
+    MultiProjectPipelineRun, Org, PerformanceTest, Pipeline, PipelineAnalytics, PipelineTemplate,
+    PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest, RateLimitTier, Release,
+    ReleaseAsset, Repository, ReviewAssignment, ReviewSummary, SshKey, Team, TeamMember,
+    TestCoverage, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -6224,6 +6225,422 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("check_region_compliance: {e}")))?;
         Ok(result)
+    }
+
+    // --- API Documentation v3 ---
+
+    pub async fn create_api_docs_v3(
+        &self,
+        endpoint: &str,
+        method: &str,
+        version: &str,
+        summary: &str,
+        description: &str,
+        parameters: serde_json::Value,
+        request_body: Option<serde_json::Value>,
+        responses: serde_json::Value,
+        examples: serde_json::Value,
+        tags: &[String],
+        deprecated: bool,
+    ) -> Result<ApiDocsV3> {
+        let row = sqlx::query_as::<_, ApiDocsV3>(
+            r#"INSERT INTO api_docs_v3 (endpoint, method, version, summary, description, parameters, request_body, responses, examples, tags, deprecated)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(version)
+        .bind(summary)
+        .bind(description)
+        .bind(parameters)
+        .bind(request_body)
+        .bind(responses)
+        .bind(examples)
+        .bind(tags)
+        .bind(deprecated)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_docs_v3: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_docs_v3(
+        &self,
+        endpoint: &str,
+        method: &str,
+        version: &str,
+    ) -> Result<ApiDocsV3> {
+        sqlx::query_as::<_, ApiDocsV3>(
+            "SELECT * FROM api_docs_v3 WHERE endpoint = $1 AND method = $2 AND version = $3",
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(version)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_docs_v3: {e}")))
+    }
+
+    pub async fn list_api_docs_v3(&self, limit: i64, offset: i64) -> Result<Vec<ApiDocsV3>> {
+        sqlx::query_as::<_, ApiDocsV3>(
+            "SELECT * FROM api_docs_v3 ORDER BY endpoint, method, version LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_docs_v3: {e}")))
+    }
+
+    pub async fn search_api_docs_v3_by_tag(&self, tag: &str) -> Result<Vec<ApiDocsV3>> {
+        sqlx::query_as::<_, ApiDocsV3>(
+            "SELECT * FROM api_docs_v3 WHERE $1 = ANY(tags) ORDER BY endpoint, method, version",
+        )
+        .bind(tag)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("search_api_docs_v3_by_tag: {e}")))
+    }
+
+    pub async fn get_deprecated_api_docs_v3(&self) -> Result<Vec<ApiDocsV3>> {
+        sqlx::query_as::<_, ApiDocsV3>(
+            "SELECT * FROM api_docs_v3 WHERE deprecated = true ORDER BY endpoint, method, version",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_deprecated_api_docs_v3: {e}")))
+    }
+
+    pub async fn update_api_docs_v3(
+        &self,
+        endpoint: &str,
+        method: &str,
+        version: &str,
+        summary: Option<&str>,
+        description: Option<&str>,
+        parameters: Option<serde_json::Value>,
+        request_body: Option<Option<serde_json::Value>>,
+        responses: Option<serde_json::Value>,
+        examples: Option<serde_json::Value>,
+        tags: Option<&[String]>,
+        deprecated: Option<bool>,
+    ) -> Result<ApiDocsV3> {
+        let row = sqlx::query_as::<_, ApiDocsV3>(
+            r#"UPDATE api_docs_v3
+               SET summary = COALESCE($4, summary),
+                   description = COALESCE($5, description),
+                   parameters = COALESCE($6, parameters),
+                   request_body = CASE WHEN $7::JSONB IS NULL THEN request_body ELSE $7 END,
+                   responses = COALESCE($8, responses),
+                   examples = COALESCE($9, examples),
+                   tags = COALESCE($10, tags),
+                   deprecated = COALESCE($11, deprecated)
+               WHERE endpoint = $1 AND method = $2 AND version = $3
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(version)
+        .bind(summary)
+        .bind(description)
+        .bind(parameters)
+        .bind(request_body)
+        .bind(responses)
+        .bind(examples)
+        .bind(tags)
+        .bind(deprecated)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_api_docs_v3: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_api_docs_v3(
+        &self,
+        endpoint: &str,
+        method: &str,
+        version: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM api_docs_v3 WHERE endpoint = $1 AND method = $2 AND version = $3",
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(version)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_api_docs_v3: {e}")))?;
+        Ok(())
+    }
+
+    // --- API Webhooks v2 ---
+
+    pub async fn create_api_webhook_v2(
+        &self,
+        url: &str,
+        secret: &str,
+        events: &[String],
+        config: serde_json::Value,
+    ) -> Result<ApiWebhookV2> {
+        let row = sqlx::query_as::<_, ApiWebhookV2>(
+            r#"INSERT INTO api_webhooks_v2 (url, secret, events, config)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(url)
+        .bind(secret)
+        .bind(events)
+        .bind(config)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_webhook_v2: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_webhook_v2(&self, id: Uuid) -> Result<ApiWebhookV2> {
+        sqlx::query_as::<_, ApiWebhookV2>("SELECT * FROM api_webhooks_v2 WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_api_webhook_v2: {e}")))
+    }
+
+    pub async fn list_api_webhooks_v2(&self, limit: i64, offset: i64) -> Result<Vec<ApiWebhookV2>> {
+        sqlx::query_as::<_, ApiWebhookV2>(
+            "SELECT * FROM api_webhooks_v2 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_webhooks_v2: {e}")))
+    }
+
+    pub async fn update_api_webhook_v2(
+        &self,
+        id: Uuid,
+        url: Option<&str>,
+        events: Option<&[String]>,
+        active: Option<bool>,
+        config: Option<serde_json::Value>,
+    ) -> Result<ApiWebhookV2> {
+        let row = sqlx::query_as::<_, ApiWebhookV2>(
+            r#"UPDATE api_webhooks_v2
+               SET url = COALESCE($2, url),
+                   events = COALESCE($3, events),
+                   active = COALESCE($4, active),
+                   config = COALESCE($5, config)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(url)
+        .bind(events)
+        .bind(active)
+        .bind(config)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_api_webhook_v2: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_api_webhook_v2(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM api_webhooks_v2 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_api_webhook_v2: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn create_api_webhook_delivery_v2(
+        &self,
+        webhook_id: Uuid,
+        event: &str,
+        payload: serde_json::Value,
+    ) -> Result<ApiWebhookDeliveryV2> {
+        let row = sqlx::query_as::<_, ApiWebhookDeliveryV2>(
+            r#"INSERT INTO api_webhook_deliveries_v2 (webhook_id, event, payload)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(webhook_id)
+        .bind(event)
+        .bind(payload)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_webhook_delivery_v2: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn update_api_webhook_delivery_v2(
+        &self,
+        id: Uuid,
+        status: &str,
+        response_status: Option<i32>,
+        response_body: Option<&str>,
+        attempts: i32,
+    ) -> Result<ApiWebhookDeliveryV2> {
+        let row = sqlx::query_as::<_, ApiWebhookDeliveryV2>(
+            r#"UPDATE api_webhook_deliveries_v2
+               SET status = $2,
+                   response_status = $3,
+                   response_body = $4,
+                   attempts = $5
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(response_status)
+        .bind(response_body)
+        .bind(attempts)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_api_webhook_delivery_v2: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_pending_api_webhook_deliveries_v2(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<ApiWebhookDeliveryV2>> {
+        sqlx::query_as::<_, ApiWebhookDeliveryV2>(
+            "SELECT * FROM api_webhook_deliveries_v2 WHERE status = 'pending' ORDER BY created_at LIMIT $1",
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_pending_api_webhook_deliveries_v2: {e}")))
+    }
+
+    pub async fn get_api_webhook_delivery_stats_v2(
+        &self,
+        webhook_id: Uuid,
+    ) -> Result<(i64, i64, i64)> {
+        sqlx::query_as::<_, (i64, i64, i64)>(
+            r#"SELECT
+                COUNT(*) FILTER (WHERE status = 'success') AS successful,
+                COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+                COUNT(*) FILTER (WHERE status = 'pending') AS pending
+               FROM api_webhook_deliveries_v2
+               WHERE webhook_id = $1"#,
+        )
+        .bind(webhook_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_webhook_delivery_stats_v2: {e}")))
+    }
+
+    // --- API Analytics v4 ---
+
+    pub async fn create_api_analytic_v4(
+        &self,
+        endpoint: &str,
+        method: &str,
+        status_code: i32,
+        response_time_ms: i32,
+        user_id: Option<Uuid>,
+        request_size_bytes: i32,
+        response_size_bytes: i32,
+        cache_hit: bool,
+        region: &str,
+    ) -> Result<ApiAnalyticV4> {
+        let row = sqlx::query_as::<_, ApiAnalyticV4>(
+            r#"INSERT INTO api_analytics_v4 (endpoint, method, status_code, response_time_ms, user_id, request_size_bytes, response_size_bytes, cache_hit, region)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(status_code)
+        .bind(response_time_ms)
+        .bind(user_id)
+        .bind(request_size_bytes)
+        .bind(response_size_bytes)
+        .bind(cache_hit)
+        .bind(region)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_analytic_v4: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_api_analytics_v4(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV4>> {
+        sqlx::query_as::<_, ApiAnalyticV4>(
+            "SELECT * FROM api_analytics_v4 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v4: {e}")))
+    }
+
+    pub async fn get_endpoint_analytics_v4(
+        &self,
+        endpoint: &str,
+        method: &str,
+    ) -> Result<Vec<ApiAnalyticV4>> {
+        sqlx::query_as::<_, ApiAnalyticV4>(
+            "SELECT * FROM api_analytics_v4 WHERE endpoint = $1 AND method = $2 ORDER BY created_at DESC",
+        )
+        .bind(endpoint)
+        .bind(method)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_endpoint_analytics_v4: {e}")))
+    }
+
+    pub async fn get_api_analytics_v4_by_region(&self, region: &str) -> Result<Vec<ApiAnalyticV4>> {
+        sqlx::query_as::<_, ApiAnalyticV4>(
+            "SELECT * FROM api_analytics_v4 WHERE region = $1 ORDER BY created_at DESC",
+        )
+        .bind(region)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v4_by_region: {e}")))
+    }
+
+    pub async fn get_api_analytics_v4_regional_summary(
+        &self,
+    ) -> Result<Vec<(String, i64, f64, f64)>> {
+        sqlx::query_as::<_, (String, i64, f64, f64)>(
+            r#"SELECT
+                region,
+                COUNT(*) AS total_requests,
+                AVG(response_time_ms)::NUMERIC(10,2) AS avg_response_time_ms,
+                (COUNT(*) FILTER (WHERE cache_hit))::NUMERIC(10,4) / COUNT(*)::NUMERIC(10,4) AS cache_hit_rate
+               FROM api_analytics_v4
+               GROUP BY region
+               ORDER BY total_requests DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v4_regional_summary: {e}")))
+    }
+
+    pub async fn get_api_analytics_v4_performance_by_region(
+        &self,
+    ) -> Result<Vec<(String, f64, f64, f64)>> {
+        sqlx::query_as::<_, (String, f64, f64, f64)>(
+            r#"SELECT
+                region,
+                AVG(response_time_ms)::NUMERIC(10,2) AS avg_response_time_ms,
+                AVG(request_size_bytes)::NUMERIC(10,2) AS avg_request_size,
+                AVG(response_size_bytes)::NUMERIC(10,2) AS avg_response_size
+               FROM api_analytics_v4
+               GROUP BY region
+               ORDER BY avg_response_time_ms ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_analytics_v4_performance_by_region: {e}")))
     }
 }
 

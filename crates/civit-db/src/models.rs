@@ -1240,3 +1240,59 @@ pub struct DataResidencyViolation {
     pub region: String,
     pub detected_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiDocsV3 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub version: String,
+    pub summary: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+    pub request_body: Option<serde_json::Value>,
+    pub responses: serde_json::Value,
+    pub examples: serde_json::Value,
+    pub tags: Vec<String>,
+    pub deprecated: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiWebhookV2 {
+    pub id: Uuid,
+    pub url: String,
+    pub secret: String,
+    pub events: Vec<String>,
+    pub active: bool,
+    pub config: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiWebhookDeliveryV2 {
+    pub id: Uuid,
+    pub webhook_id: Uuid,
+    pub event: String,
+    pub payload: serde_json::Value,
+    pub status: String,
+    pub response_status: Option<i32>,
+    pub response_body: Option<String>,
+    pub attempts: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiAnalyticV4 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub status_code: i32,
+    pub response_time_ms: i32,
+    pub user_id: Option<Uuid>,
+    pub request_size_bytes: i32,
+    pub response_size_bytes: i32,
+    pub cache_hit: bool,
+    pub region: String,
+    pub created_at: DateTime<Utc>,
+}
