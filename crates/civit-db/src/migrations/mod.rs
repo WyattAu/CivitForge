@@ -558,6 +558,13 @@ pub const M_311_COMPLIANCE_FRAMEWORKS_V9_DOWN: &str =
     "DROP TABLE IF EXISTS compliance_assessments_v7; DROP TABLE IF EXISTS compliance_frameworks_v8;";
 pub const M_312_AUDIT_TRAIL_V9_UP: &str = include_str!("312_add_audit_trail_v9.sql");
 pub const M_312_AUDIT_TRAIL_V9_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v9;";
+pub const M_325_API_DOCS_V10_UP: &str = include_str!("325_add_api_docs_v10.sql");
+pub const M_325_API_DOCS_V10_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v10;";
+pub const M_326_RATE_LIMIT_TIERS_V8_UP: &str = include_str!("326_add_rate_limit_tiers_v8.sql");
+pub const M_326_RATE_LIMIT_TIERS_V8_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v5; DROP TABLE IF EXISTS rate_limit_tiers_v8;";
+pub const M_327_API_ANALYTICS_V11_UP: &str = include_str!("327_add_api_analytics_v11.sql");
+pub const M_327_API_ANALYTICS_V11_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v11;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2039,6 +2046,24 @@ impl MigrationManager {
             up_sql: M_312_AUDIT_TRAIL_V9_UP.into(),
             down_sql: M_312_AUDIT_TRAIL_V9_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 325,
+            name: "add_api_docs_v10".into(),
+            up_sql: M_325_API_DOCS_V10_UP.into(),
+            down_sql: M_325_API_DOCS_V10_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 326,
+            name: "add_rate_limit_tiers_v8".into(),
+            up_sql: M_326_RATE_LIMIT_TIERS_V8_UP.into(),
+            down_sql: M_326_RATE_LIMIT_TIERS_V8_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 327,
+            name: "add_api_analytics_v11".into(),
+            up_sql: M_327_API_ANALYTICS_V11_UP.into(),
+            down_sql: M_327_API_ANALYTICS_V11_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2771,5 +2796,58 @@ mod tests {
     fn test_api_analytics_v8_down_sql_not_empty() {
         assert_ne!(M_264_API_ANALYTICS_V8_DOWN, "");
         assert!(M_264_API_ANALYTICS_V8_DOWN.contains("DROP TABLE IF EXISTS api_analytics_v8"));
+    }
+
+    #[test]
+    fn test_api_docs_v10_sql_not_empty() {
+        assert_ne!(M_325_API_DOCS_V10_UP, "");
+        assert!(M_325_API_DOCS_V10_UP.contains("CREATE TABLE IF NOT EXISTS api_docs_v10"));
+        assert!(M_325_API_DOCS_V10_UP.contains("endpoint"));
+        assert!(M_325_API_DOCS_V10_UP.contains("method"));
+        assert!(M_325_API_DOCS_V10_UP.contains("version"));
+        assert!(M_325_API_DOCS_V10_UP.contains("security_schemes"));
+        assert!(M_325_API_DOCS_V10_UP.contains("rate_limits"));
+        assert!(M_325_API_DOCS_V10_UP.contains("changelog"));
+        assert!(M_325_API_DOCS_V10_UP.contains("deprecated"));
+    }
+
+    #[test]
+    fn test_api_docs_v10_down_sql_not_empty() {
+        assert_ne!(M_325_API_DOCS_V10_DOWN, "");
+        assert!(M_325_API_DOCS_V10_DOWN.contains("DROP TABLE IF EXISTS api_docs_v10"));
+    }
+
+    #[test]
+    fn test_rate_limit_tiers_v8_sql_not_empty() {
+        assert_ne!(M_326_RATE_LIMIT_TIERS_V8_UP, "");
+        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_tiers_v8"));
+        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_alerts_v5"));
+        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("features"));
+        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("limits"));
+        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("threshold"));
+    }
+
+    #[test]
+    fn test_rate_limit_tiers_v8_down_sql_not_empty() {
+        assert_ne!(M_326_RATE_LIMIT_TIERS_V8_DOWN, "");
+        assert!(M_326_RATE_LIMIT_TIERS_V8_DOWN.contains("DROP TABLE IF EXISTS rate_limit_alerts_v5"));
+        assert!(M_326_RATE_LIMIT_TIERS_V8_DOWN.contains("DROP TABLE IF EXISTS rate_limit_tiers_v8"));
+    }
+
+    #[test]
+    fn test_api_analytics_v11_sql_not_empty() {
+        assert_ne!(M_327_API_ANALYTICS_V11_UP, "");
+        assert!(M_327_API_ANALYTICS_V11_UP.contains("CREATE TABLE IF NOT EXISTS api_analytics_v11"));
+        assert!(M_327_API_ANALYTICS_V11_UP.contains("endpoint"));
+        assert!(M_327_API_ANALYTICS_V11_UP.contains("cost_cents"));
+        assert!(M_327_API_ANALYTICS_V11_UP.contains("cache_hit"));
+        assert!(M_327_API_ANALYTICS_V11_UP.contains("region"));
+        assert!(M_327_API_ANALYTICS_V11_UP.contains("request_id"));
+    }
+
+    #[test]
+    fn test_api_analytics_v11_down_sql_not_empty() {
+        assert_ne!(M_327_API_ANALYTICS_V11_DOWN, "");
+        assert!(M_327_API_ANALYTICS_V11_DOWN.contains("DROP TABLE IF EXISTS api_analytics_v11"));
     }
 }

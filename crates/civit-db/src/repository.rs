@@ -3,8 +3,8 @@
 use crate::error::{DbError, Result};
 use crate::models::{
     ActivityEvent, ApiAnalyticV2, ApiAnalyticV3, ApiAnalyticV4, ApiAnalyticV5, ApiAnalyticV6,
-    ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticV9, ApiAnalyticV10, ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation,
-    ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8, ApiDocsV9,
+    ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticV9, ApiAnalyticV10, ApiAnalyticV11, ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation,
+    ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8, ApiDocsV9, ApiDocsV10,
     ApiDocumentation, ApiVersion, ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee,
     BoardCardLabel, BranchProtectionRule, CacheCostOptimizationV3, CacheHitAnalysisV3,
     CachePerformanceInsightsV3, CacheSizeTrackingV3, CodeQualityMetric, CodeQualityMetricV4,
@@ -19,7 +19,7 @@ use crate::models::{
     PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest,
     RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitAlertV4, RateLimitAlertV5, RateLimitOverage,
     RateLimitTier, RateLimitTierV2, RateLimitTierV3, RateLimitTierV4, RateLimitTierV5,
-    RateLimitTierV6, RateLimitTierV7, RateLimitUsageV2, Release, ReleaseAsset, Repository, ReviewAssignment,
+    RateLimitTierV6, RateLimitTierV7, RateLimitTierV8, RateLimitUsageV2, Release, ReleaseAsset, Repository, ReviewAssignment,
     ReviewAnalyticsV3, ReviewHelpfulnessV3, ReviewModerationQueueV3, ReviewRecommendationV3,
     ReviewSummary, SshKey, Team, TeamMember, TestCoverage, TestSuiteBaselineV3,
     TestSuiteBaselineV5, TestSuiteMetricV3, TestSuiteMetricV5, User,
@@ -8524,6 +8524,326 @@ impl DbRepository {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| DbError::Database(format!("get_usage_optimization_v9: {e}")))?;
+        Ok(rows)
+    }
+
+    // --- API Docs v10 ---
+
+    pub async fn list_api_docs_v10(&self, limit: i64, offset: i64) -> Result<Vec<ApiDocsV10>> {
+        sqlx::query_as::<_, ApiDocsV10>(
+            "SELECT * FROM api_docs_v10 ORDER BY endpoint, method, version LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_docs_v10: {e}")))
+    }
+
+    pub async fn get_api_docs_v10_for_endpoint(
+        &self,
+        endpoint: &str,
+        method: &str,
+        version: &str,
+    ) -> Result<Option<ApiDocsV10>> {
+        sqlx::query_as::<_, ApiDocsV10>(
+            "SELECT * FROM api_docs_v10 WHERE endpoint = $1 AND method = $2 AND version = $3",
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(version)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_api_docs_v10_for_endpoint: {e}")))
+    }
+
+    pub async fn create_api_docs_v10(
+        &self,
+        endpoint: &str,
+        method: &str,
+        version: &str,
+        summary: &str,
+        description: &str,
+        parameters: &serde_json::Value,
+        request_body: Option<&serde_json::Value>,
+        responses: &serde_json::Value,
+        examples: &serde_json::Value,
+        tags: &[String],
+        deprecated: bool,
+        changelog: &str,
+        security_schemes: &serde_json::Value,
+        rate_limits: &serde_json::Value,
+    ) -> Result<ApiDocsV10> {
+        let row = sqlx::query_as::<_, ApiDocsV10>(
+            r#"INSERT INTO api_docs_v10 (endpoint, method, version, summary, description, parameters, request_body, responses, examples, tags, deprecated, changelog, security_schemes, rate_limits)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+               ON CONFLICT (endpoint, method, version) DO UPDATE
+               SET summary = EXCLUDED.summary, description = EXCLUDED.description, parameters = EXCLUDED.parameters,
+                   request_body = EXCLUDED.request_body, responses = EXCLUDED.responses, examples = EXCLUDED.examples,
+                   tags = EXCLUDED.tags, deprecated = EXCLUDED.deprecated, changelog = EXCLUDED.changelog,
+                   security_schemes = EXCLUDED.security_schemes, rate_limits = EXCLUDED.rate_limits
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(version)
+        .bind(summary)
+        .bind(description)
+        .bind(parameters)
+        .bind(request_body)
+        .bind(responses)
+        .bind(examples)
+        .bind(tags)
+        .bind(deprecated)
+        .bind(changelog)
+        .bind(security_schemes)
+        .bind(rate_limits)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_docs_v10: {e}")))?;
+        Ok(row)
+    }
+
+    // --- Rate Limit Tiers v8 ---
+
+    pub async fn list_rate_limit_tiers_v8(&self) -> Result<Vec<RateLimitTierV8>> {
+        sqlx::query_as::<_, RateLimitTierV8>(
+            "SELECT * FROM rate_limit_tiers_v8 ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v8: {e}")))
+    }
+
+    pub async fn get_rate_limit_tier_v8_by_name(&self, name: &str) -> Result<Option<RateLimitTierV8>> {
+        sqlx::query_as::<_, RateLimitTierV8>(
+            "SELECT * FROM rate_limit_tiers_v8 WHERE name = $1",
+        )
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v8_by_name: {e}")))
+    }
+
+    pub async fn create_rate_limit_tier_v8(
+        &self,
+        name: &str,
+        description: &str,
+        rate_limit: i32,
+        burst_limit: i32,
+        monthly_quota: Option<i32>,
+        price_cents: i32,
+        features: &serde_json::Value,
+        limits: &serde_json::Value,
+    ) -> Result<RateLimitTierV8> {
+        let row = sqlx::query_as::<_, RateLimitTierV8>(
+            r#"INSERT INTO rate_limit_tiers_v8 (name, description, rate_limit, burst_limit, monthly_quota, price_cents, features, limits)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (name) DO UPDATE
+               SET description = EXCLUDED.description, rate_limit = EXCLUDED.rate_limit, burst_limit = EXCLUDED.burst_limit,
+                   monthly_quota = EXCLUDED.monthly_quota, price_cents = EXCLUDED.price_cents,
+                   features = EXCLUDED.features, limits = EXCLUDED.limits
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(rate_limit)
+        .bind(burst_limit)
+        .bind(monthly_quota)
+        .bind(price_cents)
+        .bind(features)
+        .bind(limits)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_rate_limit_tier_v8: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn update_rate_limit_tier_v8(
+        &self,
+        name: &str,
+        description: Option<&str>,
+        rate_limit: Option<i32>,
+        burst_limit: Option<i32>,
+        monthly_quota: Option<Option<i32>>,
+        price_cents: Option<i32>,
+        features: Option<&serde_json::Value>,
+        limits: Option<&serde_json::Value>,
+    ) -> Result<RateLimitTierV8> {
+        let row = sqlx::query_as::<_, RateLimitTierV8>(
+            r#"UPDATE rate_limit_tiers_v8 SET
+               description = COALESCE($2, description),
+               rate_limit = COALESCE($3, rate_limit),
+               burst_limit = COALESCE($4, burst_limit),
+               monthly_quota = CASE WHEN $5 IS NOT NULL THEN $5 ELSE monthly_quota END,
+               price_cents = COALESCE($6, price_cents),
+               features = COALESCE($7, features),
+               limits = COALESCE($8, limits)
+               WHERE name = $1
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(rate_limit)
+        .bind(burst_limit)
+        .bind(monthly_quota)
+        .bind(price_cents)
+        .bind(features)
+        .bind(limits)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_rate_limit_tier_v8: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_rate_limit_tier_v8(&self, name: &str) -> Result<()> {
+        sqlx::query("DELETE FROM rate_limit_tiers_v8 WHERE name = $1")
+            .bind(name)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_rate_limit_tier_v8: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn create_rate_limit_alert_v8(
+        &self,
+        user_id: Uuid,
+        tier_id: Uuid,
+        alert_type: &str,
+        threshold: f64,
+    ) -> Result<RateLimitAlertV5> {
+        let row = sqlx::query_as::<_, RateLimitAlertV5>(
+            r#"INSERT INTO rate_limit_alerts_v5 (user_id, tier_id, alert_type, threshold)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(tier_id)
+        .bind(alert_type)
+        .bind(threshold)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v8: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_user_rate_limit_alerts_v8(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV5>> {
+        sqlx::query_as::<_, RateLimitAlertV5>(
+            "SELECT * FROM rate_limit_alerts_v5 WHERE user_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_user_rate_limit_alerts_v8: {e}")))
+    }
+
+    // --- API Analytics v11 ---
+
+    pub async fn list_api_analytics_v11(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV11>> {
+        sqlx::query_as::<_, ApiAnalyticV11>(
+            "SELECT * FROM api_analytics_v11 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+        )
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_analytics_v11: {e}")))
+    }
+
+    pub async fn create_api_analytic_v11(
+        &self,
+        endpoint: &str,
+        method: &str,
+        status_code: i32,
+        response_time_ms: i32,
+        user_id: Option<Uuid>,
+        request_size_bytes: i32,
+        response_size_bytes: i32,
+        cache_hit: bool,
+        region: &str,
+        user_agent: Option<&str>,
+        request_id: Option<Uuid>,
+        cost_cents: i32,
+    ) -> Result<ApiAnalyticV11> {
+        let row = sqlx::query_as::<_, ApiAnalyticV11>(
+            r#"INSERT INTO api_analytics_v11 (endpoint, method, status_code, response_time_ms, user_id, request_size_bytes, response_size_bytes, cache_hit, region, user_agent, request_id, cost_cents)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+               RETURNING *"#,
+        )
+        .bind(endpoint)
+        .bind(method)
+        .bind(status_code)
+        .bind(response_time_ms)
+        .bind(user_id)
+        .bind(request_size_bytes)
+        .bind(response_size_bytes)
+        .bind(cache_hit)
+        .bind(region)
+        .bind(user_agent)
+        .bind(request_id)
+        .bind(cost_cents)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_analytic_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_cost_analysis_v11(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+        let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
+            r#"SELECT COUNT(*) as total_requests,
+                      COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
+                      COALESCE(SUM(response_size_bytes), 0) as total_response_bytes,
+                      COALESCE(SUM(cost_cents), 0) as estimated_cost_cents
+               FROM api_analytics_v11"#,
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_cost_analysis_v11 totals: {e}")))?;
+
+        let regions = sqlx::query_as::<_, (String, i64, i64)>(
+            r#"SELECT region, COUNT(*) as requests, COALESCE(SUM(cost_cents), 0) as cost_cents
+               FROM api_analytics_v11 GROUP BY region ORDER BY cost_cents DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_cost_analysis_v11 regions: {e}")))?;
+
+        let ua_costs = sqlx::query_as::<_, (String, i64, i64)>(
+            r#"SELECT COALESCE(user_agent, 'unknown') as ua, COUNT(*) as requests, COALESCE(SUM(cost_cents), 0) as cost_cents
+               FROM api_analytics_v11 GROUP BY user_agent ORDER BY cost_cents DESC LIMIT 10"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_cost_analysis_v11 ua_costs: {e}")))?;
+
+        Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
+    }
+
+    pub async fn get_usage_optimization_v11(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+        let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
+            r#"SELECT endpoint, method,
+                      AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
+                      PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY response_time_ms)::NUMERIC::FLOAT as p95_rt,
+                      CASE WHEN COUNT(*) > 0 THEN (COUNT(*) FILTER (WHERE cache_hit))::NUMERIC / COUNT(*)::NUMERIC * 100 ELSE 0 END as cache_rate,
+                      COALESCE(
+                          ARRAY_REMOVE(
+                              ARRAY[
+                                  CASE WHEN AVG(response_time_ms) > 500 THEN 'Optimize slow endpoint' END,
+                                  CASE WHEN (COUNT(*) FILTER (WHERE cache_hit))::NUMERIC / NULLIF(COUNT(*), 0) < 0.3 THEN 'Improve caching strategy' END,
+                                  CASE WHEN (COUNT(*) FILTER (WHERE status_code >= 500))::NUMERIC / NULLIF(COUNT(*), 0) > 0.05 THEN 'Reduce error rate' END
+                              ],
+                              NULL
+                          ),
+                          ARRAY['No optimization needed']::TEXT[]
+                      ) as suggestions
+               FROM api_analytics_v11
+               GROUP BY endpoint, method
+               HAVING COUNT(*) > 10
+               ORDER BY avg_rt DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_usage_optimization_v11: {e}")))?;
         Ok(rows)
     }
 
