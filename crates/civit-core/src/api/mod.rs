@@ -118,6 +118,9 @@ pub mod test_suite_management_v5;
 pub mod code_quality_rules_v5;
 pub mod performance_testing_v6;
 pub mod data_residency_v5_api;
+pub mod database_replication_v8_api;
+pub mod encryption_v9_api;
+pub mod data_residency_v8_api;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -363,10 +366,13 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(service_mesh::service_mesh_routes())
         .merge(database_replication_v2_api::replication_v2_routes())
         .merge(database_replication_v5_api::replication_v5_routes())
+        .merge(database_replication_v8_api::replication_v8_routes())
         .merge(encryption_v3_api::encryption_v3_routes())
         .merge(encryption_v6_api::encryption_v6_routes())
+        .merge(encryption_v9_api::encryption_v9_routes())
         .merge(data_residency_v2_api::data_residency_v2_routes())
         .merge(data_residency_v5_api::data_residency_v5_routes())
+        .merge(data_residency_v8_api::data_residency_v8_routes())
         .merge(test_suite_management_v5::test_suite_v5_routes())
         .merge(code_quality_rules_v5::code_quality_v5_routes())
         .merge(performance_testing_v6::performance_testing_v6_routes())
