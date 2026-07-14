@@ -513,6 +513,16 @@ pub const M_284_RATE_LIMIT_TIERS_V6_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_alerts_v3; DROP TABLE IF EXISTS rate_limit_tiers_v6;";
 pub const M_285_API_ANALYTICS_V9_UP: &str = include_str!("285_add_api_analytics_v9.sql");
 pub const M_285_API_ANALYTICS_V9_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v9;";
+pub const M_286_DATABASE_REPLICATION_V6_UP: &str =
+    include_str!("286_add_database_replication_v6.sql");
+pub const M_286_DATABASE_REPLICATION_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS database_replication_alerts_v4; DROP TABLE IF EXISTS database_replication_config_v4;";
+pub const M_287_ENCRYPTION_V7_UP: &str = include_str!("287_add_encryption_v7.sql");
+pub const M_287_ENCRYPTION_V7_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_compliance_checks_v4; DROP TABLE IF EXISTS encryption_key_versions_v4;";
+pub const M_288_DATA_RESIDENCY_V6_UP: &str = include_str!("288_add_data_residency_v6.sql");
+pub const M_288_DATA_RESIDENCY_V6_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance_v4; DROP TABLE IF EXISTS data_residency_reports_v4;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");

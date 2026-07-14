@@ -1831,3 +1831,60 @@ pub struct PerformanceTestAlertHistoryV4 {
     pub threshold: f64,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DatabaseReplicationConfigV4 {
+    pub id: Uuid,
+    pub replica_id: Uuid,
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DatabaseReplicationAlertV4 {
+    pub id: Uuid,
+    pub replica_id: Uuid,
+    pub alert_type: String,
+    pub threshold: f64,
+    pub enabled: bool,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct EncryptionKeyVersionV4 {
+    pub id: Uuid,
+    pub key_id: Uuid,
+    pub version: i32,
+    pub key_material: Vec<u8>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct EncryptionComplianceCheckV4 {
+    pub id: Uuid,
+    pub check_type: String,
+    pub status: String,
+    pub findings: serde_json::Value,
+    pub score: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DataResidencyReportV4 {
+    pub id: Uuid,
+    pub report_type: String,
+    pub findings: serde_json::Value,
+    pub score: i32,
+    pub generated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DataResidencyComplianceV4 {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub compliance_status: String,
+    pub last_checked_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
