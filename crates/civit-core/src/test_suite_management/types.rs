@@ -486,3 +486,90 @@ pub struct TestSuiteAlertHistory {
     pub threshold: f64,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteMetricV4 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteMetricV4Request {
+    pub metric_name: String,
+    pub metric_value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteBaselineV4 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub threshold_percent: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteBaselineV4Request {
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub threshold_percent: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateTestSuiteBaselineV4Request {
+    pub baseline_value: Option<f64>,
+    pub threshold_percent: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteRegressionV4 {
+    pub id: Uuid,
+    pub baseline_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub current_value: f64,
+    pub regression_percent: f64,
+    pub threshold_percent: f64,
+    pub status: String,
+    pub detected_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuitePerformanceAlertV4 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub current_value: f64,
+    pub regression_percent: f64,
+    pub threshold_percent: f64,
+    pub severity: String,
+    pub message: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteMetricsSummaryV4 {
+    pub suite_id: Uuid,
+    pub total_metrics: i64,
+    pub total_baselines: i64,
+    pub active_regressions: i64,
+    pub resolved_regressions: i64,
+    pub metrics: Vec<TestSuiteMetricV4>,
+    pub baselines: Vec<TestSuiteBaselineV4>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuitePerformanceReportV4 {
+    pub suite_id: Uuid,
+    pub suite_name: String,
+    pub metrics_summary: TestSuiteMetricsSummaryV4,
+    pub regressions: Vec<TestSuiteRegressionV4>,
+    pub alerts: Vec<TestSuitePerformanceAlertV4>,
+    pub overall_score: f64,
+    pub last_measured_at: Option<DateTime<Utc>>,
+}

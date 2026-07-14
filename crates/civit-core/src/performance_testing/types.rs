@@ -405,3 +405,66 @@ pub struct AlertTriggerTrendV3 {
     pub trigger_count: i64,
     pub alert_types: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceTestAlertConfigV5 {
+    pub id: Uuid,
+    pub baseline_id: Uuid,
+    pub alert_type: String,
+    pub threshold: f64,
+    pub enabled: bool,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAlertConfigV5Request {
+    pub alert_type: String,
+    pub threshold: f64,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateAlertConfigV5Request {
+    pub alert_type: Option<String>,
+    pub threshold: Option<f64>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceAlertHistoryV5 {
+    pub id: Uuid,
+    pub alert_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub threshold: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlertNotificationV5 {
+    pub alert_id: Uuid,
+    pub metric_name: String,
+    pub current_value: f64,
+    pub threshold: f64,
+    pub severity: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlertAnalyticsV5 {
+    pub total_alerts: i64,
+    pub active_alerts: i64,
+    pub total_triggers: i64,
+    pub triggers_by_type: serde_json::Value,
+    pub avg_time_between_triggers_ms: f64,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub trigger_trend: Vec<AlertTriggerTrendV5>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlertTriggerTrendV5 {
+    pub date: chrono::NaiveDate,
+    pub trigger_count: i64,
+    pub alert_types: Vec<String>,
+}

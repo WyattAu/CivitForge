@@ -24,4 +24,8 @@ pub use types::{
     TestSuiteMetricsSummaryV2, TestSuitePerformanceReportV2,
     TestSuitePerformanceAlertConfig, CreateTestSuiteAlertConfigRequest, UpdateTestSuiteAlertConfigRequest,
     TestSuiteAlertHistory,
+    TestSuiteMetricV4, CreateTestSuiteMetricV4Request,
+    TestSuiteBaselineV4, CreateTestSuiteBaselineV4Request, UpdateTestSuiteBaselineV4Request,
+    TestSuiteRegressionV4, TestSuitePerformanceAlertV4,
+    TestSuiteMetricsSummaryV4, TestSuitePerformanceReportV4,
 };
