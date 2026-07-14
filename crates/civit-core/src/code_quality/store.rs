@@ -12,6 +12,184 @@ impl CodeQualityStore {
         Self { pool }
     }
 
+    pub async fn create_rule(
+        &self,
+        repo_id: Uuid,
+        req: CreateQualityRuleRequest,
+    ) -> Result<QualityRule, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let enabled = req.enabled.unwrap_or(true);
+
+        sqlx::query(
+            r#"INSERT INTO code_quality_rules (id, repo_id, name, description, rule_type, severity, pattern, enabled, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
+        )
+        .bind(id)
+        .bind(repo_id)
+        .bind(&req.name)
+        .bind(&req.description)
+        .bind(req.rule_type.to_string())
+        .bind(req.severity.to_string())
+        .bind(&req.pattern)
+        .bind(enabled)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(QualityRule {
+            id,
+            repo_id,
+            name: req.name,
+            description: req.description,
+            rule_type: req.rule_type,
+            severity: req.severity,
+            pattern: req.pattern,
+            enabled,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_rule(&self, id: Uuid) -> Result<Option<QualityRule>, sqlx::Error> {
+        let row = sqlx::query_as::<_, RuleRow>(
+            r#"SELECT id, repo_id, name, description, rule_type, severity, pattern, enabled, created_at
+               FROM code_quality_rules WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(QualityRule::from))
+    }
+
+    pub async fn list_rules(
+        &self,
+        repo_id: Uuid,
+        enabled_only: bool,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<QualityRule>, sqlx::Error> {
+        let rows = if enabled_only {
+            sqlx::query_as::<_, RuleRow>(
+                r#"SELECT id, repo_id, name, description, rule_type, severity, pattern, enabled, created_at
+                   FROM code_quality_rules
+                   WHERE repo_id = $1 AND enabled = true
+                   ORDER BY created_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(repo_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query_as::<_, RuleRow>(
+                r#"SELECT id, repo_id, name, description, rule_type, severity, pattern, enabled, created_at
+                   FROM code_quality_rules
+                   WHERE repo_id = $1
+                   ORDER BY created_at DESC
+                   LIMIT $2 OFFSET $3"#,
+            )
+            .bind(repo_id)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows.into_iter().map(QualityRule::from).collect())
+    }
+
+    pub async fn update_rule(
+        &self,
+        id: Uuid,
+        req: UpdateQualityRuleRequest,
+    ) -> Result<QualityRule, sqlx::Error> {
+        if let Some(name) = &req.name {
+            sqlx::query(r#"UPDATE code_quality_rules SET name = $1 WHERE id = $2"#)
+                .bind(name)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(desc) = &req.description {
+            sqlx::query(r#"UPDATE code_quality_rules SET description = $1 WHERE id = $2"#)
+                .bind(desc)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(rule_type) = &req.rule_type {
+            sqlx::query(r#"UPDATE code_quality_rules SET rule_type = $1 WHERE id = $2"#)
+                .bind(rule_type.to_string())
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(severity) = &req.severity {
+            sqlx::query(r#"UPDATE code_quality_rules SET severity = $1 WHERE id = $2"#)
+                .bind(severity.to_string())
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(pattern) = &req.pattern {
+            sqlx::query(r#"UPDATE code_quality_rules SET pattern = $1 WHERE id = $2"#)
+                .bind(pattern)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(enabled) = req.enabled {
+            sqlx::query(r#"UPDATE code_quality_rules SET enabled = $1 WHERE id = $2"#)
+                .bind(enabled)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        self.get_rule(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    pub async fn delete_rule(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM code_quality_rules WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_rules_summary(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<QualityRuleEnforcementResult>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, RuleEnforcementRow>(
+            r#"SELECT
+                cqr.id as rule_id,
+                cqr.name as rule_name,
+                COALESCE(cqm.metric_value, 0) as violations,
+                COUNT(DISTINCT cqm.file_path) as files_checked,
+                COUNT(DISTINCT cqm.file_path) FILTER (WHERE cqm.metric_value > 0) as files_violating
+             FROM code_quality_rules cqr
+             LEFT JOIN code_quality_metrics cqm ON cqr.repo_id = cqm.repo_id
+                AND cqm.metric_name = cqr.name
+                AND cqm.measured_at = (SELECT MAX(measured_at) FROM code_quality_metrics WHERE repo_id = cqr.repo_id AND metric_name = cqr.name)
+             WHERE cqr.repo_id = $1 AND cqr.enabled = true
+             GROUP BY cqr.id, cqr.name, cqm.metric_value
+             ORDER BY cqr.name"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(QualityRuleEnforcementResult::from)
+            .collect())
+    }
+
     pub async fn record_metric(
         &self,
         repo_id: Uuid,
@@ -344,4 +522,54 @@ struct TechDebtRow {
     debt_per_file: f64,
     remediation_time_priority: f64,
     files_with_debt: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct RuleRow {
+    id: Uuid,
+    repo_id: Uuid,
+    name: String,
+    description: String,
+    rule_type: String,
+    severity: String,
+    pattern: Option<String>,
+    enabled: bool,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<RuleRow> for QualityRule {
+    fn from(row: RuleRow) -> Self {
+        Self {
+            id: row.id,
+            repo_id: row.repo_id,
+            name: row.name,
+            description: row.description,
+            rule_type: row.rule_type.parse().unwrap_or(RuleType::Custom),
+            severity: row.severity.parse().unwrap_or(Severity::Warning),
+            pattern: row.pattern,
+            enabled: row.enabled,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct RuleEnforcementRow {
+    rule_id: Uuid,
+    rule_name: String,
+    violations: f64,
+    files_checked: i64,
+    files_violating: i64,
+}
+
+impl From<RuleEnforcementRow> for QualityRuleEnforcementResult {
+    fn from(row: RuleEnforcementRow) -> Self {
+        Self {
+            rule_id: row.rule_id,
+            rule_name: row.rule_name,
+            violations: row.violations,
+            files_checked: row.files_checked,
+            files_violating: row.files_violating,
+        }
+    }
 }

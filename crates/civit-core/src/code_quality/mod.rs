@@ -5,7 +5,8 @@ pub mod types;
 
 pub use store::CodeQualityStore;
 pub use types::{
-    MetricCategory, QualityMetricReport, QualityMetricSummary, QualityTrend,
+    MetricCategory, RuleType, Severity, QualityMetricReport, QualityMetricSummary, QualityTrend,
     ComplexityAnalysis, DuplicationReport, CodeSmellsReport, TechnicalDebtReport,
-    RecordMetricRequest,
+    RecordMetricRequest, QualityRule, CreateQualityRuleRequest, UpdateQualityRuleRequest,
+    QualityRuleEnforcementResult,
 };

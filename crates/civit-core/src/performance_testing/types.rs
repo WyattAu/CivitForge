@@ -134,3 +134,65 @@ pub struct PerformanceTestRecord {
     pub started_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestConfigEntry {
+    pub id: Uuid,
+    pub test_id: Uuid,
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestConfigRequest {
+    pub config_key: String,
+    pub config_value: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestResultMetric {
+    pub id: Uuid,
+    pub test_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub percentile: Option<f64>,
+    pub recorded_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordTestResultRequest {
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub percentile: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PercentileAnalysis {
+    pub metric_name: String,
+    pub p50: Option<f64>,
+    pub p90: Option<f64>,
+    pub p95: Option<f64>,
+    pub p99: Option<f64>,
+    pub avg: f64,
+    pub min: f64,
+    pub max: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceComparison {
+    pub test_id_1: Uuid,
+    pub test_id_2: Uuid,
+    pub test_name_1: String,
+    pub test_name_2: String,
+    pub metrics: Vec<MetricComparison>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricComparison {
+    pub metric_name: String,
+    pub value_1: f64,
+    pub value_2: f64,
+    pub change_percent: f64,
+    pub improved: bool,
+}

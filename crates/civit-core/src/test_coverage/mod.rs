@@ -5,6 +5,7 @@ pub mod types;
 
 pub use store::TestCoverageStore;
 pub use types::{
-    CoverageReport, CoverageSummary, CoverageTrend, CoverageEnforcementResult,
-    CoverageUploadRequest, CoverageEnforcementConfig,
+    CoverageReport, CoverageReportV2, CoverageSummary, CoverageTrend, CoverageTrendV2,
+    CoverageEnforcementResult, CoverageUploadRequest, CoverageUploadRequestV2,
+    CoverageEnforcementConfig,
 };

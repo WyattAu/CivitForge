@@ -12,6 +12,207 @@ impl PerformanceTestStore {
         Self { pool }
     }
 
+    pub async fn add_test_config(
+        &self,
+        test_id: Uuid,
+        req: CreateTestConfigRequest,
+    ) -> Result<TestConfigEntry, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO performance_test_configs (id, test_id, config_key, config_value, created_at)
+               VALUES ($1, $2, $3, $4, $5)"#,
+        )
+        .bind(id)
+        .bind(test_id)
+        .bind(&req.config_key)
+        .bind(&req.config_value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestConfigEntry {
+            id,
+            test_id,
+            config_key: req.config_key,
+            config_value: req.config_value,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_test_configs(
+        &self,
+        test_id: Uuid,
+    ) -> Result<Vec<TestConfigEntry>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TestConfigRow>(
+            r#"SELECT id, test_id, config_key, config_value, created_at
+               FROM performance_test_configs
+               WHERE test_id = $1
+               ORDER BY created_at"#,
+        )
+        .bind(test_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestConfigEntry::from).collect())
+    }
+
+    pub async fn delete_test_config(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM performance_test_configs WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_test_result(
+        &self,
+        test_id: Uuid,
+        req: RecordTestResultRequest,
+    ) -> Result<TestResultMetric, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO performance_test_results (id, test_id, metric_name, metric_value, percentile, recorded_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(test_id)
+        .bind(&req.metric_name)
+        .bind(req.metric_value)
+        .bind(req.percentile)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestResultMetric {
+            id,
+            test_id,
+            metric_name: req.metric_name,
+            metric_value: req.metric_value,
+            percentile: req.percentile,
+            recorded_at: now,
+        })
+    }
+
+    pub async fn get_test_results(
+        &self,
+        test_id: Uuid,
+    ) -> Result<Vec<TestResultMetric>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TestResultRow>(
+            r#"SELECT id, test_id, metric_name, metric_value, percentile, recorded_at
+               FROM performance_test_results
+               WHERE test_id = $1
+               ORDER BY metric_name, percentile"#,
+        )
+        .bind(test_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestResultMetric::from).collect())
+    }
+
+    pub async fn get_percentile_analysis(
+        &self,
+        test_id: Uuid,
+        metric_name: &str,
+    ) -> Result<PercentileAnalysis, sqlx::Error> {
+        let row = sqlx::query_as::<_, PercentileRow>(
+            r#"SELECT
+                $2 as metric_name,
+                (SELECT metric_value FROM performance_test_results WHERE test_id = $1 AND metric_name = $2 AND percentile = 50.0 LIMIT 1) as p50,
+                (SELECT metric_value FROM performance_test_results WHERE test_id = $1 AND metric_name = $2 AND percentile = 90.0 LIMIT 1) as p90,
+                (SELECT metric_value FROM performance_test_results WHERE test_id = $1 AND metric_name = $2 AND percentile = 95.0 LIMIT 1) as p95,
+                (SELECT metric_value FROM performance_test_results WHERE test_id = $1 AND metric_name = $2 AND percentile = 99.0 LIMIT 1) as p99,
+                COALESCE(AVG(metric_value), 0) as avg,
+                COALESCE(MIN(metric_value), 0) as min_val,
+                COALESCE(MAX(metric_value), 0) as max_val
+             FROM performance_test_results
+             WHERE test_id = $1 AND metric_name = $2"#,
+        )
+        .bind(test_id)
+        .bind(metric_name)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(PercentileAnalysis {
+            metric_name: row.metric_name,
+            p50: row.p50,
+            p90: row.p90,
+            p95: row.p95,
+            p99: row.p99,
+            avg: row.avg,
+            min: row.min_val,
+            max: row.max_val,
+        })
+    }
+
+    pub async fn compare_tests(
+        &self,
+        test_id_1: Uuid,
+        test_id_2: Uuid,
+    ) -> Result<PerformanceComparison, sqlx::Error> {
+        let test_1 = sqlx::query_scalar::<_, String>(
+            r#"SELECT name FROM performance_tests WHERE id = $1"#,
+        )
+        .bind(test_id_1)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let test_2 = sqlx::query_scalar::<_, String>(
+            r#"SELECT name FROM performance_tests WHERE id = $1"#,
+        )
+        .bind(test_id_2)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let rows = sqlx::query_as::<_, MetricCompareRow>(
+            r#"SELECT
+                COALESCE(r1.metric_name, r2.metric_name) as metric_name,
+                COALESCE(r1.metric_value, 0) as value_1,
+                COALESCE(r2.metric_value, 0) as value_2
+             FROM performance_test_results r1
+             FULL OUTER JOIN performance_test_results r2
+                ON r1.metric_name = r2.metric_name AND r1.percentile IS NULL AND r2.percentile IS NULL
+             WHERE (r1.test_id = $1 OR r2.test_id = $2)
+               AND r1.percentile IS NULL AND r2.percentile IS NULL
+             GROUP BY r1.metric_name, r2.metric_name, r1.metric_value, r2.metric_value
+             ORDER BY COALESCE(r1.metric_name, r2.metric_name)"#,
+        )
+        .bind(test_id_1)
+        .bind(test_id_2)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let metrics = rows
+            .into_iter()
+            .map(|r| {
+                let change = if r.value_1 != 0.0 {
+                    ((r.value_2 - r.value_1) / r.value_1) * 100.0
+                } else {
+                    0.0
+                };
+                MetricComparison {
+                    metric_name: r.metric_name,
+                    value_1: r.value_1,
+                    value_2: r.value_2,
+                    change_percent: change,
+                    improved: r.value_2 < r.value_1,
+                }
+            })
+            .collect();
+
+        Ok(PerformanceComparison {
+            test_id_1,
+            test_id_2,
+            test_name_1: test_1,
+            test_name_2: test_2,
+            metrics,
+        })
+    }
+
     pub async fn create_test(
         &self,
         repo_id: Uuid,
@@ -228,4 +429,67 @@ struct SummaryRow {
 struct TypeCountRow {
     test_type: String,
     count: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct TestConfigRow {
+    id: Uuid,
+    test_id: Uuid,
+    config_key: String,
+    config_value: serde_json::Value,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<TestConfigRow> for TestConfigEntry {
+    fn from(row: TestConfigRow) -> Self {
+        Self {
+            id: row.id,
+            test_id: row.test_id,
+            config_key: row.config_key,
+            config_value: row.config_value,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct TestResultRow {
+    id: Uuid,
+    test_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    percentile: Option<f64>,
+    recorded_at: chrono::DateTime<Utc>,
+}
+
+impl From<TestResultRow> for TestResultMetric {
+    fn from(row: TestResultRow) -> Self {
+        Self {
+            id: row.id,
+            test_id: row.test_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            percentile: row.percentile,
+            recorded_at: row.recorded_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct PercentileRow {
+    metric_name: String,
+    p50: Option<f64>,
+    p90: Option<f64>,
+    p95: Option<f64>,
+    p99: Option<f64>,
+    avg: f64,
+    min_val: f64,
+    max_val: f64,
+}
+
+#[derive(sqlx::FromRow)]
+struct MetricCompareRow {
+    metric_name: String,
+    value_1: f64,
+    value_2: f64,
 }

@@ -14,6 +14,18 @@ pub struct CoverageReport {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoverageReportV2 {
+    pub repo_id: Uuid,
+    pub file_path: String,
+    pub line_coverage: f64,
+    pub branch_coverage: f64,
+    pub function_coverage: f64,
+    pub total_lines: i32,
+    pub covered_lines: i32,
+    pub uncovered_lines: Vec<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverageSummary {
     pub repo_id: Uuid,
     pub avg_line_coverage: f64,
@@ -35,6 +47,16 @@ pub struct CoverageTrend {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoverageTrendV2 {
+    pub date: chrono::NaiveDate,
+    pub avg_line_coverage: f64,
+    pub avg_branch_coverage: f64,
+    pub avg_function_coverage: f64,
+    pub file_count: i64,
+    pub total_uncovered_lines: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CoverageEnforcementResult {
     pub passes: bool,
     pub files_checked: i64,
@@ -50,6 +72,17 @@ pub struct CoverageUploadRequest {
     pub function_coverage: f64,
     pub total_lines: i32,
     pub covered_lines: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoverageUploadRequestV2 {
+    pub file_path: String,
+    pub line_coverage: f64,
+    pub branch_coverage: f64,
+    pub function_coverage: f64,
+    pub total_lines: i32,
+    pub covered_lines: i32,
+    pub uncovered_lines: Vec<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
