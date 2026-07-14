@@ -145,6 +145,27 @@ pub fn pipeline_cache_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{repo}/caches/eviction-stats",
             get(get_eviction_stats),
         )
+        // Hit Analysis endpoints
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/hit-analysis/{cache_id}",
+            get(get_hit_analysis),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/hit-analysis/{cache_id}/record-hit",
+            post(record_hit_analysis),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/hit-analysis/{cache_id}/record-miss",
+            post(record_miss_analysis),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/hit-analysis/repo",
+            get(get_repo_hit_analysis_endpoint),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/performance/{cache_id}",
+            get(get_performance_insights),
+        )
 }
 
 async fn get_repo_id(
@@ -1595,6 +1616,257 @@ pub async fn get_eviction_stats(
 
     match cache_eviction::get_eviction_stats(pool, repo_id).await {
         Ok(stats) => (axum::http::StatusCode::OK, Json(stats)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Hit Analysis handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct RecordHitAnalysisRequest {
+    #[serde(default)]
+    pub size_bytes: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RecordMissAnalysisRequest {
+    #[serde(default)]
+    pub size_bytes: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RepoHitAnalysisParams {
+    #[serde(default = "default_days")]
+    pub days: i32,
+}
+
+fn default_days() -> i32 {
+    30
+}
+
+pub async fn get_hit_analysis(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_cache_hit_analysis(pool, cid, 30).await {
+        Ok(analysis) => (axum::http::StatusCode::OK, Json(analysis)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn record_hit_analysis(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<RecordHitAnalysisRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::record_cache_hit_analysis(pool, cid, req.size_bytes).await {
+        Ok(()) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "recorded"})),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn record_miss_analysis(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<RecordMissAnalysisRequest>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::record_cache_miss_analysis(pool, cid, req.size_bytes).await {
+        Ok(()) => (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"status": "recorded"})),
+        )
+            .into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_repo_hit_analysis_endpoint(
+    State(state): State<AppState>,
+    Path((owner, repo_name)): Path<(String, String)>,
+    _auth: AuthUser,
+    axum::extract::Query(params): axum::extract::Query<RepoHitAnalysisParams>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_repo_hit_analysis(pool, repo_id, params.days).await {
+        Ok(analysis) => (axum::http::StatusCode::OK, Json(analysis)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_performance_insights(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_cache_performance_insights(pool, cid).await {
+        Ok(insights) => (axum::http::StatusCode::OK, Json(insights)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),

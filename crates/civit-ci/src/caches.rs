@@ -546,6 +546,233 @@ pub async fn get_cache_cost_analysis(
     }))
 }
 
+// ---------------------------------------------------------------------------
+// Cache Hit Analysis
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheHitAnalysisResponse {
+    pub id: String,
+    pub cache_id: String,
+    pub period_start: String,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub avg_hit_size_bytes: i64,
+    pub total_size_bytes: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CacheHitAnalysisRow {
+    pub id: Uuid,
+    pub cache_id: Uuid,
+    pub period_start: chrono::DateTime<chrono::Utc>,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub avg_hit_size_bytes: i64,
+    pub total_size_bytes: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<CacheHitAnalysisRow> for CacheHitAnalysisResponse {
+    fn from(r: CacheHitAnalysisRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            cache_id: r.cache_id.to_string(),
+            period_start: r.period_start.to_rfc3339(),
+            hit_count: r.hit_count,
+            miss_count: r.miss_count,
+            avg_hit_size_bytes: r.avg_hit_size_bytes,
+            total_size_bytes: r.total_size_bytes,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Record a cache hit analysis entry.
+pub async fn record_cache_hit_analysis(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+    hit_size_bytes: i64,
+) -> std::result::Result<(), sqlx::Error> {
+    let period_start = chrono::Utc::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_utc();
+
+    sqlx::query(
+        "INSERT INTO cache_hit_analysis (cache_id, period_start, hit_count, avg_hit_size_bytes, total_size_bytes) \
+         VALUES ($1, $2, 1, $3, $3) \
+         ON CONFLICT (cache_id, period_start) DO UPDATE \
+         SET hit_count = cache_hit_analysis.hit_count + 1, \
+             avg_hit_size_bytes = (cache_hit_analysis.avg_hit_size_bytes * cache_hit_analysis.hit_count + $3) / (cache_hit_analysis.hit_count + 1), \
+             total_size_bytes = cache_hit_analysis.total_size_bytes + $3",
+    )
+    .bind(cache_id)
+    .bind(period_start)
+    .bind(hit_size_bytes)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Record a cache miss analysis entry.
+pub async fn record_cache_miss_analysis(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+    miss_size_bytes: i64,
+) -> std::result::Result<(), sqlx::Error> {
+    let period_start = chrono::Utc::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_utc();
+
+    sqlx::query(
+        "INSERT INTO cache_hit_analysis (cache_id, period_start, miss_count, total_size_bytes) \
+         VALUES ($1, $2, 1, $3) \
+         ON CONFLICT (cache_id, period_start) DO UPDATE \
+         SET miss_count = cache_hit_analysis.miss_count + 1, \
+             total_size_bytes = cache_hit_analysis.total_size_bytes + $3",
+    )
+    .bind(cache_id)
+    .bind(period_start)
+    .bind(miss_size_bytes)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Get hit analysis for a cache.
+pub async fn get_cache_hit_analysis(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+    limit: i64,
+) -> std::result::Result<Vec<CacheHitAnalysisResponse>, sqlx::Error> {
+    sqlx::query_as::<_, CacheHitAnalysisRow>(
+        "SELECT * FROM cache_hit_analysis WHERE cache_id = $1 \
+         ORDER BY period_start DESC LIMIT $2",
+    )
+    .bind(cache_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get aggregate hit analysis for a repo.
+pub async fn get_repo_hit_analysis(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    days: i32,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COALESCE(SUM(cha.hit_count), 0), \
+            COALESCE(SUM(cha.miss_count), 0), \
+            COALESCE(AVG(cha.avg_hit_size_bytes), 0), \
+            COALESCE(SUM(cha.total_size_bytes), 0) \
+         FROM cache_hit_analysis cha \
+         JOIN pipeline_caches_v2 pc ON cha.cache_id = pc.id \
+         WHERE pc.repo_id = $1 AND cha.period_start >= NOW() - INTERVAL '1 day' * $2",
+    )
+    .bind(repo_id)
+    .bind(days)
+    .fetch_one(pool)
+    .await?;
+
+    let total_hits = row.0.unwrap_or(0);
+    let total_misses = row.1.unwrap_or(0);
+    let avg_hit_size = row.2.unwrap_or(0);
+    let total_size = row.3.unwrap_or(0);
+    let total_requests = total_hits + total_misses;
+    let hit_rate = if total_requests > 0 {
+        total_hits as f64 / total_requests as f64
+    } else {
+        0.0
+    };
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "period_days": days,
+        "total_hits": total_hits,
+        "total_misses": total_misses,
+        "total_requests": total_requests,
+        "hit_rate": hit_rate,
+        "avg_hit_size_bytes": avg_hit_size,
+        "total_size_bytes": total_size
+    }))
+}
+
+/// Get performance insights for a cache.
+pub async fn get_cache_performance_insights(
+    pool: &sqlx::PgPool,
+    cache_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let cache_row: Option<(String, i64, i32)> = sqlx::query_as(
+        "SELECT key, size_bytes, hit_count FROM pipeline_caches_v2 WHERE id = $1",
+    )
+    .bind(cache_id)
+    .fetch_optional(pool)
+    .await?;
+
+    let analysis_rows: Vec<(i32, i32, i64)> = sqlx::query_as(
+        "SELECT hit_count, miss_count, avg_hit_size_bytes FROM cache_hit_analysis \
+         WHERE cache_id = $1 ORDER BY period_start DESC LIMIT 30",
+    )
+    .bind(cache_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_hits: i32 = analysis_rows.iter().map(|r| r.0).sum();
+    let total_misses: i32 = analysis_rows.iter().map(|r| r.1).sum();
+    let total_requests = total_hits + total_misses;
+    let hit_rate = if total_requests > 0 {
+        total_hits as f64 / total_requests as f64
+    } else {
+        0.0
+    };
+
+    let mut insights = Vec::new();
+    if let Some((key, size, hits)) = cache_row {
+        if hits == 0 {
+            insights.push(serde_json::json!({
+                "type": "unused",
+                "message": "Cache has never been hit; consider removing it"
+            }));
+        }
+        if size > 100_000_000 {
+            insights.push(serde_json::json!({
+                "type": "large_size",
+                "message": format!("Cache is large ({} bytes); consider compression", size)
+            }));
+        }
+        if hit_rate < 0.3 && total_requests > 10 {
+            insights.push(serde_json::json!({
+                "type": "low_hit_rate",
+                "message": format!("Hit rate is {:.1}%; consider improving cache key strategy", hit_rate * 100.0)
+            }));
+        }
+
+        Ok(serde_json::json!({
+            "cache_id": cache_id.to_string(),
+            "key": key,
+            "size_bytes": size,
+            "hit_count": hits,
+            "total_hits_analyzed": total_hits,
+            "total_misses_analyzed": total_misses,
+            "hit_rate": hit_rate,
+            "insights": insights
+        }))
+    } else {
+        Ok(serde_json::json!({
+            "cache_id": cache_id.to_string(),
+            "error": "cache not found"
+        }))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

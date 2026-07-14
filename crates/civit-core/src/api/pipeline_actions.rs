@@ -182,6 +182,35 @@ pub fn pipeline_action_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{name}/action-installations/{installation_id}",
             delete(uninstall_action_from_repo),
         )
+        // Reviews V2 endpoints
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/v2",
+            get(list_reviews_v2).post(upsert_review_v2),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/v2/me",
+            get(get_my_review_v2).delete(delete_review_v2),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/v2/{review_id}/helpful",
+            post(toggle_helpful),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/v2/analytics",
+            get(get_review_analytics_endpoint),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/v2/{review_id}/moderate",
+            post(submit_for_moderation),
+        )
+        .route(
+            "/api/v1/pipeline-actions/{action_id}/reviews/v2/{moderation_id}/moderate-action",
+            post(moderate_review_endpoint),
+        )
+        .route(
+            "/api/v1/pipeline-actions/recommendations",
+            get(get_user_recommendations),
+        )
 }
 
 pub async fn list_actions(
@@ -1025,6 +1054,393 @@ pub async fn get_category_analytics(
 
     match categories::get_category_analytics(pool, cid).await {
         Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Reviews V2 handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct HelpfulRequest {
+    pub helpful: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModerateReviewRequest {
+    pub reason: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModerateActionRequest {
+    pub status: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RecommendationsQuery {
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+}
+
+pub async fn list_reviews_v2(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::list_action_reviews_v2(pool, aid, 50, 0).await {
+        Ok(reviews) => (StatusCode::OK, Json(reviews)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn upsert_review_v2(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+    Json(req): Json<ReviewActionRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    if req.rating < 1 || req.rating > 5 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest("rating must be between 1 and 5".into()).error_response()),
+        )
+            .into_response();
+    }
+
+    let review = req.review.unwrap_or_default();
+    match actions::upsert_action_review_v2(pool, aid, uid, req.rating, &review).await {
+        Ok(r) => (StatusCode::OK, Json(r)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_my_review_v2(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::get_action_review_v2(pool, aid, uid).await {
+        Ok(Some(review)) => (StatusCode::OK, Json(review)).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("no review found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn delete_review_v2(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::delete_action_review_v2(pool, aid, uid).await {
+        Ok(true) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "deleted"})),
+        )
+            .into_response(),
+        Ok(false) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("review not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn toggle_helpful(
+    State(state): State<AppState>,
+    Path((action_id, review_id)): Path<(String, String)>,
+    auth: AuthUser,
+    Json(req): Json<HelpfulRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let rid = match Uuid::parse_str(&review_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid review ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::toggle_review_helpfulness(pool, rid, uid, req.helpful).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "updated"})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_review_analytics_endpoint(
+    State(state): State<AppState>,
+    Path(action_id): Path<String>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::get_review_analytics(pool, aid).await {
+        Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn submit_for_moderation(
+    State(state): State<AppState>,
+    Path((action_id, review_id)): Path<(String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<ModerateReviewRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let rid = match Uuid::parse_str(&review_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid review ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::submit_review_for_moderation(pool, rid, &req.reason).await {
+        Ok(()) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({"status": "submitted_for_moderation"})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn moderate_review_endpoint(
+    State(state): State<AppState>,
+    Path((action_id, moderation_id)): Path<(String, String)>,
+    auth: AuthUser,
+    Json(req): Json<ModerateActionRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _aid = match Uuid::parse_str(&action_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid action ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let mid = match Uuid::parse_str(&moderation_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid moderation ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+    let moderator_id = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::moderate_review(pool, mid, moderator_id, &req.status).await {
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"status": "moderated"})),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_user_recommendations(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Query(params): Query<RecommendationsQuery>,
+) -> Response {
+    let pool = state.db.pool();
+    let uid = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match actions::get_recommendations_for_user(pool, uid, params.limit).await {
+        Ok(actions) => (StatusCode::OK, Json(actions)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
