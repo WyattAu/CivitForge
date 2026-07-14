@@ -369,6 +369,18 @@ pub const M_215_ENVIRONMENT_HEALTH_CHECKS_UP: &str = include_str!("215_add_envir
 pub const M_215_ENVIRONMENT_HEALTH_CHECKS_DOWN: &str = "DROP TABLE IF EXISTS environment_health_checks;";
 pub const M_216_CACHE_EVICTION_POLICIES_LOGS_UP: &str = include_str!("216_add_cache_eviction_policies_logs.sql");
 pub const M_216_CACHE_EVICTION_POLICIES_LOGS_DOWN: &str = "DROP TABLE IF EXISTS cache_eviction_logs; DROP TABLE IF EXISTS cache_eviction_policies;";
+pub const M_217_TEST_SUITE_TAGS_DEPS_UP: &str = include_str!("217_add_test_suite_tags_dependencies.sql");
+pub const M_217_TEST_SUITE_TAGS_DEPS_DOWN: &str = "DROP TABLE IF EXISTS test_suite_dependencies; DROP TABLE IF EXISTS test_suite_tags;";
+pub const M_218_CODE_QUALITY_RULES_V3_UP: &str = include_str!("218_add_code_quality_rules_v3_enforcement.sql");
+pub const M_218_CODE_QUALITY_RULES_V3_DOWN: &str = "DROP TABLE IF EXISTS code_quality_enforcement_logs; DROP TABLE IF EXISTS code_quality_rules_v3;";
+pub const M_219_PERF_TEST_ALERTS_UP: &str = include_str!("219_add_performance_test_alerts.sql");
+pub const M_219_PERF_TEST_ALERTS_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alerts;";
+pub const M_220_API_DOCS_V5_UP: &str = include_str!("220_add_api_docs_v5.sql");
+pub const M_220_API_DOCS_V5_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v5;";
+pub const M_221_RATE_LIMIT_TIERS_V3_UP: &str = include_str!("221_add_rate_limit_tiers_v3.sql");
+pub const M_221_RATE_LIMIT_TIERS_V3_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts; DROP TABLE IF EXISTS rate_limit_overages; DROP TABLE IF EXISTS rate_limit_tiers_v3;";
+pub const M_222_API_ANALYTICS_V6_UP: &str = include_str!("222_add_api_analytics_v6.sql");
+pub const M_222_API_ANALYTICS_V6_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_capacity_plans; DROP TABLE IF EXISTS api_analytics_correlations; DROP TABLE IF EXISTS api_analytics_v6;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -1471,6 +1483,42 @@ impl MigrationManager {
             name: "add_dashboard_reporting_v3".into(),
             up_sql: M_213_DASHBOARD_REPORTING_V3_UP.into(),
             down_sql: M_213_DASHBOARD_REPORTING_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 217,
+            name: "add_test_suite_tags_dependencies".into(),
+            up_sql: M_217_TEST_SUITE_TAGS_DEPS_UP.into(),
+            down_sql: M_217_TEST_SUITE_TAGS_DEPS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 218,
+            name: "add_code_quality_rules_v3_enforcement".into(),
+            up_sql: M_218_CODE_QUALITY_RULES_V3_UP.into(),
+            down_sql: M_218_CODE_QUALITY_RULES_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 219,
+            name: "add_performance_test_alerts".into(),
+            up_sql: M_219_PERF_TEST_ALERTS_UP.into(),
+            down_sql: M_219_PERF_TEST_ALERTS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 220,
+            name: "add_api_docs_v5".into(),
+            up_sql: M_220_API_DOCS_V5_UP.into(),
+            down_sql: M_220_API_DOCS_V5_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 221,
+            name: "add_rate_limit_tiers_v3".into(),
+            up_sql: M_221_RATE_LIMIT_TIERS_V3_UP.into(),
+            down_sql: M_221_RATE_LIMIT_TIERS_V3_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 222,
+            name: "add_api_analytics_v6".into(),
+            up_sql: M_222_API_ANALYTICS_V6_UP.into(),
+            down_sql: M_222_API_ANALYTICS_V6_DOWN.into(),
         });
     }
 
