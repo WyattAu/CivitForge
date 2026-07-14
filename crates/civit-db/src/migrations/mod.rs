@@ -584,6 +584,12 @@ pub const M_332_COMPLIANCE_FRAMEWORKS_V10_DOWN: &str =
     "DROP TABLE IF EXISTS compliance_assessments_v8; DROP TABLE IF EXISTS compliance_frameworks_v9;";
 pub const M_333_AUDIT_TRAIL_V10_UP: &str = include_str!("333_add_audit_trail_v10.sql");
 pub const M_333_AUDIT_TRAIL_V10_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v10;";
+pub const M_334_WORKFLOW_TEMPLATES_V7_UP: &str = include_str!("334_add_workflow_templates_v7.sql");
+pub const M_334_WORKFLOW_TEMPLATES_V7_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v6; DROP TABLE IF EXISTS workflow_templates_v7;";
+pub const M_335_AUTOMATION_RULES_V10_UP: &str = include_str!("335_add_automation_rules_v10.sql");
+pub const M_335_AUTOMATION_RULES_V10_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v10;";
+pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_UP: &str = include_str!("336_add_scheduled_task_templates_v7.sql");
+pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v7;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2118,6 +2124,24 @@ impl MigrationManager {
             name: "add_audit_trail_v10".into(),
             up_sql: M_333_AUDIT_TRAIL_V10_UP.into(),
             down_sql: M_333_AUDIT_TRAIL_V10_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 334,
+            name: "add_workflow_templates_v7".into(),
+            up_sql: M_334_WORKFLOW_TEMPLATES_V7_UP.into(),
+            down_sql: M_334_WORKFLOW_TEMPLATES_V7_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 335,
+            name: "add_automation_rules_v10".into(),
+            up_sql: M_335_AUTOMATION_RULES_V10_UP.into(),
+            down_sql: M_335_AUTOMATION_RULES_V10_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 336,
+            name: "add_scheduled_task_templates_v7".into(),
+            up_sql: M_336_SCHEDULED_TASK_TEMPLATES_V7_UP.into(),
+            down_sql: M_336_SCHEDULED_TASK_TEMPLATES_V7_DOWN.into(),
         });
     }
 
