@@ -946,6 +946,208 @@ impl DashboardReportingService {
             scheduled_reports: report_stats.scheduled_reports,
         })
     }
+
+    // V4: Dashboard sharing
+
+    pub async fn share_dashboard_v4(
+        &self,
+        dashboard_id: Uuid,
+        user_id: Uuid,
+        permission: DashboardPermission,
+    ) -> Result<DashboardShare, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let permission_str = match permission {
+            DashboardPermission::View => "view",
+            DashboardPermission::Edit => "edit",
+            DashboardPermission::Admin => "admin",
+        };
+
+        sqlx::query(
+            r#"INSERT INTO dashboard_shares (id, dashboard_id, user_id, permission)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (dashboard_id, user_id) DO UPDATE SET permission = $4"#,
+        )
+        .bind(id)
+        .bind(dashboard_id)
+        .bind(user_id)
+        .bind(permission_str)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(DashboardShare {
+            id,
+            dashboard_id,
+            user_id,
+            permission,
+            shared_at: Utc::now(),
+        })
+    }
+
+    pub async fn get_dashboard_shares(
+        &self,
+        dashboard_id: Uuid,
+    ) -> Result<Vec<DashboardShare>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct ShareRow {
+            id: Uuid,
+            dashboard_id: Uuid,
+            user_id: Uuid,
+            permission: String,
+            created_at: DateTime<Utc>,
+        }
+
+        let rows = sqlx::query_as::<_, ShareRow>(
+            r#"SELECT id, dashboard_id, user_id, permission, created_at
+             FROM dashboard_shares WHERE dashboard_id = $1
+             ORDER BY created_at DESC"#,
+        )
+        .bind(dashboard_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| DashboardShare {
+                id: r.id,
+                dashboard_id: r.dashboard_id,
+                user_id: r.user_id,
+                permission: match r.permission.as_str() {
+                    "edit" => DashboardPermission::Edit,
+                    "admin" => DashboardPermission::Admin,
+                    _ => DashboardPermission::View,
+                },
+                shared_at: r.created_at,
+            })
+            .collect())
+    }
+
+    pub async fn remove_dashboard_share(
+        &self,
+        dashboard_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "DELETE FROM dashboard_shares WHERE dashboard_id = $1 AND user_id = $2",
+        )
+        .bind(dashboard_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V4: Report scheduling v2
+
+    pub async fn create_report_schedule_v2(
+        &self,
+        input: CreateReportScheduleV2,
+    ) -> Result<ReportScheduleV2, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"INSERT INTO report_schedules_v2 (report_id, cron_expression, enabled, next_run_at)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(input.report_id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled.unwrap_or(true))
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_report_schedule_v2(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<ReportScheduleV2>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v2 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_report_schedules_v2(
+        &self,
+    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v2 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_due_schedules_v2(
+        &self,
+    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v2 WHERE enabled = true AND next_run_at <= NOW()
+             ORDER BY next_run_at ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn mark_schedule_executed_v2(
+        &self,
+        id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"UPDATE report_schedules_v2 SET last_run_at = NOW() WHERE id = $1"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_report_schedule_v2(
+        &self,
+        id: Uuid,
+        input: UpdateReportScheduleV2,
+    ) -> Result<ReportScheduleV2, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV2Row>(
+            r#"UPDATE report_schedules_v2 SET
+             cron_expression = COALESCE($2, cron_expression),
+             enabled = COALESCE($3, enabled),
+             next_run_at = COALESCE($4, next_run_at)
+             WHERE id = $1
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled)
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_report_schedule_v2(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM report_schedules_v2 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]
