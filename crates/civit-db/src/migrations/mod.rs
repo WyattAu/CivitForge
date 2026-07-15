@@ -708,6 +708,12 @@ pub const M_410_RATE_LIMIT_TIERS_V12_UP: &str = include_str!("410_add_rate_limit
 pub const M_410_RATE_LIMIT_TIERS_V12_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v9; DROP TABLE IF EXISTS rate_limit_tiers_v12;";
 pub const M_411_API_ANALYTICS_V15_UP: &str = include_str!("411_add_api_analytics_v15.sql");
 pub const M_411_API_ANALYTICS_V15_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v15;";
+pub const M_430_API_DOCS_V15_UP: &str = include_str!("430_add_api_docs_v15.sql");
+pub const M_430_API_DOCS_V15_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v15;";
+pub const M_431_RATE_LIMIT_TIERS_V13_UP: &str = include_str!("431_add_rate_limit_tiers_v13.sql");
+pub const M_431_RATE_LIMIT_TIERS_V13_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v10; DROP TABLE IF EXISTS rate_limit_tiers_v13;";
+pub const M_432_API_ANALYTICS_V16_UP: &str = include_str!("432_add_api_analytics_v16.sql");
+pub const M_432_API_ANALYTICS_V16_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v16;";
 pub const M_412_DATABASE_REPLICATION_V12_UP: &str =
     include_str!("412_add_database_replication_v12.sql");
 pub const M_412_DATABASE_REPLICATION_V12_DOWN: &str =
@@ -2621,6 +2627,24 @@ impl MigrationManager {
             name: "add_performance_testing_v14".into(),
             up_sql: M_429_PERFORMANCE_TESTING_V14_UP.into(),
             down_sql: M_429_PERFORMANCE_TESTING_V14_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 430,
+            name: "add_api_docs_v15".into(),
+            up_sql: M_430_API_DOCS_V15_UP.into(),
+            down_sql: M_430_API_DOCS_V15_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 431,
+            name: "add_rate_limit_tiers_v13".into(),
+            up_sql: M_431_RATE_LIMIT_TIERS_V13_UP.into(),
+            down_sql: M_431_RATE_LIMIT_TIERS_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 432,
+            name: "add_api_analytics_v16".into(),
+            up_sql: M_432_API_ANALYTICS_V16_UP.into(),
+            down_sql: M_432_API_ANALYTICS_V16_DOWN.into(),
         });
     }
 
