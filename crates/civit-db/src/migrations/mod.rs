@@ -870,6 +870,13 @@ pub const M_512_CODE_QUALITY_RULES_V17_DOWN: &str =
 pub const M_513_PERFORMANCE_TESTING_V18_UP: &str = include_str!("513_add_performance_testing_v18.sql");
 pub const M_513_PERFORMANCE_TESTING_V18_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v15; DROP TABLE IF EXISTS performance_test_alerts_v15;";
+pub const M_514_API_DOCS_V19_UP: &str = include_str!("514_add_api_docs_v19.sql");
+pub const M_514_API_DOCS_V19_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v19;";
+pub const M_515_RATE_LIMIT_TIERS_V17_UP: &str = include_str!("515_add_rate_limit_tiers_v17.sql");
+pub const M_515_RATE_LIMIT_TIERS_V17_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v14; DROP TABLE IF EXISTS rate_limit_tiers_v17;";
+pub const M_516_API_ANALYTICS_V20_UP: &str = include_str!("516_add_api_analytics_v20.sql");
+pub const M_516_API_ANALYTICS_V20_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v20;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
