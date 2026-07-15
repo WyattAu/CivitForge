@@ -1695,3 +1695,142 @@ pub struct DashboardStatsV17 {
     pub avg_shares_per_dashboard: f64,
     pub total_views: i64,
 }
+
+// V18: Enhanced dashboard sharing and report scheduling
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShareV15 {
+    pub id: uuid::Uuid,
+    pub dashboard_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub permission: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardShareV15 {
+    pub dashboard_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub permission: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShareListV15 {
+    pub shares: Vec<DashboardShareV15>,
+    pub total_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportScheduleV16 {
+    pub id: uuid::Uuid,
+    pub report_id: uuid::Uuid,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportScheduleV16 {
+    pub report_id: uuid::Uuid,
+    pub cron_expression: String,
+    pub enabled: Option<bool>,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportScheduleV16 {
+    pub cron_expression: Option<String>,
+    pub enabled: Option<bool>,
+    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportScheduleListV16 {
+    pub schedules: Vec<ReportScheduleV16>,
+    pub total_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardTemplateV18 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<uuid::Uuid>,
+    pub usage_count: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardTemplateV18 {
+    pub name: String,
+    pub description: Option<String>,
+    pub template_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<uuid::Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportTemplateV18 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub description: String,
+    pub report_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<uuid::Uuid>,
+    pub usage_count: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportTemplateV18 {
+    pub name: String,
+    pub description: Option<String>,
+    pub report_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<uuid::Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardAnalyticsV14 {
+    pub dashboard_id: uuid::Uuid,
+    pub view_count: i64,
+    pub unique_viewers: i64,
+    pub last_viewed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub widget_interactions: i64,
+    pub avg_view_duration_seconds: f64,
+    pub share_count: i64,
+    pub last_shared_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub export_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportAnalyticsV14 {
+    pub report_id: uuid::Uuid,
+    pub generation_count: i64,
+    pub avg_generation_time_ms: f64,
+    pub last_generated_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub export_count: i64,
+    pub popular_format: String,
+    pub schedule_count: i64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardStatsV18 {
+    pub total_dashboards: i64,
+    pub public_dashboards: i64,
+    pub total_reports: i64,
+    pub scheduled_reports: i64,
+    pub total_shares: i64,
+    pub total_schedules: i64,
+    pub avg_shares_per_dashboard: f64,
+    pub total_views: i64,
+}
