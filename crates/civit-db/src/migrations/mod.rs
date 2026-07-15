@@ -791,6 +791,12 @@ pub const M_450_PERFORMANCE_TEST_ALERTS_V12_UP: &str =
     include_str!("450_add_performance_test_alerts_v12.sql");
 pub const M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v12; DROP TABLE IF EXISTS performance_test_alerts_v12;";
+pub const M_460_WORKFLOW_TEMPLATES_V13_UP: &str = include_str!("460_add_workflow_templates_v13.sql");
+pub const M_460_WORKFLOW_TEMPLATES_V13_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v12; DROP TABLE IF EXISTS workflow_templates_v13;";
+pub const M_461_AUTOMATION_RULES_V16_UP: &str = include_str!("461_add_automation_rules_v16.sql");
+pub const M_461_AUTOMATION_RULES_V16_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v16;";
+pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_UP: &str = include_str!("462_add_scheduled_task_templates_v13.sql");
+pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v13;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2739,6 +2745,24 @@ impl MigrationManager {
             name: "add_api_analytics_v17".into(),
             up_sql: M_453_API_ANALYTICS_V17_UP.into(),
             down_sql: M_453_API_ANALYTICS_V17_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 460,
+            name: "add_workflow_templates_v13".into(),
+            up_sql: M_460_WORKFLOW_TEMPLATES_V13_UP.into(),
+            down_sql: M_460_WORKFLOW_TEMPLATES_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 461,
+            name: "add_automation_rules_v16".into(),
+            up_sql: M_461_AUTOMATION_RULES_V16_UP.into(),
+            down_sql: M_461_AUTOMATION_RULES_V16_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 462,
+            name: "add_scheduled_task_templates_v13".into(),
+            up_sql: M_462_SCHEDULED_TASK_TEMPLATES_V13_UP.into(),
+            down_sql: M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN.into(),
         });
     }
 
