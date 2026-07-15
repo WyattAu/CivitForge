@@ -708,6 +708,16 @@ pub const M_410_RATE_LIMIT_TIERS_V12_UP: &str = include_str!("410_add_rate_limit
 pub const M_410_RATE_LIMIT_TIERS_V12_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v9; DROP TABLE IF EXISTS rate_limit_tiers_v12;";
 pub const M_411_API_ANALYTICS_V15_UP: &str = include_str!("411_add_api_analytics_v15.sql");
 pub const M_411_API_ANALYTICS_V15_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v15;";
+pub const M_412_DATABASE_REPLICATION_V12_UP: &str =
+    include_str!("412_add_database_replication_v12.sql");
+pub const M_412_DATABASE_REPLICATION_V12_DOWN: &str =
+    "DROP TABLE IF EXISTS database_replication_alerts_v10; DROP TABLE IF EXISTS database_replication_config_v10;";
+pub const M_413_ENCRYPTION_V13_UP: &str = include_str!("413_add_encryption_v13.sql");
+pub const M_413_ENCRYPTION_V13_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_compliance_checks_v10; DROP TABLE IF EXISTS encryption_key_versions_v10;";
+pub const M_414_DATA_RESIDENCY_V12_UP: &str = include_str!("414_add_data_residency_v12.sql");
+pub const M_414_DATA_RESIDENCY_V12_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance_v10; DROP TABLE IF EXISTS data_residency_reports_v10;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2513,6 +2523,24 @@ impl MigrationManager {
             up_sql: M_411_API_ANALYTICS_V15_UP.into(),
             down_sql: M_411_API_ANALYTICS_V15_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 412,
+            name: "add_database_replication_v12".into(),
+            up_sql: M_412_DATABASE_REPLICATION_V12_UP.into(),
+            down_sql: M_412_DATABASE_REPLICATION_V12_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 413,
+            name: "add_encryption_v13".into(),
+            up_sql: M_413_ENCRYPTION_V13_UP.into(),
+            down_sql: M_413_ENCRYPTION_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 414,
+            name: "add_data_residency_v12".into(),
+            up_sql: M_414_DATA_RESIDENCY_V12_UP.into(),
+            down_sql: M_414_DATA_RESIDENCY_V12_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2554,7 +2582,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 277);
+        assert_eq!(mgr.all().len(), 280);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
