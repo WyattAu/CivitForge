@@ -842,6 +842,14 @@ pub const M_492_PERFORMANCE_TESTING_V17_UP: &str =
     include_str!("492_add_performance_testing_v17.sql");
 pub const M_492_PERFORMANCE_TESTING_V17_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v14; DROP TABLE IF EXISTS performance_test_alerts_v14;";
+pub const M_499_SECURITY_SCAN_V18_UP: &str = include_str!("499_add_security_scan_rules_v18.sql");
+pub const M_499_SECURITY_SCAN_V18_DOWN: &str =
+    "DROP TABLE IF EXISTS security_scan_fixes_v15; DROP TABLE IF EXISTS security_scan_rules_v17;";
+pub const M_500_COMPLIANCE_V18_UP: &str = include_str!("500_add_compliance_frameworks_v18.sql");
+pub const M_500_COMPLIANCE_V18_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_assessments_v16; DROP TABLE IF EXISTS compliance_frameworks_v17;";
+pub const M_501_AUDIT_TRAIL_V18_UP: &str = include_str!("501_add_audit_trail_v18.sql");
+pub const M_501_AUDIT_TRAIL_V18_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v18;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2881,6 +2889,24 @@ impl MigrationManager {
             up_sql: M_492_PERFORMANCE_TESTING_V17_UP.into(),
             down_sql: M_492_PERFORMANCE_TESTING_V17_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 499,
+            name: "add_security_scan_rules_v18".into(),
+            up_sql: M_499_SECURITY_SCAN_V18_UP.into(),
+            down_sql: M_499_SECURITY_SCAN_V18_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 500,
+            name: "add_compliance_frameworks_v18".into(),
+            up_sql: M_500_COMPLIANCE_V18_UP.into(),
+            down_sql: M_500_COMPLIANCE_V18_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 501,
+            name: "add_audit_trail_v18".into(),
+            up_sql: M_501_AUDIT_TRAIL_V18_UP.into(),
+            down_sql: M_501_AUDIT_TRAIL_V18_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2922,7 +2948,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 292);
+        assert_eq!(mgr.all().len(), 295);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
