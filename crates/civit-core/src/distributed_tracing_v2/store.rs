@@ -5723,4 +5723,403 @@ impl DistributedTracingV2Service {
             })
             .collect())
     }
+
+    // V18: Sampling rules v17
+
+    pub async fn create_rule_v17(
+        &self,
+        input: CreateSamplingRuleV17,
+    ) -> Result<SamplingRuleV17, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV17Row>(
+            r#"INSERT INTO trace_sampling_rules_v17 (service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at"#,
+        )
+        .bind(&input.service_name)
+        .bind(&input.endpoint)
+        .bind(input.sample_rate.unwrap_or(1.0))
+        .bind(input.max_traces_per_second.unwrap_or(100))
+        .bind(input.priority.unwrap_or(0))
+        .bind(input.enabled.unwrap_or(true))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_rule_v17(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<SamplingRuleV17>, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV17Row>(
+            r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
+             FROM trace_sampling_rules_v17 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_rules_v17(&self) -> Result<Vec<SamplingRuleV17>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, SamplingRuleV17Row>(
+            r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
+             FROM trace_sampling_rules_v17 ORDER BY priority DESC, created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_rule_v17(
+        &self,
+        id: Uuid,
+        input: UpdateSamplingRuleV17,
+    ) -> Result<SamplingRuleV17, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV17Row>(
+            r#"UPDATE trace_sampling_rules_v17 SET
+             service_name = COALESCE($2, service_name),
+             endpoint = COALESCE($3, endpoint),
+             sample_rate = COALESCE($4, sample_rate),
+             max_traces_per_second = COALESCE($5, max_traces_per_second),
+             priority = COALESCE($6, priority),
+             enabled = COALESCE($7, enabled)
+             WHERE id = $1
+             RETURNING id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.service_name)
+        .bind(&input.endpoint)
+        .bind(input.sample_rate)
+        .bind(input.max_traces_per_second)
+        .bind(input.priority)
+        .bind(input.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_rule_v17(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM trace_sampling_rules_v17 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn should_sample_v17(
+        &self,
+        service_name: &str,
+        endpoint: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV17Row>(
+            r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
+             FROM trace_sampling_rules_v17
+             WHERE service_name = $1 AND endpoint = $2 AND enabled = true
+             ORDER BY priority DESC, created_at DESC
+             LIMIT 1"#,
+        )
+        .bind(service_name)
+        .bind(endpoint)
+        .fetch_optional(&self.pool)
+        .await?;
+        match row {
+            Some(rule) => {
+                let sample = rand::random::<f64>() <= rule.sample_rate;
+                Ok(sample)
+            }
+            None => Ok(true),
+        }
+    }
+
+    pub async fn get_sampling_stats_v17(
+        &self,
+    ) -> Result<SamplingRuleStats, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct StatsRow {
+            total: i64,
+            enabled: i64,
+            avg_rate: f64,
+        }
+        let row = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT
+             COUNT(*) as total,
+             COUNT(*) FILTER (WHERE enabled) as enabled,
+             COALESCE(AVG(sample_rate), 0.0) as avg_rate
+             FROM trace_sampling_rules_v17"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(SamplingRuleStats {
+            total_rules: row.total,
+            enabled_rules: row.enabled,
+            avg_sample_rate: row.avg_rate,
+        })
+    }
+
+    // V18: Service dependency tracking v14
+
+    pub async fn create_service_dependency_v14(
+        &self,
+        input: CreateTraceServiceDependencyV14,
+    ) -> Result<TraceServiceDependencyV14, sqlx::Error> {
+        let row = sqlx::query_as::<_, TraceServiceDependencyV14Row>(
+            r#"INSERT INTO trace_service_dependencies_v14 (service_name, depends_on_service, call_count, avg_duration_ms, error_rate)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at"#,
+        )
+        .bind(&input.service_name)
+        .bind(&input.depends_on_service)
+        .bind(input.call_count.unwrap_or(0))
+        .bind(input.avg_duration_ms.unwrap_or(0.0))
+        .bind(input.error_rate.unwrap_or(0.0))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_service_dependencies_v14(
+        &self,
+    ) -> Result<ServiceDependencyGraphV14, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TraceServiceDependencyV14Row>(
+            r#"SELECT id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at
+             FROM trace_service_dependencies_v14
+             ORDER BY call_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        let total_services = rows
+            .iter()
+            .map(|r| &r.service_name)
+            .chain(rows.iter().map(|r| &r.depends_on_service))
+            .collect::<std::collections::HashSet<_>>()
+            .len() as i64;
+        let total_dependencies = rows.len() as i64;
+        Ok(ServiceDependencyGraphV14 {
+            dependencies: rows.into_iter().map(|r| r.into()).collect(),
+            total_services,
+            total_dependencies,
+        })
+    }
+
+    pub async fn get_dependencies_for_service_v14(
+        &self,
+        service_name: &str,
+    ) -> Result<Vec<TraceServiceDependencyV14>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TraceServiceDependencyV14Row>(
+            r#"SELECT id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at
+             FROM trace_service_dependencies_v14
+             WHERE service_name = $1
+             ORDER BY call_count DESC"#,
+        )
+        .bind(service_name)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_service_dependency_v14(
+        &self,
+        id: Uuid,
+        call_count: i64,
+        avg_duration_ms: f64,
+        error_rate: f64,
+    ) -> Result<TraceServiceDependencyV14, sqlx::Error> {
+        let row = sqlx::query_as::<_, TraceServiceDependencyV14Row>(
+            r#"UPDATE trace_service_dependencies_v14 SET
+             call_count = $2,
+             avg_duration_ms = $3,
+             error_rate = $4,
+             last_updated_at = NOW()
+             WHERE id = $1
+             RETURNING id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at"#,
+        )
+        .bind(id)
+        .bind(call_count)
+        .bind(avg_duration_ms)
+        .bind(error_rate)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_service_dependency_v14(
+        &self,
+        id: Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM trace_service_dependencies_v14 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V18: Latency analysis v18
+
+    pub async fn get_latency_stats_v18(
+        &self,
+        service_name: Option<&str>,
+        endpoint: Option<&str>,
+        since: Option<DateTime<Utc>>,
+        until: Option<DateTime<Utc>>,
+    ) -> Result<LatencyAnalysisV18, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LatencyRow {
+            svc: String,
+            ep: String,
+            avg_ms: f64,
+            p50_ms: f64,
+            p95_ms: f64,
+            p99_ms: f64,
+            count: i64,
+        }
+        let row = sqlx::query_as::<_, LatencyRow>(
+            r#"SELECT
+             service_name as svc,
+             endpoint as ep,
+             COALESCE(AVG(latency_ms), 0.0) as avg_ms,
+             COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY latency_ms), 0.0) as p50_ms,
+             COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms), 0.0) as p95_ms,
+             COALESCE(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms), 0.0) as p99_ms,
+             COUNT(*) as count
+             FROM latency_analysis
+             WHERE ($1::text IS NULL OR service_name = $1)
+             AND ($2::text IS NULL OR endpoint = $2)
+             AND ($3::timestamptz IS NULL OR recorded_at >= $3)
+             AND ($4::timestamptz IS NULL OR recorded_at <= $4)
+             GROUP BY service_name, endpoint
+             LIMIT 1"#,
+        )
+        .bind(service_name)
+        .bind(endpoint)
+        .bind(since)
+        .bind(until)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(LatencyAnalysisV18 {
+            service_name: row.svc,
+            endpoint: row.ep,
+            avg_latency_ms: row.avg_ms,
+            p50_latency_ms: row.p50_ms,
+            p95_latency_ms: row.p95_ms,
+            p99_latency_ms: row.p99_ms,
+            sample_count: row.count,
+        })
+    }
+
+    // V18: Error correlation v14
+
+    pub async fn correlate_error_v14(
+        &self,
+        trace_id: &str,
+        error_type: &str,
+        error_message: &str,
+        service_name: &str,
+        endpoint: &str,
+        span_id: Option<&str>,
+    ) -> Result<ErrorCorrelationV14, sqlx::Error> {
+        let id = Uuid::new_v4();
+        Ok(ErrorCorrelationV14 {
+            id,
+            trace_id: trace_id.to_string(),
+            error_type: error_type.to_string(),
+            error_message: error_message.to_string(),
+            service_name: service_name.to_string(),
+            endpoint: endpoint.to_string(),
+            span_id: span_id.map(|s| s.to_string()),
+            correlated_at: Utc::now(),
+        })
+    }
+
+    // V18: Capacity planning v14
+
+    pub async fn get_capacity_planning_v14(
+        &self,
+    ) -> Result<Vec<CapacityPlanningDataV14>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct CapacityRow {
+            service_name: String,
+            current_load: f64,
+            bottleneck_endpoints: Vec<String>,
+        }
+        let rows = sqlx::query_as::<_, CapacityRow>(
+            r#"SELECT
+             service_name,
+             SUM(call_count)::double precision as current_load,
+             ARRAY_AGG(endpoint) FILTER (WHERE avg_duration_ms > 500) as bottleneck_endpoints
+             FROM trace_service_map
+             GROUP BY service_name
+             ORDER BY current_load DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| CapacityPlanningDataV14 {
+                service_name: r.service_name,
+                current_load: r.current_load,
+                projected_load: r.current_load * 1.5,
+                recommended_capacity: r.current_load * 2.0,
+                bottleneck_endpoints: r.bottleneck_endpoints,
+                growth_rate: 0.5,
+                time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                utilization_score: 0.0,
+                recommended_replicas: 2,
+            })
+            .collect())
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct SamplingRuleV17Row {
+    id: uuid::Uuid,
+    service_name: String,
+    endpoint: String,
+    sample_rate: f64,
+    max_traces_per_second: i32,
+    priority: i32,
+    enabled: bool,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<SamplingRuleV17Row> for SamplingRuleV17 {
+    fn from(row: SamplingRuleV17Row) -> Self {
+        SamplingRuleV17 {
+            id: row.id,
+            service_name: row.service_name,
+            endpoint: row.endpoint,
+            sample_rate: row.sample_rate,
+            max_traces_per_second: row.max_traces_per_second,
+            priority: row.priority,
+            enabled: row.enabled,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct TraceServiceDependencyV14Row {
+    id: uuid::Uuid,
+    service_name: String,
+    depends_on_service: String,
+    call_count: i64,
+    avg_duration_ms: f64,
+    error_rate: f64,
+    last_updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<TraceServiceDependencyV14Row> for TraceServiceDependencyV14 {
+    fn from(row: TraceServiceDependencyV14Row) -> Self {
+        TraceServiceDependencyV14 {
+            id: row.id,
+            service_name: row.service_name,
+            depends_on_service: row.depends_on_service,
+            call_count: row.call_count,
+            avg_duration_ms: row.avg_duration_ms,
+            error_rate: row.error_rate,
+            last_updated_at: row.last_updated_at,
+        }
+    }
 }

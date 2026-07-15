@@ -1456,3 +1456,100 @@ pub struct CapacityPlanningDataV13 {
     pub utilization_score: f64,
     pub recommended_replicas: i32,
 }
+
+// V18: Sampling rules v17 and service dependencies v14
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SamplingRuleV17 {
+    pub id: uuid::Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: f64,
+    pub max_traces_per_second: i32,
+    pub priority: i32,
+    pub enabled: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSamplingRuleV17 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateSamplingRuleV17 {
+    pub service_name: Option<String>,
+    pub endpoint: Option<String>,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceServiceDependencyV14 {
+    pub id: uuid::Uuid,
+    pub service_name: String,
+    pub depends_on_service: String,
+    pub call_count: i64,
+    pub avg_duration_ms: f64,
+    pub error_rate: f64,
+    pub last_updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceServiceDependencyV14 {
+    pub service_name: String,
+    pub depends_on_service: String,
+    pub call_count: Option<i64>,
+    pub avg_duration_ms: Option<f64>,
+    pub error_rate: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDependencyGraphV14 {
+    pub dependencies: Vec<TraceServiceDependencyV14>,
+    pub total_services: i64,
+    pub total_dependencies: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LatencyAnalysisV18 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub avg_latency_ms: f64,
+    pub p50_latency_ms: f64,
+    pub p95_latency_ms: f64,
+    pub p99_latency_ms: f64,
+    pub sample_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorCorrelationV14 {
+    pub id: uuid::Uuid,
+    pub trace_id: String,
+    pub error_type: String,
+    pub error_message: String,
+    pub service_name: String,
+    pub endpoint: String,
+    pub span_id: Option<String>,
+    pub correlated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapacityPlanningDataV14 {
+    pub service_name: String,
+    pub current_load: f64,
+    pub projected_load: f64,
+    pub recommended_capacity: f64,
+    pub bottleneck_endpoints: Vec<String>,
+    pub growth_rate: f64,
+    pub time_to_capacity_hours: f64,
+    pub utilization_score: f64,
+    pub recommended_replicas: i32,
+}
