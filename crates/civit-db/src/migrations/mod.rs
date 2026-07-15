@@ -690,6 +690,18 @@ pub const M_402_DASHBOARD_REPORTING_V12_UP: &str =
     include_str!("402_add_dashboard_reporting_v12.sql");
 pub const M_402_DASHBOARD_REPORTING_V12_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v10; DROP TABLE IF EXISTS dashboard_shares_v9;";
+pub const M_406_TEST_SUITE_MANAGEMENT_V12_UP: &str =
+    include_str!("406_add_test_suite_management_v12.sql");
+pub const M_406_TEST_SUITE_MANAGEMENT_V12_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines_v9; DROP TABLE IF EXISTS test_suite_metrics_v9;";
+pub const M_407_CODE_QUALITY_RULES_V12_UP: &str =
+    include_str!("407_add_code_quality_rules_v12.sql");
+pub const M_407_CODE_QUALITY_RULES_V12_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds_v9; DROP TABLE IF EXISTS code_quality_metrics_v10;";
+pub const M_408_PERFORMANCE_TESTING_V13_UP: &str =
+    include_str!("408_add_performance_testing_v13.sql");
+pub const M_408_PERFORMANCE_TESTING_V13_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v10; DROP TABLE IF EXISTS performance_test_alerts_v10;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2459,6 +2471,24 @@ impl MigrationManager {
             up_sql: M_402_DASHBOARD_REPORTING_V12_UP.into(),
             down_sql: M_402_DASHBOARD_REPORTING_V12_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 406,
+            name: "add_test_suite_management_v12".into(),
+            up_sql: M_406_TEST_SUITE_MANAGEMENT_V12_UP.into(),
+            down_sql: M_406_TEST_SUITE_MANAGEMENT_V12_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 407,
+            name: "add_code_quality_rules_v12".into(),
+            up_sql: M_407_CODE_QUALITY_RULES_V12_UP.into(),
+            down_sql: M_407_CODE_QUALITY_RULES_V12_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 408,
+            name: "add_performance_testing_v13".into(),
+            up_sql: M_408_PERFORMANCE_TESTING_V13_UP.into(),
+            down_sql: M_408_PERFORMANCE_TESTING_V13_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2500,7 +2530,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 274);
+        assert_eq!(mgr.all().len(), 277);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
