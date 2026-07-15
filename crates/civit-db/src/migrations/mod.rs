@@ -761,6 +761,15 @@ pub const M_429_PERFORMANCE_TESTING_V14_UP: &str =
     include_str!("429_add_performance_testing_v14.sql");
 pub const M_429_PERFORMANCE_TESTING_V14_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v11; DROP TABLE IF EXISTS performance_test_alerts_v11;";
+pub const M_442_LOG_AGGREGATION_V14_UP: &str = include_str!("442_add_log_aggregation_v14.sql");
+pub const M_442_LOG_AGGREGATION_V14_DOWN: &str =
+    "DROP TABLE IF EXISTS log_alert_rules_v11; DROP TABLE IF EXISTS log_entries_v14;";
+pub const M_443_DISTRIBUTED_TRACING_V15_UP: &str = include_str!("443_add_distributed_tracing_v15.sql");
+pub const M_443_DISTRIBUTED_TRACING_V15_DOWN: &str =
+    "DROP TABLE IF EXISTS trace_service_dependencies_v11; DROP TABLE IF EXISTS trace_sampling_rules_v14;";
+pub const M_444_DASHBOARD_REPORTING_V14_UP: &str = include_str!("444_add_dashboard_reporting_v14.sql");
+pub const M_444_DASHBOARD_REPORTING_V14_DOWN: &str =
+    "DROP TABLE IF EXISTS report_schedules_v12; DROP TABLE IF EXISTS dashboard_shares_v11;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -3459,5 +3468,71 @@ mod tests {
     fn test_api_analytics_v11_down_sql_not_empty() {
         assert_ne!(M_327_API_ANALYTICS_V11_DOWN, "");
         assert!(M_327_API_ANALYTICS_V11_DOWN.contains("DROP TABLE IF EXISTS api_analytics_v11"));
+    }
+
+    #[test]
+    fn test_log_aggregation_v14_up_sql_not_empty() {
+        assert_ne!(M_442_LOG_AGGREGATION_V14_UP, "");
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("CREATE TABLE IF NOT EXISTS log_entries_v14"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("CREATE TABLE IF NOT EXISTS log_alert_rules_v11"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("level"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("message"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("source"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("service"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("trace_id"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("span_id"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("metadata"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("retention_days"));
+        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("indexed"));
+    }
+
+    #[test]
+    fn test_log_aggregation_v14_down_sql_not_empty() {
+        assert_ne!(M_442_LOG_AGGREGATION_V14_DOWN, "");
+        assert!(M_442_LOG_AGGREGATION_V14_DOWN.contains("DROP TABLE IF EXISTS log_alert_rules_v11"));
+        assert!(M_442_LOG_AGGREGATION_V14_DOWN.contains("DROP TABLE IF EXISTS log_entries_v14"));
+    }
+
+    #[test]
+    fn test_distributed_tracing_v15_up_sql_not_empty() {
+        assert_ne!(M_443_DISTRIBUTED_TRACING_V15_UP, "");
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("CREATE TABLE IF NOT EXISTS trace_sampling_rules_v14"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("CREATE TABLE IF NOT EXISTS trace_service_dependencies_v11"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("service_name"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("endpoint"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("sample_rate"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("max_traces_per_second"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("priority"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("depends_on_service"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("call_count"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("avg_duration_ms"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("error_rate"));
+    }
+
+    #[test]
+    fn test_distributed_tracing_v15_down_sql_not_empty() {
+        assert_ne!(M_443_DISTRIBUTED_TRACING_V15_DOWN, "");
+        assert!(M_443_DISTRIBUTED_TRACING_V15_DOWN.contains("DROP TABLE IF EXISTS trace_service_dependencies_v11"));
+        assert!(M_443_DISTRIBUTED_TRACING_V15_DOWN.contains("DROP TABLE IF EXISTS trace_sampling_rules_v14"));
+    }
+
+    #[test]
+    fn test_dashboard_reporting_v14_up_sql_not_empty() {
+        assert_ne!(M_444_DASHBOARD_REPORTING_V14_UP, "");
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("CREATE TABLE IF NOT EXISTS dashboard_shares_v11"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("CREATE TABLE IF NOT EXISTS report_schedules_v12"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("dashboard_id"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("user_id"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("permission"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("report_id"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("cron_expression"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("next_run_at"));
+    }
+
+    #[test]
+    fn test_dashboard_reporting_v14_down_sql_not_empty() {
+        assert_ne!(M_444_DASHBOARD_REPORTING_V14_DOWN, "");
+        assert!(M_444_DASHBOARD_REPORTING_V14_DOWN.contains("DROP TABLE IF EXISTS report_schedules_v12"));
+        assert!(M_444_DASHBOARD_REPORTING_V14_DOWN.contains("DROP TABLE IF EXISTS dashboard_shares_v11"));
     }
 }

@@ -3653,3 +3653,393 @@ impl From<ReportScheduleV11Row> for ReportScheduleV11 {
         }
     }
 }
+
+#[derive(Debug, sqlx::FromRow)]
+struct DashboardShareV11Row {
+    id: uuid::Uuid,
+    dashboard_id: uuid::Uuid,
+    user_id: uuid::Uuid,
+    permission: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<DashboardShareV11Row> for DashboardShareV11 {
+    fn from(row: DashboardShareV11Row) -> Self {
+        DashboardShareV11 {
+            id: row.id,
+            dashboard_id: row.dashboard_id,
+            user_id: row.user_id,
+            permission: row.permission,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ReportScheduleV12Row {
+    id: uuid::Uuid,
+    report_id: uuid::Uuid,
+    cron_expression: String,
+    enabled: bool,
+    last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    next_run_at: chrono::DateTime<chrono::Utc>,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ReportScheduleV12Row> for ReportScheduleV12 {
+    fn from(row: ReportScheduleV12Row) -> Self {
+        ReportScheduleV12 {
+            id: row.id,
+            report_id: row.report_id,
+            cron_expression: row.cron_expression,
+            enabled: row.enabled,
+            last_run_at: row.last_run_at,
+            next_run_at: row.next_run_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
+impl DashboardReportingService {
+    // V14: Dashboard sharing v11
+
+    pub async fn share_dashboard_v11(
+        &self,
+        dashboard_id: uuid::Uuid,
+        user_id: uuid::Uuid,
+        permission: &str,
+    ) -> Result<DashboardShareV11, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardShareV11Row>(
+            r#"INSERT INTO dashboard_shares_v11 (dashboard_id, user_id, permission)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (dashboard_id, user_id) DO UPDATE SET permission = $3
+             RETURNING id, dashboard_id, user_id, permission, created_at"#,
+        )
+        .bind(dashboard_id)
+        .bind(user_id)
+        .bind(permission)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_dashboard_shares_v11(
+        &self,
+        dashboard_id: uuid::Uuid,
+    ) -> Result<Vec<DashboardShareV11>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DashboardShareV11Row>(
+            r#"SELECT id, dashboard_id, user_id, permission, created_at
+             FROM dashboard_shares_v11 WHERE dashboard_id = $1
+             ORDER BY created_at DESC"#,
+        )
+        .bind(dashboard_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn remove_dashboard_share_v11(
+        &self,
+        dashboard_id: uuid::Uuid,
+        user_id: uuid::Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "DELETE FROM dashboard_shares_v11 WHERE dashboard_id = $1 AND user_id = $2",
+        )
+        .bind(dashboard_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_dashboards_shared_with_user_v11(
+        &self,
+        user_id: uuid::Uuid,
+    ) -> Result<Vec<Dashboard>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, DashboardRow>(
+            r#"SELECT d.id, d.name, d.description, d.widgets, d.layout, d.is_public, d.created_at
+             FROM dashboards d
+             INNER JOIN dashboard_shares_v11 ds ON d.id = ds.dashboard_id
+             WHERE ds.user_id = $1
+             ORDER BY ds.created_at DESC"#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    // V14: Report scheduling v12
+
+    pub async fn create_report_schedule_v12(
+        &self,
+        input: CreateReportScheduleV12,
+    ) -> Result<ReportScheduleV12, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV12Row>(
+            r#"INSERT INTO report_schedules_v12 (report_id, cron_expression, enabled, next_run_at)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(input.report_id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled.unwrap_or(true))
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_report_schedule_v12(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<ReportScheduleV12>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV12Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v12 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_report_schedules_v12(
+        &self,
+    ) -> Result<Vec<ReportScheduleV12>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV12Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v12 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_due_schedules_v12(
+        &self,
+    ) -> Result<Vec<ReportScheduleV12>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ReportScheduleV12Row>(
+            r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
+             FROM report_schedules_v12 WHERE enabled = true AND next_run_at <= NOW()
+             ORDER BY next_run_at ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn mark_schedule_executed_v12(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"UPDATE report_schedules_v12 SET last_run_at = NOW() WHERE id = $1"#,
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn update_report_schedule_v12(
+        &self,
+        id: uuid::Uuid,
+        input: UpdateReportScheduleV12,
+    ) -> Result<ReportScheduleV12, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportScheduleV12Row>(
+            r#"UPDATE report_schedules_v12 SET
+             cron_expression = COALESCE($2, cron_expression),
+             enabled = COALESCE($3, enabled),
+             next_run_at = COALESCE($4, next_run_at)
+             WHERE id = $1
+             RETURNING id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.cron_expression)
+        .bind(input.enabled)
+        .bind(input.next_run_at)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_report_schedule_v12(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM report_schedules_v12 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V14: Template management v6
+
+    pub async fn create_dashboard_template_v6(
+        &self,
+        input: CreateDashboardTemplateV6,
+    ) -> Result<DashboardTemplateV6, sqlx::Error> {
+        let row = sqlx::query_as::<_, DashboardTemplateV6Row>(
+            r#"INSERT INTO dashboard_templates_v6 (name, description, template_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, created_at, updated_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.template_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn create_report_template_v6(
+        &self,
+        input: CreateReportTemplateV6,
+    ) -> Result<ReportTemplateV6, sqlx::Error> {
+        let row = sqlx::query_as::<_, ReportTemplateV6Row>(
+            r#"INSERT INTO report_templates_v6 (name, description, report_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, report_type, config, is_public, author_id, usage_count, created_at, updated_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.report_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    // V14: Dashboard stats v14
+
+    pub async fn get_dashboard_stats_v14(
+        &self,
+    ) -> Result<DashboardStatsV14, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct StatsRow {
+            total_dashboards: i64,
+            public_dashboards: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ReportStatsRow {
+            total_reports: i64,
+            scheduled_reports: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ShareStatsRow {
+            total_shares: i64,
+        }
+        #[derive(Debug, sqlx::FromRow)]
+        struct ScheduleStatsRow {
+            total_schedules: i64,
+        }
+
+        let dash_stats = sqlx::query_as::<_, StatsRow>(
+            r#"SELECT COUNT(*) as total_dashboards,
+             COUNT(*) FILTER (WHERE is_public) as public_dashboards
+             FROM dashboards"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let report_stats = sqlx::query_as::<_, ReportStatsRow>(
+            r#"SELECT COUNT(*) as total_reports,
+             COUNT(*) FILTER (WHERE schedule IS NOT NULL) as scheduled_reports
+             FROM reports"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let share_stats = sqlx::query_as::<_, ShareStatsRow>(
+            r#"SELECT COUNT(*) as total_shares FROM dashboard_shares_v11"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let schedule_stats = sqlx::query_as::<_, ScheduleStatsRow>(
+            r#"SELECT COUNT(*) as total_schedules FROM report_schedules_v12"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(DashboardStatsV14 {
+            total_dashboards: dash_stats.total_dashboards,
+            public_dashboards: dash_stats.public_dashboards,
+            total_reports: report_stats.total_reports,
+            scheduled_reports: report_stats.scheduled_reports,
+            total_shares: share_stats.total_shares,
+            total_schedules: schedule_stats.total_schedules,
+            avg_shares_per_dashboard: 0.0,
+            total_views: 0,
+        })
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct DashboardTemplateV6Row {
+    id: uuid::Uuid,
+    name: String,
+    description: String,
+    template_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<uuid::Uuid>,
+    usage_count: i64,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<DashboardTemplateV6Row> for DashboardTemplateV6 {
+    fn from(row: DashboardTemplateV6Row) -> Self {
+        DashboardTemplateV6 {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            template_type: row.template_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ReportTemplateV6Row {
+    id: uuid::Uuid,
+    name: String,
+    description: String,
+    report_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<uuid::Uuid>,
+    usage_count: i64,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ReportTemplateV6Row> for ReportTemplateV6 {
+    fn from(row: ReportTemplateV6Row) -> Self {
+        ReportTemplateV6 {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            report_type: row.report_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        }
+    }
+}
