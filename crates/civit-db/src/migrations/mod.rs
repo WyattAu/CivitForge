@@ -718,6 +718,12 @@ pub const M_413_ENCRYPTION_V13_DOWN: &str =
 pub const M_414_DATA_RESIDENCY_V12_UP: &str = include_str!("414_add_data_residency_v12.sql");
 pub const M_414_DATA_RESIDENCY_V12_DOWN: &str =
     "DROP TABLE IF EXISTS data_residency_compliance_v10; DROP TABLE IF EXISTS data_residency_reports_v10;";
+pub const M_418_WORKFLOW_TEMPLATES_V11_UP: &str = include_str!("418_add_workflow_templates_v11.sql");
+pub const M_418_WORKFLOW_TEMPLATES_V11_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v10; DROP TABLE IF EXISTS workflow_templates_v11;";
+pub const M_419_AUTOMATION_RULES_V14_UP: &str = include_str!("419_add_automation_rules_v14.sql");
+pub const M_419_AUTOMATION_RULES_V14_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v14;";
+pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_UP: &str = include_str!("420_add_scheduled_task_templates_v11.sql");
+pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v11;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2540,6 +2546,24 @@ impl MigrationManager {
             name: "add_data_residency_v12".into(),
             up_sql: M_414_DATA_RESIDENCY_V12_UP.into(),
             down_sql: M_414_DATA_RESIDENCY_V12_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 418,
+            name: "add_workflow_templates_v11".into(),
+            up_sql: M_418_WORKFLOW_TEMPLATES_V11_UP.into(),
+            down_sql: M_418_WORKFLOW_TEMPLATES_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 419,
+            name: "add_automation_rules_v14".into(),
+            up_sql: M_419_AUTOMATION_RULES_V14_UP.into(),
+            down_sql: M_419_AUTOMATION_RULES_V14_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 420,
+            name: "add_scheduled_task_templates_v11".into(),
+            up_sql: M_420_SCHEDULED_TASK_TEMPLATES_V11_UP.into(),
+            down_sql: M_420_SCHEDULED_TASK_TEMPLATES_V11_DOWN.into(),
         });
     }
 

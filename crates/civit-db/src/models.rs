@@ -2810,6 +2810,62 @@ pub struct ScheduledTaskTemplateV10 {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowTemplateV11 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i32,
+    pub rating: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowTemplateReviewV10 {
+    pub id: Uuid,
+    pub template_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub helpful_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AutomationRuleV14 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub name: String,
+    pub trigger_type: String,
+    pub conditions: serde_json::Value,
+    pub actions: serde_json::Value,
+    pub priority: i32,
+    pub enabled: bool,
+    pub last_run_at: Option<DateTime<Utc>>,
+    pub run_count: i32,
+    pub success_rate: f64,
+    pub avg_execution_time_ms: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ScheduledTaskTemplateV11 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub task_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<Uuid>,
+    pub usage_count: i32,
+    pub rating: f64,
+    pub created_at: DateTime<Utc>,
+}
+
 // --- API Docs v14 ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

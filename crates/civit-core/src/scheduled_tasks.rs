@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10};
+use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11};
 use crate::workflow_engine::{WorkflowTemplateAnalytics, WorkflowTemplateRecommendation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -4042,6 +4042,265 @@ impl ScheduledTaskService {
         let task = self.create_task(create_input).await?;
 
         let _ = self.record_template_v10_usage(template_id, user_id).await;
+
+        Ok(task)
+    }
+
+    // --- V11: Scheduled Task Templates V11 with Ratings, Analytics, Recommendations, Marketplace ---
+
+    pub async fn create_template_v11(
+        &self,
+        input: CreateScheduledTaskTemplateV2,
+    ) -> Result<ScheduledTaskTemplateV11, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"INSERT INTO scheduled_task_templates_v11 (name, description, task_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.task_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn get_template_v11(&self, id: Uuid) -> Result<Option<ScheduledTaskTemplateV11>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v11 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn list_templates_v11(&self) -> Result<Vec<ScheduledTaskTemplateV11>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v11 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn list_public_templates_v11(&self) -> Result<Vec<ScheduledTaskTemplateV11>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v11 WHERE is_public = true ORDER BY rating DESC, usage_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn list_templates_v11_by_type(
+        &self,
+        task_type: &str,
+    ) -> Result<Vec<ScheduledTaskTemplateV11>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v11 WHERE task_type = $1 AND is_public = true
+             ORDER BY rating DESC, usage_count DESC"#,
+        )
+        .bind(task_type)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn update_template_v11(
+        &self,
+        id: Uuid,
+        input: UpdateScheduledTaskTemplateV2,
+    ) -> Result<ScheduledTaskTemplateV11, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"UPDATE scheduled_task_templates_v11 SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             task_type = COALESCE($4, task_type),
+             config = COALESCE($5, config),
+             is_public = COALESCE($6, is_public)
+             WHERE id = $1
+             RETURNING id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.task_type)
+        .bind(&input.config)
+        .bind(input.is_public)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn delete_template_v11(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM scheduled_task_templates_v11 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_template_v11_usage(
+        &self,
+        template_id: Uuid,
+        _user_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE scheduled_task_templates_v11 SET usage_count = usage_count + 1 WHERE id = $1")
+            .bind(template_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_template_v11_analytics(
+        &self,
+        template_id: Uuid,
+    ) -> Result<TaskTemplateAnalytics, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct AnalyticsRow {
+            total_usage: i64,
+            avg_rating: f64,
+        }
+
+        let row = sqlx::query_as::<_, AnalyticsRow>(
+            r#"SELECT
+                usage_count as total_usage,
+                rating as avg_rating
+             FROM scheduled_task_templates_v11 WHERE id = $1"#,
+        )
+        .bind(template_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(TaskTemplateAnalytics {
+            template_id,
+            total_usage: row.total_usage,
+            avg_rating: row.avg_rating,
+        })
+    }
+
+    pub async fn get_template_v11_recommendations(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<TaskTemplateRecommendation>, sqlx::Error> {
+        let template = self.get_template_v11(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let analytics = self.get_template_v11_analytics(template_id).await?;
+        let mut recommendations = Vec::new();
+
+        if analytics.total_usage == 0 {
+            recommendations.push(TaskTemplateRecommendation {
+                template_id,
+                recommendation_type: "unused".into(),
+                description: "Template has never been used. Consider promoting it in the marketplace.".into(),
+                confidence: 0.9,
+                suggested_changes: serde_json::json!({"action": "promote"}),
+            });
+        }
+
+        if analytics.avg_rating < 3.0 && analytics.total_usage > 0 {
+            recommendations.push(TaskTemplateRecommendation {
+                template_id,
+                recommendation_type: "low_rating".into(),
+                description: format!("Template has a low rating of {:.1}. Consider reviewing and improving the template.", analytics.avg_rating),
+                confidence: 0.85,
+                suggested_changes: serde_json::json!({"action": "improve", "current_rating": analytics.avg_rating}),
+            });
+        }
+
+        if template.is_public && analytics.avg_rating >= 4.0 && analytics.total_usage > 10 {
+            recommendations.push(TaskTemplateRecommendation {
+                template_id,
+                recommendation_type: "featured_candidate".into(),
+                description: "Template is a strong candidate for featuring in the marketplace.".into(),
+                confidence: 0.8,
+                suggested_changes: serde_json::json!({"action": "feature", "rating": analytics.avg_rating, "usage": analytics.total_usage}),
+            });
+        }
+
+        Ok(recommendations)
+    }
+
+    pub async fn get_marketplace_templates_v11(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskTemplateV11>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v11 WHERE is_public = true
+             ORDER BY rating DESC, usage_count DESC LIMIT $1"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn search_marketplace_templates_v11(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskTemplateV11>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateV11>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v11 WHERE is_public = true
+             AND (name ILIKE $1 OR description ILIKE $1)
+             ORDER BY rating DESC, usage_count DESC LIMIT $2"#,
+        )
+        .bind(format!("%{}%", query))
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn create_task_from_template_v11(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        task_name: Option<&str>,
+    ) -> Result<ScheduledTask, sqlx::Error> {
+        let template = self.get_template_v11(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let name = task_name.unwrap_or(&template.name);
+
+        let cron_expression = template.config.get("cron_expression")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0 * * * *")
+            .to_string();
+
+        let create_input = CreateScheduledTask {
+            name: name.to_string(),
+            description: Some(template.description.clone()),
+            cron_expression,
+            task_type: template.task_type.clone(),
+            task_config: template.config.get("task_config").cloned(),
+            enabled: Some(true),
+        };
+
+        let task = self.create_task(create_input).await?;
+
+        let _ = self.record_template_v11_usage(template_id, user_id).await;
 
         Ok(task)
     }

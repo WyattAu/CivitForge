@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{AutomationRuleV11, AutomationRuleV13};
+use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRule {
@@ -4843,6 +4843,277 @@ impl AutomationRuleService {
             "total_runs": total_runs,
             "avg_success_rate": avg_success_rate,
             "avg_execution_time_ms": avg_execution_time
+        }))
+    }
+
+    // --- V14: Automation Rules V14 with Execution Time Tracking, Performance Analytics, Optimization, Recommendations ---
+
+    pub async fn create_rule_v14(
+        &self,
+        input: CreateAutomationRuleV7,
+    ) -> Result<AutomationRuleV14, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"INSERT INTO automation_rules_v14 (repo_id, name, trigger_type, conditions, actions, priority, enabled)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)
+             RETURNING id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at"#,
+        )
+        .bind(input.repo_id)
+        .bind(&input.name)
+        .bind(&input.trigger_type)
+        .bind(input.conditions.unwrap_or(serde_json::json!({})))
+        .bind(input.actions.unwrap_or(serde_json::json!([])))
+        .bind(input.priority.unwrap_or(0))
+        .bind(input.enabled.unwrap_or(true))
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn get_rule_v14(&self, id: Uuid) -> Result<Option<AutomationRuleV14>, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v14 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn list_rules_v14(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<AutomationRuleV14>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v14 WHERE repo_id = $1 ORDER BY priority DESC, created_at DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn list_enabled_rules_v14(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<AutomationRuleV14>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v14 WHERE repo_id = $1 AND enabled = true
+             ORDER BY priority DESC, created_at DESC"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    pub async fn update_rule_v14(
+        &self,
+        id: Uuid,
+        input: UpdateAutomationRuleV7,
+    ) -> Result<AutomationRuleV14, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"UPDATE automation_rules_v14 SET
+             name = COALESCE($2, name),
+             trigger_type = COALESCE($3, trigger_type),
+             conditions = COALESCE($4, conditions),
+             actions = COALESCE($5, actions),
+             priority = COALESCE($6, priority),
+             enabled = COALESCE($7, enabled)
+             WHERE id = $1
+             RETURNING id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.trigger_type)
+        .bind(&input.conditions)
+        .bind(&input.actions)
+        .bind(input.priority)
+        .bind(input.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn delete_rule_v14(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM automation_rules_v14 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_rule_v14_execution(
+        &self,
+        rule_id: Uuid,
+        execution_time_ms: i32,
+        success: bool,
+    ) -> Result<AutomationRuleV14, sqlx::Error> {
+        let new_success_rate = sqlx::query_scalar::<_, f64>(
+            r#"SELECT CASE
+                WHEN run_count = 0 THEN CASE WHEN $2 THEN 100.0 ELSE 0.0 END
+                ELSE (success_rate * run_count + CASE WHEN $2 THEN 100.0 ELSE 0.0 END) / (run_count + 1)
+            END FROM automation_rules_v14 WHERE id = $1"#,
+        )
+        .bind(rule_id)
+        .bind(success)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let row = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"UPDATE automation_rules_v14 SET
+             run_count = run_count + 1,
+             last_run_at = NOW(),
+             success_rate = $2,
+             avg_execution_time_ms = CASE
+                WHEN run_count = 0 THEN $3
+                ELSE ((avg_execution_time_ms * run_count) + $3) / (run_count + 1)
+             END
+             WHERE id = $1
+             RETURNING id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at"#,
+        )
+        .bind(rule_id)
+        .bind(new_success_rate)
+        .bind(execution_time_ms)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    pub async fn get_rule_v14_performance(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<RulePerformanceMetrics, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleV14>(
+            r#"SELECT id, repo_id, name, trigger_type, conditions, actions, priority, enabled, last_run_at, run_count, success_rate, avg_execution_time_ms, created_at
+             FROM automation_rules_v14 WHERE id = $1"#,
+        )
+        .bind(rule_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(RulePerformanceMetrics {
+            rule_id: row.id,
+            total_runs: row.run_count as i64,
+            successful_runs: ((row.success_rate / 100.0) * row.run_count as f64) as i64,
+            failed_runs: row.run_count - ((row.success_rate / 100.0) * row.run_count as f64) as i64,
+            average_execution_time_ms: row.avg_execution_time_ms as f64,
+            last_execution_time_ms: None,
+            success_rate: row.success_rate,
+        })
+    }
+
+    pub async fn get_repo_v14_analytics(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct RepoAnalytics {
+            total_rules: i64,
+            enabled_rules: i64,
+            total_runs: i64,
+            avg_success_rate: f64,
+            avg_execution_time_ms: f64,
+        }
+
+        let row = sqlx::query_as::<_, RepoAnalytics>(
+            r#"SELECT
+                COUNT(*) as total_rules,
+                COUNT(*) FILTER (WHERE enabled) as enabled_rules,
+                COALESCE(SUM(run_count), 0) as total_runs,
+                COALESCE(AVG(success_rate), 0) as avg_success_rate,
+                COALESCE(AVG(avg_execution_time_ms), 0) as avg_execution_time_ms
+             FROM automation_rules_v14 WHERE repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(serde_json::json!({
+            "repo_id": repo_id,
+            "total_rules": row.total_rules,
+            "enabled_rules": row.enabled_rules,
+            "total_runs": row.total_runs,
+            "avg_success_rate": row.avg_success_rate,
+            "avg_execution_time_ms": row.avg_execution_time_ms
+        }))
+    }
+
+    pub async fn optimize_rules_v14(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value, sqlx::Error> {
+        let rules = self.list_rules_v14(repo_id).await?;
+        let mut optimizations = Vec::new();
+
+        for rule in &rules {
+            if rule.run_count > 0 && rule.success_rate < 50.0 {
+                optimizations.push(serde_json::json!({
+                    "rule_id": rule.id,
+                    "rule_name": rule.name,
+                    "type": "low_success_rate",
+                    "current_success_rate": rule.success_rate,
+                    "suggestion": "Consider disabling or revising this rule due to low success rate"
+                }));
+            }
+
+            if rule.run_count > 100 && rule.avg_execution_time_ms > 5000 {
+                optimizations.push(serde_json::json!({
+                    "rule_id": rule.id,
+                    "rule_name": rule.name,
+                    "type": "slow_execution",
+                    "current_avg_time_ms": rule.avg_execution_time_ms,
+                    "suggestion": "Rule has high average execution time, consider optimizing conditions or actions"
+                }));
+            }
+        }
+
+        Ok(serde_json::json!({
+            "repo_id": repo_id,
+            "total_rules": rules.len(),
+            "optimizations": optimizations
+        }))
+    }
+
+    pub async fn get_rule_v14_recommendations(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<serde_json::Value, sqlx::Error> {
+        let analytics = self.get_repo_v14_analytics(repo_id).await?;
+        let mut recommendations = Vec::new();
+
+        if let Some(total_rules) = analytics.get("total_rules").and_then(|v| v.as_i64()) {
+            if total_rules == 0 {
+                recommendations.push(serde_json::json!({
+                    "type": "no_rules",
+                    "description": "No automation rules configured. Consider adding rules for common workflows.",
+                    "confidence": 0.95
+                }));
+            }
+        }
+
+        if let Some(avg_success) = analytics.get("avg_success_rate").and_then(|v| v.as_f64()) {
+            if avg_success < 80.0 && avg_success > 0.0 {
+                recommendations.push(serde_json::json!({
+                    "type": "low_success_rate",
+                    "description": format!("Average success rate is {:.1}%. Review failing rules.", avg_success),
+                    "confidence": 0.85
+                }));
+            }
+        }
+
+        Ok(serde_json::json!({
+            "repo_id": repo_id,
+            "recommendations": recommendations
         }))
     }
 }
