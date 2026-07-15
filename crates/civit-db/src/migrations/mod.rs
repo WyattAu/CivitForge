@@ -850,6 +850,14 @@ pub const M_500_COMPLIANCE_V18_DOWN: &str =
     "DROP TABLE IF EXISTS compliance_assessments_v16; DROP TABLE IF EXISTS compliance_frameworks_v17;";
 pub const M_501_AUDIT_TRAIL_V18_UP: &str = include_str!("501_add_audit_trail_v18.sql");
 pub const M_501_AUDIT_TRAIL_V18_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v18;";
+pub const M_520_SECURITY_SCAN_V19_UP: &str = include_str!("520_add_security_scan_rules_v19.sql");
+pub const M_520_SECURITY_SCAN_V19_DOWN: &str =
+    "DROP TABLE IF EXISTS security_scan_fixes_v16; DROP TABLE IF EXISTS security_scan_rules_v18;";
+pub const M_521_COMPLIANCE_V19_UP: &str = include_str!("521_add_compliance_frameworks_v19.sql");
+pub const M_521_COMPLIANCE_V19_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_assessments_v17; DROP TABLE IF EXISTS compliance_frameworks_v18;";
+pub const M_522_AUDIT_TRAIL_V19_UP: &str = include_str!("522_add_audit_trail_v19.sql");
+pub const M_522_AUDIT_TRAIL_V19_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v19;";
 
 pub const M_508_PIPELINE_ACTION_REVIEWS_V15_UP: &str = include_str!("508_add_pipeline_action_reviews_v15.sql");
 pub const M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN: &str =
@@ -2997,6 +3005,24 @@ impl MigrationManager {
             name: "add_data_residency_v17".into(),
             up_sql: M_519_DATA_RESIDENCY_V17_UP.into(),
             down_sql: M_519_DATA_RESIDENCY_V17_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 520,
+            name: "add_security_scan_rules_v19".into(),
+            up_sql: M_520_SECURITY_SCAN_V19_UP.into(),
+            down_sql: M_520_SECURITY_SCAN_V19_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 521,
+            name: "add_compliance_frameworks_v19".into(),
+            up_sql: M_521_COMPLIANCE_V19_UP.into(),
+            down_sql: M_521_COMPLIANCE_V19_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 522,
+            name: "add_audit_trail_v19".into(),
+            up_sql: M_522_AUDIT_TRAIL_V19_UP.into(),
+            down_sql: M_522_AUDIT_TRAIL_V19_DOWN.into(),
         });
     }
 
