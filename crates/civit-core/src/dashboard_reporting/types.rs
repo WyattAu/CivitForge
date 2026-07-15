@@ -1040,3 +1040,82 @@ pub struct TemplateAnalyticsV4 {
     pub avg_rating: Option<f64>,
     pub total_ratings: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShareV9 {
+    pub id: uuid::Uuid,
+    pub dashboard_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub permission: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardShareV9 {
+    pub dashboard_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub permission: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportScheduleV10 {
+    pub id: uuid::Uuid,
+    pub report_id: uuid::Uuid,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportScheduleV10 {
+    pub report_id: uuid::Uuid,
+    pub cron_expression: String,
+    pub enabled: Option<bool>,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportScheduleV10 {
+    pub cron_expression: Option<String>,
+    pub enabled: Option<bool>,
+    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardAnalyticsV8 {
+    pub dashboard_id: uuid::Uuid,
+    pub view_count: i64,
+    pub unique_viewers: i64,
+    pub last_viewed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub widget_interactions: i64,
+    pub avg_view_duration_seconds: f64,
+    pub share_count: i64,
+    pub last_shared_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub export_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportAnalyticsV8 {
+    pub report_id: uuid::Uuid,
+    pub generation_count: i64,
+    pub avg_generation_time_ms: f64,
+    pub last_generated_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub export_count: i64,
+    pub popular_format: String,
+    pub schedule_count: i64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardStatsV12 {
+    pub total_dashboards: i64,
+    pub public_dashboards: i64,
+    pub total_reports: i64,
+    pub scheduled_reports: i64,
+    pub total_shares: i64,
+    pub total_schedules: i64,
+    pub avg_shares_per_dashboard: f64,
+    pub total_views: i64,
+}

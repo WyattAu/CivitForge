@@ -1017,3 +1017,62 @@ pub struct CapacityRecommendationV2 {
     pub scale_down_threshold: f64,
     pub estimated_cost_impact: f64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SamplingRuleV12 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: f64,
+    pub max_traces_per_second: i32,
+    pub priority: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateSamplingRuleV12 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateSamplingRuleV12 {
+    pub service_name: Option<String>,
+    pub endpoint: Option<String>,
+    pub sample_rate: Option<f64>,
+    pub max_traces_per_second: Option<i32>,
+    pub priority: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceServiceDependencyV9 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub depends_on_service: String,
+    pub call_count: i64,
+    pub avg_duration_ms: f64,
+    pub error_rate: f64,
+    pub last_updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceServiceDependencyV9 {
+    pub service_name: String,
+    pub depends_on_service: String,
+    pub call_count: Option<i64>,
+    pub avg_duration_ms: Option<f64>,
+    pub error_rate: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServiceDependencyGraphV9 {
+    pub dependencies: Vec<TraceServiceDependencyV9>,
+    pub total_services: i64,
+    pub total_dependencies: i64,
+}
