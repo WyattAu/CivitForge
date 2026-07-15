@@ -890,3 +890,153 @@ pub struct DashboardStatsV10 {
     pub avg_shares_per_dashboard: f64,
     pub total_views: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardShareV8 {
+    pub id: uuid::Uuid,
+    pub dashboard_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub permission: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardShareV8 {
+    pub dashboard_id: uuid::Uuid,
+    pub user_id: uuid::Uuid,
+    pub permission: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportScheduleV9 {
+    pub id: uuid::Uuid,
+    pub report_id: uuid::Uuid,
+    pub cron_expression: String,
+    pub enabled: bool,
+    pub last_run_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportScheduleV9 {
+    pub report_id: uuid::Uuid,
+    pub cron_expression: String,
+    pub enabled: Option<bool>,
+    pub next_run_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportScheduleV9 {
+    pub cron_expression: Option<String>,
+    pub enabled: Option<bool>,
+    pub next_run_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardAnalyticsV7 {
+    pub dashboard_id: uuid::Uuid,
+    pub view_count: i64,
+    pub unique_viewers: i64,
+    pub last_viewed_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub widget_interactions: i64,
+    pub avg_view_duration_seconds: f64,
+    pub share_count: i64,
+    pub last_shared_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub export_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportAnalyticsV7 {
+    pub report_id: uuid::Uuid,
+    pub generation_count: i64,
+    pub avg_generation_time_ms: f64,
+    pub last_generated_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub export_count: i64,
+    pub popular_format: String,
+    pub schedule_count: i64,
+    pub success_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardStatsV11 {
+    pub total_dashboards: i64,
+    pub public_dashboards: i64,
+    pub total_reports: i64,
+    pub scheduled_reports: i64,
+    pub total_shares: i64,
+    pub total_schedules: i64,
+    pub avg_shares_per_dashboard: f64,
+    pub total_views: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardTemplateV4 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<uuid::Uuid>,
+    pub usage_count: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardTemplateV4 {
+    pub name: String,
+    pub description: Option<String>,
+    pub template_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<uuid::Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportTemplateV4 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub description: String,
+    pub report_type: String,
+    pub config: serde_json::Value,
+    pub is_public: bool,
+    pub author_id: Option<uuid::Uuid>,
+    pub usage_count: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportTemplateV4 {
+    pub name: String,
+    pub description: Option<String>,
+    pub report_type: String,
+    pub config: Option<serde_json::Value>,
+    pub is_public: Option<bool>,
+    pub author_id: Option<uuid::Uuid>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateMarketplaceItemV4 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub description: String,
+    pub template_type: String,
+    pub author_id: Option<uuid::Uuid>,
+    pub usage_count: i64,
+    pub rating: Option<f64>,
+    pub tags: Vec<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TemplateAnalyticsV4 {
+    pub template_id: uuid::Uuid,
+    pub usage_count: i64,
+    pub last_used_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub popular_configs: Vec<serde_json::Value>,
+    pub avg_rating: Option<f64>,
+    pub total_ratings: i64,
+}
