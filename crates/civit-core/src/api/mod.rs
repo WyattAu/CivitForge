@@ -134,16 +134,19 @@ pub mod test_suite_management_v6;
 pub mod test_suite_management_v7;
 pub mod test_suite_management_v9;
 pub mod test_suite_management_v13;
+pub mod test_suite_management_v14;
 pub mod code_quality_rules_v5;
 pub mod code_quality_rules_v6;
 pub mod code_quality_rules_v7;
 pub mod code_quality_rules_v9;
 pub mod code_quality_rules_v13;
+pub mod code_quality_rules_v14;
 pub mod performance_testing_v6;
 pub mod performance_testing_v7;
 pub mod performance_testing_v8;
 pub mod performance_testing_v9;
 pub mod performance_testing_v14;
+pub mod performance_testing_v15;
 pub mod data_residency_v5_api;
 pub mod database_replication_v8_api;
 pub mod encryption_v9_api;
@@ -420,16 +423,19 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(test_suite_management_v7::test_suite_v7_routes())
         .merge(test_suite_management_v9::test_suite_v9_routes())
         .merge(test_suite_management_v13::test_suite_v13_routes())
+        .merge(test_suite_management_v14::test_suite_v14_routes())
         .merge(code_quality_rules_v5::code_quality_v5_routes())
         .merge(code_quality_rules_v6::code_quality_v6_routes())
         .merge(code_quality_rules_v7::code_quality_v7_routes())
         .merge(code_quality_rules_v9::code_quality_v9_routes())
         .merge(code_quality_rules_v13::code_quality_v13_routes())
+        .merge(code_quality_rules_v14::code_quality_v14_routes())
         .merge(performance_testing_v6::performance_testing_v6_routes())
         .merge(performance_testing_v7::performance_testing_v7_routes())
         .merge(performance_testing_v8::performance_testing_v8_routes())
         .merge(performance_testing_v9::performance_testing_v9_routes())
         .merge(performance_testing_v14::performance_testing_v14_routes())
+        .merge(performance_testing_v15::performance_testing_v15_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

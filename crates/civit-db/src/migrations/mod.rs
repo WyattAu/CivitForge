@@ -771,6 +771,21 @@ pub const M_444_DASHBOARD_REPORTING_V14_UP: &str = include_str!("444_add_dashboa
 pub const M_444_DASHBOARD_REPORTING_V14_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v12; DROP TABLE IF EXISTS dashboard_shares_v11;";
 
+pub const M_448_TEST_SUITE_METRICS_BASELINES_V11_UP: &str =
+    include_str!("448_add_test_suite_metrics_baselines_v11.sql");
+pub const M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines_v11; DROP TABLE IF EXISTS test_suite_metrics_v11;";
+
+pub const M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP: &str =
+    include_str!("449_add_code_quality_metrics_v12_thresholds_v11.sql");
+pub const M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds_v11; DROP TABLE IF EXISTS code_quality_metrics_v12;";
+
+pub const M_450_PERFORMANCE_TEST_ALERTS_V12_UP: &str =
+    include_str!("450_add_performance_test_alerts_v12.sql");
+pub const M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v12; DROP TABLE IF EXISTS performance_test_alerts_v12;";
+
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
 pub const M_041_WEBHOOKS_UP: &str = include_str!("041_add_webhooks.sql");
@@ -2683,6 +2698,24 @@ impl MigrationManager {
             up_sql: M_435_DATA_RESIDENCY_V13_UP.into(),
             down_sql: M_435_DATA_RESIDENCY_V13_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 448,
+            name: "add_test_suite_metrics_baselines_v11".into(),
+            up_sql: M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.into(),
+            down_sql: M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 449,
+            name: "add_code_quality_metrics_v12_thresholds_v11".into(),
+            up_sql: M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.into(),
+            down_sql: M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 450,
+            name: "add_performance_test_alerts_v12".into(),
+            up_sql: M_450_PERFORMANCE_TEST_ALERTS_V12_UP.into(),
+            down_sql: M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3534,5 +3567,62 @@ mod tests {
         assert_ne!(M_444_DASHBOARD_REPORTING_V14_DOWN, "");
         assert!(M_444_DASHBOARD_REPORTING_V14_DOWN.contains("DROP TABLE IF EXISTS report_schedules_v12"));
         assert!(M_444_DASHBOARD_REPORTING_V14_DOWN.contains("DROP TABLE IF EXISTS dashboard_shares_v11"));
+    }
+
+    #[test]
+    fn test_test_suite_metrics_baselines_v11_up_sql_not_empty() {
+        assert_ne!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP, "");
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v11"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v11"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("suite_id"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("metric_name"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("metric_value"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("baseline_value"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("threshold_percent"));
+    }
+
+    #[test]
+    fn test_test_suite_metrics_baselines_v11_down_sql_not_empty() {
+        assert_ne!(M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN, "");
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN.contains("DROP TABLE IF EXISTS test_suite_baselines_v11"));
+        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN.contains("DROP TABLE IF EXISTS test_suite_metrics_v11"));
+    }
+
+    #[test]
+    fn test_code_quality_metrics_v12_thresholds_v11_up_sql_not_empty() {
+        assert_ne!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP, "");
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v12"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v11"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("repo_id"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("file_path"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("metric_name"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("threshold_value"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("enabled"));
+    }
+
+    #[test]
+    fn test_code_quality_metrics_v12_thresholds_v11_down_sql_not_empty() {
+        assert_ne!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN, "");
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN.contains("DROP TABLE IF EXISTS code_quality_thresholds_v11"));
+        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN.contains("DROP TABLE IF EXISTS code_quality_metrics_v12"));
+    }
+
+    #[test]
+    fn test_performance_test_alerts_v12_up_sql_not_empty() {
+        assert_ne!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP, "");
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v12"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v12"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("baseline_id"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("alert_type"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("threshold"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("enabled"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("metric_name"));
+    }
+
+    #[test]
+    fn test_performance_test_alerts_v12_down_sql_not_empty() {
+        assert_ne!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN, "");
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v12"));
+        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v12"));
     }
 }

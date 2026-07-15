@@ -3190,3 +3190,69 @@ pub struct ScheduledTaskTemplateV12 {
     pub rating: f64,
     pub created_at: DateTime<Utc>,
 }
+
+// --- Test Suite Management v14 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct TestSuiteMetricV14 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct TestSuiteBaselineV14 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub threshold_percent: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Code Quality Rules v14 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CodeQualityMetricV14 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub file_path: String,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CodeQualityThresholdV14 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub metric_name: String,
+    pub threshold_value: f64,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Performance Testing v15 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PerformanceTestAlertV15 {
+    pub id: Uuid,
+    pub baseline_id: Uuid,
+    pub alert_type: String,
+    pub threshold: f64,
+    pub enabled: bool,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct PerformanceTestAlertHistoryV15 {
+    pub id: Uuid,
+    pub alert_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub threshold: f64,
+    pub created_at: DateTime<Utc>,
+}
