@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11, ScheduledTaskTemplateV12, ScheduledTaskTemplateV13};
+use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11, ScheduledTaskTemplateV12, ScheduledTaskTemplateV13, ScheduledTaskTemplateV14};
 use crate::workflow_engine::{WorkflowTemplateAnalytics, WorkflowTemplateRecommendation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -798,6 +798,13 @@ pub const M_461_AUTOMATION_RULES_V16_DOWN: &str = "DROP TABLE IF EXISTS automati
 pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_UP: &str = include_str!("462_add_scheduled_task_templates_v13.sql");
 pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v13;";
 
+pub const M_481_WORKFLOW_TEMPLATES_V14_UP: &str = include_str!("481_add_workflow_templates_v14.sql");
+pub const M_481_WORKFLOW_TEMPLATES_V14_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v13; DROP TABLE IF EXISTS workflow_templates_v14;";
+pub const M_482_AUTOMATION_RULES_V17_UP: &str = include_str!("482_add_automation_rules_v17.sql");
+pub const M_482_AUTOMATION_RULES_V17_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v17;";
+pub const M_483_SCHEDULED_TASK_TEMPLATES_V14_UP: &str = include_str!("483_add_scheduled_task_templates_v14.sql");
+pub const M_483_SCHEDULED_TASK_TEMPLATES_V14_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v14;";
+
 pub const M_469_TEST_SUITE_MANAGEMENT_V15_UP: &str =
     include_str!("469_add_test_suite_management_v15.sql");
 pub const M_469_TEST_SUITE_MANAGEMENT_V15_DOWN: &str =
@@ -2776,6 +2783,24 @@ impl MigrationManager {
             name: "add_scheduled_task_templates_v13".into(),
             up_sql: M_462_SCHEDULED_TASK_TEMPLATES_V13_UP.into(),
             down_sql: M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 481,
+            name: "add_workflow_templates_v14".into(),
+            up_sql: M_481_WORKFLOW_TEMPLATES_V14_UP.into(),
+            down_sql: M_481_WORKFLOW_TEMPLATES_V14_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 482,
+            name: "add_automation_rules_v17".into(),
+            up_sql: M_482_AUTOMATION_RULES_V17_UP.into(),
+            down_sql: M_482_AUTOMATION_RULES_V17_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 483,
+            name: "add_scheduled_task_templates_v14".into(),
+            up_sql: M_483_SCHEDULED_TASK_TEMPLATES_V14_UP.into(),
+            down_sql: M_483_SCHEDULED_TASK_TEMPLATES_V14_DOWN.into(),
         });
         self.add_migration(Migration {
             version: 469,
