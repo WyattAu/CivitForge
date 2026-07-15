@@ -702,6 +702,12 @@ pub const M_408_PERFORMANCE_TESTING_V13_UP: &str =
     include_str!("408_add_performance_testing_v13.sql");
 pub const M_408_PERFORMANCE_TESTING_V13_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v10; DROP TABLE IF EXISTS performance_test_alerts_v10;";
+pub const M_409_API_DOCS_V14_UP: &str = include_str!("409_add_api_docs_v14.sql");
+pub const M_409_API_DOCS_V14_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v14;";
+pub const M_410_RATE_LIMIT_TIERS_V12_UP: &str = include_str!("410_add_rate_limit_tiers_v12.sql");
+pub const M_410_RATE_LIMIT_TIERS_V12_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v9; DROP TABLE IF EXISTS rate_limit_tiers_v12;";
+pub const M_411_API_ANALYTICS_V15_UP: &str = include_str!("411_add_api_analytics_v15.sql");
+pub const M_411_API_ANALYTICS_V15_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v15;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2488,6 +2494,24 @@ impl MigrationManager {
             name: "add_performance_testing_v13".into(),
             up_sql: M_408_PERFORMANCE_TESTING_V13_UP.into(),
             down_sql: M_408_PERFORMANCE_TESTING_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 409,
+            name: "add_api_docs_v14".into(),
+            up_sql: M_409_API_DOCS_V14_UP.into(),
+            down_sql: M_409_API_DOCS_V14_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 410,
+            name: "add_rate_limit_tiers_v12".into(),
+            up_sql: M_410_RATE_LIMIT_TIERS_V12_UP.into(),
+            down_sql: M_410_RATE_LIMIT_TIERS_V12_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 411,
+            name: "add_api_analytics_v15".into(),
+            up_sql: M_411_API_ANALYTICS_V15_UP.into(),
+            down_sql: M_411_API_ANALYTICS_V15_DOWN.into(),
         });
     }
 

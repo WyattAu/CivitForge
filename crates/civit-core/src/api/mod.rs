@@ -12,6 +12,7 @@ pub mod api_analytics_v11;
 pub mod api_analytics_v12;
 pub mod api_analytics_v13;
 pub mod api_analytics_v14;
+pub mod api_analytics_v15;
 pub mod api_documentation;
 pub mod api_docs_v2;
 pub mod api_docs_v4;
@@ -21,6 +22,7 @@ pub mod api_docs_v10;
 pub mod api_docs_v11;
 pub mod api_docs_v12;
 pub mod api_docs_v13;
+pub mod api_docs_v14;
 pub mod api_gateway;
 pub mod api_transforms;
 pub mod api_versioning;
@@ -98,6 +100,7 @@ pub mod rate_limiting_v7;
 pub mod rate_limiting_v8;
 pub mod rate_limiting_v9;
 pub mod rate_limiting_v10;
+pub mod rate_limiting_v11;
 pub mod resilience;
 pub mod runners;
 pub mod saml;
@@ -361,6 +364,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(api_analytics_v12::api_analytics_v12_routes())
         .merge(api_analytics_v13::api_analytics_v13_routes())
         .merge(api_analytics_v14::api_analytics_v14_routes())
+        .merge(api_analytics_v15::api_analytics_v15_routes())
         .merge(api_documentation::api_documentation_routes())
         .merge(api_docs_v2::api_docs_v2_routes())
         .merge(api_docs_v4::api_docs_v4_routes())
@@ -370,6 +374,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(api_docs_v11::api_docs_v11_routes())
         .merge(api_docs_v12::api_docs_v12_routes())
         .merge(api_docs_v13::api_docs_v13_routes())
+        .merge(api_docs_v14::api_docs_v14_routes())
         .merge(api_versioning::api_version_routes())
         .merge(rate_limiting_v2::rate_limiting_v2_routes())
         .merge(rate_limiting_v3::rate_limiting_v3_routes())
@@ -379,6 +384,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(rate_limiting_v8::rate_limiting_v8_routes())
         .merge(rate_limiting_v9::rate_limiting_v9_routes())
         .merge(rate_limiting_v10::rate_limiting_v10_routes())
+        .merge(rate_limiting_v11::rate_limiting_v11_routes())
         .merge(usage_quotas::usage_quota_routes())
         .merge(data_export::export_routes())
         .merge(compliance::compliance_routes())
