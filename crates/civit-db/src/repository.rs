@@ -11,11 +11,11 @@ use crate::models::{
     CacheHitAnalysisV3, CacheHitAnalysisV6, CachePerformanceInsightsV3, CachePerformanceInsightsV6,
     CacheSizeTrackingV3, CacheSizeTrackingV6, CodeQualityMetric, CodeQualityMetricV4,
     CodeQualityMetricV6, CodeQualityMetricV7, CodeQualityMetricV8, CodeQualityMetricV10, CodeQualityMetricV13, CodeQualityThresholdV3, CodeQualityThresholdV5, CodeQualityThresholdV6, CodeQualityThresholdV7, CodeQualityThresholdV9, CodeQualityThresholdV13, DataArchive, DataMigration, DataResidencyComplianceV4,
-    DataResidencyComplianceV8, DataResidencyReportV4, DataResidencyReportV8, DataResidencyRule, DataResidencyViolation, DatabaseBackup,
-    DatabaseRecoveryPoint, DatabaseReplica, DatabaseReplicationAlertV4,
-    DatabaseReplicationAlertV8, DatabaseReplicationConfigV4, DatabaseReplicationConfigV8, DeploymentAnalyticsV4, DeploymentAnalyticsV7, DeploymentComparisonV4,
+    DataResidencyComplianceV8, DataResidencyComplianceV11, DataResidencyReportV4, DataResidencyReportV8, DataResidencyReportV11, DataResidencyRule, DataResidencyViolation, DatabaseBackup,
+    DatabaseRecoveryPoint, DatabaseReplica,     DatabaseReplicationAlertV4,
+    DatabaseReplicationAlertV8, DatabaseReplicationAlertV11, DatabaseReplicationConfigV4, DatabaseReplicationConfigV8, DatabaseReplicationConfigV11, DeploymentAnalyticsV4, DeploymentAnalyticsV7, DeploymentComparisonV4,
     DeploymentComparisonV7, EmailVerificationCode, EncryptionComplianceCheckV4,
-    EncryptionComplianceCheckV8, EncryptionKeyVersionV4, EncryptionKeyVersionV8, EncryptionPolicy, EnvironmentDeploymentHistoryV4,
+    EncryptionComplianceCheckV8, EncryptionComplianceCheckV11, EncryptionKeyVersionV4, EncryptionKeyVersionV8, EncryptionKeyVersionV11, EncryptionPolicy, EnvironmentDeploymentHistoryV4,
     EnvironmentDeploymentHistoryV7, Issue, MultiProjectPipeline,
     MultiProjectPipelineRun, Org, PerformanceTest, PerformanceTestAlertV4,
     PerformanceTestAlertHistoryV4, PerformanceTestAlertV6, PerformanceTestAlertV7, PerformanceTestAlertHistoryV6, PerformanceTestAlertHistoryV7, PerformanceTestAlertV8, PerformanceTestAlertHistoryV8,     PerformanceTestAlertV10, PerformanceTestAlertHistoryV10, PerformanceTestAlertV14, PerformanceTestAlertHistoryV14, Pipeline, PipelineActionReviewV4,
@@ -13836,6 +13836,560 @@ impl DbRepository {
             .execute(&self.pool)
             .await
             .map_err(|e| DbError::Database(format!("delete_data_residency_compliance_v8: {e}")))?;
+        Ok(())
+    }
+
+    // --- Database Replication Config v11 ---
+
+    pub async fn create_replication_config_v11(
+        &self,
+        replica_id: Uuid,
+        config_key: &str,
+        config_value: serde_json::Value,
+    ) -> Result<DatabaseReplicationConfigV11> {
+        let row = sqlx::query_as::<_, DatabaseReplicationConfigV11>(
+            r#"INSERT INTO database_replication_config_v11 (replica_id, config_key, config_value)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (replica_id, config_key) DO UPDATE SET config_value = $3
+               RETURNING *"#,
+        )
+        .bind(replica_id)
+        .bind(config_key)
+        .bind(config_value)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_replication_config_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_replication_config_v11(
+        &self,
+        replica_id: Uuid,
+        config_key: &str,
+    ) -> Result<Option<DatabaseReplicationConfigV11>> {
+        sqlx::query_as::<_, DatabaseReplicationConfigV11>(
+            "SELECT * FROM database_replication_config_v11 WHERE replica_id = $1 AND config_key = $2",
+        )
+        .bind(replica_id)
+        .bind(config_key)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_replication_config_v11: {e}")))
+    }
+
+    pub async fn list_replication_configs_v11(
+        &self,
+        replica_id: Uuid,
+    ) -> Result<Vec<DatabaseReplicationConfigV11>> {
+        sqlx::query_as::<_, DatabaseReplicationConfigV11>(
+            "SELECT * FROM database_replication_config_v11 WHERE replica_id = $1 ORDER BY config_key",
+        )
+        .bind(replica_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_replication_configs_v11: {e}")))
+    }
+
+    pub async fn delete_replication_config_v11(
+        &self,
+        replica_id: Uuid,
+        config_key: &str,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM database_replication_config_v11 WHERE replica_id = $1 AND config_key = $2")
+            .bind(replica_id)
+            .bind(config_key)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_replication_config_v11: {e}")))?;
+        Ok(())
+    }
+
+    // --- Database Replication Alerts v11 ---
+
+    pub async fn create_replication_alert_v11(
+        &self,
+        replica_id: Uuid,
+        alert_type: &str,
+        threshold: f64,
+    ) -> Result<DatabaseReplicationAlertV11> {
+        let row = sqlx::query_as::<_, DatabaseReplicationAlertV11>(
+            r#"INSERT INTO database_replication_alerts_v11 (replica_id, alert_type, threshold)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(replica_id)
+        .bind(alert_type)
+        .bind(threshold)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_replication_alert_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_replication_alert_v11(&self, id: Uuid) -> Result<DatabaseReplicationAlertV11> {
+        sqlx::query_as::<_, DatabaseReplicationAlertV11>(
+            "SELECT * FROM database_replication_alerts_v11 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_replication_alert_v11: {e}")))
+    }
+
+    pub async fn list_replication_alerts_v11(
+        &self,
+        replica_id: Uuid,
+    ) -> Result<Vec<DatabaseReplicationAlertV11>> {
+        sqlx::query_as::<_, DatabaseReplicationAlertV11>(
+            "SELECT * FROM database_replication_alerts_v11 WHERE replica_id = $1 ORDER BY alert_type",
+        )
+        .bind(replica_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_replication_alerts_v11: {e}")))
+    }
+
+    pub async fn update_replication_alert_v11(
+        &self,
+        id: Uuid,
+        threshold: Option<f64>,
+        enabled: Option<bool>,
+    ) -> Result<DatabaseReplicationAlertV11> {
+        let row = sqlx::query_as::<_, DatabaseReplicationAlertV11>(
+            r#"UPDATE database_replication_alerts_v11
+               SET threshold = COALESCE($2, threshold),
+                   enabled = COALESCE($3, enabled)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(threshold)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_replication_alert_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn delete_replication_alert_v11(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM database_replication_alerts_v11 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_replication_alert_v11: {e}")))?;
+        Ok(())
+    }
+
+    pub async fn trigger_replication_alert_v11(&self, id: Uuid) -> Result<DatabaseReplicationAlertV11> {
+        let row = sqlx::query_as::<_, DatabaseReplicationAlertV11>(
+            r#"UPDATE database_replication_alerts_v11
+               SET last_triggered_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("trigger_replication_alert_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_enabled_replication_alerts_v11(
+        &self,
+        replica_id: Uuid,
+    ) -> Result<Vec<DatabaseReplicationAlertV11>> {
+        sqlx::query_as::<_, DatabaseReplicationAlertV11>(
+            "SELECT * FROM database_replication_alerts_v11 WHERE replica_id = $1 AND enabled = true ORDER BY alert_type",
+        )
+        .bind(replica_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_enabled_replication_alerts_v11: {e}")))
+    }
+
+    // --- Encryption Key Versions v11 ---
+
+    pub async fn create_encryption_key_version_v11(
+        &self,
+        key_id: Uuid,
+        version: i32,
+        key_material: &[u8],
+    ) -> Result<EncryptionKeyVersionV11> {
+        let row = sqlx::query_as::<_, EncryptionKeyVersionV11>(
+            r#"INSERT INTO encryption_key_versions_v11 (key_id, version, key_material)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(key_id)
+        .bind(version)
+        .bind(key_material)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_encryption_key_version_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_encryption_key_version_v11(
+        &self,
+        id: Uuid,
+    ) -> Result<EncryptionKeyVersionV11> {
+        sqlx::query_as::<_, EncryptionKeyVersionV11>(
+            "SELECT * FROM encryption_key_versions_v11 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_encryption_key_version_v11: {e}")))
+    }
+
+    pub async fn list_encryption_key_versions_v11(
+        &self,
+        key_id: Uuid,
+    ) -> Result<Vec<EncryptionKeyVersionV11>> {
+        sqlx::query_as::<_, EncryptionKeyVersionV11>(
+            "SELECT * FROM encryption_key_versions_v11 WHERE key_id = $1 ORDER BY version DESC",
+        )
+        .bind(key_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_encryption_key_versions_v11: {e}")))
+    }
+
+    pub async fn delete_encryption_key_version_v11(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM encryption_key_versions_v11 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_encryption_key_version_v11: {e}")))?;
+        Ok(())
+    }
+
+    // --- Encryption Compliance Checks v11 ---
+
+    pub async fn create_encryption_compliance_check_v11(
+        &self,
+        check_type: &str,
+    ) -> Result<EncryptionComplianceCheckV11> {
+        let row = sqlx::query_as::<_, EncryptionComplianceCheckV11>(
+            r#"INSERT INTO encryption_compliance_checks_v11 (check_type)
+               VALUES ($1)
+               RETURNING *"#,
+        )
+        .bind(check_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_encryption_compliance_check_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_encryption_compliance_check_v11(
+        &self,
+        id: Uuid,
+    ) -> Result<EncryptionComplianceCheckV11> {
+        sqlx::query_as::<_, EncryptionComplianceCheckV11>(
+            "SELECT * FROM encryption_compliance_checks_v11 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_encryption_compliance_check_v11: {e}")))
+    }
+
+    pub async fn update_encryption_compliance_check_v11(
+        &self,
+        id: Uuid,
+        status: &str,
+        findings: serde_json::Value,
+        score: i32,
+    ) -> Result<EncryptionComplianceCheckV11> {
+        let row = sqlx::query_as::<_, EncryptionComplianceCheckV11>(
+            r#"UPDATE encryption_compliance_checks_v11
+               SET status = $2, findings = $3, score = $4
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(status)
+        .bind(findings)
+        .bind(score)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_encryption_compliance_check_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_encryption_compliance_checks_v11(
+        &self,
+        check_type: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<EncryptionComplianceCheckV11>> {
+        let rows = match check_type {
+            Some(ct) => {
+                sqlx::query_as::<_, EncryptionComplianceCheckV11>(
+                    r#"SELECT * FROM encryption_compliance_checks_v11
+                       WHERE check_type = $1
+                       ORDER BY created_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(ct)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+            None => {
+                sqlx::query_as::<_, EncryptionComplianceCheckV11>(
+                    r#"SELECT * FROM encryption_compliance_checks_v11
+                       ORDER BY created_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+        };
+        rows.map_err(|e| DbError::Database(format!("list_encryption_compliance_checks_v11: {e}")))
+    }
+
+    pub async fn delete_encryption_compliance_check_v11(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM encryption_compliance_checks_v11 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_encryption_compliance_check_v11: {e}")))?;
+        Ok(())
+    }
+
+    // --- Data Residency Reports v11 ---
+
+    pub async fn create_data_residency_report_v11(
+        &self,
+        report_type: &str,
+    ) -> Result<DataResidencyReportV11> {
+        let row = sqlx::query_as::<_, DataResidencyReportV11>(
+            r#"INSERT INTO data_residency_reports_v11 (report_type)
+               VALUES ($1)
+               RETURNING *"#,
+        )
+        .bind(report_type)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_data_residency_report_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_data_residency_report_v11(
+        &self,
+        id: Uuid,
+    ) -> Result<DataResidencyReportV11> {
+        sqlx::query_as::<_, DataResidencyReportV11>(
+            "SELECT * FROM data_residency_reports_v11 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_data_residency_report_v11: {e}")))
+    }
+
+    pub async fn update_data_residency_report_v11(
+        &self,
+        id: Uuid,
+        findings: serde_json::Value,
+        score: i32,
+    ) -> Result<DataResidencyReportV11> {
+        let row = sqlx::query_as::<_, DataResidencyReportV11>(
+            r#"UPDATE data_residency_reports_v11
+               SET findings = $2, score = $3
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(findings)
+        .bind(score)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_data_residency_report_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_data_residency_reports_v11(
+        &self,
+        report_type: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DataResidencyReportV11>> {
+        let rows = match report_type {
+            Some(rt) => {
+                sqlx::query_as::<_, DataResidencyReportV11>(
+                    r#"SELECT * FROM data_residency_reports_v11
+                       WHERE report_type = $1
+                       ORDER BY generated_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(rt)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+            None => {
+                sqlx::query_as::<_, DataResidencyReportV11>(
+                    r#"SELECT * FROM data_residency_reports_v11
+                       ORDER BY generated_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+        };
+        rows.map_err(|e| DbError::Database(format!("list_data_residency_reports_v11: {e}")))
+    }
+
+    pub async fn delete_data_residency_report_v11(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM data_residency_reports_v11 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_data_residency_report_v11: {e}")))?;
+        Ok(())
+    }
+
+    // --- Data Residency Compliance v11 ---
+
+    pub async fn create_data_residency_compliance_v11(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<DataResidencyComplianceV11> {
+        let row = sqlx::query_as::<_, DataResidencyComplianceV11>(
+            r#"INSERT INTO data_residency_compliance_v11 (rule_id)
+               VALUES ($1)
+               RETURNING *"#,
+        )
+        .bind(rule_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_data_residency_compliance_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_data_residency_compliance_v11(
+        &self,
+        id: Uuid,
+    ) -> Result<DataResidencyComplianceV11> {
+        sqlx::query_as::<_, DataResidencyComplianceV11>(
+            "SELECT * FROM data_residency_compliance_v11 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_data_residency_compliance_v11: {e}")))
+    }
+
+    pub async fn update_data_residency_compliance_v11(
+        &self,
+        id: Uuid,
+        compliance_status: &str,
+    ) -> Result<DataResidencyComplianceV11> {
+        let row = sqlx::query_as::<_, DataResidencyComplianceV11>(
+            r#"UPDATE data_residency_compliance_v11
+               SET compliance_status = $2, last_checked_at = NOW()
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(compliance_status)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_data_residency_compliance_v11: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_data_residency_compliance_v11(
+        &self,
+        rule_id: Option<Uuid>,
+        compliance_status: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DataResidencyComplianceV11>> {
+        let rows = match (rule_id, compliance_status) {
+            (Some(rid), Some(cs)) => {
+                sqlx::query_as::<_, DataResidencyComplianceV11>(
+                    r#"SELECT * FROM data_residency_compliance_v11
+                       WHERE rule_id = $1 AND compliance_status = $2
+                       ORDER BY created_at DESC
+                       LIMIT $3 OFFSET $4"#,
+                )
+                .bind(rid)
+                .bind(cs)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+            (Some(rid), None) => {
+                sqlx::query_as::<_, DataResidencyComplianceV11>(
+                    r#"SELECT * FROM data_residency_compliance_v11
+                       WHERE rule_id = $1
+                       ORDER BY created_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(rid)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+            (None, Some(cs)) => {
+                sqlx::query_as::<_, DataResidencyComplianceV11>(
+                    r#"SELECT * FROM data_residency_compliance_v11
+                       WHERE compliance_status = $1
+                       ORDER BY created_at DESC
+                       LIMIT $2 OFFSET $3"#,
+                )
+                .bind(cs)
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+            (None, None) => {
+                sqlx::query_as::<_, DataResidencyComplianceV11>(
+                    r#"SELECT * FROM data_residency_compliance_v11
+                       ORDER BY created_at DESC
+                       LIMIT $1 OFFSET $2"#,
+                )
+                .bind(limit)
+                .bind(offset)
+                .fetch_all(&self.pool)
+                .await
+            }
+        };
+        rows.map_err(|e| DbError::Database(format!("list_data_residency_compliance_v11: {e}")))
+    }
+
+    pub async fn get_data_residency_compliance_by_rule_v11(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<Vec<DataResidencyComplianceV11>> {
+        sqlx::query_as::<_, DataResidencyComplianceV11>(
+            "SELECT * FROM data_residency_compliance_v11 WHERE rule_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(rule_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_data_residency_compliance_by_rule_v11: {e}")))
+    }
+
+    pub async fn delete_data_residency_compliance_v11(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM data_residency_compliance_v11 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_data_residency_compliance_v11: {e}")))?;
         Ok(())
     }
 

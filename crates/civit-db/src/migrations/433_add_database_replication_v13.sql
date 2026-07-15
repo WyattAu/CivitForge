@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS database_replication_config_v11 (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    replica_id UUID NOT NULL REFERENCES database_replicas(id),
+    config_key TEXT NOT NULL,
+    config_value JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(replica_id, config_key)
+);
+
+CREATE TABLE IF NOT EXISTS database_replication_alerts_v11 (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    replica_id UUID NOT NULL REFERENCES database_replicas(id),
+    alert_type TEXT NOT NULL,
+    threshold DOUBLE PRECISION NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    last_triggered_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_database_replication_config_v11_replica ON database_replication_config_v11(replica_id);
+CREATE INDEX IF NOT EXISTS idx_database_replication_config_v11_key ON database_replication_config_v11(config_key);
+CREATE INDEX IF NOT EXISTS idx_database_replication_alerts_v11_replica ON database_replication_alerts_v11(replica_id);
+CREATE INDEX IF NOT EXISTS idx_database_replication_alerts_v11_type ON database_replication_alerts_v11(alert_type);
+CREATE INDEX IF NOT EXISTS idx_database_replication_alerts_v11_enabled ON database_replication_alerts_v11(enabled);
