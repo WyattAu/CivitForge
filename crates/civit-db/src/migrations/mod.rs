@@ -851,6 +851,16 @@ pub const M_500_COMPLIANCE_V18_DOWN: &str =
 pub const M_501_AUDIT_TRAIL_V18_UP: &str = include_str!("501_add_audit_trail_v18.sql");
 pub const M_501_AUDIT_TRAIL_V18_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v18;";
 
+pub const M_508_PIPELINE_ACTION_REVIEWS_V15_UP: &str = include_str!("508_add_pipeline_action_reviews_v15.sql");
+pub const M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN: &str =
+    "DROP TABLE IF EXISTS review_recommendations_v15; DROP TABLE IF EXISTS review_analytics_v15; DROP TABLE IF EXISTS review_moderation_queue_v15; DROP TABLE IF EXISTS review_helpfulness_v15; DROP TABLE IF EXISTS pipeline_action_reviews_v15;";
+pub const M_509_ENVIRONMENT_DEPLOYMENT_V15_UP: &str = include_str!("509_add_environment_deployment_history_v15.sql");
+pub const M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN: &str =
+    "DROP TABLE IF EXISTS deployment_analytics_v15; DROP TABLE IF EXISTS deployment_comparison_v15; DROP TABLE IF EXISTS environment_deployment_history_v15;";
+pub const M_510_CACHE_HIT_ANALYSIS_V14_UP: &str = include_str!("510_add_cache_hit_analysis_v14.sql");
+pub const M_510_CACHE_HIT_ANALYSIS_V14_DOWN: &str =
+    "DROP TABLE IF EXISTS cache_performance_insights_v14; DROP TABLE IF EXISTS cache_cost_optimization_v14; DROP TABLE IF EXISTS cache_size_tracking_v14; DROP TABLE IF EXISTS cache_hit_analysis_v14;";
+
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
 pub const M_041_WEBHOOKS_UP: &str = include_str!("041_add_webhooks.sql");
@@ -2907,6 +2917,24 @@ impl MigrationManager {
             up_sql: M_501_AUDIT_TRAIL_V18_UP.into(),
             down_sql: M_501_AUDIT_TRAIL_V18_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 508,
+            name: "add_pipeline_action_reviews_v15".into(),
+            up_sql: M_508_PIPELINE_ACTION_REVIEWS_V15_UP.into(),
+            down_sql: M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 509,
+            name: "add_environment_deployment_history_v15".into(),
+            up_sql: M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.into(),
+            down_sql: M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 510,
+            name: "add_cache_hit_analysis_v14".into(),
+            up_sql: M_510_CACHE_HIT_ANALYSIS_V14_UP.into(),
+            down_sql: M_510_CACHE_HIT_ANALYSIS_V14_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -2948,7 +2976,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 295);
+        assert_eq!(mgr.all().len(), 298);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -3815,5 +3843,59 @@ mod tests {
         assert_ne!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN, "");
         assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v12"));
         assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v12"));
+    }
+
+    #[test]
+    fn test_pipeline_action_reviews_v15_up_sql_not_empty() {
+        assert_ne!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP, "");
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_action_reviews_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_helpfulness_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_moderation_queue_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_analytics_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_recommendations_v15"));
+    }
+
+    #[test]
+    fn test_pipeline_action_reviews_v15_down_sql_not_empty() {
+        assert_ne!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN, "");
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_recommendations_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_analytics_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_moderation_queue_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_helpfulness_v15"));
+        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS pipeline_action_reviews_v15"));
+    }
+
+    #[test]
+    fn test_environment_deployment_history_v15_up_sql_not_empty() {
+        assert_ne!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP, "");
+        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.contains("CREATE TABLE IF NOT EXISTS environment_deployment_history_v15"));
+        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.contains("CREATE TABLE IF NOT EXISTS deployment_comparison_v15"));
+        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.contains("CREATE TABLE IF NOT EXISTS deployment_analytics_v15"));
+    }
+
+    #[test]
+    fn test_environment_deployment_history_v15_down_sql_not_empty() {
+        assert_ne!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN, "");
+        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.contains("DROP TABLE IF EXISTS deployment_analytics_v15"));
+        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.contains("DROP TABLE IF EXISTS deployment_comparison_v15"));
+        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.contains("DROP TABLE IF EXISTS environment_deployment_history_v15"));
+    }
+
+    #[test]
+    fn test_cache_hit_analysis_v14_up_sql_not_empty() {
+        assert_ne!(M_510_CACHE_HIT_ANALYSIS_V14_UP, "");
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_hit_analysis_v14"));
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_size_tracking_v14"));
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_cost_optimization_v14"));
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_performance_insights_v14"));
+    }
+
+    #[test]
+    fn test_cache_hit_analysis_v14_down_sql_not_empty() {
+        assert_ne!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN, "");
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_performance_insights_v14"));
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_cost_optimization_v14"));
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_size_tracking_v14"));
+        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_hit_analysis_v14"));
     }
 }
