@@ -3271,6 +3271,78 @@ pub struct ApiAnalyticV18 {
     pub created_at: DateTime<Utc>,
 }
 
+// --- API Docs v18 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiDocsV18 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub version: String,
+    pub summary: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+    pub request_body: Option<serde_json::Value>,
+    pub responses: serde_json::Value,
+    pub examples: serde_json::Value,
+    pub tags: Vec<String>,
+    pub deprecated: bool,
+    pub changelog: String,
+    pub security_schemes: serde_json::Value,
+    pub rate_limits: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Rate Limit Tiers v16 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RateLimitTierV16 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub rate_limit: i32,
+    pub burst_limit: i32,
+    pub monthly_quota: Option<i32>,
+    pub price_cents: i32,
+    pub features: serde_json::Value,
+    pub limits: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Rate Limit Alerts v13 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RateLimitAlertV13 {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub tier_id: Uuid,
+    pub alert_type: String,
+    pub threshold: f64,
+    pub enabled: bool,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- API Analytics v19 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiAnalyticV19 {
+    pub id: Uuid,
+    pub endpoint: String,
+    pub method: String,
+    pub status_code: i32,
+    pub response_time_ms: i32,
+    pub user_id: Option<Uuid>,
+    pub request_size_bytes: i32,
+    pub response_size_bytes: i32,
+    pub cache_hit: bool,
+    pub region: String,
+    pub user_agent: Option<String>,
+    pub request_id: Option<Uuid>,
+    pub cost_cents: i32,
+    pub created_at: DateTime<Utc>,
+}
+
 // --- Workflow Templates v12 ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
