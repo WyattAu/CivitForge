@@ -124,14 +124,17 @@ pub mod pipeline_action_reviews_v3;
 pub mod pipeline_action_reviews_v5;
 pub mod pipeline_action_reviews_v6;
 pub mod pipeline_action_reviews_v8;
+pub mod pipeline_action_reviews_v9;
 pub mod environment_deployment_v3;
 pub mod environment_deployment_v5;
 pub mod environment_deployment_v6;
 pub mod environment_deployment_v8;
+pub mod environment_deployment_v9;
 pub mod cache_hit_analysis_v2;
 pub mod cache_hit_analysis_v3;
 pub mod cache_hit_analysis_v5;
 pub mod cache_hit_analysis_v7;
+pub mod cache_hit_analysis_v8;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
