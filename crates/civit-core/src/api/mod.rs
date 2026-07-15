@@ -160,6 +160,9 @@ pub mod data_residency_v5_api;
 pub mod database_replication_v8_api;
 pub mod encryption_v9_api;
 pub mod data_residency_v8_api;
+pub mod database_replication_v9_api;
+pub mod encryption_v10_api;
+pub mod data_residency_v9_api;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -433,6 +436,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(data_residency_v2_api::data_residency_v2_routes())
         .merge(data_residency_v5_api::data_residency_v5_routes())
         .merge(data_residency_v8_api::data_residency_v8_routes())
+        .merge(database_replication_v9_api::replication_v9_routes())
+        .merge(encryption_v10_api::encryption_v10_routes())
+        .merge(data_residency_v9_api::data_residency_v9_routes())
         .merge(test_suite_management_v5::test_suite_v5_routes())
         .merge(test_suite_management_v6::test_suite_v6_routes())
         .merge(test_suite_management_v7::test_suite_v7_routes())
