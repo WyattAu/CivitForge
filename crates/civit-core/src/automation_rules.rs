@@ -5005,7 +5005,7 @@ impl AutomationRuleService {
             rule_id: row.id,
             total_runs: row.run_count as i64,
             successful_runs: ((row.success_rate / 100.0) * row.run_count as f64) as i64,
-            failed_runs: row.run_count - ((row.success_rate / 100.0) * row.run_count as f64) as i64,
+            failed_runs: row.run_count as i64 - ((row.success_rate / 100.0) * row.run_count as f64) as i64,
             average_execution_time_ms: row.avg_execution_time_ms as f64,
             last_execution_time_ms: None,
             success_rate: row.success_rate,

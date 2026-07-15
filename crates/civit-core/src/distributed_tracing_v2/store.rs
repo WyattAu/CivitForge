@@ -4385,3 +4385,242 @@ impl From<TraceServiceDependencyV9Row> for TraceServiceDependencyV9 {
         }
     }
 }
+
+// V14: Sampling rules v13 and service dependencies v10
+
+impl DistributedTracingV2Service {
+    pub async fn create_rule_v13(
+        &self,
+        input: CreateSamplingRuleV13,
+    ) -> Result<SamplingRuleV13, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV13Row>(
+            r#"INSERT INTO trace_sampling_rules_v13 (service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at"#,
+        )
+        .bind(&input.service_name)
+        .bind(&input.endpoint)
+        .bind(input.sample_rate.unwrap_or(1.0))
+        .bind(input.max_traces_per_second.unwrap_or(100))
+        .bind(input.priority.unwrap_or(0))
+        .bind(input.enabled.unwrap_or(true))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_rule_v13(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<SamplingRuleV13>, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV13Row>(
+            r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
+             FROM trace_sampling_rules_v13 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_rules_v13(&self) -> Result<Vec<SamplingRuleV13>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, SamplingRuleV13Row>(
+            r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
+             FROM trace_sampling_rules_v13 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_rule_v13(
+        &self,
+        id: uuid::Uuid,
+        input: UpdateSamplingRuleV13,
+    ) -> Result<SamplingRuleV13, sqlx::Error> {
+        let row = sqlx::query_as::<_, SamplingRuleV13Row>(
+            r#"UPDATE trace_sampling_rules_v13 SET
+             service_name = COALESCE($2, service_name),
+             endpoint = COALESCE($3, endpoint),
+             sample_rate = COALESCE($4, sample_rate),
+             max_traces_per_second = COALESCE($5, max_traces_per_second),
+             priority = COALESCE($6, priority),
+             enabled = COALESCE($7, enabled)
+             WHERE id = $1
+             RETURNING id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.service_name)
+        .bind(&input.endpoint)
+        .bind(input.sample_rate)
+        .bind(input.max_traces_per_second)
+        .bind(input.priority)
+        .bind(input.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_rule_v13(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM trace_sampling_rules_v13 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    // V14: Service dependency tracking v10
+
+    pub async fn create_service_dependency_v10(
+        &self,
+        input: CreateTraceServiceDependencyV10,
+    ) -> Result<TraceServiceDependencyV10, sqlx::Error> {
+        let row = sqlx::query_as::<_, TraceServiceDependencyV10Row>(
+            r#"INSERT INTO trace_service_dependencies_v10 (service_name, depends_on_service, call_count, avg_duration_ms, error_rate)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at"#,
+        )
+        .bind(&input.service_name)
+        .bind(&input.depends_on_service)
+        .bind(input.call_count.unwrap_or(0))
+        .bind(input.avg_duration_ms.unwrap_or(0.0))
+        .bind(input.error_rate.unwrap_or(0.0))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_service_dependency_v10(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<TraceServiceDependencyV10>, sqlx::Error> {
+        let row = sqlx::query_as::<_, TraceServiceDependencyV10Row>(
+            r#"SELECT id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at
+             FROM trace_service_dependencies_v10 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_service_dependencies_v10(
+        &self,
+    ) -> Result<Vec<TraceServiceDependencyV10>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TraceServiceDependencyV10Row>(
+            r#"SELECT id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at
+             FROM trace_service_dependencies_v10 ORDER BY last_updated_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_service_dependency_graph_v10(
+        &self,
+    ) -> Result<ServiceDependencyGraphV10, sqlx::Error> {
+        let deps = self.list_service_dependencies_v10().await?;
+        let total_services = deps
+            .iter()
+            .map(|d| &d.service_name)
+            .collect::<std::collections::HashSet<_>>()
+            .len() as i64;
+        let total_dependencies = deps.len() as i64;
+        Ok(ServiceDependencyGraphV10 {
+            dependencies: deps,
+            total_services,
+            total_dependencies,
+        })
+    }
+
+    pub async fn update_service_dependency_v10(
+        &self,
+        id: uuid::Uuid,
+        call_count: Option<i64>,
+        avg_duration_ms: Option<f64>,
+        error_rate: Option<f64>,
+    ) -> Result<TraceServiceDependencyV10, sqlx::Error> {
+        let row = sqlx::query_as::<_, TraceServiceDependencyV10Row>(
+            r#"UPDATE trace_service_dependencies_v10 SET
+             call_count = COALESCE($2, call_count),
+             avg_duration_ms = COALESCE($3, avg_duration_ms),
+             error_rate = COALESCE($4, error_rate),
+             last_updated_at = NOW()
+             WHERE id = $1
+             RETURNING id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at"#,
+        )
+        .bind(id)
+        .bind(call_count)
+        .bind(avg_duration_ms)
+        .bind(error_rate)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_service_dependency_v10(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM trace_service_dependencies_v10 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct SamplingRuleV13Row {
+    id: Uuid,
+    service_name: String,
+    endpoint: String,
+    sample_rate: f64,
+    max_traces_per_second: i32,
+    priority: i32,
+    enabled: bool,
+    created_at: DateTime<Utc>,
+}
+
+impl From<SamplingRuleV13Row> for SamplingRuleV13 {
+    fn from(row: SamplingRuleV13Row) -> Self {
+        SamplingRuleV13 {
+            id: row.id,
+            service_name: row.service_name,
+            endpoint: row.endpoint,
+            sample_rate: row.sample_rate,
+            max_traces_per_second: row.max_traces_per_second,
+            priority: row.priority,
+            enabled: row.enabled,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct TraceServiceDependencyV10Row {
+    id: Uuid,
+    service_name: String,
+    depends_on_service: String,
+    call_count: i64,
+    avg_duration_ms: f64,
+    error_rate: f64,
+    last_updated_at: DateTime<Utc>,
+}
+
+impl From<TraceServiceDependencyV10Row> for TraceServiceDependencyV10 {
+    fn from(row: TraceServiceDependencyV10Row) -> Self {
+        TraceServiceDependencyV10 {
+            id: row.id,
+            service_name: row.service_name,
+            depends_on_service: row.depends_on_service,
+            call_count: row.call_count,
+            avg_duration_ms: row.avg_duration_ms,
+            error_rate: row.error_rate,
+            last_updated_at: row.last_updated_at,
+        }
+    }
+}

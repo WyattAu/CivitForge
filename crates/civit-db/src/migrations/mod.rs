@@ -724,6 +724,15 @@ pub const M_419_AUTOMATION_RULES_V14_UP: &str = include_str!("419_add_automation
 pub const M_419_AUTOMATION_RULES_V14_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v14;";
 pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_UP: &str = include_str!("420_add_scheduled_task_templates_v11.sql");
 pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v11;";
+pub const M_421_LOG_AGGREGATION_V13_UP: &str = include_str!("421_add_log_aggregation_v13.sql");
+pub const M_421_LOG_AGGREGATION_V13_DOWN: &str =
+    "DROP TABLE IF EXISTS log_alert_rules_v10; DROP TABLE IF EXISTS log_entries_v13;";
+pub const M_422_DISTRIBUTED_TRACING_V14_UP: &str = include_str!("422_add_distributed_tracing_v14.sql");
+pub const M_422_DISTRIBUTED_TRACING_V14_DOWN: &str =
+    "DROP TABLE IF EXISTS trace_service_dependencies_v10; DROP TABLE IF EXISTS trace_sampling_rules_v13;";
+pub const M_423_DASHBOARD_REPORTING_V13_UP: &str = include_str!("423_add_dashboard_reporting_v13.sql");
+pub const M_423_DASHBOARD_REPORTING_V13_DOWN: &str =
+    "DROP TABLE IF EXISTS report_schedules_v11; DROP TABLE IF EXISTS dashboard_shares_v10;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2564,6 +2573,24 @@ impl MigrationManager {
             name: "add_scheduled_task_templates_v11".into(),
             up_sql: M_420_SCHEDULED_TASK_TEMPLATES_V11_UP.into(),
             down_sql: M_420_SCHEDULED_TASK_TEMPLATES_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 421,
+            name: "add_log_aggregation_v13".into(),
+            up_sql: M_421_LOG_AGGREGATION_V13_UP.into(),
+            down_sql: M_421_LOG_AGGREGATION_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 422,
+            name: "add_distributed_tracing_v14".into(),
+            up_sql: M_422_DISTRIBUTED_TRACING_V14_UP.into(),
+            down_sql: M_422_DISTRIBUTED_TRACING_V14_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 423,
+            name: "add_dashboard_reporting_v13".into(),
+            up_sql: M_423_DASHBOARD_REPORTING_V13_UP.into(),
+            down_sql: M_423_DASHBOARD_REPORTING_V13_DOWN.into(),
         });
     }
 
