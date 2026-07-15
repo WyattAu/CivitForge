@@ -673,6 +673,12 @@ pub const M_377_AUTOMATION_RULES_V12_UP: &str = include_str!("377_add_automation
 pub const M_377_AUTOMATION_RULES_V12_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v12;";
 pub const M_378_SCHEDULED_TASK_TEMPLATES_V9_UP: &str = include_str!("378_add_scheduled_task_templates_v9.sql");
 pub const M_378_SCHEDULED_TASK_TEMPLATES_V9_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v9;";
+pub const M_388_API_DOCS_V13_UP: &str = include_str!("388_add_api_docs_v13.sql");
+pub const M_388_API_DOCS_V13_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v13;";
+pub const M_389_RATE_LIMIT_TIERS_V11_UP: &str = include_str!("389_add_rate_limit_tiers_v11.sql");
+pub const M_389_RATE_LIMIT_TIERS_V11_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v8; DROP TABLE IF EXISTS rate_limit_tiers_v11;";
+pub const M_390_API_ANALYTICS_V14_UP: &str = include_str!("390_add_api_analytics_v14.sql");
+pub const M_390_API_ANALYTICS_V14_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v14;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -2351,6 +2357,24 @@ impl MigrationManager {
             name: "add_scheduled_task_templates_v9".into(),
             up_sql: M_378_SCHEDULED_TASK_TEMPLATES_V9_UP.into(),
             down_sql: M_378_SCHEDULED_TASK_TEMPLATES_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 388,
+            name: "add_api_docs_v13".into(),
+            up_sql: M_388_API_DOCS_V13_UP.into(),
+            down_sql: M_388_API_DOCS_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 389,
+            name: "add_rate_limit_tiers_v11".into(),
+            up_sql: M_389_RATE_LIMIT_TIERS_V11_UP.into(),
+            down_sql: M_389_RATE_LIMIT_TIERS_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 390,
+            name: "add_api_analytics_v14".into(),
+            up_sql: M_390_API_ANALYTICS_V14_UP.into(),
+            down_sql: M_390_API_ANALYTICS_V14_DOWN.into(),
         });
         self.add_migration(Migration {
             version: 361,
