@@ -963,6 +963,16 @@ pub const M_563_COMPLIANCE_V21_DOWN: &str =
 pub const M_564_AUDIT_TRAIL_V21_UP: &str = include_str!("564_add_audit_trail_v21.sql");
 pub const M_564_AUDIT_TRAIL_V21_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v21;";
 
+pub const M_574_TEST_SUITE_MANAGEMENT_V20_UP: &str = include_str!("574_add_test_suite_management_v20.sql");
+pub const M_574_TEST_SUITE_MANAGEMENT_V20_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines_v17; DROP TABLE IF EXISTS test_suite_metrics_v17;";
+pub const M_575_CODE_QUALITY_RULES_V20_UP: &str = include_str!("575_add_code_quality_rules_v20.sql");
+pub const M_575_CODE_QUALITY_RULES_V20_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds_v17; DROP TABLE IF EXISTS code_quality_metrics_v18;";
+pub const M_576_PERFORMANCE_TESTING_V21_UP: &str = include_str!("576_add_performance_testing_v21.sql");
+pub const M_576_PERFORMANCE_TESTING_V21_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v18; DROP TABLE IF EXISTS performance_test_alerts_v18;";
+
 #[derive(Debug, Clone)]
 pub struct Migration {
     pub version: i64,
@@ -3206,6 +3216,24 @@ impl MigrationManager {
             up_sql: M_564_AUDIT_TRAIL_V21_UP.into(),
             down_sql: M_564_AUDIT_TRAIL_V21_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 574,
+            name: "add_test_suite_management_v20".into(),
+            up_sql: M_574_TEST_SUITE_MANAGEMENT_V20_UP.into(),
+            down_sql: M_574_TEST_SUITE_MANAGEMENT_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 575,
+            name: "add_code_quality_rules_v20".into(),
+            up_sql: M_575_CODE_QUALITY_RULES_V20_UP.into(),
+            down_sql: M_575_CODE_QUALITY_RULES_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 576,
+            name: "add_performance_testing_v21".into(),
+            up_sql: M_576_PERFORMANCE_TESTING_V21_UP.into(),
+            down_sql: M_576_PERFORMANCE_TESTING_V21_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3493,8 +3521,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 278);
-        assert_eq!(mgr.all()[269].version, 403);
+        assert_eq!(mgr.all().len(), 281);
+        assert_eq!(mgr.all()[272].version, 403);
     }
 
     #[test]
@@ -3513,7 +3541,7 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 268);
+        assert_eq!(pending.len(), 271);
     }
 
     #[test]
@@ -4168,5 +4196,47 @@ mod tests {
         assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_cost_optimization_v14"));
         assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_size_tracking_v14"));
         assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_hit_analysis_v14"));
+    }
+
+    #[test]
+    fn test_test_suite_management_v20_up_sql_not_empty() {
+        assert_ne!(M_574_TEST_SUITE_MANAGEMENT_V20_UP, "");
+        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v17"));
+        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v17"));
+    }
+
+    #[test]
+    fn test_test_suite_management_v20_down_sql_not_empty() {
+        assert_ne!(M_574_TEST_SUITE_MANAGEMENT_V20_DOWN, "");
+        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_DOWN.contains("DROP TABLE IF EXISTS test_suite_baselines_v17"));
+        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_DOWN.contains("DROP TABLE IF EXISTS test_suite_metrics_v17"));
+    }
+
+    #[test]
+    fn test_code_quality_rules_v20_up_sql_not_empty() {
+        assert_ne!(M_575_CODE_QUALITY_RULES_V20_UP, "");
+        assert!(M_575_CODE_QUALITY_RULES_V20_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v18"));
+        assert!(M_575_CODE_QUALITY_RULES_V20_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v17"));
+    }
+
+    #[test]
+    fn test_code_quality_rules_v20_down_sql_not_empty() {
+        assert_ne!(M_575_CODE_QUALITY_RULES_V20_DOWN, "");
+        assert!(M_575_CODE_QUALITY_RULES_V20_DOWN.contains("DROP TABLE IF EXISTS code_quality_thresholds_v17"));
+        assert!(M_575_CODE_QUALITY_RULES_V20_DOWN.contains("DROP TABLE IF EXISTS code_quality_metrics_v18"));
+    }
+
+    #[test]
+    fn test_performance_testing_v21_up_sql_not_empty() {
+        assert_ne!(M_576_PERFORMANCE_TESTING_V21_UP, "");
+        assert!(M_576_PERFORMANCE_TESTING_V21_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v18"));
+        assert!(M_576_PERFORMANCE_TESTING_V21_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v18"));
+    }
+
+    #[test]
+    fn test_performance_testing_v21_down_sql_not_empty() {
+        assert_ne!(M_576_PERFORMANCE_TESTING_V21_DOWN, "");
+        assert!(M_576_PERFORMANCE_TESTING_V21_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v18"));
+        assert!(M_576_PERFORMANCE_TESTING_V21_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v18"));
     }
 }

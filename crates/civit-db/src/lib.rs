@@ -17,6 +17,9 @@ pub use models::{
     RateLimitTierV7, RateLimitTierV8, RateLimitTierV9, RateLimitTierV10,
     RateLimitAlertV5, RateLimitAlertV6, RateLimitAlertV7,
     ApiAnalyticV10, ApiAnalyticV11, ApiAnalyticV12, ApiAnalyticV13,
+    TestSuiteMetricV20, TestSuiteBaselineV20,
+    CodeQualityMetricV20, CodeQualityThresholdV20,
+    PerformanceTestAlertV21, PerformanceTestAlertHistoryV21,
 };
 pub use pool::DatabasePool;
 pub use repository::{DbRepository, OrgUsage};
