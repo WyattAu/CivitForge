@@ -954,6 +954,14 @@ pub const M_555_PERFORMANCE_TESTING_V20_DOWN: &str =
 pub const M_556_API_DOCS_V21_UP: &str = include_str!("556_add_api_docs_v21.sql");
 pub const M_557_RATE_LIMIT_TIERS_V19_UP: &str = include_str!("557_add_rate_limit_tiers_v19.sql");
 pub const M_558_API_ANALYTICS_V22_UP: &str = include_str!("558_add_api_analytics_v22.sql");
+pub const M_562_SECURITY_SCAN_V21_UP: &str = include_str!("562_add_security_scan_v21.sql");
+pub const M_562_SECURITY_SCAN_V21_DOWN: &str =
+    "DROP TABLE IF EXISTS security_scan_fixes_v18; DROP TABLE IF EXISTS security_scan_rules_v20;";
+pub const M_563_COMPLIANCE_V21_UP: &str = include_str!("563_add_compliance_v21.sql");
+pub const M_563_COMPLIANCE_V21_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_assessments_v19; DROP TABLE IF EXISTS compliance_frameworks_v20;";
+pub const M_564_AUDIT_TRAIL_V21_UP: &str = include_str!("564_add_audit_trail_v21.sql");
+pub const M_564_AUDIT_TRAIL_V21_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v21;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3179,6 +3187,24 @@ impl MigrationManager {
             name: "add_api_analytics_v22".into(),
             up_sql: M_558_API_ANALYTICS_V22_UP.into(),
             down_sql: String::new(),
+        });
+        self.add_migration(Migration {
+            version: 562,
+            name: "add_security_scan_v21".into(),
+            up_sql: M_562_SECURITY_SCAN_V21_UP.into(),
+            down_sql: M_562_SECURITY_SCAN_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 563,
+            name: "add_compliance_v21".into(),
+            up_sql: M_563_COMPLIANCE_V21_UP.into(),
+            down_sql: M_563_COMPLIANCE_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 564,
+            name: "add_audit_trail_v21".into(),
+            up_sql: M_564_AUDIT_TRAIL_V21_UP.into(),
+            down_sql: M_564_AUDIT_TRAIL_V21_DOWN.into(),
         });
     }
 
