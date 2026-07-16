@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use super::automation_rules::*;
+use crate::shared_types::ExecutionResult;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -228,14 +229,14 @@ fn test_rule_execution_record() {
     let record = RuleExecutionRecord {
         id: Uuid::new_v4(),
         rule_id: Uuid::new_v4(),
-        status: "matched".into(),
+        status: ExecutionResult::Matched,
         matched_conditions: vec!["branch".into(), "status".into()],
         failed_conditions: vec![],
         actions_executed: vec!["deploy".into(), "notify".into()],
         error: None,
         executed_at: Utc::now(),
     };
-    assert_eq!(record.status, "matched");
+    assert_eq!(record.status, ExecutionResult::Matched);
     assert_eq!(record.matched_conditions.len(), 2);
     assert_eq!(record.actions_executed.len(), 2);
 }

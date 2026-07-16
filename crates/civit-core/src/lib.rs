@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod shared_types;
+
 pub mod api;
 pub mod audit;
 pub mod auth;

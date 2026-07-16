@@ -8,8 +8,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::str::FromStr;
 use uuid::Uuid;
 use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14, AutomationRuleV15, AutomationRuleV16, AutomationRuleV17, AutomationRuleV18, AutomationRuleV19, AutomationRuleV20, AutomationRuleV21, AutomationRuleV22, AutomationRuleTemplateV20, AutomationRuleTemplateRatingV20};
+
+use crate::shared_types::ExecutionResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRule {
@@ -40,7 +43,7 @@ pub struct AutomationRuleV2 {
 pub struct RuleExecutionRecord {
     pub id: Uuid,
     pub rule_id: Uuid,
-    pub status: String,
+    pub status: ExecutionResult,
     pub matched_conditions: Vec<String>,
     pub failed_conditions: Vec<String>,
     pub actions_executed: Vec<String>,
@@ -626,7 +629,7 @@ impl From<RuleExecutionRecordRow> for RuleExecutionRecord {
         RuleExecutionRecord {
             id: row.id,
             rule_id: row.rule_id,
-            status: row.status,
+            status: ExecutionResult::from_str(&row.status).unwrap_or(ExecutionResult::Error),
             matched_conditions: matched,
             failed_conditions: failed,
             actions_executed: executed,
@@ -1320,7 +1323,7 @@ impl AutomationRuleService {
             }
         }
 
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         self.record_execution(
             rule_id,
@@ -1379,7 +1382,7 @@ impl AutomationRuleService {
     async fn record_execution(
         &self,
         rule_id: Uuid,
-        status: &str,
+        status: ExecutionResult,
         matched: &[String],
         failed: &[String],
         actions: &[String],
@@ -1395,7 +1398,7 @@ impl AutomationRuleService {
              RETURNING id, rule_id, status, matched_conditions, failed_conditions, actions_executed, error, executed_at"#,
         )
         .bind(rule_id)
-        .bind(status)
+        .bind(status.to_string())
         .bind(matched_json)
         .bind(failed_json)
         .bind(actions_json)
@@ -1587,7 +1590,7 @@ impl AutomationRuleService {
             }
         }
 
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         // Update run count and last_run_at
         sqlx::query(
@@ -1834,7 +1837,7 @@ impl AutomationRuleService {
             }
         }
 
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         // Update run count, last_run_at, and success rate
         let new_success_rate = if all_matched {
@@ -2125,7 +2128,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         // Update run count, last_run_at, success rate, and avg execution time
         let new_success_rate = if all_matched {
@@ -2422,7 +2425,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -2732,7 +2735,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -3042,7 +3045,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -3352,7 +3355,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -3699,7 +3702,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -4039,7 +4042,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -4379,7 +4382,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -4719,7 +4722,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -5397,7 +5400,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -5767,7 +5770,7 @@ impl AutomationRuleService {
         }
 
         let execution_time_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         // Update run count, last_run_at, and execution time
         let new_run_count = rule.run_count + 1;
@@ -6170,7 +6173,7 @@ impl AutomationRuleService {
         }
 
         let execution_time_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_run_count = rule.run_count + 1;
         let new_success_rate = if all_matched {
@@ -6697,7 +6700,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -7199,7 +7202,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -7540,7 +7543,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -7857,7 +7860,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)
@@ -8174,7 +8177,7 @@ impl AutomationRuleService {
         }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
-        let status = if all_matched { "matched" } else { "not_matched" };
+        let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
         let new_success_rate = if all_matched {
             (rule.success_rate * 0.9) + (100.0 * 0.1)

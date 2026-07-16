@@ -1,6 +1,7 @@
 #![cfg(test)]
 
 use super::workflow_engine::*;
+use crate::shared_types::RunStatus;
 use chrono::Utc;
 use uuid::Uuid;
 
@@ -80,13 +81,13 @@ fn test_workflow_run_creation() {
     let run = WorkflowRun {
         id: Uuid::new_v4(),
         workflow_id: Uuid::new_v4(),
-        status: "running".into(),
+        status: RunStatus::Running,
         current_step: 0,
         total_steps: 3,
         started_at: Utc::now(),
         completed_at: None,
     };
-    assert_eq!(run.status, "running");
+    assert_eq!(run.status, RunStatus::Running);
     assert_eq!(run.total_steps, 3);
     assert!(run.completed_at.is_none());
 }
@@ -96,7 +97,7 @@ fn test_workflow_run_completed() {
     let run = WorkflowRun {
         id: Uuid::new_v4(),
         workflow_id: Uuid::new_v4(),
-        status: "completed".into(),
+        status: RunStatus::Completed,
         current_step: 3,
         total_steps: 3,
         started_at: Utc::now(),
@@ -156,7 +157,7 @@ fn test_update_workflow_input_with_values() {
 fn test_workflow_step_result() {
     let result = WorkflowStepResult {
         step_index: 1,
-        status: "completed".into(),
+        status: RunStatus::Completed,
         output: Some(serde_json::json!({"key": "value"})),
         error: None,
         started_at: Utc::now(),
@@ -170,7 +171,7 @@ fn test_workflow_step_result() {
 fn test_workflow_step_result_with_error() {
     let result = WorkflowStepResult {
         step_index: 0,
-        status: "failed".into(),
+        status: RunStatus::Failed,
         output: None,
         error: Some("timeout".into()),
         started_at: Utc::now(),
@@ -187,7 +188,7 @@ fn test_action_chain_result() {
     let result = ActionChainResult {
         action_id: Uuid::new_v4(),
         action_type: "deploy".into(),
-        status: "completed".into(),
+        status: RunStatus::Completed,
         output: Some(serde_json::json!({"deployed": true})),
         error: None,
         started_at: Utc::now(),
@@ -303,13 +304,13 @@ fn test_workflow_execution_creation() {
         id: Uuid::new_v4(),
         workflow_id: Uuid::new_v4(),
         trigger_id: Some(Uuid::new_v4()),
-        status: "running".into(),
+        status: RunStatus::Running,
         input: serde_json::json!({"key": "val"}),
         output: serde_json::json!({}),
         started_at: Utc::now(),
         completed_at: None,
     };
-    assert_eq!(execution.status, "running");
+    assert_eq!(execution.status, RunStatus::Running);
     assert!(execution.completed_at.is_none());
 }
 
@@ -321,7 +322,7 @@ fn test_workflow_execution_step() {
         id: Uuid::new_v4(),
         execution_id: Uuid::new_v4(),
         action_id: Uuid::new_v4(),
-        status: "completed".into(),
+        status: RunStatus::Completed,
         input: serde_json::json!({}),
         output: serde_json::json!({"result": "ok"}),
         error: None,

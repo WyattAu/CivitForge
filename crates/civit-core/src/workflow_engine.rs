@@ -8,8 +8,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::str::FromStr;
 use uuid::Uuid;
 use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20};
+
+use crate::shared_types::RunStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {
@@ -48,7 +51,7 @@ pub struct WorkflowAction {
 pub struct WorkflowRun {
     pub id: Uuid,
     pub workflow_id: Uuid,
-    pub status: String,
+    pub status: RunStatus,
     pub current_step: i32,
     pub total_steps: i32,
     pub started_at: DateTime<Utc>,
@@ -78,7 +81,7 @@ pub struct UpdateWorkflow {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowStepResult {
     pub step_index: i32,
-    pub status: String,
+    pub status: RunStatus,
     pub output: Option<serde_json::Value>,
     pub error: Option<String>,
     pub started_at: DateTime<Utc>,
@@ -89,7 +92,7 @@ pub struct WorkflowStepResult {
 pub struct ActionChainResult {
     pub action_id: Uuid,
     pub action_type: String,
-    pub status: String,
+    pub status: RunStatus,
     pub output: Option<serde_json::Value>,
     pub error: Option<String>,
     pub started_at: DateTime<Utc>,
@@ -122,7 +125,7 @@ pub struct WorkflowExecution {
     pub id: Uuid,
     pub workflow_id: Uuid,
     pub trigger_id: Option<Uuid>,
-    pub status: String,
+    pub status: RunStatus,
     pub input: serde_json::Value,
     pub output: serde_json::Value,
     pub started_at: DateTime<Utc>,
@@ -134,7 +137,7 @@ pub struct WorkflowExecutionStep {
     pub id: Uuid,
     pub execution_id: Uuid,
     pub action_id: Uuid,
-    pub status: String,
+    pub status: RunStatus,
     pub input: serde_json::Value,
     pub output: serde_json::Value,
     pub error: Option<String>,
@@ -270,7 +273,7 @@ impl From<WorkflowRunRow> for WorkflowRun {
         WorkflowRun {
             id: row.id,
             workflow_id: row.workflow_id,
-            status: row.status,
+            status: RunStatus::from_str(&row.status).unwrap_or(RunStatus::Pending),
             current_step: row.current_step,
             total_steps: row.total_steps,
             started_at: row.started_at,
@@ -345,7 +348,7 @@ impl From<WorkflowExecutionRow> for WorkflowExecution {
             id: row.id,
             workflow_id: row.workflow_id,
             trigger_id: row.trigger_id,
-            status: row.status,
+            status: RunStatus::from_str(&row.status).unwrap_or(RunStatus::Pending),
             input: row.input,
             output: row.output,
             started_at: row.started_at,
@@ -487,7 +490,7 @@ impl From<WorkflowExecutionStepRow> for WorkflowExecutionStep {
             id: row.id,
             execution_id: row.execution_id,
             action_id: row.action_id,
-            status: row.status,
+            status: RunStatus::from_str(&row.status).unwrap_or(RunStatus::Pending),
             input: row.input,
             output: row.output,
             error: row.error,
@@ -1268,14 +1271,14 @@ impl WorkflowService {
         Ok(row.into())
     }
 
-    pub async fn complete_run(&self, run_id: Uuid, status: &str) -> Result<WorkflowRun, sqlx::Error> {
+    pub async fn complete_run(&self, run_id: Uuid, status: RunStatus) -> Result<WorkflowRun, sqlx::Error> {
         let row = sqlx::query_as::<_, WorkflowRunRow>(
             r#"UPDATE workflow_runs SET status = $2, completed_at = NOW()
              WHERE id = $1
              RETURNING id, workflow_id, status, current_step, total_steps, started_at, completed_at"#,
         )
         .bind(run_id)
-        .bind(status)
+        .bind(status.to_string())
         .fetch_one(&self.pool)
         .await?;
 
@@ -1358,7 +1361,7 @@ impl WorkflowService {
             sqlx::Error::RowNotFound
         })?;
 
-        let status = "completed".to_string();
+        let status = RunStatus::Completed;
         let output = Some(serde_json::json!({
             "step_index": step_index,
             "step_name": step.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"),
@@ -1608,7 +1611,7 @@ impl WorkflowService {
                 results.push(ActionChainResult {
                     action_id: action.id,
                     action_type: action.action_type.clone(),
-                    status: "skipped".to_string(),
+                    status: RunStatus::Skipped,
                     output: Some(serde_json::json!({"reason": "condition_not_met"})),
                     error: None,
                     started_at,
@@ -1617,7 +1620,7 @@ impl WorkflowService {
                 continue;
             }
 
-            let status = "completed".to_string();
+            let status = RunStatus::Completed;
             let output = Some(serde_json::json!({
                 "action_type": action.action_type,
                 "action_id": action.id,
@@ -1680,8 +1683,8 @@ impl WorkflowService {
             let run = self.start_run(workflow.id).await?;
             let action_results = self.execute_action_chain(workflow.id, context).await?;
 
-            let all_success = action_results.iter().all(|r| r.status == "completed" || r.status == "skipped");
-            let final_status = if all_success { "completed" } else { "failed" };
+            let all_success = action_results.iter().all(|r| r.status == RunStatus::Completed || r.status == RunStatus::Skipped);
+            let final_status = if all_success { RunStatus::Completed } else { RunStatus::Failed };
             let _ = self.complete_run(run.id, final_status).await?;
 
             all_results.push((run, action_results));
@@ -1939,9 +1942,10 @@ impl WorkflowService {
     pub async fn update_execution_status(
         &self,
         execution_id: Uuid,
-        status: &str,
+        status: RunStatus,
         output: Option<serde_json::Value>,
     ) -> Result<WorkflowExecution, sqlx::Error> {
+        let status_str = status.to_string();
         let row = sqlx::query_as::<_, WorkflowExecutionRow>(
             r#"UPDATE workflow_executions SET
              status = $2,
@@ -1951,7 +1955,7 @@ impl WorkflowService {
              RETURNING id, workflow_id, trigger_id, status, input, output, started_at, completed_at"#,
         )
         .bind(execution_id)
-        .bind(status)
+        .bind(&status_str)
         .bind(output)
         .fetch_one(&self.pool)
         .await?;
@@ -1982,10 +1986,11 @@ impl WorkflowService {
     pub async fn complete_execution_step(
         &self,
         step_id: Uuid,
-        status: &str,
+        status: RunStatus,
         output: Option<serde_json::Value>,
         error: Option<&str>,
     ) -> Result<WorkflowExecutionStep, sqlx::Error> {
+        let status_str = status.to_string();
         let row = sqlx::query_as::<_, WorkflowExecutionStepRow>(
             r#"UPDATE workflow_execution_steps SET
              status = $2,
@@ -1996,7 +2001,7 @@ impl WorkflowService {
              RETURNING id, execution_id, action_id, status, input, output, error, started_at, completed_at"#,
         )
         .bind(step_id)
-        .bind(status)
+        .bind(&status_str)
         .bind(output)
         .bind(error)
         .fetch_one(&self.pool)
@@ -2051,7 +2056,7 @@ impl WorkflowService {
             if !should_execute {
                 let completed_step = self.complete_execution_step(
                     step.id,
-                    "skipped",
+                    RunStatus::Skipped,
                     Some(serde_json::json!({"reason": "condition_not_met"})),
                     None,
                 ).await?;
@@ -2061,7 +2066,7 @@ impl WorkflowService {
 
             let completed_step = self.complete_execution_step(
                 step.id,
-                "completed",
+                RunStatus::Completed,
                 Some(serde_json::json!({
                     "action_type": action.action_type,
                     "result": "executed"
@@ -2071,14 +2076,14 @@ impl WorkflowService {
             steps.push(completed_step);
         }
 
-        let all_success = steps.iter().all(|s| s.status == "completed" || s.status == "skipped");
-        let final_status = if all_success { "completed" } else { "failed" };
+        let all_success = steps.iter().all(|s| s.status == RunStatus::Completed || s.status == RunStatus::Skipped);
+        let final_status = if all_success { RunStatus::Completed } else { RunStatus::Failed };
 
         let final_output = serde_json::json!({
             "total_steps": steps.len(),
-            "completed_steps": steps.iter().filter(|s| s.status == "completed").count(),
-            "skipped_steps": steps.iter().filter(|s| s.status == "skipped").count(),
-            "failed_steps": steps.iter().filter(|s| s.status == "failed").count(),
+            "completed_steps": steps.iter().filter(|s| s.status == RunStatus::Completed).count(),
+            "skipped_steps": steps.iter().filter(|s| s.status == RunStatus::Skipped).count(),
+            "failed_steps": steps.iter().filter(|s| s.status == RunStatus::Failed).count(),
         });
 
         let execution = self.update_execution_status(
@@ -2137,7 +2142,7 @@ impl WorkflowService {
         &self,
         execution_id: Uuid,
     ) -> Result<WorkflowExecution, sqlx::Error> {
-        self.update_execution_status(execution_id, "cancelled", None).await
+        self.update_execution_status(execution_id, RunStatus::Cancelled, None).await
     }
 
     pub async fn retry_execution(
