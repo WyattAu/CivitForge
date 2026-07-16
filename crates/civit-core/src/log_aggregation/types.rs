@@ -1781,3 +1781,123 @@ pub struct CreateLogNotificationConfigV9 {
     pub endpoint: String,
     pub enabled: Option<bool>,
 }
+
+// V19: Enhanced log aggregation with advanced pattern matching and threshold monitoring
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntryV19 {
+    pub id: uuid::Uuid,
+    pub level: LogLevel,
+    pub message: String,
+    pub source: String,
+    pub service: String,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub metadata: serde_json::Value,
+    pub retention_days: i32,
+    pub indexed: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogEntryV19 {
+    pub level: LogLevel,
+    pub message: String,
+    pub source: String,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub span_id: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub retention_days: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchFilterV19 {
+    pub level: Option<LogLevel>,
+    pub source: Option<String>,
+    pub service: Option<String>,
+    pub trace_id: Option<String>,
+    pub search: Option<String>,
+    pub indexed: Option<bool>,
+    pub since: Option<chrono::DateTime<chrono::Utc>>,
+    pub until: Option<chrono::DateTime<chrono::Utc>>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchResultV19 {
+    pub entries: Vec<LogEntryV19>,
+    pub total_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogAlertRuleV16 {
+    pub id: uuid::Uuid,
+    pub name: String,
+    pub level: LogLevel,
+    pub pattern: String,
+    pub threshold: i32,
+    pub window_seconds: i32,
+    pub enabled: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogAlertRuleV16 {
+    pub name: String,
+    pub level: LogLevel,
+    pub pattern: String,
+    pub threshold: Option<i32>,
+    pub window_seconds: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateLogAlertRuleV16 {
+    pub name: Option<String>,
+    pub level: Option<LogLevel>,
+    pub pattern: Option<String>,
+    pub threshold: Option<i32>,
+    pub window_seconds: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogPatternMatchV19 {
+    pub pattern: String,
+    pub match_count: i64,
+    pub first_match_at: chrono::DateTime<chrono::Utc>,
+    pub last_match_at: chrono::DateTime<chrono::Utc>,
+    pub affected_services: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogThresholdAlertV19 {
+    pub alert_rule_id: uuid::Uuid,
+    pub rule_name: String,
+    pub current_count: i64,
+    pub threshold: i32,
+    pub window_seconds: i32,
+    pub triggered_at: chrono::DateTime<chrono::Utc>,
+    pub level: LogLevel,
+    pub pattern: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogNotificationConfigV10 {
+    pub id: uuid::Uuid,
+    pub alert_rule_id: uuid::Uuid,
+    pub notification_type: String,
+    pub endpoint: String,
+    pub enabled: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogNotificationConfigV10 {
+    pub alert_rule_id: uuid::Uuid,
+    pub notification_type: String,
+    pub endpoint: String,
+    pub enabled: Option<bool>,
+}

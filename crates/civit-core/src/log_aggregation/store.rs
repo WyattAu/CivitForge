@@ -5773,4 +5773,552 @@ impl LogAggregationService {
 
         Ok(alerts)
     }
+
+    // V19: Log entries with enhanced indexing and alert rules v16
+
+    pub async fn ingest_v19(
+        &self,
+        input: CreateLogEntryV19,
+    ) -> Result<LogEntryV19, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogEntryV19Row {
+            id: uuid::Uuid,
+            level: String,
+            message: String,
+            source: String,
+            service: String,
+            trace_id: Option<String>,
+            span_id: Option<String>,
+            metadata: serde_json::Value,
+            retention_days: i32,
+            indexed: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogEntryV19Row> for LogEntryV19 {
+            fn from(row: LogEntryV19Row) -> Self {
+                LogEntryV19 {
+                    id: row.id,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    message: row.message,
+                    source: row.source,
+                    service: row.service,
+                    trace_id: row.trace_id,
+                    span_id: row.span_id,
+                    metadata: row.metadata,
+                    retention_days: row.retention_days,
+                    indexed: row.indexed,
+                    created_at: row.created_at,
+                }
+            }
+        }
+
+        let row = sqlx::query_as::<_, LogEntryV19Row>(
+            r#"INSERT INTO log_entries_v19 (level, message, source, service, trace_id, span_id, metadata, retention_days)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at"#,
+        )
+        .bind(input.level.to_string())
+        .bind(&input.message)
+        .bind(&input.source)
+        .bind(input.service.as_deref().unwrap_or("civitforge"))
+        .bind(&input.trace_id)
+        .bind(&input.span_id)
+        .bind(input.metadata.unwrap_or(serde_json::json!({})))
+        .bind(input.retention_days.unwrap_or(30))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn search_v19(
+        &self,
+        filter: LogSearchFilterV19,
+    ) -> Result<LogSearchResultV19, sqlx::Error> {
+        let limit = filter.limit.unwrap_or(100).min(1000);
+        let offset = filter.offset.unwrap_or(0);
+        let level_str = filter.level.map(|l| l.to_string());
+        let search_pattern = filter.search.map(|s| format!("%{}%", s));
+
+        let total_count = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*) FROM log_entries_v19
+             WHERE ($1::text IS NULL OR level = $1)
+             AND ($2::text IS NULL OR source = $2)
+             AND ($3::text IS NULL OR service = $3)
+             AND ($4::text IS NULL OR trace_id = $4)
+             AND ($5::text IS NULL OR message ILIKE $5)
+             AND ($6::bool IS NULL OR indexed = $6)
+             AND ($7::timestamptz IS NULL OR created_at >= $7)
+             AND ($8::timestamptz IS NULL OR created_at <= $8)"#,
+        )
+        .bind(&level_str)
+        .bind(&filter.source)
+        .bind(&filter.service)
+        .bind(&filter.trace_id)
+        .bind(&search_pattern)
+        .bind(filter.indexed)
+        .bind(filter.since)
+        .bind(filter.until)
+        .fetch_one(&self.pool)
+        .await?;
+
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogEntryV19Row {
+            id: uuid::Uuid,
+            level: String,
+            message: String,
+            source: String,
+            service: String,
+            trace_id: Option<String>,
+            span_id: Option<String>,
+            metadata: serde_json::Value,
+            retention_days: i32,
+            indexed: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogEntryV19Row> for LogEntryV19 {
+            fn from(row: LogEntryV19Row) -> Self {
+                LogEntryV19 {
+                    id: row.id,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    message: row.message,
+                    source: row.source,
+                    service: row.service,
+                    trace_id: row.trace_id,
+                    span_id: row.span_id,
+                    metadata: row.metadata,
+                    retention_days: row.retention_days,
+                    indexed: row.indexed,
+                    created_at: row.created_at,
+                }
+            }
+        }
+
+        let entries = sqlx::query_as::<_, LogEntryV19Row>(
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at FROM log_entries_v19
+             WHERE ($1::text IS NULL OR level = $1)
+             AND ($2::text IS NULL OR source = $2)
+             AND ($3::text IS NULL OR service = $3)
+             AND ($4::text IS NULL OR trace_id = $4)
+             AND ($5::text IS NULL OR message ILIKE $5)
+             AND ($6::bool IS NULL OR indexed = $6)
+             AND ($7::timestamptz IS NULL OR created_at >= $7)
+             AND ($8::timestamptz IS NULL OR created_at <= $8)
+             ORDER BY created_at DESC LIMIT $9 OFFSET $10"#,
+        )
+        .bind(&level_str)
+        .bind(&filter.source)
+        .bind(&filter.service)
+        .bind(&filter.trace_id)
+        .bind(&search_pattern)
+        .bind(filter.indexed)
+        .bind(filter.since)
+        .bind(filter.until)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(LogSearchResultV19 {
+            entries: entries.into_iter().map(|r| r.into()).collect(),
+            total_count,
+        })
+    }
+
+    pub async fn get_by_id_v19(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<LogEntryV19>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogEntryV19Row {
+            id: uuid::Uuid,
+            level: String,
+            message: String,
+            source: String,
+            service: String,
+            trace_id: Option<String>,
+            span_id: Option<String>,
+            metadata: serde_json::Value,
+            retention_days: i32,
+            indexed: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogEntryV19Row> for LogEntryV19 {
+            fn from(row: LogEntryV19Row) -> Self {
+                LogEntryV19 {
+                    id: row.id,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    message: row.message,
+                    source: row.source,
+                    service: row.service,
+                    trace_id: row.trace_id,
+                    span_id: row.span_id,
+                    metadata: row.metadata,
+                    retention_days: row.retention_days,
+                    indexed: row.indexed,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let row = sqlx::query_as::<_, LogEntryV19Row>(
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
+             FROM log_entries_v19 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn create_alert_rule_v16(
+        &self,
+        input: CreateLogAlertRuleV16,
+    ) -> Result<LogAlertRuleV16, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogAlertRuleV16Row {
+            id: uuid::Uuid,
+            name: String,
+            level: String,
+            pattern: String,
+            threshold: i32,
+            window_seconds: i32,
+            enabled: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogAlertRuleV16Row> for LogAlertRuleV16 {
+            fn from(row: LogAlertRuleV16Row) -> Self {
+                LogAlertRuleV16 {
+                    id: row.id,
+                    name: row.name,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    pattern: row.pattern,
+                    threshold: row.threshold,
+                    window_seconds: row.window_seconds,
+                    enabled: row.enabled,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let row = sqlx::query_as::<_, LogAlertRuleV16Row>(
+            r#"INSERT INTO log_alert_rules_v16 (name, level, pattern, threshold, window_seconds, enabled)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, level, pattern, threshold, window_seconds, enabled, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.level.to_string())
+        .bind(&input.pattern)
+        .bind(input.threshold.unwrap_or(10))
+        .bind(input.window_seconds.unwrap_or(300))
+        .bind(input.enabled.unwrap_or(true))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn get_alert_rule_v16(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<Option<LogAlertRuleV16>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogAlertRuleV16Row {
+            id: uuid::Uuid,
+            name: String,
+            level: String,
+            pattern: String,
+            threshold: i32,
+            window_seconds: i32,
+            enabled: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogAlertRuleV16Row> for LogAlertRuleV16 {
+            fn from(row: LogAlertRuleV16Row) -> Self {
+                LogAlertRuleV16 {
+                    id: row.id,
+                    name: row.name,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    pattern: row.pattern,
+                    threshold: row.threshold,
+                    window_seconds: row.window_seconds,
+                    enabled: row.enabled,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let row = sqlx::query_as::<_, LogAlertRuleV16Row>(
+            r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
+             FROM log_alert_rules_v16 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_alert_rules_v16(
+        &self,
+    ) -> Result<Vec<LogAlertRuleV16>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogAlertRuleV16Row {
+            id: uuid::Uuid,
+            name: String,
+            level: String,
+            pattern: String,
+            threshold: i32,
+            window_seconds: i32,
+            enabled: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogAlertRuleV16Row> for LogAlertRuleV16 {
+            fn from(row: LogAlertRuleV16Row) -> Self {
+                LogAlertRuleV16 {
+                    id: row.id,
+                    name: row.name,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    pattern: row.pattern,
+                    threshold: row.threshold,
+                    window_seconds: row.window_seconds,
+                    enabled: row.enabled,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let rows = sqlx::query_as::<_, LogAlertRuleV16Row>(
+            r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
+             FROM log_alert_rules_v16 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_alert_rule_v16(
+        &self,
+        id: uuid::Uuid,
+        input: UpdateLogAlertRuleV16,
+    ) -> Result<LogAlertRuleV16, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogAlertRuleV16Row {
+            id: uuid::Uuid,
+            name: String,
+            level: String,
+            pattern: String,
+            threshold: i32,
+            window_seconds: i32,
+            enabled: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogAlertRuleV16Row> for LogAlertRuleV16 {
+            fn from(row: LogAlertRuleV16Row) -> Self {
+                LogAlertRuleV16 {
+                    id: row.id,
+                    name: row.name,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    pattern: row.pattern,
+                    threshold: row.threshold,
+                    window_seconds: row.window_seconds,
+                    enabled: row.enabled,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let row = sqlx::query_as::<_, LogAlertRuleV16Row>(
+            r#"UPDATE log_alert_rules_v16 SET
+             name = COALESCE($2, name),
+             level = COALESCE($3, level),
+             pattern = COALESCE($4, pattern),
+             threshold = COALESCE($5, threshold),
+             window_seconds = COALESCE($6, window_seconds),
+             enabled = COALESCE($7, enabled)
+             WHERE id = $1
+             RETURNING id, name, level, pattern, threshold, window_seconds, enabled, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(input.level.map(|l| l.to_string()))
+        .bind(&input.pattern)
+        .bind(input.threshold)
+        .bind(input.window_seconds)
+        .bind(input.enabled)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(row.into())
+    }
+
+    pub async fn delete_alert_rule_v16(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM log_alert_rules_v16 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn check_alert_rule_v16(
+        &self,
+        id: uuid::Uuid,
+    ) -> Result<(LogAlertRuleV16, i64), sqlx::Error> {
+        let rule = self.get_alert_rule_v16(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let count = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*) FROM log_entries_v19
+             WHERE level = $1 AND message ILIKE $2
+             AND created_at >= NOW() - make_interval(seconds => $3::int)"#,
+        )
+        .bind(rule.level.to_string())
+        .bind(&rule.pattern)
+        .bind(rule.window_seconds)
+        .fetch_one(&self.pool)
+        .await?;
+        Ok((rule, count))
+    }
+
+    pub async fn check_all_alert_rules_v16(
+        &self,
+    ) -> Result<Vec<(LogAlertRuleV16, i64, bool)>, sqlx::Error> {
+        let rules = self.list_alert_rules_v16().await?;
+        let mut results = Vec::new();
+        for rule in rules {
+            if !rule.enabled {
+                continue;
+            }
+            let count = sqlx::query_scalar::<_, i64>(
+                r#"SELECT COUNT(*) FROM log_entries_v19
+                 WHERE level = $1 AND message ILIKE $2
+                 AND created_at >= NOW() - make_interval(seconds => $3::int)"#,
+            )
+            .bind(rule.level.to_string())
+            .bind(&rule.pattern)
+            .bind(rule.window_seconds)
+            .fetch_one(&self.pool)
+            .await?;
+            let triggered = count >= rule.threshold as i64;
+            results.push((rule, count, triggered));
+        }
+        Ok(results)
+    }
+
+    pub async fn match_pattern_v19(
+        &self,
+        pattern: &str,
+        since: Option<chrono::DateTime<chrono::Utc>>,
+        until: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<Vec<LogEntryV19>, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogEntryV19Row {
+            id: uuid::Uuid,
+            level: String,
+            message: String,
+            source: String,
+            service: String,
+            trace_id: Option<String>,
+            span_id: Option<String>,
+            metadata: serde_json::Value,
+            retention_days: i32,
+            indexed: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogEntryV19Row> for LogEntryV19 {
+            fn from(row: LogEntryV19Row) -> Self {
+                LogEntryV19 {
+                    id: row.id,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    message: row.message,
+                    source: row.source,
+                    service: row.service,
+                    trace_id: row.trace_id,
+                    span_id: row.span_id,
+                    metadata: row.metadata,
+                    retention_days: row.retention_days,
+                    indexed: row.indexed,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let search_pattern = format!("%{}%", pattern);
+        let rows = sqlx::query_as::<_, LogEntryV19Row>(
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
+             FROM log_entries_v19
+             WHERE message ILIKE $1
+             AND ($2::timestamptz IS NULL OR created_at >= $2)
+             AND ($3::timestamptz IS NULL OR created_at <= $3)
+             ORDER BY created_at DESC LIMIT 1000"#,
+        )
+        .bind(&search_pattern)
+        .bind(since)
+        .bind(until)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_pattern_matches_v19(
+        &self,
+        pattern: &str,
+        since: Option<chrono::DateTime<chrono::Utc>>,
+        until: Option<chrono::DateTime<chrono::Utc>>,
+    ) -> Result<LogPatternMatchV19, sqlx::Error> {
+        #[derive(Debug, sqlx::FromRow)]
+        struct LogEntryV19Row {
+            id: uuid::Uuid,
+            level: String,
+            message: String,
+            source: String,
+            service: String,
+            trace_id: Option<String>,
+            span_id: Option<String>,
+            metadata: serde_json::Value,
+            retention_days: i32,
+            indexed: bool,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+        impl From<LogEntryV19Row> for LogEntryV19 {
+            fn from(row: LogEntryV19Row) -> Self {
+                LogEntryV19 {
+                    id: row.id,
+                    level: row.level.parse().unwrap_or(LogLevel::Info),
+                    message: row.message,
+                    source: row.source,
+                    service: row.service,
+                    trace_id: row.trace_id,
+                    span_id: row.span_id,
+                    metadata: row.metadata,
+                    retention_days: row.retention_days,
+                    indexed: row.indexed,
+                    created_at: row.created_at,
+                }
+            }
+        }
+        let search_pattern = format!("%{}%", pattern);
+        let rows = sqlx::query_as::<_, LogEntryV19Row>(
+            r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
+             FROM log_entries_v19
+             WHERE message ILIKE $1
+             AND ($2::timestamptz IS NULL OR created_at >= $2)
+             AND ($3::timestamptz IS NULL OR created_at <= $3)
+             ORDER BY created_at ASC"#,
+        )
+        .bind(&search_pattern)
+        .bind(since)
+        .bind(until)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let match_count = rows.len() as i64;
+        let affected_services: Vec<String> = rows
+            .iter()
+            .map(|r| &r.service)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .cloned()
+            .collect();
+        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+
+        Ok(LogPatternMatchV19 {
+            pattern: pattern.to_string(),
+            match_count,
+            first_match_at,
+            last_match_at,
+            affected_services,
+        })
+    }
 }
