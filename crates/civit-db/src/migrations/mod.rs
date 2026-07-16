@@ -988,6 +988,14 @@ pub const M_581_ENCRYPTION_V21_DOWN: &str =
 pub const M_582_DATA_RESIDENCY_V20_UP: &str = include_str!("582_add_data_residency_v20.sql");
 pub const M_582_DATA_RESIDENCY_V20_DOWN: &str =
     "DROP TABLE IF EXISTS data_residency_compliance_v18; DROP TABLE IF EXISTS data_residency_reports_v18;";
+pub const M_583_SECURITY_SCAN_V22_UP: &str = include_str!("583_add_security_scan_v22.sql");
+pub const M_583_SECURITY_SCAN_V22_DOWN: &str =
+    "DROP TABLE IF EXISTS security_scan_fixes_v19; DROP TABLE IF EXISTS security_scan_rules_v21;";
+pub const M_584_COMPLIANCE_V22_UP: &str = include_str!("584_add_compliance_v22.sql");
+pub const M_584_COMPLIANCE_V22_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_assessments_v20; DROP TABLE IF EXISTS compliance_frameworks_v21;";
+pub const M_585_AUDIT_TRAIL_V22_UP: &str = include_str!("585_add_audit_trail_v22.sql");
+pub const M_585_AUDIT_TRAIL_V22_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v22;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3285,6 +3293,24 @@ impl MigrationManager {
             name: "add_data_residency_v20".into(),
             up_sql: M_582_DATA_RESIDENCY_V20_UP.into(),
             down_sql: M_582_DATA_RESIDENCY_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 583,
+            name: "add_security_scan_v22".into(),
+            up_sql: M_583_SECURITY_SCAN_V22_UP.into(),
+            down_sql: M_583_SECURITY_SCAN_V22_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 584,
+            name: "add_compliance_v22".into(),
+            up_sql: M_584_COMPLIANCE_V22_UP.into(),
+            down_sql: M_584_COMPLIANCE_V22_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 585,
+            name: "add_audit_trail_v22".into(),
+            up_sql: M_585_AUDIT_TRAIL_V22_UP.into(),
+            down_sql: M_585_AUDIT_TRAIL_V22_DOWN.into(),
         });
     }
 
