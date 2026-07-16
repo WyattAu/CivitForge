@@ -880,3 +880,107 @@ pub struct CodeQualityMetricSummaryV6 {
     pub threshold: Option<f64>,
     pub threshold_exceeded: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityRuleV19 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub rule_type: String,
+    pub severity: String,
+    pub enabled: bool,
+    pub rule_config: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCodeQualityRuleV19Request {
+    pub name: String,
+    pub description: Option<String>,
+    pub rule_type: String,
+    pub severity: Option<String>,
+    pub enabled: Option<bool>,
+    pub rule_config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateCodeQualityRuleV19Request {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub rule_type: Option<String>,
+    pub severity: Option<String>,
+    pub enabled: Option<bool>,
+    pub rule_config: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CodeQualityRuleUsageV19 {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub repo_id: Uuid,
+    pub trigger_count: i32,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordRuleUsageV19Request {
+    pub rule_id: Uuid,
+    pub repo_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleUsageSummaryV19 {
+    pub total_rules: i64,
+    pub active_rules: i64,
+    pub total_triggers: i64,
+    pub most_used_rules: Vec<CodeQualityRuleUsageV19>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomRuleCreationV22 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub rule_type: String,
+    pub severity: String,
+    pub rule_config: serde_json::Value,
+    pub test_results: Vec<RuleTestResultV22>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleTestResultV22 {
+    pub test_file: String,
+    pub expected_violations: i32,
+    pub actual_violations: i32,
+    pub passed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCustomRuleV22Request {
+    pub name: String,
+    pub description: Option<String>,
+    pub rule_type: String,
+    pub severity: Option<String>,
+    pub rule_config: serde_json::Value,
+    pub test_files: Option<Vec<RuleTestResultV22>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleEffectivenessAnalysisV22 {
+    pub rule_id: Uuid,
+    pub rule_name: String,
+    pub total_enforcements: i64,
+    pub total_violations: i64,
+    pub effectiveness_score: f64,
+    pub false_positive_rate: f64,
+    pub trend: Vec<RuleEffectivenessTrendV22>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuleEffectivenessTrendV22 {
+    pub date: chrono::NaiveDate,
+    pub enforcement_count: i64,
+    pub violation_count: i64,
+    pub effectiveness_score: f64,
+}

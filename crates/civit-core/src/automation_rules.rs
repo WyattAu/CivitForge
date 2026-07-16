@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14, AutomationRuleV15, AutomationRuleV16, AutomationRuleV17, AutomationRuleV18, AutomationRuleV19, AutomationRuleV20, AutomationRuleV21, AutomationRuleV22, AutomationRuleTemplateV20, AutomationRuleTemplateRatingV20};
+use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14, AutomationRuleV15, AutomationRuleV16, AutomationRuleV17, AutomationRuleV18, AutomationRuleV19, AutomationRuleV20, AutomationRuleV21, AutomationRuleV22, AutomationRuleTemplateV20, AutomationRuleTemplateRatingV20, AutomationRuleExecutionHistoryV21, AutomationRulePerformanceV21};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRule {
@@ -8636,6 +8636,351 @@ impl AutomationRuleService {
         let _ = self.record_rule_template_usage(template_id).await;
 
         self.create_rule_v22(input).await
+    }
+}
+
+// --- V24: Execution History, Performance Metrics, Optimization Engine, Cost Analysis ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRuleExecutionHistoryV24 {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub trigger_event: String,
+    pub matched: bool,
+    pub action_taken: Option<String>,
+    pub duration_ms: Option<i32>,
+    pub error_message: Option<String>,
+    pub executed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateAutomationRuleExecutionHistoryV24 {
+    pub rule_id: Uuid,
+    pub trigger_event: String,
+    pub matched: bool,
+    pub action_taken: Option<String>,
+    pub duration_ms: Option<i32>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRulePerformanceMetricV24 {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRulePerformanceAnalyticsV24 {
+    pub rule_id: Uuid,
+    pub total_executions: i64,
+    pub matched_count: i64,
+    pub unmatched_count: i64,
+    pub avg_duration_ms: f64,
+    pub match_rate: f64,
+    pub error_rate: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRuleOptimizationSuggestion {
+    pub rule_id: Uuid,
+    pub suggestion_type: String,
+    pub description: String,
+    pub impact: String,
+    pub estimated_improvement: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutomationRuleCostAnalysis {
+    pub rule_id: Uuid,
+    pub total_executions: i64,
+    pub avg_duration_ms: f64,
+    pub estimated_compute_cost_usd: f64,
+    pub cost_per_execution_usd: f64,
+    pub recommendation: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct AutomationRuleExecutionHistoryV24Row {
+    id: Uuid,
+    rule_id: Uuid,
+    trigger_event: String,
+    matched: bool,
+    action_taken: Option<String>,
+    duration_ms: Option<i32>,
+    error_message: Option<String>,
+    executed_at: DateTime<Utc>,
+}
+
+impl From<AutomationRuleExecutionHistoryV24Row> for AutomationRuleExecutionHistoryV24 {
+    fn from(row: AutomationRuleExecutionHistoryV24Row) -> Self {
+        AutomationRuleExecutionHistoryV24 {
+            id: row.id,
+            rule_id: row.rule_id,
+            trigger_event: row.trigger_event,
+            matched: row.matched,
+            action_taken: row.action_taken,
+            duration_ms: row.duration_ms,
+            error_message: row.error_message,
+            executed_at: row.executed_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct AutomationRulePerformanceMetricV24Row {
+    id: Uuid,
+    rule_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    measured_at: DateTime<Utc>,
+}
+
+impl From<AutomationRulePerformanceMetricV24Row> for AutomationRulePerformanceMetricV24 {
+    fn from(row: AutomationRulePerformanceMetricV24Row) -> Self {
+        AutomationRulePerformanceMetricV24 {
+            id: row.id,
+            rule_id: row.rule_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            measured_at: row.measured_at,
+        }
+    }
+}
+
+impl AutomationRuleService {
+    // --- Execution History v21 ---
+
+    pub async fn create_execution_history_v24(
+        &self,
+        input: CreateAutomationRuleExecutionHistoryV24,
+    ) -> Result<AutomationRuleExecutionHistoryV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleExecutionHistoryV24Row>(
+            r#"INSERT INTO automation_rule_execution_history_v21 (rule_id, trigger_event, matched, action_taken, duration_ms, error_message)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, rule_id, trigger_event, matched, action_taken, duration_ms, error_message, executed_at"#,
+        )
+        .bind(input.rule_id)
+        .bind(&input.trigger_event)
+        .bind(input.matched)
+        .bind(&input.action_taken)
+        .bind(input.duration_ms)
+        .bind(&input.error_message)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_execution_history_v24(
+        &self,
+        rule_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<AutomationRuleExecutionHistoryV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleExecutionHistoryV24Row>(
+            r#"SELECT id, rule_id, trigger_event, matched, action_taken, duration_ms, error_message, executed_at
+             FROM automation_rule_execution_history_v21 WHERE rule_id = $1 ORDER BY executed_at DESC LIMIT $2"#,
+        )
+        .bind(rule_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_execution_history_for_repo_v24(
+        &self,
+        repo_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<AutomationRuleExecutionHistoryV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleExecutionHistoryV24Row>(
+            r#"SELECT arh.id, arh.rule_id, arh.trigger_event, arh.matched, arh.action_taken, arh.duration_ms, arh.error_message, arh.executed_at
+             FROM automation_rule_execution_history_v21 arh
+             JOIN automation_rules ar ON ar.id = arh.rule_id
+             WHERE ar.repo_id = $1
+             ORDER BY arh.executed_at DESC LIMIT $2"#,
+        )
+        .bind(repo_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    // --- Performance Metrics v21 ---
+
+    pub async fn record_performance_metric(
+        &self,
+        rule_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+    ) -> Result<AutomationRulePerformanceMetricV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRulePerformanceMetricV24Row>(
+            r#"INSERT INTO automation_rule_performance_v21 (rule_id, metric_name, metric_value)
+             VALUES ($1, $2, $3)
+             RETURNING id, rule_id, metric_name, metric_value, measured_at"#,
+        )
+        .bind(rule_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_performance_metrics(
+        &self,
+        rule_id: Uuid,
+        metric_name: Option<&str>,
+    ) -> Result<Vec<AutomationRulePerformanceMetricV24>, sqlx::Error> {
+        let rows = if let Some(name) = metric_name {
+            sqlx::query_as::<_, AutomationRulePerformanceMetricV24Row>(
+                r#"SELECT id, rule_id, metric_name, metric_value, measured_at
+                 FROM automation_rule_performance_v21 WHERE rule_id = $1 AND metric_name = $2
+                 ORDER BY measured_at DESC"#,
+            )
+            .bind(rule_id)
+            .bind(name)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query_as::<_, AutomationRulePerformanceMetricV24Row>(
+                r#"SELECT id, rule_id, metric_name, metric_value, measured_at
+                 FROM automation_rule_performance_v21 WHERE rule_id = $1
+                 ORDER BY measured_at DESC"#,
+            )
+            .bind(rule_id)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    // --- Optimization Engine v24 ---
+
+    pub async fn get_rule_performance_analytics_v24(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<AutomationRulePerformanceAnalyticsV24, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct AnalyticsRow {
+            total_executions: i64,
+            matched_count: i64,
+            unmatched_count: i64,
+            avg_duration_ms: f64,
+            error_count: i64,
+        }
+
+        let row = sqlx::query_as::<_, AnalyticsRow>(
+            r#"SELECT
+                COUNT(*) as total_executions,
+                COUNT(*) FILTER (WHERE matched = true) as matched_count,
+                COUNT(*) FILTER (WHERE matched = false) as unmatched_count,
+                COALESCE(AVG(duration_ms), 0) as avg_duration_ms,
+                COUNT(*) FILTER (WHERE error_message IS NOT NULL) as error_count
+             FROM automation_rule_execution_history_v21 WHERE rule_id = $1"#,
+        )
+        .bind(rule_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let match_rate = if row.total_executions > 0 {
+            (row.matched_count as f64 / row.total_executions as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let error_rate = if row.total_executions > 0 {
+            (row.error_count as f64 / row.total_executions as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(AutomationRulePerformanceAnalyticsV24 {
+            rule_id,
+            total_executions: row.total_executions,
+            matched_count: row.matched_count,
+            unmatched_count: row.unmatched_count,
+            avg_duration_ms: row.avg_duration_ms,
+            match_rate,
+            error_rate,
+        })
+    }
+
+    pub async fn get_optimization_suggestions_v24(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<Vec<AutomationRuleOptimizationSuggestion>, sqlx::Error> {
+        let analytics = self.get_rule_performance_analytics_v24(rule_id).await?;
+        let mut suggestions = Vec::new();
+
+        if analytics.match_rate < 50.0 && analytics.total_executions > 10 {
+            suggestions.push(AutomationRuleOptimizationSuggestion {
+                rule_id,
+                suggestion_type: "condition_refinement".into(),
+                description: "Match rate is below 50%. Consider refining conditions to reduce false triggers.".into(),
+                impact: "high".into(),
+                estimated_improvement: Some(format!("Current match rate: {:.1}%", analytics.match_rate)),
+            });
+        }
+
+        if analytics.error_rate > 10.0 {
+            suggestions.push(AutomationRuleOptimizationSuggestion {
+                rule_id,
+                suggestion_type: "error_handling".into(),
+                description: "Error rate exceeds 10%. Review action implementations and add retry logic.".into(),
+                impact: "high".into(),
+                estimated_improvement: Some(format!("Current error rate: {:.1}%", analytics.error_rate)),
+            });
+        }
+
+        if analytics.avg_duration_ms > 5000.0 {
+            suggestions.push(AutomationRuleOptimizationSuggestion {
+                rule_id,
+                suggestion_type: "performance".into(),
+                description: "Average execution time exceeds 5s. Consider simplifying action chain.".into(),
+                impact: "medium".into(),
+                estimated_improvement: Some(format!("Current avg: {:.0}ms", analytics.avg_duration_ms)),
+            });
+        }
+
+        Ok(suggestions)
+    }
+
+    // --- Cost Analysis v24 ---
+
+    pub async fn get_cost_analysis(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<AutomationRuleCostAnalysis, sqlx::Error> {
+        let analytics = self.get_rule_performance_analytics_v24(rule_id).await?;
+
+        let cost_per_ms = 0.000001; // $0.000001 per ms estimate
+        let estimated_compute_cost_usd = analytics.avg_duration_ms * analytics.total_executions as f64 * cost_per_ms;
+        let cost_per_execution_usd = analytics.avg_duration_ms * cost_per_ms;
+
+        let recommendation = if cost_per_execution_usd > 0.01 {
+            "High cost per execution. Consider batching or simplifying actions.".to_string()
+        } else if analytics.total_executions > 1000 && cost_per_execution_usd > 0.005 {
+            "Frequent execution with moderate cost. Consider caching results.".to_string()
+        } else {
+            "Cost is within acceptable range.".to_string()
+        };
+
+        Ok(AutomationRuleCostAnalysis {
+            rule_id,
+            total_executions: analytics.total_executions,
+            avg_duration_ms: analytics.avg_duration_ms,
+            estimated_compute_cost_usd,
+            cost_per_execution_usd,
+            recommendation,
+        })
     }
 }
 

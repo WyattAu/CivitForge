@@ -747,3 +747,92 @@ pub struct TestSuitePerformanceReportV15 {
     pub overall_score: f64,
     pub last_measured_at: Option<DateTime<Utc>>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlakyTestDetectionV19 {
+    pub id: Uuid,
+    pub test_name: String,
+    pub suite_id: Uuid,
+    pub flaky_score: f64,
+    pub total_runs: i32,
+    pub failure_count: i32,
+    pub last_flaky_at: Option<DateTime<Utc>>,
+    pub detected_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateFlakyTestDetectionV19Request {
+    pub test_name: String,
+    pub suite_id: Uuid,
+    pub flaky_score: Option<f64>,
+    pub total_runs: Option<i32>,
+    pub failure_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateFlakyTestDetectionV19Request {
+    pub flaky_score: Option<f64>,
+    pub total_runs: Option<i32>,
+    pub failure_count: Option<i32>,
+    pub last_flaky_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlakyTestSummaryV19 {
+    pub total_flaky_tests: i64,
+    pub high_flaky_count: i64,
+    pub medium_flaky_count: i64,
+    pub low_flaky_count: i64,
+    pub avg_flaky_score: f64,
+    pub most_flaky_tests: Vec<FlakyTestDetectionV19>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteTrendV19 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTestSuiteTrendV19Request {
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestSuiteTrendAnalysisV19 {
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub trends: Vec<TestSuiteTrendV19>,
+    pub avg_value: f64,
+    pub min_value: f64,
+    pub max_value: f64,
+    pub trend_direction: String,
+    pub change_percent: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestOptimizationSuggestionV22 {
+    pub suite_id: Uuid,
+    pub suggestion_type: String,
+    pub description: String,
+    pub impact_score: f64,
+    pub estimated_time_savings_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CoverageGapAnalysisV22 {
+    pub repo_id: Uuid,
+    pub total_files: i64,
+    pub covered_files: i64,
+    pub coverage_percent: f64,
+    pub uncovered_files: Vec<String>,
+    pub gap_severity: String,
+}

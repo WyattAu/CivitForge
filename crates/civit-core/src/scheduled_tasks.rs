@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11, ScheduledTaskTemplateV12, ScheduledTaskTemplateV13, ScheduledTaskTemplateV14, ScheduledTaskTemplateV15, ScheduledTaskTemplateV16, ScheduledTaskTemplateV17, ScheduledTaskTemplateV18, ScheduledTaskTemplateV19, ScheduledTaskTemplateRatingV20, ScheduledTaskTemplateCategoryV20};
+use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11, ScheduledTaskTemplateV12, ScheduledTaskTemplateV13, ScheduledTaskTemplateV14, ScheduledTaskTemplateV15, ScheduledTaskTemplateV16, ScheduledTaskTemplateV17, ScheduledTaskTemplateV18, ScheduledTaskTemplateV19, ScheduledTaskTemplateRatingV20, ScheduledTaskTemplateCategoryV20, ScheduledTaskPerformanceV21, ScheduledTaskResourceUsageV21};
 use crate::workflow_engine::{WorkflowTemplateAnalytics, WorkflowTemplateRecommendation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6958,6 +6958,316 @@ impl ScheduledTaskService {
         }
 
         Ok(recommendations)
+    }
+}
+
+// --- V24: Performance Metrics, Resource Usage, Cost Optimization, Capacity Planning ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTaskPerformanceMetricV24 {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTaskResourceUsageV24 {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub cpu_usage_percent: f64,
+    pub memory_usage_bytes: i64,
+    pub disk_usage_bytes: i64,
+    pub network_bytes_sent: i64,
+    pub network_bytes_received: i64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTaskCostOptimization {
+    pub task_id: Uuid,
+    pub total_executions: i64,
+    pub avg_duration_ms: f64,
+    pub avg_cpu_percent: f64,
+    pub avg_memory_bytes: i64,
+    pub estimated_monthly_cost_usd: f64,
+    pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduledTaskCapacityPlan {
+    pub task_id: Uuid,
+    pub avg_cpu_percent: f64,
+    pub peak_cpu_percent: f64,
+    pub avg_memory_bytes: i64,
+    pub peak_memory_bytes: i64,
+    pub execution_frequency_per_day: f64,
+    pub projected_cpu_next_30d: f64,
+    pub projected_memory_next_30d: i64,
+    pub scaling_recommendation: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ScheduledTaskPerformanceMetricV24Row {
+    id: Uuid,
+    task_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    measured_at: DateTime<Utc>,
+}
+
+impl From<ScheduledTaskPerformanceMetricV24Row> for ScheduledTaskPerformanceMetricV24 {
+    fn from(row: ScheduledTaskPerformanceMetricV24Row) -> Self {
+        ScheduledTaskPerformanceMetricV24 {
+            id: row.id,
+            task_id: row.task_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            measured_at: row.measured_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct ScheduledTaskResourceUsageV24Row {
+    id: Uuid,
+    task_id: Uuid,
+    cpu_usage_percent: f64,
+    memory_usage_bytes: i64,
+    disk_usage_bytes: i64,
+    network_bytes_sent: i64,
+    network_bytes_received: i64,
+    measured_at: DateTime<Utc>,
+}
+
+impl From<ScheduledTaskResourceUsageV24Row> for ScheduledTaskResourceUsageV24 {
+    fn from(row: ScheduledTaskResourceUsageV24Row) -> Self {
+        ScheduledTaskResourceUsageV24 {
+            id: row.id,
+            task_id: row.task_id,
+            cpu_usage_percent: row.cpu_usage_percent,
+            memory_usage_bytes: row.memory_usage_bytes,
+            disk_usage_bytes: row.disk_usage_bytes,
+            network_bytes_sent: row.network_bytes_sent,
+            network_bytes_received: row.network_bytes_received,
+            measured_at: row.measured_at,
+        }
+    }
+}
+
+impl ScheduledTaskService {
+    // --- Performance Metrics v21 ---
+
+    pub async fn record_performance_metric_v24(
+        &self,
+        task_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+    ) -> Result<ScheduledTaskPerformanceMetricV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskPerformanceMetricV24Row>(
+            r#"INSERT INTO scheduled_task_performance_v21 (task_id, metric_name, metric_value)
+             VALUES ($1, $2, $3)
+             RETURNING id, task_id, metric_name, metric_value, measured_at"#,
+        )
+        .bind(task_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_performance_metrics_v24(
+        &self,
+        task_id: Uuid,
+        metric_name: Option<&str>,
+    ) -> Result<Vec<ScheduledTaskPerformanceMetricV24>, sqlx::Error> {
+        let rows = if let Some(name) = metric_name {
+            sqlx::query_as::<_, ScheduledTaskPerformanceMetricV24Row>(
+                r#"SELECT id, task_id, metric_name, metric_value, measured_at
+                 FROM scheduled_task_performance_v21 WHERE task_id = $1 AND metric_name = $2
+                 ORDER BY measured_at DESC"#,
+            )
+            .bind(task_id)
+            .bind(name)
+            .fetch_all(&self.pool)
+            .await?
+        } else {
+            sqlx::query_as::<_, ScheduledTaskPerformanceMetricV24Row>(
+                r#"SELECT id, task_id, metric_name, metric_value, measured_at
+                 FROM scheduled_task_performance_v21 WHERE task_id = $1
+                 ORDER BY measured_at DESC"#,
+            )
+            .bind(task_id)
+            .fetch_all(&self.pool)
+            .await?
+        };
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    // --- Resource Usage Tracking v21 ---
+
+    pub async fn record_resource_usage(
+        &self,
+        task_id: Uuid,
+        cpu_usage_percent: f64,
+        memory_usage_bytes: i64,
+        disk_usage_bytes: i64,
+        network_bytes_sent: i64,
+        network_bytes_received: i64,
+    ) -> Result<ScheduledTaskResourceUsageV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskResourceUsageV24Row>(
+            r#"INSERT INTO scheduled_task_resource_usage_v21 (task_id, cpu_usage_percent, memory_usage_bytes, disk_usage_bytes, network_bytes_sent, network_bytes_received)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, task_id, cpu_usage_percent, memory_usage_bytes, disk_usage_bytes, network_bytes_sent, network_bytes_received, measured_at"#,
+        )
+        .bind(task_id)
+        .bind(cpu_usage_percent)
+        .bind(memory_usage_bytes)
+        .bind(disk_usage_bytes)
+        .bind(network_bytes_sent)
+        .bind(network_bytes_received)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_resource_usage(
+        &self,
+        task_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskResourceUsageV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskResourceUsageV24Row>(
+            r#"SELECT id, task_id, cpu_usage_percent, memory_usage_bytes, disk_usage_bytes, network_bytes_sent, network_bytes_received, measured_at
+             FROM scheduled_task_resource_usage_v21 WHERE task_id = $1
+             ORDER BY measured_at DESC LIMIT $2"#,
+        )
+        .bind(task_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_avg_resource_usage(
+        &self,
+        task_id: Uuid,
+    ) -> Result<(f64, i64, i64), sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct AvgRow {
+            avg_cpu: f64,
+            avg_memory: i64,
+            avg_disk: i64,
+        }
+
+        let row = sqlx::query_as::<_, AvgRow>(
+            r#"SELECT
+                COALESCE(AVG(cpu_usage_percent), 0) as avg_cpu,
+                COALESCE(AVG(memory_usage_bytes), 0)::BIGINT as avg_memory,
+                COALESCE(AVG(disk_usage_bytes), 0)::BIGINT as avg_disk
+             FROM scheduled_task_resource_usage_v21 WHERE task_id = $1"#,
+        )
+        .bind(task_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok((row.avg_cpu, row.avg_memory, row.avg_disk))
+    }
+
+    // --- Cost Optimization v24 ---
+
+    pub async fn get_cost_optimization(
+        &self,
+        task_id: Uuid,
+    ) -> Result<ScheduledTaskCostOptimization, sqlx::Error> {
+        let analytics = self.get_task_analytics(task_id).await?;
+        let (avg_cpu, avg_memory, _avg_disk) = self.get_avg_resource_usage(task_id).await?;
+
+        let cost_per_cpu_hour = 0.005; // $0.005 per CPU-hour
+        let cost_per_gb_hour = 0.01; // $0.01 per GB-hour
+
+        let avg_duration_hours = analytics.average_execution_time_ms / 3600000.0;
+        let executions_per_month = analytics.total_runs as f64 * 30.0; // assume daily
+        let cpu_cost = avg_cpu / 100.0 * avg_duration_hours * executions_per_month * cost_per_cpu_hour;
+        let memory_cost = (avg_memory as f64 / 1_073_741_824.0) * avg_duration_hours * executions_per_month * cost_per_gb_hour;
+        let estimated_monthly_cost_usd = cpu_cost + memory_cost;
+
+        let recommendation = if estimated_monthly_cost_usd > 10.0 {
+            "High monthly cost. Consider reducing execution frequency or optimizing resource usage.".to_string()
+        } else if avg_cpu > 80.0 {
+            "High CPU usage detected. Consider parallelizing or optimizing task logic.".to_string()
+        } else if avg_memory > 1_073_741_824 {
+            "High memory usage. Consider streaming processing or reducing batch sizes.".to_string()
+        } else {
+            "Resource usage is within acceptable limits.".to_string()
+        };
+
+        Ok(ScheduledTaskCostOptimization {
+            task_id,
+            total_executions: analytics.total_runs,
+            avg_duration_ms: analytics.average_execution_time_ms,
+            avg_cpu_percent: avg_cpu,
+            avg_memory_bytes: avg_memory,
+            estimated_monthly_cost_usd,
+            recommendation,
+        })
+    }
+
+    // --- Capacity Planning v24 ---
+
+    pub async fn get_capacity_plan(
+        &self,
+        task_id: Uuid,
+    ) -> Result<ScheduledTaskCapacityPlan, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct PeakRow {
+            peak_cpu: f64,
+            peak_memory: i64,
+        }
+
+        let peak = sqlx::query_as::<_, PeakRow>(
+            r#"SELECT
+                COALESCE(MAX(cpu_usage_percent), 0) as peak_cpu,
+                COALESCE(MAX(memory_usage_bytes), 0)::BIGINT as peak_memory
+             FROM scheduled_task_resource_usage_v21 WHERE task_id = $1"#,
+        )
+        .bind(task_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let (avg_cpu, avg_memory, _) = self.get_avg_resource_usage(task_id).await?;
+        let analytics = self.get_task_analytics(task_id).await?;
+
+        let execution_frequency_per_day = analytics.total_runs as f64 / 30.0;
+        let projected_cpu_next_30d = avg_cpu * 1.1; // 10% growth assumption
+        let projected_memory_next_30d = (avg_memory as f64 * 1.1) as i64;
+
+        let scaling_recommendation = if projected_cpu_next_30d > 90.0 {
+            "CPU projected to exceed 90%. Scale up or optimize task.".to_string()
+        } else if projected_memory_next_30d > 2_147_483_648 {
+            "Memory projected to exceed 2GB. Consider memory optimization.".to_string()
+        } else if execution_frequency_per_day > 100.0 {
+            "High execution frequency. Consider batching or consolidating tasks.".to_string()
+        } else {
+            "Current capacity is sufficient for projected growth.".to_string()
+        };
+
+        Ok(ScheduledTaskCapacityPlan {
+            task_id,
+            avg_cpu_percent: avg_cpu,
+            peak_cpu_percent: peak.peak_cpu,
+            avg_memory_bytes: avg_memory,
+            peak_memory_bytes: peak.peak_memory,
+            execution_frequency_per_day,
+            projected_cpu_next_30d,
+            projected_memory_next_30d,
+            scaling_recommendation,
+        })
     }
 }
 

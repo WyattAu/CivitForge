@@ -958,6 +958,475 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
+// Cache Prediction Model V20
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachePredictionModelResponse {
+    pub id: String,
+    pub cache_key_pattern: String,
+    pub predicted_hit_rate: f64,
+    pub predicted_size_bytes: i64,
+    pub predicted_ttl_seconds: i32,
+    pub confidence: f64,
+    pub last_trained_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CachePredictionModelRow {
+    pub id: Uuid,
+    pub cache_key_pattern: String,
+    pub predicted_hit_rate: f64,
+    pub predicted_size_bytes: i64,
+    pub predicted_ttl_seconds: i32,
+    pub confidence: f64,
+    pub last_trained_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<CachePredictionModelRow> for CachePredictionModelResponse {
+    fn from(r: CachePredictionModelRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            cache_key_pattern: r.cache_key_pattern,
+            predicted_hit_rate: r.predicted_hit_rate,
+            predicted_size_bytes: r.predicted_size_bytes,
+            predicted_ttl_seconds: r.predicted_ttl_seconds,
+            confidence: r.confidence,
+            last_trained_at: r.last_trained_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create or update a cache prediction model.
+pub async fn upsert_cache_prediction_model(
+    pool: &sqlx::PgPool,
+    cache_key_pattern: &str,
+    predicted_hit_rate: f64,
+    predicted_size_bytes: i64,
+    predicted_ttl_seconds: i32,
+    confidence: f64,
+) -> std::result::Result<CachePredictionModelResponse, sqlx::Error> {
+    sqlx::query_as::<_, CachePredictionModelRow>(
+        "INSERT INTO cache_prediction_model_v20 \
+         (cache_key_pattern, predicted_hit_rate, predicted_size_bytes, predicted_ttl_seconds, confidence) \
+         VALUES ($1, $2, $3, $4, $5) \
+         ON CONFLICT (cache_key_pattern) DO UPDATE \
+         SET predicted_hit_rate = $2, predicted_size_bytes = $3, \
+             predicted_ttl_seconds = $4, confidence = $5, last_trained_at = NOW() \
+         RETURNING *",
+    )
+    .bind(cache_key_pattern)
+    .bind(predicted_hit_rate)
+    .bind(predicted_size_bytes)
+    .bind(predicted_ttl_seconds)
+    .bind(confidence)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Get cache prediction for a key pattern.
+pub async fn get_cache_prediction(
+    pool: &sqlx::PgPool,
+    cache_key_pattern: &str,
+) -> std::result::Result<Option<CachePredictionModelResponse>, sqlx::Error> {
+    sqlx::query_as::<_, CachePredictionModelRow>(
+        "SELECT * FROM cache_prediction_model_v20 WHERE cache_key_pattern = $1",
+    )
+    .bind(cache_key_pattern)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// List cache prediction models.
+pub async fn list_cache_prediction_models(
+    pool: &sqlx::PgPool,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<CachePredictionModelResponse>, sqlx::Error> {
+    sqlx::query_as::<_, CachePredictionModelRow>(
+        "SELECT * FROM cache_prediction_model_v20 \
+         ORDER BY confidence DESC LIMIT $1 OFFSET $2",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Delete a cache prediction model.
+pub async fn delete_cache_prediction_model(
+    pool: &sqlx::PgPool,
+    model_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM cache_prediction_model_v20 WHERE id = $1")
+        .bind(model_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+// ---------------------------------------------------------------------------
+// Cache Warming Strategies V20
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheWarmingStrategyResponse {
+    pub id: String,
+    pub name: String,
+    pub strategy_type: String,
+    pub config: serde_json::Value,
+    pub enabled: bool,
+    pub hit_rate_improvement: f64,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CacheWarmingStrategyRow {
+    pub id: Uuid,
+    pub name: String,
+    pub strategy_type: String,
+    pub config: serde_json::Value,
+    pub enabled: bool,
+    pub hit_rate_improvement: f64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<CacheWarmingStrategyRow> for CacheWarmingStrategyResponse {
+    fn from(r: CacheWarmingStrategyRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            name: r.name,
+            strategy_type: r.strategy_type,
+            config: r.config,
+            enabled: r.enabled,
+            hit_rate_improvement: r.hit_rate_improvement,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create a cache warming strategy.
+pub async fn create_warming_strategy(
+    pool: &sqlx::PgPool,
+    name: &str,
+    strategy_type: &str,
+    config: &serde_json::Value,
+) -> std::result::Result<CacheWarmingStrategyResponse, sqlx::Error> {
+    sqlx::query_as::<_, CacheWarmingStrategyRow>(
+        "INSERT INTO cache_warming_strategies_v20 (name, strategy_type, config) \
+         VALUES ($1, $2, $3) \
+         RETURNING *",
+    )
+    .bind(name)
+    .bind(strategy_type)
+    .bind(config)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List cache warming strategies.
+pub async fn list_warming_strategies(
+    pool: &sqlx::PgPool,
+    enabled_only: bool,
+) -> std::result::Result<Vec<CacheWarmingStrategyResponse>, sqlx::Error> {
+    let sql = if enabled_only {
+        "SELECT * FROM cache_warming_strategies_v20 WHERE enabled = true ORDER BY name"
+    } else {
+        "SELECT * FROM cache_warming_strategies_v20 ORDER BY name"
+    };
+    sqlx::query_as::<_, CacheWarmingStrategyRow>(sql)
+        .fetch_all(pool)
+        .await
+        .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Update a cache warming strategy.
+pub async fn update_warming_strategy(
+    pool: &sqlx::PgPool,
+    strategy_id: Uuid,
+    name: Option<&str>,
+    strategy_type: Option<&str>,
+    config: Option<&serde_json::Value>,
+    enabled: Option<bool>,
+    hit_rate_improvement: Option<f64>,
+) -> std::result::Result<CacheWarmingStrategyResponse, sqlx::Error> {
+    sqlx::query_as::<_, CacheWarmingStrategyRow>(
+        "UPDATE cache_warming_strategies_v20 \
+         SET name = COALESCE($2, name), \
+             strategy_type = COALESCE($3, strategy_type), \
+             config = COALESCE($4, config), \
+             enabled = COALESCE($5, enabled), \
+             hit_rate_improvement = COALESCE($6, hit_rate_improvement) \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(strategy_id)
+    .bind(name)
+    .bind(strategy_type)
+    .bind(config)
+    .bind(enabled)
+    .bind(hit_rate_improvement)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Delete a cache warming strategy.
+pub async fn delete_warming_strategy(
+    pool: &sqlx::PgPool,
+    strategy_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM cache_warming_strategies_v20 WHERE id = $1")
+        .bind(strategy_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Get warming strategy summary.
+pub async fn get_warming_strategy_summary(
+    pool: &sqlx::PgPool,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<f64>, Option<f64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            SUM(CASE WHEN enabled THEN 1 ELSE 0 END), \
+            AVG(hit_rate_improvement), \
+            MAX(hit_rate_improvement) \
+         FROM cache_warming_strategies_v20",
+    )
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "total_strategies": row.0.unwrap_or(0),
+        "enabled_strategies": row.1.unwrap_or(0),
+        "average_improvement": row.2.unwrap_or(0.0),
+        "max_improvement": row.3.unwrap_or(0.0)
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Cache Cost Optimization V24
+// ---------------------------------------------------------------------------
+
+/// Get optimized cost analysis with recommendations.
+pub async fn get_optimized_cost_analysis(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    cost_per_gb: f64,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COALESCE(SUM(size_bytes), 0), \
+            COALESCE(SUM(hit_count), 0), \
+            COUNT(*), \
+            COUNT(*) FILTER (WHERE expires_at < NOW()) \
+         FROM pipeline_caches_v2 WHERE repo_id = $1",
+    )
+    .bind(repo_id)
+    .fetch_one(pool)
+    .await?;
+
+    let total_size_bytes = row.0.unwrap_or(0);
+    let total_hits = row.1.unwrap_or(0);
+    let entry_count = row.2.unwrap_or(0);
+    let expired_count = row.3.unwrap_or(0);
+    let total_size_gb = total_size_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+    let estimated_cost = total_size_gb * cost_per_gb;
+    let cost_per_hit = if total_hits > 0 {
+        estimated_cost / total_hits as f64
+    } else {
+        0.0
+    };
+    let wasted_cost = if total_size_bytes > 0 {
+        estimated_cost * (expired_count as f64 / entry_count as f64)
+    } else {
+        0.0
+    };
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "total_entries": entry_count,
+        "total_size_bytes": total_size_bytes,
+        "total_size_gb": total_size_gb,
+        "total_hits": total_hits,
+        "expired_entries": expired_count,
+        "cost_per_gb": cost_per_gb,
+        "estimated_monthly_cost": estimated_cost,
+        "cost_per_hit": cost_per_hit,
+        "wasted_cost_from_expired": wasted_cost,
+        "optimization_recommendations": serde_json::json!({
+            "evict_expired": expired_count > 0,
+            "consider_compression": total_size_gb > 1.0,
+            "review_hit_rate": if total_hits == 0 { "no hits recorded" } else { "active" }
+        })
+    }))
+}
+
+/// Get storage efficiency report.
+pub async fn get_storage_efficiency_report(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let rows: Vec<(String, i64, i32)> = sqlx::query_as(
+        "SELECT key, size_bytes, hit_count FROM pipeline_caches_v2 WHERE repo_id = $1 ORDER BY hit_count DESC",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_size: i64 = rows.iter().map(|r| r.1).sum();
+    let total_hits: i32 = rows.iter().map(|r| r.2).sum();
+    let high_value: Vec<&(String, i64, i32)> = rows.iter().filter(|r| r.2 > 10).collect();
+    let low_value: Vec<&(String, i64, i32)> = rows.iter().filter(|r| r.2 <= 2).collect();
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "total_entries": rows.len(),
+        "total_size_bytes": total_size,
+        "high_value_caches": high_value.len(),
+        "low_value_caches": low_value.len(),
+        "efficiency_score": if rows.is_empty() { 0.0 } else { total_hits as f64 / rows.len() as f64 },
+        "top_caches": rows.iter().take(5).map(|(k, s, h)| {
+            serde_json::json!({
+                "key": k,
+                "size_bytes": s,
+                "hit_count": h
+            })
+        }).collect::<Vec<_>>()
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Cache Performance Insights V24
+// ---------------------------------------------------------------------------
+
+/// Get advanced performance insights for caches in a repo.
+pub async fn get_advanced_performance_insights(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<f64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            COALESCE(SUM(hit_count), 0), \
+            COALESCE(AVG(hit_count), 0), \
+            COALESCE(MAX(hit_count), 0) \
+         FROM pipeline_caches_v2 WHERE repo_id = $1",
+    )
+    .bind(repo_id)
+    .fetch_one(pool)
+    .await?;
+
+    let entry_count = row.0.unwrap_or(0);
+    let total_hits = row.1.unwrap_or(0);
+    let avg_hits = row.2.unwrap_or(0.0);
+    let max_hits = row.3.unwrap_or(0);
+
+    let analysis_rows: Vec<(i32, i32, i64)> = sqlx::query_as(
+        "SELECT hit_count, miss_count, avg_hit_size_bytes \
+         FROM cache_hit_analysis WHERE cache_id IN \
+         (SELECT id FROM pipeline_caches_v2 WHERE repo_id = $1) \
+         ORDER BY period_start DESC LIMIT 100",
+    )
+    .bind(repo_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_analysis_hits: i32 = analysis_rows.iter().map(|r| r.0).sum();
+    let total_analysis_misses: i32 = analysis_rows.iter().map(|r| r.1).sum();
+    let total_requests = total_analysis_hits + total_analysis_misses;
+    let hit_rate = if total_requests > 0 {
+        total_analysis_hits as f64 / total_requests as f64
+    } else {
+        0.0
+    };
+
+    let mut insights = Vec::new();
+    if entry_count == 0 {
+        insights.push(serde_json::json!({
+            "type": "no_caches",
+            "message": "No caches found for this repository"
+        }));
+    } else if hit_rate < 0.5 && total_requests > 20 {
+        insights.push(serde_json::json!({
+            "type": "low_hit_rate",
+            "message": format!("Hit rate is {:.1}%; consider reviewing cache key strategy", hit_rate * 100.0)
+        }));
+    }
+    if max_hits > 100 {
+        insights.push(serde_json::json!({
+            "type": "hot_cache",
+            "message": "Some caches have high hit counts; ensure they are optimized"
+        }));
+    }
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "total_entries": entry_count,
+        "total_hits": total_hits,
+        "average_hits_per_cache": avg_hits,
+        "max_hits": max_hits,
+        "analysis_total_hits": total_analysis_hits,
+        "analysis_total_misses": total_analysis_misses,
+        "overall_hit_rate": hit_rate,
+        "insights": insights,
+        "performance_score": if hit_rate > 0.8 { "excellent" } else if hit_rate > 0.6 { "good" } else if hit_rate > 0.4 { "fair" } else { "needs_improvement" }
+    }))
+}
+
+/// Get cache trend analysis over time.
+pub async fn get_cache_trend_analysis(
+    pool: &sqlx::PgPool,
+    repo_id: Uuid,
+    days: i32,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let rows: Vec<(chrono::DateTime<chrono::Utc>, i32, i32)> = sqlx::query_as(
+        "SELECT cha.period_start, cha.hit_count, cha.miss_count \
+         FROM cache_hit_analysis cha \
+         JOIN pipeline_caches_v2 pc ON cha.cache_id = pc.id \
+         WHERE pc.repo_id = $1 AND cha.period_start >= NOW() - INTERVAL '1 day' * $2 \
+         ORDER BY cha.period_start",
+    )
+    .bind(repo_id)
+    .bind(days)
+    .fetch_all(pool)
+    .await?;
+
+    let total_hits: i64 = rows.iter().map(|r| r.1 as i64).sum();
+    let total_misses: i64 = rows.iter().map(|r| r.2 as i64).sum();
+    let total_requests = total_hits + total_misses;
+    let hit_rate = if total_requests > 0 {
+        total_hits as f64 / total_requests as f64
+    } else {
+        0.0
+    };
+
+    Ok(serde_json::json!({
+        "repo_id": repo_id.to_string(),
+        "period_days": days,
+        "total_hits": total_hits,
+        "total_misses": total_misses,
+        "hit_rate": hit_rate,
+        "data_points": rows.len(),
+        "trend": if rows.len() < 2 {
+            "insufficient_data"
+        } else {
+            let first_half = &rows[..rows.len()/2];
+            let second_half = &rows[rows.len()/2..];
+            let first_hits: i64 = first_half.iter().map(|r| r.1 as i64).sum();
+            let second_hits: i64 = second_half.iter().map(|r| r.1 as i64).sum();
+            if second_hits > first_hits * 2 { "improving" } else if second_hits < first_hits / 2 { "declining" } else { "stable" }
+        }
+    }))
+}
+
+// ---------------------------------------------------------------------------
 // Cache Hit Analysis V18
 // ---------------------------------------------------------------------------
 

@@ -2451,6 +2451,362 @@ impl TestSuiteStore {
             last_measured_at,
         })
     }
+
+    pub async fn create_flaky_detection(
+        &self,
+        req: CreateFlakyTestDetectionV19Request,
+    ) -> Result<FlakyTestDetectionV19, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let flaky_score = req.flaky_score.unwrap_or(0.0);
+        let total_runs = req.total_runs.unwrap_or(0);
+        let failure_count = req.failure_count.unwrap_or(0);
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_flaky_detection_v19 (id, test_name, suite_id, flaky_score, total_runs, failure_count, detected_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (test_name, suite_id) DO UPDATE SET
+               flaky_score = $4, total_runs = $5, failure_count = $6, last_flaky_at = $7"#,
+        )
+        .bind(id)
+        .bind(&req.test_name)
+        .bind(req.suite_id)
+        .bind(flaky_score)
+        .bind(total_runs)
+        .bind(failure_count)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(FlakyTestDetectionV19 {
+            id,
+            test_name: req.test_name,
+            suite_id: req.suite_id,
+            flaky_score,
+            total_runs,
+            failure_count,
+            last_flaky_at: None,
+            detected_at: now,
+        })
+    }
+
+    pub async fn list_flaky_tests(
+        &self,
+        suite_id: Uuid,
+        min_score: Option<f64>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<FlakyTestDetectionV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, FlakyDetectionV19Row>(
+            r#"SELECT id, test_name, suite_id, flaky_score, total_runs, failure_count, last_flaky_at, detected_at
+               FROM test_suite_flaky_detection_v19
+               WHERE suite_id = $1
+                 AND ($2::double precision IS NULL OR flaky_score >= $2)
+               ORDER BY flaky_score DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(suite_id)
+        .bind(min_score)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(FlakyTestDetectionV19::from).collect())
+    }
+
+    pub async fn update_flaky_detection(
+        &self,
+        id: Uuid,
+        req: UpdateFlakyTestDetectionV19Request,
+    ) -> Result<FlakyTestDetectionV19, sqlx::Error> {
+        if let Some(score) = req.flaky_score {
+            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET flaky_score = $1 WHERE id = $2"#)
+                .bind(score)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(runs) = req.total_runs {
+            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET total_runs = $1 WHERE id = $2"#)
+                .bind(runs)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(failures) = req.failure_count {
+            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET failure_count = $1 WHERE id = $2"#)
+                .bind(failures)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(at) = req.last_flaky_at {
+            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET last_flaky_at = $1 WHERE id = $2"#)
+                .bind(at)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        let row = sqlx::query_as::<_, FlakyDetectionV19Row>(
+            r#"SELECT id, test_name, suite_id, flaky_score, total_runs, failure_count, last_flaky_at, detected_at
+               FROM test_suite_flaky_detection_v19 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(FlakyTestDetectionV19::from(row))
+    }
+
+    pub async fn delete_flaky_detection(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM test_suite_flaky_detection_v19 WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_flaky_summary(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<FlakyTestSummaryV19, sqlx::Error> {
+        let stats = sqlx::query_as::<_, FlakySummaryRow>(
+            r#"SELECT
+                COUNT(*) as total_flaky_tests,
+                COUNT(*) FILTER (WHERE flaky_score >= 70.0) as high_flaky_count,
+                COUNT(*) FILTER (WHERE flaky_score >= 40.0 AND flaky_score < 70.0) as medium_flaky_count,
+                COUNT(*) FILTER (WHERE flaky_score < 40.0) as low_flaky_count,
+                COALESCE(AVG(flaky_score), 0) as avg_flaky_score
+               FROM test_suite_flaky_detection_v19
+               WHERE suite_id = $1"#,
+        )
+        .bind(suite_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let most_flaky = sqlx::query_as::<_, FlakyDetectionV19Row>(
+            r#"SELECT id, test_name, suite_id, flaky_score, total_runs, failure_count, last_flaky_at, detected_at
+               FROM test_suite_flaky_detection_v19
+               WHERE suite_id = $1
+               ORDER BY flaky_score DESC
+               LIMIT 10"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(FlakyTestSummaryV19 {
+            total_flaky_tests: stats.total_flaky_tests,
+            high_flaky_count: stats.high_flaky_count,
+            medium_flaky_count: stats.medium_flaky_count,
+            low_flaky_count: stats.low_flaky_count,
+            avg_flaky_score: stats.avg_flaky_score,
+            most_flaky_tests: most_flaky.into_iter().map(FlakyTestDetectionV19::from).collect(),
+        })
+    }
+
+    pub async fn create_trend(
+        &self,
+        suite_id: Uuid,
+        req: CreateTestSuiteTrendV19Request,
+    ) -> Result<TestSuiteTrendV19, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO test_suite_trends_v19 (id, suite_id, metric_name, metric_value, period_start, period_end, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
+        )
+        .bind(id)
+        .bind(suite_id)
+        .bind(&req.metric_name)
+        .bind(req.metric_value)
+        .bind(req.period_start)
+        .bind(req.period_end)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(TestSuiteTrendV19 {
+            id,
+            suite_id,
+            metric_name: req.metric_name,
+            metric_value: req.metric_value,
+            period_start: req.period_start,
+            period_end: req.period_end,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_trends(
+        &self,
+        suite_id: Uuid,
+        metric_name: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestSuiteTrendV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TrendV19Row>(
+            r#"SELECT id, suite_id, metric_name, metric_value, period_start, period_end, created_at
+               FROM test_suite_trends_v19
+               WHERE suite_id = $1
+                 AND ($2::varchar IS NULL OR metric_name = $2)
+               ORDER BY period_start DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(TestSuiteTrendV19::from).collect())
+    }
+
+    pub async fn get_trend_analysis(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+    ) -> Result<TestSuiteTrendAnalysisV19, sqlx::Error> {
+        let trends = self.list_trends(suite_id, Some(metric_name), 100, 0).await?;
+
+        let avg_value = if trends.is_empty() {
+            0.0
+        } else {
+            trends.iter().map(|t| t.metric_value).sum::<f64>() / trends.len() as f64
+        };
+
+        let min_value = trends.iter().map(|t| t.metric_value).fold(f64::INFINITY, f64::min);
+        let min_value = if min_value == f64::INFINITY { 0.0 } else { min_value };
+
+        let max_value = trends.iter().map(|t| t.metric_value).fold(f64::NEG_INFINITY, f64::max);
+        let max_value = if max_value == f64::NEG_INFINITY { 0.0 } else { max_value };
+
+        let trend_direction = if trends.len() < 2 {
+            "stable".to_string()
+        } else {
+            let first_half: f64 = trends.iter().take(trends.len() / 2).map(|t| t.metric_value).sum::<f64>() / (trends.len() / 2) as f64;
+            let second_half: f64 = trends.iter().skip(trends.len() / 2).map(|t| t.metric_value).sum::<f64>() / (trends.len() - trends.len() / 2) as f64;
+            if second_half > first_half * 1.1 {
+                "increasing".to_string()
+            } else if second_half < first_half * 0.9 {
+                "decreasing".to_string()
+            } else {
+                "stable".to_string()
+            }
+        };
+
+        let change_percent = if trends.len() >= 2 {
+            let first = trends.last().unwrap().metric_value;
+            let last = trends.first().unwrap().metric_value;
+            if first != 0.0 {
+                ((last - first) / first) * 100.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        Ok(TestSuiteTrendAnalysisV19 {
+            suite_id,
+            metric_name: metric_name.to_string(),
+            trends,
+            avg_value,
+            min_value,
+            max_value,
+            trend_direction,
+            change_percent,
+        })
+    }
+
+    pub async fn generate_optimization_suggestions(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestOptimizationSuggestionV22>, sqlx::Error> {
+        let mut suggestions = Vec::new();
+
+        let runs = self.list_runs(suite_id, None, 100, 0).await?;
+        let avg_duration = if runs.is_empty() {
+            0.0
+        } else {
+            runs.iter().map(|r| r.duration_ms as f64).sum::<f64>() / runs.len() as f64
+        };
+
+        if avg_duration > 300000.0 {
+            suggestions.push(TestOptimizationSuggestionV22 {
+                suite_id,
+                suggestion_type: "slow_tests".to_string(),
+                description: format!("Average test duration is {:.0}ms. Consider splitting into parallel suites.", avg_duration),
+                impact_score: 80.0,
+                estimated_time_savings_ms: (avg_duration * 0.3) as i64,
+            });
+        }
+
+        let fail_rate = if runs.is_empty() {
+            0.0
+        } else {
+            runs.iter().filter(|r| r.status == TestRunStatus::Failed).count() as f64 / runs.len() as f64 * 100.0
+        };
+
+        if fail_rate > 10.0 {
+            suggestions.push(TestOptimizationSuggestionV22 {
+                suite_id,
+                suggestion_type: "flaky_tests".to_string(),
+                description: format!("Failure rate is {:.1}%. Investigate flaky tests.", fail_rate),
+                impact_score: 70.0,
+                estimated_time_savings_ms: 0,
+            });
+        }
+
+        Ok(suggestions)
+    }
+
+    pub async fn analyze_coverage_gaps(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<CoverageGapAnalysisV22, sqlx::Error> {
+        let total_files = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(DISTINCT file_path) FROM code_quality_metrics WHERE repo_id = $1"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let covered_files = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(DISTINCT file_path) FROM code_quality_metrics WHERE repo_id = $1 AND metric_name LIKE '%test%'"#,
+        )
+        .bind(repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let coverage_percent = if total_files > 0 {
+            (covered_files as f64 / total_files as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let gap_severity = if coverage_percent < 30.0 {
+            "critical".to_string()
+        } else if coverage_percent < 60.0 {
+            "high".to_string()
+        } else if coverage_percent < 80.0 {
+            "medium".to_string()
+        } else {
+            "low".to_string()
+        };
+
+        Ok(CoverageGapAnalysisV22 {
+            repo_id,
+            total_files,
+            covered_files,
+            coverage_percent,
+            uncovered_files: Vec::new(),
+            gap_severity,
+        })
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -3015,4 +3371,65 @@ impl From<BaselineV15Row> for TestSuiteBaselineV15 {
             created_at: row.created_at,
         }
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct FlakyDetectionV19Row {
+    id: Uuid,
+    test_name: String,
+    suite_id: Uuid,
+    flaky_score: f64,
+    total_runs: i32,
+    failure_count: i32,
+    last_flaky_at: Option<chrono::DateTime<Utc>>,
+    detected_at: chrono::DateTime<Utc>,
+}
+
+impl From<FlakyDetectionV19Row> for FlakyTestDetectionV19 {
+    fn from(row: FlakyDetectionV19Row) -> Self {
+        Self {
+            id: row.id,
+            test_name: row.test_name,
+            suite_id: row.suite_id,
+            flaky_score: row.flaky_score,
+            total_runs: row.total_runs,
+            failure_count: row.failure_count,
+            last_flaky_at: row.last_flaky_at,
+            detected_at: row.detected_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct TrendV19Row {
+    id: Uuid,
+    suite_id: Uuid,
+    metric_name: String,
+    metric_value: f64,
+    period_start: chrono::DateTime<Utc>,
+    period_end: chrono::DateTime<Utc>,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<TrendV19Row> for TestSuiteTrendV19 {
+    fn from(row: TrendV19Row) -> Self {
+        Self {
+            id: row.id,
+            suite_id: row.suite_id,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            period_start: row.period_start,
+            period_end: row.period_end,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct FlakySummaryRow {
+    total_flaky_tests: i64,
+    high_flaky_count: i64,
+    medium_flaky_count: i64,
+    low_flaky_count: i64,
+    avg_flaky_score: f64,
 }

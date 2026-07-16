@@ -35,4 +35,8 @@ pub use types::{
     CodeQualityThresholdV18, CreateCodeQualityThresholdV18Request, UpdateCodeQualityThresholdV18Request,
     CodeQualityViolationV18, CodeQualityEnforcementReportV6, CodeQualityScoreV6,
     CodeQualityMetricSummaryV6,
+    CodeQualityRuleV19, CreateCodeQualityRuleV19Request, UpdateCodeQualityRuleV19Request,
+    CodeQualityRuleUsageV19, RecordRuleUsageV19Request, RuleUsageSummaryV19,
+    CustomRuleCreationV22, CreateCustomRuleV22Request, RuleTestResultV22,
+    RuleEffectivenessAnalysisV22, RuleEffectivenessTrendV22,
 };

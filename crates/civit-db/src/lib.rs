@@ -20,6 +20,9 @@ pub use models::{
     TestSuiteMetricV20, TestSuiteBaselineV20,
     CodeQualityMetricV20, CodeQualityThresholdV20,
     PerformanceTestAlertV21, PerformanceTestAlertHistoryV21,
+    WorkflowExecutionLogV21, WorkflowTemplateV20,
+    AutomationRuleExecutionHistoryV21, AutomationRulePerformanceV21,
+    ScheduledTaskPerformanceV21, ScheduledTaskResourceUsageV21,
 };
 pub use pool::DatabasePool;
 pub use repository::{DbRepository, OrgUsage};

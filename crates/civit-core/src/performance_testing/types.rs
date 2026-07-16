@@ -657,3 +657,114 @@ pub struct AlertTriggerTrendV18 {
     pub trigger_count: i64,
     pub alert_types: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceTestComparisonV20 {
+    pub id: Uuid,
+    pub baseline_id: Uuid,
+    pub comparison_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub comparison_value: f64,
+    pub percent_change: f64,
+    pub is_regression: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePerformanceTestComparisonV20Request {
+    pub baseline_id: Uuid,
+    pub comparison_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub comparison_value: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceTestRegressionsV20 {
+    pub id: Uuid,
+    pub baseline_id: Uuid,
+    pub metric_name: String,
+    pub threshold_percent: f64,
+    pub enabled: bool,
+    pub last_detected_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePerformanceTestRegressionsV20Request {
+    pub baseline_id: Uuid,
+    pub metric_name: String,
+    pub threshold_percent: Option<f64>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePerformanceTestRegressionsV20Request {
+    pub threshold_percent: Option<f64>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ComparisonAnalysisResultV20 {
+    pub total_comparisons: i64,
+    pub regressions_detected: i64,
+    pub improvements_detected: i64,
+    pub avg_percent_change: f64,
+    pub comparisons: Vec<PerformanceTestComparisonV20>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegressionDetectionResultV20 {
+    pub total_baselines: i64,
+    pub active_regressions: i64,
+    pub regressions: Vec<PerformanceTestRegressionsV20>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceBudgetV23 {
+    pub id: Uuid,
+    pub repo_id: Uuid,
+    pub metric_name: String,
+    pub budget_value: f64,
+    pub alert_threshold: f64,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePerformanceBudgetV23Request {
+    pub metric_name: String,
+    pub budget_value: f64,
+    pub alert_threshold: Option<f64>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePerformanceBudgetV23Request {
+    pub budget_value: Option<f64>,
+    pub alert_threshold: Option<f64>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceBudgetCheckV23 {
+    pub budget_id: Uuid,
+    pub metric_name: String,
+    pub budget_value: f64,
+    pub current_value: f64,
+    pub within_budget: bool,
+    pub utilization_percent: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceTrendAnalysisV23 {
+    pub metric_name: String,
+    pub data_points: Vec<PerformanceTrendData>,
+    pub avg_value: f64,
+    pub min_value: f64,
+    pub max_value: f64,
+    pub trend_direction: String,
+    pub change_percent: f64,
+    pub forecast_next: Option<f64>,
+}

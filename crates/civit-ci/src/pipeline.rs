@@ -1021,6 +1021,439 @@ pub async fn auto_approve_pending(
 }
 
 // ---------------------------------------------------------------------------
+// Environment Drift Detection V20
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DriftDetectionResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub drift_type: String,
+    pub expected_state: serde_json::Value,
+    pub actual_state: serde_json::Value,
+    pub severity: String,
+    pub detected_at: String,
+    pub resolved_at: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct DriftDetectionRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub drift_type: String,
+    pub expected_state: serde_json::Value,
+    pub actual_state: serde_json::Value,
+    pub severity: String,
+    pub detected_at: chrono::DateTime<chrono::Utc>,
+    pub resolved_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+impl From<DriftDetectionRow> for DriftDetectionResponse {
+    fn from(r: DriftDetectionRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            drift_type: r.drift_type,
+            expected_state: r.expected_state,
+            actual_state: r.actual_state,
+            severity: r.severity,
+            detected_at: r.detected_at.to_rfc3339(),
+            resolved_at: r.resolved_at.map(|t| t.to_rfc3339()),
+        }
+    }
+}
+
+/// Create a drift detection record.
+pub async fn create_drift_detection(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    drift_type: &str,
+    expected_state: &serde_json::Value,
+    actual_state: &serde_json::Value,
+    severity: &str,
+) -> std::result::Result<DriftDetectionResponse, sqlx::Error> {
+    sqlx::query_as::<_, DriftDetectionRow>(
+        "INSERT INTO environment_drift_detection_v20 \
+         (environment_id, drift_type, expected_state, actual_state, severity) \
+         VALUES ($1, $2, $3, $4, $5) \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(drift_type)
+    .bind(expected_state)
+    .bind(actual_state)
+    .bind(severity)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Resolve a drift detection record.
+pub async fn resolve_drift(
+    pool: &sqlx::PgPool,
+    drift_id: Uuid,
+) -> std::result::Result<DriftDetectionResponse, sqlx::Error> {
+    sqlx::query_as::<_, DriftDetectionRow>(
+        "UPDATE environment_drift_detection_v20 \
+         SET resolved_at = NOW() \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(drift_id)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List drift detections for an environment.
+pub async fn list_drift_detections(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<DriftDetectionResponse>, sqlx::Error> {
+    sqlx::query_as::<_, DriftDetectionRow>(
+        "SELECT * FROM environment_drift_detection_v20 \
+         WHERE environment_id = $1 \
+         ORDER BY detected_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(environment_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get drift summary for an environment.
+pub async fn get_drift_summary(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            SUM(CASE WHEN resolved_at IS NOT NULL THEN 1 ELSE 0 END), \
+            SUM(CASE WHEN severity = 'critical' AND resolved_at IS NULL THEN 1 ELSE 0 END), \
+            SUM(CASE WHEN severity = 'warning' AND resolved_at IS NULL THEN 1 ELSE 0 END) \
+         FROM environment_drift_detection_v20 WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "environment_id": environment_id.to_string(),
+        "total_drifts": row.0.unwrap_or(0),
+        "resolved_count": row.1.unwrap_or(0),
+        "critical_drifts": row.2.unwrap_or(0),
+        "warning_drifts": row.3.unwrap_or(0)
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Environment Snapshot Management V20
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvironmentSnapshotResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub snapshot_data: serde_json::Value,
+    pub created_by: String,
+    pub description: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct EnvironmentSnapshotRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub snapshot_data: serde_json::Value,
+    pub created_by: Uuid,
+    pub description: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<EnvironmentSnapshotRow> for EnvironmentSnapshotResponse {
+    fn from(r: EnvironmentSnapshotRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            snapshot_data: r.snapshot_data,
+            created_by: r.created_by.to_string(),
+            description: r.description,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create a snapshot of an environment.
+pub async fn create_environment_snapshot(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    snapshot_data: &serde_json::Value,
+    created_by: Uuid,
+    description: &str,
+) -> std::result::Result<EnvironmentSnapshotResponse, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentSnapshotRow>(
+        "INSERT INTO environment_snapshot_v20 \
+         (environment_id, snapshot_data, created_by, description) \
+         VALUES ($1, $2, $3, $4) \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(snapshot_data)
+    .bind(created_by)
+    .bind(description)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List snapshots for an environment.
+pub async fn list_environment_snapshots(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<EnvironmentSnapshotResponse>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentSnapshotRow>(
+        "SELECT * FROM environment_snapshot_v20 \
+         WHERE environment_id = $1 \
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(environment_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get a snapshot by ID.
+pub async fn get_environment_snapshot(
+    pool: &sqlx::PgPool,
+    snapshot_id: Uuid,
+) -> std::result::Result<Option<EnvironmentSnapshotResponse>, sqlx::Error> {
+    sqlx::query_as::<_, EnvironmentSnapshotRow>(
+        "SELECT * FROM environment_snapshot_v20 WHERE id = $1",
+    )
+    .bind(snapshot_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// Delete a snapshot.
+pub async fn delete_environment_snapshot(
+    pool: &sqlx::PgPool,
+    snapshot_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM environment_snapshot_v20 WHERE id = $1")
+        .bind(snapshot_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+// ---------------------------------------------------------------------------
+// Environment Comparison V25
+// ---------------------------------------------------------------------------
+
+/// Compare two environments and return differences.
+pub async fn compare_environments(
+    pool: &sqlx::PgPool,
+    env_id_a: Uuid,
+    env_id_b: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let env_a: Option<EnvironmentRow> = sqlx::query_as(
+        "SELECT * FROM pipeline_environments WHERE id = $1",
+    )
+    .bind(env_id_a)
+    .fetch_optional(pool)
+    .await?;
+
+    let env_b: Option<EnvironmentRow> = sqlx::query_as(
+        "SELECT * FROM pipeline_environments WHERE id = $1",
+    )
+    .bind(env_id_b)
+    .fetch_optional(pool)
+    .await?;
+
+    match (env_a, env_b) {
+        (Some(a), Some(b)) => {
+            let mut differences = Vec::new();
+            if a.name != b.name {
+                differences.push(serde_json::json!({
+                    "field": "name",
+                    "value_a": a.name,
+                    "value_b": b.name
+                }));
+            }
+            if a.url != b.url {
+                differences.push(serde_json::json!({
+                    "field": "url",
+                    "value_a": a.url,
+                    "value_b": b.url
+                }));
+            }
+            if a.protected != b.protected {
+                differences.push(serde_json::json!({
+                    "field": "protected",
+                    "value_a": a.protected,
+                    "value_b": b.protected
+                }));
+            }
+            if a.auto_deploy != b.auto_deploy {
+                differences.push(serde_json::json!({
+                    "field": "auto_deploy",
+                    "value_a": a.auto_deploy,
+                    "value_b": b.auto_deploy
+                }));
+            }
+            Ok(serde_json::json!({
+                "environment_a": env_id_a.to_string(),
+                "environment_b": env_id_b.to_string(),
+                "differences": differences,
+                "identical": differences.is_empty()
+            }))
+        }
+        _ => Ok(serde_json::json!({
+            "error": "one or both environments not found"
+        })),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Rollback Automation V25
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RollbackResponse {
+    pub id: String,
+    pub environment_id: String,
+    pub deployment_id: String,
+    pub snapshot_id: Option<String>,
+    pub status: String,
+    pub created_by: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct RollbackRow {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub deployment_id: Uuid,
+    pub snapshot_id: Option<Uuid>,
+    pub status: String,
+    pub created_by: Uuid,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<RollbackRow> for RollbackResponse {
+    fn from(r: RollbackRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            deployment_id: r.deployment_id.to_string(),
+            snapshot_id: r.snapshot_id.map(|id| id.to_string()),
+            status: r.status,
+            created_by: r.created_by.to_string(),
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Initiate a rollback for an environment.
+pub async fn initiate_rollback(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    deployment_id: Uuid,
+    snapshot_id: Option<Uuid>,
+    created_by: Uuid,
+) -> std::result::Result<RollbackResponse, sqlx::Error> {
+    sqlx::query_as::<_, RollbackRow>(
+        "INSERT INTO environment_rollbacks_v20 \
+         (environment_id, deployment_id, snapshot_id, status, created_by) \
+         VALUES ($1, $2, $3, 'pending', $4) \
+         RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(deployment_id)
+    .bind(snapshot_id)
+    .bind(created_by)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Update rollback status.
+pub async fn update_rollback_status(
+    pool: &sqlx::PgPool,
+    rollback_id: Uuid,
+    status: &str,
+) -> std::result::Result<RollbackResponse, sqlx::Error> {
+    sqlx::query_as::<_, RollbackRow>(
+        "UPDATE environment_rollbacks_v20 \
+         SET status = $2 \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(rollback_id)
+    .bind(status)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List rollbacks for an environment.
+pub async fn list_rollbacks(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<RollbackResponse>, sqlx::Error> {
+    sqlx::query_as::<_, RollbackRow>(
+        "SELECT * FROM environment_rollbacks_v20 \
+         WHERE environment_id = $1 \
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(environment_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get rollback summary for an environment.
+pub async fn get_rollback_summary(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), \
+            SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), \
+            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) \
+         FROM environment_rollbacks_v20 WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "environment_id": environment_id.to_string(),
+        "total_rollbacks": row.0.unwrap_or(0),
+        "completed_count": row.1.unwrap_or(0),
+        "pending_count": row.2.unwrap_or(0),
+        "failed_count": row.3.unwrap_or(0)
+    }))
+}
+
+// ---------------------------------------------------------------------------
 // Pipeline creation logic
 // ---------------------------------------------------------------------------
 

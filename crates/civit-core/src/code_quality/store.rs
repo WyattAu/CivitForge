@@ -2719,6 +2719,285 @@ impl CodeQualityStore {
             }
         }))
     }
+
+    pub async fn create_rule_v19(
+        &self,
+        req: CreateCodeQualityRuleV19Request,
+    ) -> Result<CodeQualityRuleV19, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let description = req.description.unwrap_or_default();
+        let severity = req.severity.unwrap_or_else(|| "warning".to_string());
+        let enabled = req.enabled.unwrap_or(true);
+        let rule_config = req.rule_config.unwrap_or(serde_json::json!({}));
+
+        sqlx::query(
+            r#"INSERT INTO code_quality_rules_v19 (id, name, description, rule_type, severity, enabled, rule_config, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+        )
+        .bind(id)
+        .bind(&req.name)
+        .bind(&description)
+        .bind(&req.rule_type)
+        .bind(&severity)
+        .bind(enabled)
+        .bind(&rule_config)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(CodeQualityRuleV19 {
+            id,
+            name: req.name,
+            description,
+            rule_type: req.rule_type,
+            severity,
+            enabled,
+            rule_config,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_rule_v19(&self, id: Uuid) -> Result<Option<CodeQualityRuleV19>, sqlx::Error> {
+        let row = sqlx::query_as::<_, RuleV19Row>(
+            r#"SELECT id, name, description, rule_type, severity, enabled, rule_config, created_at
+               FROM code_quality_rules_v19 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(CodeQualityRuleV19::from))
+    }
+
+    pub async fn list_rules_v19(
+        &self,
+        enabled_only: bool,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CodeQualityRuleV19>, sqlx::Error> {
+        let query = if enabled_only {
+            r#"SELECT id, name, description, rule_type, severity, enabled, rule_config, created_at
+               FROM code_quality_rules_v19
+               WHERE enabled = true
+               ORDER BY created_at DESC
+               LIMIT $1 OFFSET $2"#
+        } else {
+            r#"SELECT id, name, description, rule_type, severity, enabled, rule_config, created_at
+               FROM code_quality_rules_v19
+               ORDER BY created_at DESC
+               LIMIT $1 OFFSET $2"#
+        };
+
+        let rows = sqlx::query_as::<_, RuleV19Row>(query)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(rows.into_iter().map(CodeQualityRuleV19::from).collect())
+    }
+
+    pub async fn update_rule_v19(
+        &self,
+        id: Uuid,
+        req: UpdateCodeQualityRuleV19Request,
+    ) -> Result<CodeQualityRuleV19, sqlx::Error> {
+        if let Some(name) = &req.name {
+            sqlx::query(r#"UPDATE code_quality_rules_v19 SET name = $1 WHERE id = $2"#)
+                .bind(name)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(desc) = &req.description {
+            sqlx::query(r#"UPDATE code_quality_rules_v19 SET description = $1 WHERE id = $2"#)
+                .bind(desc)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(rule_type) = &req.rule_type {
+            sqlx::query(r#"UPDATE code_quality_rules_v19 SET rule_type = $1 WHERE id = $2"#)
+                .bind(rule_type)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(severity) = &req.severity {
+            sqlx::query(r#"UPDATE code_quality_rules_v19 SET severity = $1 WHERE id = $2"#)
+                .bind(severity)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(enabled) = req.enabled {
+            sqlx::query(r#"UPDATE code_quality_rules_v19 SET enabled = $1 WHERE id = $2"#)
+                .bind(enabled)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(config) = &req.rule_config {
+            sqlx::query(r#"UPDATE code_quality_rules_v19 SET rule_config = $1 WHERE id = $2"#)
+                .bind(config)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        self.get_rule_v19(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+    }
+
+    pub async fn delete_rule_v19(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM code_quality_rules_v19 WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn record_rule_usage(
+        &self,
+        req: RecordRuleUsageV19Request,
+    ) -> Result<CodeQualityRuleUsageV19, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO code_quality_rule_usage_v19 (id, rule_id, repo_id, trigger_count, last_triggered_at)
+               VALUES ($1, $2, $3, 1, $4)
+               ON CONFLICT (rule_id, repo_id) DO UPDATE SET
+               trigger_count = code_quality_rule_usage_v19.trigger_count + 1,
+               last_triggered_at = $4"#,
+        )
+        .bind(id)
+        .bind(req.rule_id)
+        .bind(req.repo_id)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        let row = sqlx::query_as::<_, RuleUsageV19Row>(
+            r#"SELECT id, rule_id, repo_id, trigger_count, last_triggered_at
+               FROM code_quality_rule_usage_v19 WHERE rule_id = $1 AND repo_id = $2"#,
+        )
+        .bind(req.rule_id)
+        .bind(req.repo_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(CodeQualityRuleUsageV19::from(row))
+    }
+
+    pub async fn get_rule_usage_summary(
+        &self,
+    ) -> Result<RuleUsageSummaryV19, sqlx::Error> {
+        let stats = sqlx::query_as::<_, RuleUsageStatsRow>(
+            r#"SELECT
+                (SELECT COUNT(*) FROM code_quality_rules_v19) as total_rules,
+                (SELECT COUNT(*) FROM code_quality_rules_v19 WHERE enabled = true) as active_rules,
+                COALESCE(SUM(trigger_count), 0) as total_triggers
+               FROM code_quality_rule_usage_v19"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        let most_used = sqlx::query_as::<_, RuleUsageV19Row>(
+            r#"SELECT id, rule_id, repo_id, trigger_count, last_triggered_at
+               FROM code_quality_rule_usage_v19
+               ORDER BY trigger_count DESC
+               LIMIT 10"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(RuleUsageSummaryV19 {
+            total_rules: stats.total_rules,
+            active_rules: stats.active_rules,
+            total_triggers: stats.total_triggers,
+            most_used_rules: most_used.into_iter().map(CodeQualityRuleUsageV19::from).collect(),
+        })
+    }
+
+    pub async fn create_custom_rule_v22(
+        &self,
+        req: CreateCustomRuleV22Request,
+    ) -> Result<CustomRuleCreationV22, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let description = req.description.unwrap_or_default();
+        let severity = req.severity.unwrap_or_else(|| "warning".to_string());
+
+        sqlx::query(
+            r#"INSERT INTO code_quality_rules_v19 (id, name, description, rule_type, severity, enabled, rule_config, created_at)
+               VALUES ($1, $2, $3, $4, $5, true, $6, $7)"#,
+        )
+        .bind(id)
+        .bind(&req.name)
+        .bind(&description)
+        .bind(&req.rule_type)
+        .bind(&severity)
+        .bind(&req.rule_config)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        let test_results = req.test_files.unwrap_or_default();
+
+        Ok(CustomRuleCreationV22 {
+            id,
+            name: req.name,
+            description,
+            rule_type: req.rule_type,
+            severity,
+            rule_config: req.rule_config,
+            test_results,
+            created_at: now,
+        })
+    }
+
+    pub async fn get_rule_effectiveness(
+        &self,
+        rule_id: Uuid,
+    ) -> Result<RuleEffectivenessAnalysisV22, sqlx::Error> {
+        let rule = self.get_rule_v19(rule_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let stats = sqlx::query_as::<_, RuleEffectivenessStatsRow>(
+            r#"SELECT
+                COALESCE(SUM(trigger_count), 0) as total_enforcements,
+                COALESCE(SUM(trigger_count) FILTER (WHERE trigger_count > 0), 0) as total_violations
+               FROM code_quality_rule_usage_v19
+               WHERE rule_id = $1"#,
+        )
+        .bind(rule_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let effectiveness_score = if stats.total_enforcements > 0 {
+            (stats.total_violations as f64 / stats.total_enforcements as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let false_positive_rate = if stats.total_violations > 0 {
+            0.0
+        } else {
+            0.0
+        };
+
+        let trend = Vec::new();
+
+        Ok(RuleEffectivenessAnalysisV22 {
+            rule_id,
+            rule_name: rule.name,
+            total_enforcements: stats.total_enforcements,
+            total_violations: stats.total_violations,
+            effectiveness_score,
+            false_positive_rate,
+            trend,
+        })
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -3322,4 +3601,65 @@ struct MetricSummaryV18Row {
     max_value: f64,
     measurement_count: i64,
     files_affected: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct RuleV19Row {
+    id: Uuid,
+    name: String,
+    description: String,
+    rule_type: String,
+    severity: String,
+    enabled: bool,
+    rule_config: serde_json::Value,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<RuleV19Row> for CodeQualityRuleV19 {
+    fn from(row: RuleV19Row) -> Self {
+        Self {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            rule_type: row.rule_type,
+            severity: row.severity,
+            enabled: row.enabled,
+            rule_config: row.rule_config,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct RuleUsageV19Row {
+    id: Uuid,
+    rule_id: Uuid,
+    repo_id: Uuid,
+    trigger_count: i32,
+    last_triggered_at: Option<chrono::DateTime<Utc>>,
+}
+
+impl From<RuleUsageV19Row> for CodeQualityRuleUsageV19 {
+    fn from(row: RuleUsageV19Row) -> Self {
+        Self {
+            id: row.id,
+            rule_id: row.rule_id,
+            repo_id: row.repo_id,
+            trigger_count: row.trigger_count,
+            last_triggered_at: row.last_triggered_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct RuleUsageStatsRow {
+    total_rules: i64,
+    active_rules: i64,
+    total_triggers: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct RuleEffectivenessStatsRow {
+    total_enforcements: i64,
+    total_violations: i64,
 }

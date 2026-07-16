@@ -1012,6 +1012,18 @@ pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_UP: &str = include_str!("611_add_rate
 pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_DOWN: &str = include_str!("down/611_add_rate_limit_tier_quotas_v21_down.sql");
 pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_UP: &str = include_str!("612_add_analytics_dashboard_templates_alert_rules_v21.sql");
 pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_DOWN: &str = include_str!("down/612_add_analytics_dashboard_templates_alert_rules_v21_down.sql");
+pub const M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_UP: &str = include_str!("613_add_workflow_execution_logs_templates_v21.sql");
+pub const M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_DOWN: &str = include_str!("down/613_add_workflow_execution_logs_templates_v21_down.sql");
+pub const M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_UP: &str = include_str!("614_add_automation_rule_execution_history_performance_v21.sql");
+pub const M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_DOWN: &str = include_str!("down/614_add_automation_rule_execution_history_performance_v21_down.sql");
+pub const M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_UP: &str = include_str!("615_add_scheduled_task_performance_resource_usage_v21.sql");
+pub const M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_DOWN: &str = include_str!("down/615_add_scheduled_task_performance_resource_usage_v21_down.sql");
+pub const M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_UP: &str = include_str!("619_add_pipeline_action_security_scans_compatibility_v20.sql");
+pub const M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_DOWN: &str = include_str!("down/619_add_pipeline_action_security_scans_compatibility_v20_down.sql");
+pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_UP: &str = include_str!("620_add_environment_drift_detection_snapshots_v20.sql");
+pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_DOWN: &str = include_str!("down/620_add_environment_drift_detection_snapshots_v20_down.sql");
+pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_UP: &str = include_str!("621_add_cache_prediction_model_warming_strategies_v20.sql");
+pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_DOWN: &str = include_str!("down/621_add_cache_prediction_model_warming_strategies_v20_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3363,6 +3375,42 @@ impl MigrationManager {
             name: "add_analytics_dashboard_templates_alert_rules_v21".into(),
             up_sql: M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_UP.into(),
             down_sql: M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 613,
+            name: "add_workflow_execution_logs_templates_v21".into(),
+            up_sql: M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_UP.into(),
+            down_sql: M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 614,
+            name: "add_automation_rule_execution_history_performance_v21".into(),
+            up_sql: M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_UP.into(),
+            down_sql: M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 615,
+            name: "add_scheduled_task_performance_resource_usage_v21".into(),
+            up_sql: M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_UP.into(),
+            down_sql: M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 619,
+            name: "add_pipeline_action_security_scans_compatibility_v20".into(),
+            up_sql: M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_UP.into(),
+            down_sql: M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 620,
+            name: "add_environment_drift_detection_snapshots_v20".into(),
+            up_sql: M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_UP.into(),
+            down_sql: M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 621,
+            name: "add_cache_prediction_model_warming_strategies_v20".into(),
+            up_sql: M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_UP.into(),
+            down_sql: M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_DOWN.into(),
         });
     }
 

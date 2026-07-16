@@ -25,4 +25,10 @@ pub use types::{
     PerformanceAlertHistoryV16, AlertNotificationV16, AlertAnalyticsV16, AlertTriggerTrendV16,
     PerformanceTestAlertConfigV18, CreateAlertConfigV18Request, UpdateAlertConfigV18Request,
     PerformanceAlertHistoryV18, AlertNotificationV18, AlertAnalyticsV18, AlertTriggerTrendV18,
+    PerformanceTestComparisonV20, CreatePerformanceTestComparisonV20Request,
+    PerformanceTestRegressionsV20, CreatePerformanceTestRegressionsV20Request,
+    UpdatePerformanceTestRegressionsV20Request,
+    ComparisonAnalysisResultV20, RegressionDetectionResultV20,
+    PerformanceBudgetV23, CreatePerformanceBudgetV23Request, UpdatePerformanceBudgetV23Request,
+    PerformanceBudgetCheckV23, PerformanceTrendAnalysisV23,
 };

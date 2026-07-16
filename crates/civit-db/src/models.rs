@@ -4640,3 +4640,85 @@ pub struct AnalyticsAlertRuleV21 {
     pub last_triggered_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
+
+// --- Workflow Execution Logs v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowExecutionLogV21 {
+    pub id: Uuid,
+    pub workflow_id: Uuid,
+    pub execution_id: Uuid,
+    pub step_name: String,
+    pub step_status: String,
+    pub input_data: serde_json::Value,
+    pub output_data: serde_json::Value,
+    pub error_message: Option<String>,
+    pub duration_ms: Option<i32>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+// --- Workflow Templates v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowTemplateV20 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub definition: serde_json::Value,
+    pub version: i32,
+    pub usage_count: i32,
+    pub rating: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Automation Rule Execution History v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AutomationRuleExecutionHistoryV21 {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub trigger_event: String,
+    pub matched: bool,
+    pub action_taken: Option<String>,
+    pub duration_ms: Option<i32>,
+    pub error_message: Option<String>,
+    pub executed_at: DateTime<Utc>,
+}
+
+// --- Automation Rule Performance v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AutomationRulePerformanceV21 {
+    pub id: Uuid,
+    pub rule_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+// --- Scheduled Task Performance v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ScheduledTaskPerformanceV21 {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+// --- Scheduled Task Resource Usage v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ScheduledTaskResourceUsageV21 {
+    pub id: Uuid,
+    pub task_id: Uuid,
+    pub cpu_usage_percent: f64,
+    pub memory_usage_bytes: i64,
+    pub disk_usage_bytes: i64,
+    pub network_bytes_sent: i64,
+    pub network_bytes_received: i64,
+    pub measured_at: DateTime<Utc>,
+}

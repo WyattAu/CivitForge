@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20};
+use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20, WorkflowExecutionLogV21, WorkflowTemplateV20};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {
@@ -9232,6 +9232,444 @@ impl WorkflowService {
             "definition_b": b.definition,
             "changed": a.definition != b.definition,
         }))
+    }
+}
+
+// --- V24: Execution Logging, Template Management, Performance Analytics, Optimization ---
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowExecutionLogV24 {
+    pub id: Uuid,
+    pub workflow_id: Uuid,
+    pub execution_id: Uuid,
+    pub step_name: String,
+    pub step_status: String,
+    pub input_data: serde_json::Value,
+    pub output_data: serde_json::Value,
+    pub error_message: Option<String>,
+    pub duration_ms: Option<i32>,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkflowExecutionLogV24 {
+    pub workflow_id: Uuid,
+    pub execution_id: Uuid,
+    pub step_name: String,
+    pub step_status: String,
+    pub input_data: Option<serde_json::Value>,
+    pub output_data: Option<serde_json::Value>,
+    pub error_message: Option<String>,
+    pub duration_ms: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowTemplateV24 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub definition: serde_json::Value,
+    pub version: i32,
+    pub usage_count: i32,
+    pub rating: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkflowTemplateV24 {
+    pub name: String,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub definition: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateWorkflowTemplateV24 {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub definition: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowPerformanceAnalyticsV24 {
+    pub workflow_id: Uuid,
+    pub total_executions: i64,
+    pub successful_executions: i64,
+    pub failed_executions: i64,
+    pub avg_duration_ms: f64,
+    pub p95_duration_ms: f64,
+    pub success_rate: f64,
+    pub avg_steps_per_execution: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkflowOptimizationSuggestion {
+    pub workflow_id: Uuid,
+    pub suggestion_type: String,
+    pub description: String,
+    pub impact: String,
+    pub estimated_improvement: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowExecutionLogV24Row {
+    id: Uuid,
+    workflow_id: Uuid,
+    execution_id: Uuid,
+    step_name: String,
+    step_status: String,
+    input_data: serde_json::Value,
+    output_data: serde_json::Value,
+    error_message: Option<String>,
+    duration_ms: Option<i32>,
+    started_at: DateTime<Utc>,
+    completed_at: Option<DateTime<Utc>>,
+}
+
+impl From<WorkflowExecutionLogV24Row> for WorkflowExecutionLogV24 {
+    fn from(row: WorkflowExecutionLogV24Row) -> Self {
+        WorkflowExecutionLogV24 {
+            id: row.id,
+            workflow_id: row.workflow_id,
+            execution_id: row.execution_id,
+            step_name: row.step_name,
+            step_status: row.step_status,
+            input_data: row.input_data,
+            output_data: row.output_data,
+            error_message: row.error_message,
+            duration_ms: row.duration_ms,
+            started_at: row.started_at,
+            completed_at: row.completed_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowTemplateV24Row {
+    id: Uuid,
+    name: String,
+    description: String,
+    category: String,
+    definition: serde_json::Value,
+    version: i32,
+    usage_count: i32,
+    rating: f64,
+    created_at: DateTime<Utc>,
+}
+
+impl From<WorkflowTemplateV24Row> for WorkflowTemplateV24 {
+    fn from(row: WorkflowTemplateV24Row) -> Self {
+        WorkflowTemplateV24 {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            category: row.category,
+            definition: row.definition,
+            version: row.version,
+            usage_count: row.usage_count,
+            rating: row.rating,
+            created_at: row.created_at,
+        }
+    }
+}
+
+impl WorkflowService {
+    // --- Execution Logging v21 ---
+
+    pub async fn create_execution_log(
+        &self,
+        input: CreateWorkflowExecutionLogV24,
+    ) -> Result<WorkflowExecutionLogV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionLogV24Row>(
+            r#"INSERT INTO workflow_execution_logs_v21 (workflow_id, execution_id, step_name, step_status, input_data, output_data, error_message, duration_ms)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id, workflow_id, execution_id, step_name, step_status, input_data, output_data, error_message, duration_ms, started_at, completed_at"#,
+        )
+        .bind(input.workflow_id)
+        .bind(input.execution_id)
+        .bind(&input.step_name)
+        .bind(&input.step_status)
+        .bind(input.input_data.unwrap_or(serde_json::json!({})))
+        .bind(input.output_data.unwrap_or(serde_json::json!({})))
+        .bind(&input.error_message)
+        .bind(input.duration_ms)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_execution_logs(
+        &self,
+        execution_id: Uuid,
+    ) -> Result<Vec<WorkflowExecutionLogV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowExecutionLogV24Row>(
+            r#"SELECT id, workflow_id, execution_id, step_name, step_status, input_data, output_data, error_message, duration_ms, started_at, completed_at
+             FROM workflow_execution_logs_v21 WHERE execution_id = $1 ORDER BY started_at ASC"#,
+        )
+        .bind(execution_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_execution_logs_for_workflow(
+        &self,
+        workflow_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<WorkflowExecutionLogV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowExecutionLogV24Row>(
+            r#"SELECT id, workflow_id, execution_id, step_name, step_status, input_data, output_data, error_message, duration_ms, started_at, completed_at
+             FROM workflow_execution_logs_v21 WHERE workflow_id = $1 ORDER BY started_at DESC LIMIT $2"#,
+        )
+        .bind(workflow_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn complete_execution_log(
+        &self,
+        log_id: Uuid,
+        status: &str,
+        output_data: Option<serde_json::Value>,
+        error_message: Option<&str>,
+        duration_ms: Option<i32>,
+    ) -> Result<WorkflowExecutionLogV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowExecutionLogV24Row>(
+            r#"UPDATE workflow_execution_logs_v21 SET
+             step_status = $2,
+             output_data = COALESCE($3, output_data),
+             error_message = $4,
+             duration_ms = $5,
+             completed_at = NOW()
+             WHERE id = $1
+             RETURNING id, workflow_id, execution_id, step_name, step_status, input_data, output_data, error_message, duration_ms, started_at, completed_at"#,
+        )
+        .bind(log_id)
+        .bind(status)
+        .bind(output_data)
+        .bind(error_message)
+        .bind(duration_ms)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    // --- Template Management v20 ---
+
+    pub async fn create_template_v24(
+        &self,
+        input: CreateWorkflowTemplateV24,
+    ) -> Result<WorkflowTemplateV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateV24Row>(
+            r#"INSERT INTO workflow_templates_v20 (name, description, category, definition)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, name, description, category, definition, version, usage_count, rating, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.unwrap_or_default())
+        .bind(input.category.unwrap_or_else(|| "general".into()))
+        .bind(input.definition)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_template_v24(&self, id: Uuid) -> Result<Option<WorkflowTemplateV24>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateV24Row>(
+            r#"SELECT id, name, description, category, definition, version, usage_count, rating, created_at
+             FROM workflow_templates_v20 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_templates_v24(&self) -> Result<Vec<WorkflowTemplateV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV24Row>(
+            r#"SELECT id, name, description, category, definition, version, usage_count, rating, created_at
+             FROM workflow_templates_v20 ORDER BY usage_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_templates_by_category_v24(
+        &self,
+        category: &str,
+    ) -> Result<Vec<WorkflowTemplateV24>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV24Row>(
+            r#"SELECT id, name, description, category, definition, version, usage_count, rating, created_at
+             FROM workflow_templates_v20 WHERE category = $1 ORDER BY rating DESC"#,
+        )
+        .bind(category)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_template_v24(
+        &self,
+        id: Uuid,
+        input: UpdateWorkflowTemplateV24,
+    ) -> Result<WorkflowTemplateV24, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateV24Row>(
+            r#"UPDATE workflow_templates_v20 SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             category = COALESCE($4, category),
+             definition = COALESCE($5, definition),
+             version = version + 1
+             WHERE id = $1
+             RETURNING id, name, description, category, definition, version, usage_count, rating, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.category)
+        .bind(&input.definition)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_template_v24(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM workflow_templates_v20 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn increment_template_usage_v24(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "UPDATE workflow_templates_v20 SET usage_count = usage_count + 1 WHERE id = $1",
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn rate_template_v24(&self, id: Uuid, rating: f64) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            r#"UPDATE workflow_templates_v20 SET
+             rating = (rating * usage_count + $2) / (usage_count + 1)
+             WHERE id = $1"#,
+        )
+        .bind(id)
+        .bind(rating)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    // --- Performance Analytics v24 ---
+
+    pub async fn get_workflow_performance_analytics(
+        &self,
+        workflow_id: Uuid,
+    ) -> Result<WorkflowPerformanceAnalyticsV24, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct PerformanceRow {
+            total_executions: i64,
+            successful_executions: i64,
+            failed_executions: i64,
+            avg_duration_ms: f64,
+            p95_duration_ms: f64,
+            avg_steps: f64,
+        }
+
+        let row = sqlx::query_as::<_, PerformanceRow>(
+            r#"SELECT
+                COUNT(DISTINCT execution_id) as total_executions,
+                COUNT(DISTINCT execution_id) FILTER (WHERE step_status = 'completed') as successful_executions,
+                COUNT(DISTINCT execution_id) FILTER (WHERE step_status = 'failed') as failed_executions,
+                COALESCE(AVG(duration_ms), 0) as avg_duration_ms,
+                COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms), 0) as p95_duration_ms,
+                COALESCE(AVG(COUNT(*) OVER (PARTITION BY execution_id)), 0) as avg_steps
+             FROM workflow_execution_logs_v21 WHERE workflow_id = $1"#,
+        )
+        .bind(workflow_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let success_rate = if row.total_executions > 0 {
+            (row.successful_executions as f64 / row.total_executions as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        Ok(WorkflowPerformanceAnalyticsV24 {
+            workflow_id,
+            total_executions: row.total_executions,
+            successful_executions: row.successful_executions,
+            failed_executions: row.failed_executions,
+            avg_duration_ms: row.avg_duration_ms,
+            p95_duration_ms: row.p95_duration_ms,
+            success_rate,
+            avg_steps_per_execution: row.avg_steps,
+        })
+    }
+
+    // --- Optimization Suggestions v24 ---
+
+    pub async fn get_optimization_suggestions(
+        &self,
+        workflow_id: Uuid,
+    ) -> Result<Vec<WorkflowOptimizationSuggestion>, sqlx::Error> {
+        let analytics = self.get_workflow_performance_analytics(workflow_id).await?;
+        let mut suggestions = Vec::new();
+
+        if analytics.success_rate < 90.0 {
+            suggestions.push(WorkflowOptimizationSuggestion {
+                workflow_id,
+                suggestion_type: "reliability".into(),
+                description: "Success rate is below 90%. Review failing steps and add error handling.".into(),
+                impact: "high".into(),
+                estimated_improvement: Some(format!("Current: {:.1}%, Target: 95%+", analytics.success_rate)),
+            });
+        }
+
+        if analytics.avg_duration_ms > 30000.0 {
+            suggestions.push(WorkflowOptimizationSuggestion {
+                workflow_id,
+                suggestion_type: "performance".into(),
+                description: "Average execution time exceeds 30s. Consider parallelizing independent steps.".into(),
+                impact: "medium".into(),
+                estimated_improvement: Some(format!("Current: {:.0}ms avg", analytics.avg_duration_ms)),
+            });
+        }
+
+        if analytics.p95_duration_ms > analytics.avg_duration_ms * 3.0 && analytics.avg_duration_ms > 0.0 {
+            suggestions.push(WorkflowOptimizationSuggestion {
+                workflow_id,
+                suggestion_type: "consistency".into(),
+                description: "P95 latency is 3x avg, indicating occasional slow runs. Check for resource contention.".into(),
+                impact: "medium".into(),
+                estimated_improvement: None,
+            });
+        }
+
+        Ok(suggestions)
     }
 }
 

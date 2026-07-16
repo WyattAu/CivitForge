@@ -757,6 +757,397 @@ pub async fn get_recommendations_for_user(
 }
 
 // ---------------------------------------------------------------------------
+// Action Security Scans V20
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionSecurityScanResponse {
+    pub id: String,
+    pub action_id: String,
+    pub scan_type: String,
+    pub status: String,
+    pub findings: serde_json::Value,
+    pub score: Option<f64>,
+    pub scanned_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ActionSecurityScanRow {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub scan_type: String,
+    pub status: String,
+    pub findings: serde_json::Value,
+    pub score: Option<f64>,
+    pub scanned_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ActionSecurityScanRow> for ActionSecurityScanResponse {
+    fn from(r: ActionSecurityScanRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            action_id: r.action_id.to_string(),
+            scan_type: r.scan_type,
+            status: r.status,
+            findings: r.findings,
+            score: r.score,
+            scanned_at: r.scanned_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create a security scan record for a pipeline action.
+pub async fn create_security_scan(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    scan_type: &str,
+) -> std::result::Result<ActionSecurityScanResponse, sqlx::Error> {
+    sqlx::query_as::<_, ActionSecurityScanRow>(
+        "INSERT INTO pipeline_action_security_scans_v20 (action_id, scan_type, status) \
+         VALUES ($1, $2, 'pending') \
+         RETURNING *",
+    )
+    .bind(action_id)
+    .bind(scan_type)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Update security scan results.
+pub async fn update_security_scan(
+    pool: &sqlx::PgPool,
+    scan_id: Uuid,
+    status: &str,
+    findings: &serde_json::Value,
+    score: Option<f64>,
+) -> std::result::Result<ActionSecurityScanResponse, sqlx::Error> {
+    sqlx::query_as::<_, ActionSecurityScanRow>(
+        "UPDATE pipeline_action_security_scans_v20 \
+         SET status = $2, findings = $3, score = $4 \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(scan_id)
+    .bind(status)
+    .bind(findings)
+    .bind(score)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List security scans for a pipeline action.
+pub async fn list_security_scans(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<ActionSecurityScanResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ActionSecurityScanRow>(
+        "SELECT * FROM pipeline_action_security_scans_v20 \
+         WHERE action_id = $1 \
+         ORDER BY scanned_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(action_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get latest security scan for a pipeline action.
+pub async fn get_latest_security_scan(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<Option<ActionSecurityScanResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ActionSecurityScanRow>(
+        "SELECT * FROM pipeline_action_security_scans_v20 \
+         WHERE action_id = $1 \
+         ORDER BY scanned_at DESC LIMIT 1",
+    )
+    .bind(action_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// Get security scan summary for a pipeline action.
+pub async fn get_security_scan_summary(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<f64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            COALESCE(AVG(score), 0), \
+            SUM(CASE WHEN status = 'passed' THEN 1 ELSE 0 END), \
+            SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) \
+         FROM pipeline_action_security_scans_v20 WHERE action_id = $1",
+    )
+    .bind(action_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "action_id": action_id.to_string(),
+        "total_scans": row.0.unwrap_or(0),
+        "average_score": row.1.unwrap_or(0.0),
+        "passed_scans": row.2.unwrap_or(0),
+        "failed_scans": row.3.unwrap_or(0)
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Action Compatibility Testing V20
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionCompatibilityResponse {
+    pub id: String,
+    pub action_id: String,
+    pub platform: String,
+    pub runtime_version: String,
+    pub compatible: bool,
+    pub tested_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ActionCompatibilityRow {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub platform: String,
+    pub runtime_version: String,
+    pub compatible: bool,
+    pub tested_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ActionCompatibilityRow> for ActionCompatibilityResponse {
+    fn from(r: ActionCompatibilityRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            action_id: r.action_id.to_string(),
+            platform: r.platform,
+            runtime_version: r.runtime_version,
+            compatible: r.compatible,
+            tested_at: r.tested_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create a compatibility test result for a pipeline action.
+pub async fn create_compatibility_test(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    platform: &str,
+    runtime_version: &str,
+    compatible: bool,
+) -> std::result::Result<ActionCompatibilityResponse, sqlx::Error> {
+    sqlx::query_as::<_, ActionCompatibilityRow>(
+        "INSERT INTO pipeline_action_compatibility_v20 (action_id, platform, runtime_version, compatible) \
+         VALUES ($1, $2, $3, $4) \
+         RETURNING *",
+    )
+    .bind(action_id)
+    .bind(platform)
+    .bind(runtime_version)
+    .bind(compatible)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List compatibility tests for a pipeline action.
+pub async fn list_compatibility_tests(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<ActionCompatibilityResponse>, sqlx::Error> {
+    sqlx::query_as::<_, ActionCompatibilityRow>(
+        "SELECT * FROM pipeline_action_compatibility_v20 \
+         WHERE action_id = $1 \
+         ORDER BY tested_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(action_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get compatibility summary for a pipeline action.
+pub async fn get_compatibility_summary(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            SUM(CASE WHEN compatible THEN 1 ELSE 0 END), \
+            SUM(CASE WHEN NOT compatible THEN 1 ELSE 0 END) \
+         FROM pipeline_action_compatibility_v20 WHERE action_id = $1",
+    )
+    .bind(action_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "action_id": action_id.to_string(),
+        "total_tests": row.0.unwrap_or(0),
+        "compatible_count": row.1.unwrap_or(0),
+        "incompatible_count": row.2.unwrap_or(0)
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Action Version Pinning V23
+// ---------------------------------------------------------------------------
+
+/// Pin a pipeline action to a specific version.
+pub async fn pin_action_version(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    version: &str,
+) -> std::result::Result<PipelineActionResponse, sqlx::Error> {
+    sqlx::query_as::<_, PipelineActionRow>(
+        "UPDATE pipeline_actions \
+         SET version = $2, updated_at = NOW() \
+         WHERE id = $1 \
+         RETURNING *",
+    )
+    .bind(action_id)
+    .bind(version)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Get pinned version info for a pipeline action.
+pub async fn get_pinned_version_info(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<Option<serde_json::Value>, sqlx::Error> {
+    let row: Option<(String, chrono::DateTime<chrono::Utc>)> = sqlx::query_as(
+        "SELECT version, updated_at FROM pipeline_actions WHERE id = $1",
+    )
+    .bind(action_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|(version, updated_at)| {
+        serde_json::json!({
+            "action_id": action_id.to_string(),
+            "version": version,
+            "pinned_at": updated_at.to_rfc3339()
+        })
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Action Dependency Auditing V23
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionDependencyAuditResponse {
+    pub id: String,
+    pub action_id: String,
+    pub dependency_name: String,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub is_outdated: bool,
+    pub vulnerability_count: i32,
+    pub audited_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ActionDependencyAuditRow {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub dependency_name: String,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub is_outdated: bool,
+    pub vulnerability_count: i32,
+    pub audited_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ActionDependencyAuditRow> for ActionDependencyAuditResponse {
+    fn from(r: ActionDependencyAuditRow) -> Self {
+        Self {
+            id: r.id.to_string(),
+            action_id: r.action_id.to_string(),
+            dependency_name: r.dependency_name,
+            current_version: r.current_version,
+            latest_version: r.latest_version,
+            is_outdated: r.is_outdated,
+            vulnerability_count: r.vulnerability_count,
+            audited_at: r.audited_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Audit dependencies for a pipeline action.
+pub async fn audit_action_dependencies(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    dependencies: &[serde_json::Value],
+) -> std::result::Result<Vec<ActionDependencyAuditResponse>, sqlx::Error> {
+    let mut results = Vec::new();
+    for dep in dependencies {
+        let name = dep["name"].as_str().unwrap_or("");
+        let version = dep["version"].as_str().unwrap_or("0.0.0");
+        let latest = dep["latest_version"].as_str();
+        let outdated = dep["is_outdated"].as_bool().unwrap_or(false);
+        let vulns = dep["vulnerability_count"].as_i64().unwrap_or(0) as i32;
+
+        let row = sqlx::query_as::<_, ActionDependencyAuditRow>(
+            "INSERT INTO pipeline_action_dependency_audits (action_id, dependency_name, current_version, latest_version, is_outdated, vulnerability_count) \
+             VALUES ($1, $2, $3, $4, $5, $6) \
+             RETURNING *",
+        )
+        .bind(action_id)
+        .bind(name)
+        .bind(version)
+        .bind(latest)
+        .bind(outdated)
+        .bind(vulns)
+        .fetch_one(pool)
+        .await?;
+        results.push(row.into());
+    }
+    Ok(results)
+}
+
+/// Get dependency audit summary for a pipeline action.
+pub async fn get_dependency_audit_summary(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let row: (Option<i64>, Option<i64>, Option<i64>, Option<i64>) = sqlx::query_as(
+        "SELECT \
+            COUNT(*), \
+            SUM(CASE WHEN is_outdated THEN 1 ELSE 0 END), \
+            SUM(vulnerability_count), \
+            SUM(CASE WHEN vulnerability_count > 0 THEN 1 ELSE 0 END) \
+         FROM pipeline_action_dependency_audits WHERE action_id = $1",
+    )
+    .bind(action_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "action_id": action_id.to_string(),
+        "total_dependencies": row.0.unwrap_or(0),
+        "outdated_count": row.1.unwrap_or(0),
+        "total_vulnerabilities": row.2.unwrap_or(0),
+        "vulnerable_count": row.3.unwrap_or(0)
+    }))
+}
+
+// ---------------------------------------------------------------------------
 // Action Reviews V19
 // ---------------------------------------------------------------------------
 

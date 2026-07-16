@@ -36,4 +36,8 @@ pub use types::{
     TestSuiteBaselineV15, CreateTestSuiteBaselineV15Request, UpdateTestSuiteBaselineV15Request,
     TestSuiteRegressionV15, TestSuitePerformanceAlertV15,
     TestSuiteMetricsSummaryV15, TestSuitePerformanceReportV15,
+    FlakyTestDetectionV19, CreateFlakyTestDetectionV19Request, UpdateFlakyTestDetectionV19Request,
+    FlakyTestSummaryV19,
+    TestSuiteTrendV19, CreateTestSuiteTrendV19Request, TestSuiteTrendAnalysisV19,
+    TestOptimizationSuggestionV22, CoverageGapAnalysisV22,
 };

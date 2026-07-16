@@ -2867,6 +2867,276 @@ impl PerformanceTestStore {
 
         Ok(notifications)
     }
+
+    pub async fn create_comparison_v20(
+        &self,
+        req: CreatePerformanceTestComparisonV20Request,
+    ) -> Result<PerformanceTestComparisonV20, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let percent_change = if req.baseline_value != 0.0 {
+            ((req.comparison_value - req.baseline_value) / req.baseline_value) * 100.0
+        } else {
+            0.0
+        };
+        let is_regression = percent_change > 10.0;
+
+        sqlx::query(
+            r#"INSERT INTO performance_test_comparisons_v20 (id, baseline_id, comparison_id, metric_name, baseline_value, comparison_value, percent_change, is_regression, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)"#,
+        )
+        .bind(id)
+        .bind(req.baseline_id)
+        .bind(req.comparison_id)
+        .bind(&req.metric_name)
+        .bind(req.baseline_value)
+        .bind(req.comparison_value)
+        .bind(percent_change)
+        .bind(is_regression)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(PerformanceTestComparisonV20 {
+            id,
+            baseline_id: req.baseline_id,
+            comparison_id: req.comparison_id,
+            metric_name: req.metric_name,
+            baseline_value: req.baseline_value,
+            comparison_value: req.comparison_value,
+            percent_change,
+            is_regression,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_comparisons_v20(
+        &self,
+        baseline_id: Option<Uuid>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PerformanceTestComparisonV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ComparisonV20Row>(
+            r#"SELECT id, baseline_id, comparison_id, metric_name, baseline_value, comparison_value, percent_change, is_regression, created_at
+               FROM performance_test_comparisons_v20
+               WHERE ($1::uuid IS NULL OR baseline_id = $1)
+               ORDER BY created_at DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(baseline_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(PerformanceTestComparisonV20::from).collect())
+    }
+
+    pub async fn get_comparison_analysis_v20(
+        &self,
+        baseline_id: Uuid,
+    ) -> Result<ComparisonAnalysisResultV20, sqlx::Error> {
+        let stats = sqlx::query_as::<_, ComparisonStatsRow>(
+            r#"SELECT
+                COUNT(*) as total_comparisons,
+                COUNT(*) FILTER (WHERE is_regression = true) as regressions_detected,
+                COUNT(*) FILTER (WHERE is_regression = false AND percent_change < 0) as improvements_detected,
+                COALESCE(AVG(percent_change), 0) as avg_percent_change
+               FROM performance_test_comparisons_v20
+               WHERE baseline_id = $1"#,
+        )
+        .bind(baseline_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let comparisons = self.list_comparisons_v20(Some(baseline_id), 100, 0).await?;
+
+        Ok(ComparisonAnalysisResultV20 {
+            total_comparisons: stats.total_comparisons,
+            regressions_detected: stats.regressions_detected,
+            improvements_detected: stats.improvements_detected,
+            avg_percent_change: stats.avg_percent_change,
+            comparisons,
+        })
+    }
+
+    pub async fn create_regression_v20(
+        &self,
+        req: CreatePerformanceTestRegressionsV20Request,
+    ) -> Result<PerformanceTestRegressionsV20, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let threshold_percent = req.threshold_percent.unwrap_or(10.0);
+        let enabled = req.enabled.unwrap_or(true);
+
+        sqlx::query(
+            r#"INSERT INTO performance_test_regressions_v20 (id, baseline_id, metric_name, threshold_percent, enabled, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(req.baseline_id)
+        .bind(&req.metric_name)
+        .bind(threshold_percent)
+        .bind(enabled)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(PerformanceTestRegressionsV20 {
+            id,
+            baseline_id: req.baseline_id,
+            metric_name: req.metric_name,
+            threshold_percent,
+            enabled,
+            last_detected_at: None,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_regressions_v20(
+        &self,
+        baseline_id: Uuid,
+    ) -> Result<Vec<PerformanceTestRegressionsV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, RegressionV20Row>(
+            r#"SELECT id, baseline_id, metric_name, threshold_percent, enabled, last_detected_at, created_at
+               FROM performance_test_regressions_v20
+               WHERE baseline_id = $1
+               ORDER BY created_at DESC"#,
+        )
+        .bind(baseline_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(PerformanceTestRegressionsV20::from).collect())
+    }
+
+    pub async fn update_regression_v20(
+        &self,
+        id: Uuid,
+        req: UpdatePerformanceTestRegressionsV20Request,
+    ) -> Result<PerformanceTestRegressionsV20, sqlx::Error> {
+        if let Some(threshold) = req.threshold_percent {
+            sqlx::query(r#"UPDATE performance_test_regressions_v20 SET threshold_percent = $1 WHERE id = $2"#)
+                .bind(threshold)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(enabled) = req.enabled {
+            sqlx::query(r#"UPDATE performance_test_regressions_v20 SET enabled = $1 WHERE id = $2"#)
+                .bind(enabled)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        let row = sqlx::query_as::<_, RegressionV20Row>(
+            r#"SELECT id, baseline_id, metric_name, threshold_percent, enabled, last_detected_at, created_at
+               FROM performance_test_regressions_v20 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(PerformanceTestRegressionsV20::from(row))
+    }
+
+    pub async fn detect_regressions_v20(
+        &self,
+        baseline_id: Uuid,
+    ) -> Result<RegressionDetectionResultV20, sqlx::Error> {
+        let regressions = self.list_regressions_v20(baseline_id).await?;
+        let total_baselines = sqlx::query_scalar::<_, i64>(
+            r#"SELECT COUNT(*) FROM performance_baselines WHERE id = $1"#,
+        )
+        .bind(baseline_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let active_regressions = regressions.iter().filter(|r| r.enabled).count() as i64;
+
+        Ok(RegressionDetectionResultV20 {
+            total_baselines,
+            active_regressions,
+            regressions,
+        })
+    }
+
+    pub async fn get_trend_analysis_v23(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+    ) -> Result<PerformanceTrendAnalysisV23, sqlx::Error> {
+        let rows = sqlx::query_as::<_, TrendDataRow>(
+            r#"SELECT id, repo_id, metric_name, metric_value, recorded_at
+               FROM performance_trend_data
+               WHERE repo_id = $1 AND metric_name = $2
+               ORDER BY recorded_at DESC
+               LIMIT 100"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let data_points: Vec<PerformanceTrendData> = rows.into_iter().map(PerformanceTrendData::from).collect();
+
+        let avg_value = if data_points.is_empty() {
+            0.0
+        } else {
+            data_points.iter().map(|d| d.metric_value).sum::<f64>() / data_points.len() as f64
+        };
+
+        let min_value = data_points.iter().map(|d| d.metric_value).fold(f64::INFINITY, f64::min);
+        let min_value = if min_value == f64::INFINITY { 0.0 } else { min_value };
+
+        let max_value = data_points.iter().map(|d| d.metric_value).fold(f64::NEG_INFINITY, f64::max);
+        let max_value = if max_value == f64::NEG_INFINITY { 0.0 } else { max_value };
+
+        let trend_direction = if data_points.len() < 2 {
+            "stable".to_string()
+        } else {
+            let first_half: f64 = data_points.iter().take(data_points.len() / 2).map(|d| d.metric_value).sum::<f64>() / (data_points.len() / 2) as f64;
+            let second_half: f64 = data_points.iter().skip(data_points.len() / 2).map(|d| d.metric_value).sum::<f64>() / (data_points.len() - data_points.len() / 2) as f64;
+            if second_half > first_half * 1.1 {
+                "increasing".to_string()
+            } else if second_half < first_half * 0.9 {
+                "decreasing".to_string()
+            } else {
+                "stable".to_string()
+            }
+        };
+
+        let change_percent = if data_points.len() >= 2 {
+            let first = data_points.last().unwrap().metric_value;
+            let last = data_points.first().unwrap().metric_value;
+            if first != 0.0 {
+                ((last - first) / first) * 100.0
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let forecast_next = if data_points.len() >= 3 {
+            let recent: Vec<f64> = data_points.iter().take(3).map(|d| d.metric_value).collect();
+            Some(recent.iter().sum::<f64>() / recent.len() as f64)
+        } else {
+            None
+        };
+
+        Ok(PerformanceTrendAnalysisV23 {
+            metric_name: metric_name.to_string(),
+            data_points,
+            avg_value,
+            min_value,
+            max_value,
+            trend_direction,
+            change_percent,
+            forecast_next,
+        })
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -3469,4 +3739,66 @@ impl From<AlertTriggerTrendV18Row> for AlertTriggerTrendV18 {
             alert_types: Vec::new(),
         }
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct ComparisonV20Row {
+    id: Uuid,
+    baseline_id: Uuid,
+    comparison_id: Uuid,
+    metric_name: String,
+    baseline_value: f64,
+    comparison_value: f64,
+    percent_change: f64,
+    is_regression: bool,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<ComparisonV20Row> for PerformanceTestComparisonV20 {
+    fn from(row: ComparisonV20Row) -> Self {
+        Self {
+            id: row.id,
+            baseline_id: row.baseline_id,
+            comparison_id: row.comparison_id,
+            metric_name: row.metric_name,
+            baseline_value: row.baseline_value,
+            comparison_value: row.comparison_value,
+            percent_change: row.percent_change,
+            is_regression: row.is_regression,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct RegressionV20Row {
+    id: Uuid,
+    baseline_id: Uuid,
+    metric_name: String,
+    threshold_percent: f64,
+    enabled: bool,
+    last_detected_at: Option<chrono::DateTime<Utc>>,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<RegressionV20Row> for PerformanceTestRegressionsV20 {
+    fn from(row: RegressionV20Row) -> Self {
+        Self {
+            id: row.id,
+            baseline_id: row.baseline_id,
+            metric_name: row.metric_name,
+            threshold_percent: row.threshold_percent,
+            enabled: row.enabled,
+            last_detected_at: row.last_detected_at,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct ComparisonStatsRow {
+    total_comparisons: i64,
+    regressions_detected: i64,
+    improvements_detected: i64,
+    avg_percent_change: f64,
 }
