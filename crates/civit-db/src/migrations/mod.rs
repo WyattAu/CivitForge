@@ -896,6 +896,16 @@ pub const M_519_DATA_RESIDENCY_V17_UP: &str = include_str!("519_add_data_residen
 pub const M_519_DATA_RESIDENCY_V17_DOWN: &str =
     "DROP TABLE IF EXISTS data_residency_compliance_v15; DROP TABLE IF EXISTS data_residency_reports_v15;";
 
+pub const M_529_PIPELINE_ACTION_REVIEWS_V16_UP: &str = include_str!("529_add_pipeline_action_reviews_v16.sql");
+pub const M_529_PIPELINE_ACTION_REVIEWS_V16_DOWN: &str =
+    "DROP TABLE IF EXISTS review_recommendations_v16; DROP TABLE IF EXISTS review_analytics_v16; DROP TABLE IF EXISTS review_moderation_queue_v16; DROP TABLE IF EXISTS review_helpfulness_v16; DROP TABLE IF EXISTS pipeline_action_reviews_v16;";
+pub const M_530_ENVIRONMENT_DEPLOYMENT_V16_UP: &str = include_str!("530_add_environment_deployment_history_v16.sql");
+pub const M_530_ENVIRONMENT_DEPLOYMENT_V16_DOWN: &str =
+    "DROP TABLE IF EXISTS deployment_analytics_v16; DROP TABLE IF EXISTS deployment_comparison_v16; DROP TABLE IF EXISTS environment_deployment_history_v16;";
+pub const M_531_CACHE_HIT_ANALYSIS_V15_UP: &str = include_str!("531_add_cache_hit_analysis_v15.sql");
+pub const M_531_CACHE_HIT_ANALYSIS_V15_DOWN: &str =
+    "DROP TABLE IF EXISTS cache_performance_insights_v15; DROP TABLE IF EXISTS cache_cost_optimization_v15; DROP TABLE IF EXISTS cache_size_tracking_v15; DROP TABLE IF EXISTS cache_hit_analysis_v15;";
+
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
 pub const M_041_WEBHOOKS_UP: &str = include_str!("041_add_webhooks.sql");
@@ -3024,6 +3034,24 @@ impl MigrationManager {
             up_sql: M_522_AUDIT_TRAIL_V19_UP.into(),
             down_sql: M_522_AUDIT_TRAIL_V19_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 529,
+            name: "add_pipeline_action_reviews_v16".into(),
+            up_sql: M_529_PIPELINE_ACTION_REVIEWS_V16_UP.into(),
+            down_sql: M_529_PIPELINE_ACTION_REVIEWS_V16_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 530,
+            name: "add_environment_deployment_history_v16".into(),
+            up_sql: M_530_ENVIRONMENT_DEPLOYMENT_V16_UP.into(),
+            down_sql: M_530_ENVIRONMENT_DEPLOYMENT_V16_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 531,
+            name: "add_cache_hit_analysis_v15".into(),
+            up_sql: M_531_CACHE_HIT_ANALYSIS_V15_UP.into(),
+            down_sql: M_531_CACHE_HIT_ANALYSIS_V15_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3065,7 +3093,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 301);
+        assert_eq!(mgr.all().len(), 304);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
