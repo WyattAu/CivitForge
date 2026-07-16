@@ -4202,6 +4202,27 @@ pub struct TestSuiteBaselineV20 {
     pub created_at: DateTime<Utc>,
 }
 
+// --- Test Suite Management v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct TestSuiteMetricV21 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub metric_value: f64,
+    pub measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct TestSuiteBaselineV21 {
+    pub id: Uuid,
+    pub suite_id: Uuid,
+    pub metric_name: String,
+    pub baseline_value: f64,
+    pub threshold_percent: f64,
+    pub created_at: DateTime<Utc>,
+}
+
 // --- Code Quality Rules v20 ---
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

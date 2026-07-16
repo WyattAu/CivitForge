@@ -31,4 +31,8 @@ pub use types::{
     CodeQualityThresholdV15, CreateCodeQualityThresholdV15Request, UpdateCodeQualityThresholdV15Request,
     CodeQualityViolationV16, CodeQualityEnforcementReportV5, CodeQualityScoreV5,
     CodeQualityMetricSummaryV5,
+    CodeQualityMetricV18, RecordMetricV18Request,
+    CodeQualityThresholdV18, CreateCodeQualityThresholdV18Request, UpdateCodeQualityThresholdV18Request,
+    CodeQualityViolationV18, CodeQualityEnforcementReportV6, CodeQualityScoreV6,
+    CodeQualityMetricSummaryV6,
 };

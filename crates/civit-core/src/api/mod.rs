@@ -176,6 +176,7 @@ pub mod test_suite_management_v15;
 pub mod test_suite_management_v16;
 pub mod test_suite_management_v19;
 pub mod test_suite_management_v20;
+pub mod test_suite_management_v21;
 pub mod code_quality_rules_v15;
 pub mod code_quality_rules_v16;
 pub mod code_quality_rules_v19;
@@ -486,6 +487,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(test_suite_management_v17::test_suite_v17_routes())
         .merge(test_suite_management_v19::test_suite_v19_routes())
         .merge(test_suite_management_v20::test_suite_v20_routes())
+        .merge(test_suite_management_v21::test_suite_v21_routes())
         .merge(code_quality_rules_v5::code_quality_v5_routes())
         .merge(code_quality_rules_v6::code_quality_v6_routes())
         .merge(code_quality_rules_v7::code_quality_v7_routes())

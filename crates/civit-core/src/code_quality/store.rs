@@ -2348,6 +2348,328 @@ impl CodeQualityStore {
         }))
     }
 
+    pub async fn record_metric_v18(
+        &self,
+        repo_id: Uuid,
+        req: RecordMetricV18Request,
+    ) -> Result<CodeQualityMetricV18, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+
+        sqlx::query(
+            r#"INSERT INTO code_quality_metrics_v19 (id, repo_id, file_path, metric_name, metric_value, measured_at)
+               VALUES ($1, $2, $3, $4, $5, $6)"#,
+        )
+        .bind(id)
+        .bind(repo_id)
+        .bind(&req.file_path)
+        .bind(&req.metric_name)
+        .bind(req.metric_value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(CodeQualityMetricV18 {
+            id,
+            repo_id,
+            file_path: req.file_path,
+            metric_name: req.metric_name,
+            metric_value: req.metric_value,
+            measured_at: now,
+        })
+    }
+
+    pub async fn list_metrics_v18(
+        &self,
+        repo_id: Uuid,
+        metric_name: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<CodeQualityMetricV18>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, MetricV18Row>(
+            r#"SELECT id, repo_id, file_path, metric_name, metric_value, measured_at
+               FROM code_quality_metrics_v19
+               WHERE repo_id = $1
+                 AND ($2::varchar IS NULL OR metric_name = $2)
+               ORDER BY measured_at DESC
+               LIMIT $3 OFFSET $4"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(CodeQualityMetricV18::from).collect())
+    }
+
+    pub async fn create_threshold_v18(
+        &self,
+        repo_id: Uuid,
+        req: CreateCodeQualityThresholdV18Request,
+    ) -> Result<CodeQualityThresholdV18, sqlx::Error> {
+        let id = Uuid::new_v4();
+        let now = Utc::now();
+        let enabled = req.enabled.unwrap_or(true);
+
+        sqlx::query(
+            r#"INSERT INTO code_quality_thresholds_v18 (id, repo_id, metric_name, threshold_value, enabled, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (repo_id, metric_name) DO UPDATE SET threshold_value = $4, enabled = $5"#,
+        )
+        .bind(id)
+        .bind(repo_id)
+        .bind(&req.metric_name)
+        .bind(req.threshold_value)
+        .bind(enabled)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(CodeQualityThresholdV18 {
+            id,
+            repo_id,
+            metric_name: req.metric_name,
+            threshold_value: req.threshold_value,
+            enabled,
+            created_at: now,
+        })
+    }
+
+    pub async fn list_thresholds_v18(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<CodeQualityThresholdV18>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ThresholdV18Row>(
+            r#"SELECT id, repo_id, metric_name, threshold_value, enabled, created_at
+               FROM code_quality_thresholds_v18
+               WHERE repo_id = $1
+               ORDER BY metric_name"#,
+        )
+        .bind(repo_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(CodeQualityThresholdV18::from).collect())
+    }
+
+    pub async fn update_threshold_v18(
+        &self,
+        id: Uuid,
+        req: UpdateCodeQualityThresholdV18Request,
+    ) -> Result<CodeQualityThresholdV18, sqlx::Error> {
+        if let Some(value) = req.threshold_value {
+            sqlx::query(r#"UPDATE code_quality_thresholds_v18 SET threshold_value = $1 WHERE id = $2"#)
+                .bind(value)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+        if let Some(enabled) = req.enabled {
+            sqlx::query(r#"UPDATE code_quality_thresholds_v18 SET enabled = $1 WHERE id = $2"#)
+                .bind(enabled)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
+        }
+
+        let row = sqlx::query_as::<_, ThresholdV18Row>(
+            r#"SELECT id, repo_id, metric_name, threshold_value, enabled, created_at
+               FROM code_quality_thresholds_v18 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(CodeQualityThresholdV18::from(row))
+    }
+
+    pub async fn delete_threshold_v18(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(r#"DELETE FROM code_quality_thresholds_v18 WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn detect_violations_v6(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<Vec<CodeQualityViolationV18>, sqlx::Error> {
+        let thresholds = self.list_thresholds_v18(repo_id).await?;
+        let mut violations = Vec::new();
+
+        for threshold in thresholds {
+            if !threshold.enabled {
+                continue;
+            }
+
+            let metrics = sqlx::query_as::<_, MetricV18Row>(
+                r#"SELECT id, repo_id, file_path, metric_name, metric_value, measured_at
+                   FROM code_quality_metrics_v19
+                   WHERE repo_id = $1 AND metric_name = $2
+                     AND measured_at >= NOW() - INTERVAL '1 hour'
+                   ORDER BY measured_at DESC"#,
+            )
+            .bind(repo_id)
+            .bind(&threshold.metric_name)
+            .fetch_all(&self.pool)
+            .await?;
+
+            for metric in metrics {
+                if metric.metric_value > threshold.threshold_value {
+                    let severity = if metric.metric_value > threshold.threshold_value * 2.0 {
+                        "critical"
+                    } else if metric.metric_value > threshold.threshold_value * 1.5 {
+                        "error"
+                    } else if metric.metric_value > threshold.threshold_value * 1.2 {
+                        "warning"
+                    } else {
+                        "info"
+                    };
+
+                    violations.push(CodeQualityViolationV18 {
+                        id: Uuid::new_v4(),
+                        repo_id,
+                        file_path: metric.file_path,
+                        metric_name: metric.metric_name,
+                        metric_value: metric.metric_value,
+                        threshold_value: threshold.threshold_value,
+                        severity: severity.to_string(),
+                        detected_at: metric.measured_at,
+                    });
+                }
+            }
+        }
+
+        Ok(violations)
+    }
+
+    pub async fn get_enforcement_report_v6(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<CodeQualityEnforcementReportV6, sqlx::Error> {
+        let thresholds = self.list_thresholds_v18(repo_id).await?;
+        let violations = self.detect_violations_v6(repo_id).await?;
+
+        let total_thresholds = thresholds.len() as i64;
+        let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
+        let total_violations = violations.len() as i64;
+
+        let mut violations_by_severity = serde_json::json!({});
+        for v in &violations {
+            let entry = violations_by_severity.get(&v.severity).and_then(|e| e.as_i64()).unwrap_or(0);
+            violations_by_severity[&v.severity] = serde_json::json!(entry + 1);
+        }
+
+        let mut violations_by_metric = serde_json::json!({});
+        for v in &violations {
+            let entry = violations_by_metric.get(&v.metric_name).and_then(|e| e.as_i64()).unwrap_or(0);
+            violations_by_metric[&v.metric_name] = serde_json::json!(entry + 1);
+        }
+
+        Ok(CodeQualityEnforcementReportV6 {
+            repo_id,
+            total_thresholds,
+            active_thresholds,
+            total_violations,
+            violations_by_severity,
+            violations_by_metric,
+            violations,
+        })
+    }
+
+    pub async fn calculate_quality_score_v6(
+        &self,
+        repo_id: Uuid,
+    ) -> Result<CodeQualityScoreV6, sqlx::Error> {
+        let thresholds = self.list_thresholds_v18(repo_id).await?;
+        let violations = self.detect_violations_v6(repo_id).await?;
+
+        let total_thresholds = thresholds.len() as i64;
+        let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
+        let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
+        let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
+        let thresholds_failed = violated_metrics.len() as i64;
+
+        let overall_score = if active_thresholds > 0 {
+            (thresholds_passed as f64 / active_thresholds as f64) * 100.0
+        } else {
+            100.0
+        };
+
+        let mut score_breakdown = serde_json::json!({});
+        for threshold in &thresholds {
+            let metric_violations = violations.iter().filter(|v| v.metric_name == threshold.metric_name).count();
+            let score = if metric_violations == 0 { 100.0 } else { 0.0 };
+            score_breakdown[&threshold.metric_name] = serde_json::json!({
+                "score": score,
+                "violations": metric_violations,
+                "threshold": threshold.threshold_value,
+            });
+        }
+
+        Ok(CodeQualityScoreV6 {
+            repo_id,
+            overall_score,
+            metrics_evaluated: active_thresholds,
+            thresholds_passed,
+            thresholds_failed,
+            score_breakdown,
+        })
+    }
+
+    pub async fn get_metric_summary_v18(
+        &self,
+        repo_id: Uuid,
+        metric_name: &str,
+    ) -> Result<Option<CodeQualityMetricSummaryV6>, sqlx::Error> {
+        let threshold = sqlx::query_as::<_, ThresholdV18Row>(
+            r#"SELECT id, repo_id, metric_name, threshold_value, enabled, created_at
+               FROM code_quality_thresholds_v18
+               WHERE repo_id = $1 AND metric_name = $2 AND enabled = true
+               LIMIT 1"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let row = sqlx::query_as::<_, MetricSummaryV18Row>(
+            r#"SELECT
+                metric_name,
+                (SELECT metric_value FROM code_quality_metrics_v19 WHERE repo_id = $1 AND metric_name = $2 ORDER BY measured_at DESC LIMIT 1) as latest_value,
+                COALESCE(AVG(metric_value), 0) as avg_value,
+                COALESCE(MIN(metric_value), 0) as min_value,
+                COALESCE(MAX(metric_value), 0) as max_value,
+                COUNT(*) as measurement_count,
+                COUNT(DISTINCT file_path) as files_affected
+               FROM code_quality_metrics_v19
+               WHERE repo_id = $1 AND metric_name = $2"#,
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| {
+            let threshold_value = threshold.as_ref().map(|t| t.threshold_value);
+            let threshold_exceeded = threshold_value.map_or(false, |tv| r.latest_value > tv);
+            CodeQualityMetricSummaryV6 {
+                metric_name: r.metric_name,
+                latest_value: r.latest_value,
+                avg_value: r.avg_value,
+                min_value: r.min_value,
+                max_value: r.max_value,
+                measurement_count: r.measurement_count,
+                files_affected: r.files_affected,
+                threshold: threshold_value,
+                threshold_exceeded,
+            }
+        }))
+    }
+
     pub async fn get_metric_summary_v9(
         &self,
         repo_id: Uuid,
@@ -2936,6 +3258,63 @@ impl From<ThresholdV15Row> for CodeQualityThresholdV15 {
 
 #[derive(sqlx::FromRow)]
 struct MetricSummaryV16Row {
+    metric_name: String,
+    latest_value: f64,
+    avg_value: f64,
+    min_value: f64,
+    max_value: f64,
+    measurement_count: i64,
+    files_affected: i64,
+}
+
+#[derive(sqlx::FromRow)]
+struct MetricV18Row {
+    id: Uuid,
+    repo_id: Uuid,
+    file_path: String,
+    metric_name: String,
+    metric_value: f64,
+    measured_at: chrono::DateTime<Utc>,
+}
+
+impl From<MetricV18Row> for CodeQualityMetricV18 {
+    fn from(row: MetricV18Row) -> Self {
+        Self {
+            id: row.id,
+            repo_id: row.repo_id,
+            file_path: row.file_path,
+            metric_name: row.metric_name,
+            metric_value: row.metric_value,
+            measured_at: row.measured_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct ThresholdV18Row {
+    id: Uuid,
+    repo_id: Uuid,
+    metric_name: String,
+    threshold_value: f64,
+    enabled: bool,
+    created_at: chrono::DateTime<Utc>,
+}
+
+impl From<ThresholdV18Row> for CodeQualityThresholdV18 {
+    fn from(row: ThresholdV18Row) -> Self {
+        Self {
+            id: row.id,
+            repo_id: row.repo_id,
+            metric_name: row.metric_name,
+            threshold_value: row.threshold_value,
+            enabled: row.enabled,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MetricSummaryV18Row {
     metric_name: String,
     latest_value: f64,
     avg_value: f64,

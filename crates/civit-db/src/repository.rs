@@ -26,7 +26,7 @@ use crate::models::{
     ReviewAnalyticsV3, ReviewAnalyticsV7, ReviewHelpfulnessV3, ReviewHelpfulnessV7,
     ReviewModerationQueueV3, ReviewModerationQueueV7, ReviewRecommendationV3,
     ReviewRecommendationV7, ReviewSummary, SshKey, Team, TeamMember, TestCoverage,
-    TestSuiteBaselineV3, TestSuiteBaselineV5, TestSuiteBaselineV6, TestSuiteBaselineV7, TestSuiteBaselineV9, TestSuiteBaselineV13, TestSuiteBaselineV14, TestSuiteBaselineV15, TestSuiteBaselineV16, TestSuiteBaselineV17, TestSuiteBaselineV19, TestSuiteBaselineV20, TestSuiteMetricV3, TestSuiteMetricV5, TestSuiteMetricV6, TestSuiteMetricV7, TestSuiteMetricV9, TestSuiteMetricV13, TestSuiteMetricV14, TestSuiteMetricV15, TestSuiteMetricV16, TestSuiteMetricV17, TestSuiteMetricV19, TestSuiteMetricV20, User,
+    TestSuiteBaselineV3, TestSuiteBaselineV5, TestSuiteBaselineV6, TestSuiteBaselineV7, TestSuiteBaselineV9, TestSuiteBaselineV13, TestSuiteBaselineV14, TestSuiteBaselineV15, TestSuiteBaselineV16, TestSuiteBaselineV17, TestSuiteBaselineV19, TestSuiteBaselineV20, TestSuiteBaselineV21, TestSuiteMetricV3, TestSuiteMetricV5, TestSuiteMetricV6, TestSuiteMetricV7, TestSuiteMetricV9, TestSuiteMetricV13, TestSuiteMetricV14, TestSuiteMetricV15, TestSuiteMetricV16, TestSuiteMetricV17, TestSuiteMetricV19, TestSuiteMetricV20, TestSuiteMetricV21, User,
 };
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
@@ -20344,6 +20344,147 @@ impl DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v21: {e}")))?;
         Ok(row)
+    }
+
+    // --- Test Suite Management v21 ---
+
+    pub async fn create_test_suite_metric_v21(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+        metric_value: f64,
+    ) -> Result<TestSuiteMetricV21> {
+        let row = sqlx::query_as::<_, TestSuiteMetricV21>(
+            r#"INSERT INTO test_suite_metrics_v18 (suite_id, metric_name, metric_value)
+               VALUES ($1, $2, $3)
+               RETURNING *"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .bind(metric_value)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_test_suite_metric_v21: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn list_test_suite_metrics_v21(
+        &self,
+        suite_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<TestSuiteMetricV21>> {
+        sqlx::query_as::<_, TestSuiteMetricV21>(
+            "SELECT * FROM test_suite_metrics_v18 WHERE suite_id = $1 ORDER BY measured_at DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(suite_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_test_suite_metrics_v21: {e}")))
+    }
+
+    pub async fn get_test_suite_latest_metric_v21(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+    ) -> Result<Option<TestSuiteMetricV21>> {
+        sqlx::query_as::<_, TestSuiteMetricV21>(
+            "SELECT * FROM test_suite_metrics_v18 WHERE suite_id = $1 AND metric_name = $2 ORDER BY measured_at DESC LIMIT 1",
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_test_suite_latest_metric_v21: {e}")))
+    }
+
+    pub async fn create_test_suite_baseline_v21(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+        baseline_value: f64,
+        threshold_percent: f64,
+    ) -> Result<TestSuiteBaselineV21> {
+        let row = sqlx::query_as::<_, TestSuiteBaselineV21>(
+            r#"INSERT INTO test_suite_baselines_v18 (suite_id, metric_name, baseline_value, threshold_percent)
+               VALUES ($1, $2, $3, $4)
+               ON CONFLICT (suite_id, metric_name) DO UPDATE
+               SET baseline_value = $3, threshold_percent = $4
+               RETURNING *"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .bind(baseline_value)
+        .bind(threshold_percent)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_test_suite_baseline_v21: {e}")))?;
+        Ok(row)
+    }
+
+    pub async fn get_test_suite_baselines_v21(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<TestSuiteBaselineV21>> {
+        sqlx::query_as::<_, TestSuiteBaselineV21>(
+            "SELECT * FROM test_suite_baselines_v18 WHERE suite_id = $1 ORDER BY metric_name",
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_test_suite_baselines_v21: {e}")))
+    }
+
+    pub async fn detect_test_suite_regression_v21(
+        &self,
+        suite_id: Uuid,
+        metric_name: &str,
+        current_value: f64,
+    ) -> Result<bool> {
+        let row: Option<(f64, f64)> = sqlx::query_as(
+            r#"SELECT baseline_value, threshold_percent
+               FROM test_suite_baselines_v18
+               WHERE suite_id = $1 AND metric_name = $2"#,
+        )
+        .bind(suite_id)
+        .bind(metric_name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("detect_test_suite_regression_v21: {e}")))?;
+        match row {
+            Some((baseline, threshold)) => {
+                let threshold_value = baseline * (1.0 + threshold / 100.0);
+                Ok(current_value > threshold_value)
+            }
+            None => Ok(false),
+        }
+    }
+
+    pub async fn get_test_suite_performance_alerts_v21(
+        &self,
+        suite_id: Uuid,
+    ) -> Result<Vec<String>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            r#"SELECT DISTINCT metric_name
+               FROM test_suite_metrics_v18
+               WHERE suite_id = $1
+               AND metric_name IN (
+                   SELECT metric_name FROM test_suite_baselines_v18 WHERE suite_id = $1
+               )
+               AND metric_value > (
+                   SELECT baseline_value * (1 + threshold_percent / 100.0)
+                   FROM test_suite_baselines_v18 b
+                   WHERE b.suite_id = $1 AND b.metric_name = test_suite_metrics_v18.metric_name
+               )
+               ORDER BY metric_name"#,
+        )
+        .bind(suite_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_test_suite_performance_alerts_v21: {e}")))?;
+        Ok(rows.into_iter().map(|r| r.0).collect())
     }
 
     // --- API Docs v22 ---
