@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17};
+use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {
@@ -1059,6 +1059,62 @@ struct WorkflowTemplateReviewV17Row {
 impl From<WorkflowTemplateReviewV17Row> for WorkflowTemplateReviewV17 {
     fn from(row: WorkflowTemplateReviewV17Row) -> Self {
         WorkflowTemplateReviewV17 {
+            id: row.id,
+            template_id: row.template_id,
+            user_id: row.user_id,
+            rating: row.rating,
+            review: row.review,
+            helpful_count: row.helpful_count,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowTemplateV19Row {
+    id: Uuid,
+    name: String,
+    description: String,
+    template_type: String,
+    config: serde_json::Value,
+    is_public: bool,
+    author_id: Option<Uuid>,
+    usage_count: i32,
+    rating: f64,
+    created_at: DateTime<Utc>,
+}
+
+impl From<WorkflowTemplateV19Row> for WorkflowTemplateV19 {
+    fn from(row: WorkflowTemplateV19Row) -> Self {
+        WorkflowTemplateV19 {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            template_type: row.template_type,
+            config: row.config,
+            is_public: row.is_public,
+            author_id: row.author_id,
+            usage_count: row.usage_count,
+            rating: row.rating,
+            created_at: row.created_at,
+        }
+    }
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct WorkflowTemplateReviewV18Row {
+    id: Uuid,
+    template_id: Uuid,
+    user_id: Uuid,
+    rating: i32,
+    review: String,
+    helpful_count: i32,
+    created_at: DateTime<Utc>,
+}
+
+impl From<WorkflowTemplateReviewV18Row> for WorkflowTemplateReviewV18 {
+    fn from(row: WorkflowTemplateReviewV18Row) -> Self {
+        WorkflowTemplateReviewV18 {
             id: row.id,
             template_id: row.template_id,
             user_id: row.user_id,
@@ -8629,6 +8685,347 @@ impl WorkflowService {
         let workflow = self.create_workflow(create_input).await?;
 
         let _ = self.record_template_v18_usage(template_id, user_id).await;
+
+        Ok(workflow)
+    }
+
+    // --- V19: Workflow Template V19, Reviews V18, Marketplace V19, Analytics V19, Recommendations V19 ---
+
+    pub async fn create_template_v19(
+        &self,
+        input: CreateWorkflowTemplateV2,
+    ) -> Result<WorkflowTemplateV19, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"INSERT INTO workflow_templates_v19 (name, description, template_type, config, is_public, author_id)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at"#,
+        )
+        .bind(&input.name)
+        .bind(input.description.as_deref().unwrap_or(""))
+        .bind(&input.template_type)
+        .bind(input.config.unwrap_or(serde_json::json!({})))
+        .bind(input.is_public.unwrap_or(false))
+        .bind(input.author_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_template_v19(&self, id: Uuid) -> Result<Option<WorkflowTemplateV19>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM workflow_templates_v19 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_templates_v19(&self) -> Result<Vec<WorkflowTemplateV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM workflow_templates_v19 ORDER BY created_at DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_public_templates_v19(&self) -> Result<Vec<WorkflowTemplateV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM workflow_templates_v19 WHERE is_public = true ORDER BY rating DESC, usage_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_templates_v19_by_type(
+        &self,
+        template_type: &str,
+    ) -> Result<Vec<WorkflowTemplateV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM workflow_templates_v19 WHERE template_type = $1 AND is_public = true
+             ORDER BY rating DESC, usage_count DESC"#,
+        )
+        .bind(template_type)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_template_v19(
+        &self,
+        id: Uuid,
+        input: UpdateWorkflowTemplateV2,
+    ) -> Result<WorkflowTemplateV19, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"UPDATE workflow_templates_v19 SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             template_type = COALESCE($4, template_type),
+             config = COALESCE($5, config),
+             is_public = COALESCE($6, is_public)
+             WHERE id = $1
+             RETURNING id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at"#,
+        )
+        .bind(id)
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.template_type)
+        .bind(&input.config)
+        .bind(input.is_public)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_template_v19(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM workflow_templates_v19 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn add_template_v19_review(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        rating: i32,
+        review: &str,
+    ) -> Result<WorkflowTemplateReviewV18, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateReviewV18Row>(
+            r#"INSERT INTO workflow_template_reviews_v18 (template_id, user_id, rating, review)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (template_id, user_id) DO UPDATE SET rating = $3, review = $4
+             RETURNING id, template_id, user_id, rating, review, helpful_count, created_at"#,
+        )
+        .bind(template_id)
+        .bind(user_id)
+        .bind(rating)
+        .bind(review)
+        .fetch_one(&self.pool)
+        .await?;
+
+        self.recalculate_template_v19_rating(template_id).await?;
+
+        Ok(row.into())
+    }
+
+    async fn recalculate_template_v19_rating(&self, template_id: Uuid) -> Result<(), sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct RatingAvg {
+            avg_rating: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, RatingAvg>(
+            r#"SELECT AVG(rating::double precision) as avg_rating
+             FROM workflow_template_reviews_v18 WHERE template_id = $1"#,
+        )
+        .bind(template_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let avg = row.avg_rating.unwrap_or(0.0);
+        sqlx::query("UPDATE workflow_templates_v19 SET rating = $2 WHERE id = $1")
+            .bind(template_id)
+            .bind(avg)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn mark_template_v19_review_helpful(
+        &self,
+        review_id: Uuid,
+    ) -> Result<WorkflowTemplateReviewV18, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowTemplateReviewV18Row>(
+            r#"UPDATE workflow_template_reviews_v18 SET helpful_count = helpful_count + 1
+             WHERE id = $1
+             RETURNING id, template_id, user_id, rating, review, helpful_count, created_at"#,
+        )
+        .bind(review_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_template_v19_reviews(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<WorkflowTemplateReviewV18>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateReviewV18Row>(
+            r#"SELECT id, template_id, user_id, rating, review, helpful_count, created_at
+             FROM workflow_template_reviews_v18 WHERE template_id = $1
+             ORDER BY helpful_count DESC, created_at DESC"#,
+        )
+        .bind(template_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn record_template_v19_usage(
+        &self,
+        template_id: Uuid,
+        _user_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE workflow_templates_v19 SET usage_count = usage_count + 1 WHERE id = $1")
+            .bind(template_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_template_v19_analytics(
+        &self,
+        template_id: Uuid,
+    ) -> Result<WorkflowTemplateAnalytics, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct AnalyticsRow {
+            total_usage: i64,
+            avg_rating: f64,
+            total_reviews: i64,
+        }
+
+        let row = sqlx::query_as::<_, AnalyticsRow>(
+            r#"SELECT
+                usage_count as total_usage,
+                rating as avg_rating,
+                (SELECT COUNT(*) FROM workflow_template_reviews_v18 WHERE template_id = $1) as total_reviews
+             FROM workflow_templates_v19 WHERE id = $1"#,
+        )
+        .bind(template_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(WorkflowTemplateAnalytics {
+            template_id,
+            total_usage: row.total_usage,
+            avg_rating: row.avg_rating,
+            total_reviews: row.total_reviews,
+        })
+    }
+
+    pub async fn get_template_v19_recommendations(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<WorkflowTemplateRecommendation>, sqlx::Error> {
+        let template = self.get_template_v19(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let analytics = self.get_template_v19_analytics(template_id).await?;
+        let mut recommendations = Vec::new();
+
+        if analytics.total_usage == 0 {
+            recommendations.push(WorkflowTemplateRecommendation {
+                template_id,
+                recommendation_type: "unused".into(),
+                description: "Template has never been used. Consider promoting it in the marketplace.".into(),
+                confidence: 0.9,
+                suggested_changes: serde_json::json!({"action": "promote"}),
+            });
+        }
+
+        if analytics.avg_rating < 3.0 && analytics.total_reviews > 0 {
+            recommendations.push(WorkflowTemplateRecommendation {
+                template_id,
+                recommendation_type: "low_rating".into(),
+                description: format!("Template has a low rating of {:.1}. Consider reviewing and improving the template.", analytics.avg_rating),
+                confidence: 0.85,
+                suggested_changes: serde_json::json!({"action": "improve", "current_rating": analytics.avg_rating}),
+            });
+        }
+
+        if template.is_public && analytics.avg_rating >= 4.0 && analytics.total_usage > 10 {
+            recommendations.push(WorkflowTemplateRecommendation {
+                template_id,
+                recommendation_type: "featured_candidate".into(),
+                description: "Template is a strong candidate for featuring in the marketplace.".into(),
+                confidence: 0.8,
+                suggested_changes: serde_json::json!({"action": "feature", "rating": analytics.avg_rating, "usage": analytics.total_usage}),
+            });
+        }
+
+        Ok(recommendations)
+    }
+
+    pub async fn get_marketplace_templates_v19(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<WorkflowTemplateV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM workflow_templates_v19 WHERE is_public = true
+             ORDER BY rating DESC, usage_count DESC LIMIT $1"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn search_marketplace_templates_v19(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<WorkflowTemplateV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowTemplateV19Row>(
+            r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM workflow_templates_v19 WHERE is_public = true
+             AND (name ILIKE $1 OR description ILIKE $1)
+             ORDER BY rating DESC, usage_count DESC LIMIT $2"#,
+        )
+        .bind(format!("%{}%", query))
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn create_workflow_from_template_v19(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        workflow_name: Option<&str>,
+    ) -> Result<Workflow, sqlx::Error> {
+        let template = self.get_template_v19(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let name = workflow_name.unwrap_or(&template.name);
+
+        let create_input = CreateWorkflow {
+            name: name.to_string(),
+            description: Some(template.description.clone()),
+            trigger_type: template.config.get("trigger_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("manual")
+                .to_string(),
+            trigger_config: template.config.get("trigger_config").cloned(),
+            steps: template.config.get("steps").cloned(),
+            enabled: Some(true),
+        };
+
+        let workflow = self.create_workflow(create_input).await?;
+
+        let _ = self.record_template_v19_usage(template_id, user_id).await;
 
         Ok(workflow)
     }
