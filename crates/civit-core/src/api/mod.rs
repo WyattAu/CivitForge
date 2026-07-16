@@ -167,10 +167,13 @@ pub mod performance_testing_v15;
 pub mod performance_testing_v16;
 pub mod performance_testing_v17;
 pub mod performance_testing_v18;
+pub mod performance_testing_v20;
 pub mod test_suite_management_v15;
 pub mod test_suite_management_v16;
+pub mod test_suite_management_v19;
 pub mod code_quality_rules_v15;
 pub mod code_quality_rules_v16;
+pub mod code_quality_rules_v19;
 pub mod data_residency_v5_api;
 pub mod database_replication_v8_api;
 pub mod encryption_v9_api;
@@ -472,6 +475,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(test_suite_management_v15::test_suite_v15_routes())
         .merge(test_suite_management_v16::test_suite_v16_routes())
         .merge(test_suite_management_v17::test_suite_v17_routes())
+        .merge(test_suite_management_v19::test_suite_v19_routes())
         .merge(code_quality_rules_v5::code_quality_v5_routes())
         .merge(code_quality_rules_v6::code_quality_v6_routes())
         .merge(code_quality_rules_v7::code_quality_v7_routes())
@@ -481,6 +485,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(code_quality_rules_v15::code_quality_v15_routes())
         .merge(code_quality_rules_v16::code_quality_v16_routes())
         .merge(code_quality_rules_v17::code_quality_v17_routes())
+        .merge(code_quality_rules_v19::code_quality_v19_routes())
         .merge(performance_testing_v6::performance_testing_v6_routes())
         .merge(performance_testing_v7::performance_testing_v7_routes())
         .merge(performance_testing_v8::performance_testing_v8_routes())
@@ -490,6 +495,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(performance_testing_v16::performance_testing_v16_routes())
         .merge(performance_testing_v17::performance_testing_v17_routes())
         .merge(performance_testing_v18::performance_testing_v18_routes())
+        .merge(performance_testing_v20::performance_testing_v20_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

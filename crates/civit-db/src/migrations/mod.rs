@@ -942,6 +942,16 @@ pub const M_542_COMPLIANCE_V20_DOWN: &str =
 pub const M_543_AUDIT_TRAIL_V20_UP: &str = include_str!("543_add_audit_trail_v20.sql");
 pub const M_543_AUDIT_TRAIL_V20_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v20;";
 
+pub const M_553_TEST_SUITE_MANAGEMENT_V19_UP: &str = include_str!("553_add_test_suite_management_v19.sql");
+pub const M_553_TEST_SUITE_MANAGEMENT_V19_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_baselines_v16; DROP TABLE IF EXISTS test_suite_metrics_v16;";
+pub const M_554_CODE_QUALITY_RULES_V19_UP: &str = include_str!("554_add_code_quality_rules_v19.sql");
+pub const M_554_CODE_QUALITY_RULES_V19_DOWN: &str =
+    "DROP TABLE IF EXISTS code_quality_thresholds_v16; DROP TABLE IF EXISTS code_quality_metrics_v17;";
+pub const M_555_PERFORMANCE_TESTING_V20_UP: &str = include_str!("555_add_performance_testing_v20.sql");
+pub const M_555_PERFORMANCE_TESTING_V20_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_alert_history_v17; DROP TABLE IF EXISTS performance_test_alerts_v17;";
+
 #[derive(Debug, Clone)]
 pub struct Migration {
     pub version: i64,
@@ -3130,6 +3140,24 @@ impl MigrationManager {
             name: "add_audit_trail_v20".into(),
             up_sql: M_543_AUDIT_TRAIL_V20_UP.into(),
             down_sql: M_543_AUDIT_TRAIL_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 553,
+            name: "add_test_suite_management_v19".into(),
+            up_sql: M_553_TEST_SUITE_MANAGEMENT_V19_UP.into(),
+            down_sql: M_553_TEST_SUITE_MANAGEMENT_V19_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 554,
+            name: "add_code_quality_rules_v19".into(),
+            up_sql: M_554_CODE_QUALITY_RULES_V19_UP.into(),
+            down_sql: M_554_CODE_QUALITY_RULES_V19_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 555,
+            name: "add_performance_testing_v20".into(),
+            up_sql: M_555_PERFORMANCE_TESTING_V20_UP.into(),
+            down_sql: M_555_PERFORMANCE_TESTING_V20_DOWN.into(),
         });
     }
 
