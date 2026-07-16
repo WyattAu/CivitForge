@@ -166,6 +166,27 @@ pub fn pipeline_cache_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{repo}/caches/performance/{cache_id}",
             get(get_performance_insights),
         )
+        // Cache Analysis v17 endpoints
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v17/hit-analysis/{cache_id}",
+            get(get_hit_analysis_v17),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v17/hit-analysis/{cache_id}/record",
+            post(record_hit_miss_v17),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v17/size/{cache_id}",
+            get(get_size_history_v17).post(record_size_v17),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v17/cost/{cache_id}",
+            get(get_cost_optimizations_v17).post(generate_cost_v17),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v17/performance/{cache_id}",
+            get(get_performance_insights_v17).post(generate_performance_v17),
+        )
 }
 
 async fn get_repo_id(
@@ -1867,6 +1888,633 @@ pub async fn get_performance_insights(
 
     match caches::get_cache_performance_insights(pool, cid).await {
         Ok(insights) => (axum::http::StatusCode::OK, Json(insights)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cache Analysis v17 handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct RecordHitMissV17Request {
+    #[serde(default)]
+    pub hit: bool,
+    #[serde(default)]
+    pub size_bytes: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RecordSizeV17Request {
+    pub size_bytes: i64,
+    pub item_count: i32,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GenerateCostV17Request {
+    pub period_start: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GeneratePerformanceV17Request {
+    pub period_start: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+pub async fn get_hit_analysis_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i32, i32, i64, i64, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, cache_id, period_start, hit_count, miss_count, avg_hit_size_bytes, total_size_bytes, created_at
+         FROM cache_hit_analysis_v17
+         WHERE cache_id = $1
+         ORDER BY period_start DESC",
+    )
+    .bind(cid)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let analysis: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.0,
+                        "cache_id": r.1,
+                        "period_start": r.2,
+                        "hit_count": r.3,
+                        "miss_count": r.4,
+                        "avg_hit_size_bytes": r.5,
+                        "total_size_bytes": r.6,
+                        "created_at": r.7,
+                    })
+                })
+                .collect();
+            (axum::http::StatusCode::OK, Json(analysis)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn record_hit_miss_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<RecordHitMissV17Request>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let hit_inc = if req.hit { 1 } else { 0 };
+    let miss_inc = if req.hit { 0 } else { 1 };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i32, i32, i64, i64, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO cache_hit_analysis_v17
+         (cache_id, period_start, hit_count, miss_count, avg_hit_size_bytes, total_size_bytes, created_at)
+         VALUES ($1, date_trunc('hour', NOW()), $2, $3, $4, $5, NOW())
+         ON CONFLICT (cache_id, period_start) DO UPDATE SET
+             hit_count = cache_hit_analysis_v17.hit_count + EXCLUDED.hit_count,
+             miss_count = cache_hit_analysis_v17.miss_count + EXCLUDED.miss_count,
+             avg_hit_size_bytes = CASE
+                 WHEN EXCLUDED.hit_count > 0 THEN
+                     (cache_hit_analysis_v17.avg_hit_size_bytes * cache_hit_analysis_v17.hit_count + $4 * $2) /
+                     (cache_hit_analysis_v17.hit_count + $2)
+                 ELSE cache_hit_analysis_v17.avg_hit_size_bytes
+             END,
+             total_size_bytes = cache_hit_analysis_v17.total_size_bytes + $5
+         RETURNING id, cache_id, period_start, hit_count, miss_count, avg_hit_size_bytes, total_size_bytes, created_at",
+    )
+    .bind(cid)
+    .bind(hit_inc)
+    .bind(miss_inc)
+    .bind(req.size_bytes)
+    .bind(req.size_bytes)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            let analysis = serde_json::json!({
+                "id": r.0,
+                "cache_id": r.1,
+                "period_start": r.2,
+                "hit_count": r.3,
+                "miss_count": r.4,
+                "avg_hit_size_bytes": r.5,
+                "total_size_bytes": r.6,
+                "created_at": r.7,
+            });
+            (axum::http::StatusCode::OK, Json(analysis)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_size_history_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i64, i32, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, cache_id, measured_at, size_bytes, item_count, created_at
+         FROM cache_size_tracking_v17
+         WHERE cache_id = $1
+         ORDER BY measured_at DESC
+         LIMIT 50",
+    )
+    .bind(cid)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let history: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.0,
+                        "cache_id": r.1,
+                        "measured_at": r.2,
+                        "size_bytes": r.3,
+                        "item_count": r.4,
+                        "created_at": r.5,
+                    })
+                })
+                .collect();
+            (axum::http::StatusCode::OK, Json(history)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn record_size_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<RecordSizeV17Request>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i64, i32, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO cache_size_tracking_v17
+         (cache_id, measured_at, size_bytes, item_count, created_at)
+         VALUES ($1, NOW(), $2, $3, NOW())
+         RETURNING id, cache_id, measured_at, size_bytes, item_count, created_at",
+    )
+    .bind(cid)
+    .bind(req.size_bytes)
+    .bind(req.item_count)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            let tracking = serde_json::json!({
+                "id": r.0,
+                "cache_id": r.1,
+                "measured_at": r.2,
+                "size_bytes": r.3,
+                "item_count": r.4,
+                "created_at": r.5,
+            });
+            (axum::http::StatusCode::CREATED, Json(tracking)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_cost_optimizations_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i64, serde_json::Value, Option<chrono::DateTime<chrono::Utc>>, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, cache_id, period_start, estimated_savings_bytes, recommended_actions, applied_at, created_at
+         FROM cache_cost_optimization_v17
+         WHERE cache_id = $1
+         ORDER BY period_start DESC",
+    )
+    .bind(cid)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let optimizations: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.0,
+                        "cache_id": r.1,
+                        "period_start": r.2,
+                        "estimated_savings_bytes": r.3,
+                        "recommended_actions": r.4,
+                        "applied_at": r.5,
+                        "created_at": r.6,
+                    })
+                })
+                .collect();
+            (axum::http::StatusCode::OK, Json(optimizations)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn generate_cost_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<GenerateCostV17Request>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let period_start = req.period_start.unwrap_or_else(chrono::Utc::now);
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i64, serde_json::Value, Option<chrono::DateTime<chrono::Utc>>, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO cache_cost_optimization_v17
+         (cache_id, period_start, estimated_savings_bytes, recommended_actions, created_at)
+         SELECT
+             $1 as cache_id,
+             $2 as period_start,
+             GREATEST(total_size_bytes - (total_size_bytes * hit_count / GREATEST(hit_count + miss_count, 1)), 0) as estimated_savings_bytes,
+             CASE
+                 WHEN miss_count > hit_count THEN
+                     jsonb_build_array('Consider increasing cache size', 'Review cache key strategy')
+                 WHEN avg_hit_size_bytes > 1048576 THEN
+                     jsonb_build_array('Large items detected', 'Consider item compression')
+                 ELSE
+                     jsonb_build_array('Cache performance is optimal')
+             END as recommended_actions,
+             NOW() as created_at
+         FROM cache_hit_analysis_v17
+         WHERE cache_id = $1 AND period_start = date_trunc('hour', $2)
+         RETURNING id, cache_id, period_start, estimated_savings_bytes, recommended_actions, applied_at, created_at",
+    )
+    .bind(cid)
+    .bind(period_start)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            let optimization = serde_json::json!({
+                "id": r.0,
+                "cache_id": r.1,
+                "period_start": r.2,
+                "estimated_savings_bytes": r.3,
+                "recommended_actions": r.4,
+                "applied_at": r.5,
+                "created_at": r.6,
+            });
+            (axum::http::StatusCode::CREATED, Json(optimization)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_performance_insights_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, f64, i64, i64, i32, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, cache_id, period_start, hit_rate, avg_hit_latency_ms, avg_miss_latency_ms, eviction_count, created_at
+         FROM cache_performance_insights_v17
+         WHERE cache_id = $1
+         ORDER BY period_start DESC",
+    )
+    .bind(cid)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let insights: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.0,
+                        "cache_id": r.1,
+                        "period_start": r.2,
+                        "hit_rate": r.3,
+                        "avg_hit_latency_ms": r.4,
+                        "avg_miss_latency_ms": r.5,
+                        "eviction_count": r.6,
+                        "created_at": r.7,
+                    })
+                })
+                .collect();
+            (axum::http::StatusCode::OK, Json(insights)).into_response()
+        }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn generate_performance_v17(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<GeneratePerformanceV17Request>,
+) -> impl IntoResponse {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let period_start = req.period_start.unwrap_or_else(chrono::Utc::now);
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, f64, i64, i64, i32, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO cache_performance_insights_v17
+         (cache_id, period_start, hit_rate, avg_hit_latency_ms, avg_miss_latency_ms, eviction_count, created_at)
+         SELECT
+             $1 as cache_id,
+             $2 as period_start,
+             CASE
+                 WHEN (hit_count + miss_count) > 0 THEN
+                     hit_count::NUMERIC / (hit_count + miss_count)
+                 ELSE 0
+             END::NUMERIC(5,4) as hit_rate,
+             0::BIGINT as avg_hit_latency_ms,
+             0::BIGINT as avg_miss_latency_ms,
+             0 as eviction_count,
+             NOW() as created_at
+         FROM cache_hit_analysis_v17
+         WHERE cache_id = $1 AND period_start = date_trunc('hour', $2)
+         RETURNING id, cache_id, period_start, hit_rate, avg_hit_latency_ms, avg_miss_latency_ms, eviction_count, created_at",
+    )
+    .bind(cid)
+    .bind(period_start)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            let insights = serde_json::json!({
+                "id": r.0,
+                "cache_id": r.1,
+                "period_start": r.2,
+                "hit_rate": r.3,
+                "avg_hit_latency_ms": r.4,
+                "avg_miss_latency_ms": r.5,
+                "eviction_count": r.6,
+                "created_at": r.7,
+            });
+            (axum::http::StatusCode::CREATED, Json(insights)).into_response()
+        }
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),

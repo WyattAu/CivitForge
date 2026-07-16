@@ -207,6 +207,9 @@ pub mod cache_hit_analysis_v15;
 pub mod pipeline_action_reviews_v17;
 pub mod environment_deployment_v17;
 pub mod cache_hit_analysis_v16;
+pub mod pipeline_action_reviews_v18;
+pub mod environment_deployment_v18;
+pub mod cache_hit_analysis_v17;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{

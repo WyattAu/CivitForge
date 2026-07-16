@@ -1875,6 +1875,588 @@ pub fn environment_routes() -> Router<AppState> {
                 .patch(update_health_check_status)
                 .delete(delete_health_check),
         )
+        // Deployment History v18 routes
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history",
+            get(list_deployment_history).post(create_deployment_history),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/{history_id}",
+            get(get_deployment_history),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/{history_id}/rollback",
+            post(rollback_deployment_history),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/compare",
+            post(compare_deployments),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/analytics",
+            get(get_deployment_history_analytics),
+        )
+}
+
+// ---------------------------------------------------------------------------
+// Deployment History v18 handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct CreateDeploymentHistoryRequest {
+    pub version: String,
+    pub sha: String,
+    #[serde(default = "default_deployed")]
+    pub status: String,
+    pub metadata: Option<serde_json::Value>,
+}
+
+fn default_deployed() -> String {
+    "deployed".to_string()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RollbackDeploymentHistoryRequest {
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CompareDeploymentsRequest {
+    pub from_deployment_id: String,
+    pub to_deployment_id: String,
+    pub diff_summary: serde_json::Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DeploymentHistoryParams {
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_per_page")]
+    pub per_page: u32,
+}
+
+async fn resolve_repo_id_for_history(
+    pool: &sqlx::PgPool,
+    owner: &str,
+    name: &str,
+) -> std::result::Result<Uuid, Response> {
+    let owner_uuid = if let Ok(id) = Uuid::parse_str(owner) {
+        id
+    } else {
+        let user_row = sqlx::query_as::<_, (Uuid,)>("SELECT id FROM users WHERE username = $1")
+            .bind(owner)
+            .fetch_optional(pool)
+            .await;
+
+        match user_row {
+            Ok(Some((id,))) => id,
+            Ok(None) => {
+                return Err((
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("user not found".into()).error_response())
+                        .into_response(),
+                )
+                    .into_response());
+            }
+            Err(e) => {
+                return Err((
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(CoreError::Database(e.to_string()).error_response())
+                        .into_response(),
+                )
+                    .into_response());
+            }
+        }
+    };
+
+    let repo_row = sqlx::query_as::<_, (Uuid,)>(
+        "SELECT id FROM repositories WHERE owner_id = $1 AND name = $2",
+    )
+    .bind(owner_uuid)
+    .bind(name)
+    .fetch_optional(pool)
+    .await;
+
+    match repo_row {
+        Ok(Some((id,))) => Ok(id),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("repository not found".into()).error_response())
+                .into_response(),
+        )
+            .into_response()),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response())
+                .into_response(),
+        )
+            .into_response()),
+    }
+}
+
+pub async fn list_deployment_history(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Query(params): Query<DeploymentHistoryParams>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_history(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
+
+    match sqlx::query_as::<_, (Uuid, Uuid, String, String, String, Uuid, Option<Uuid>, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at
+         FROM environment_deployment_history_v18
+         WHERE environment_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3",
+    )
+    .bind(eid)
+    .bind(params.per_page as i64)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let deployments: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.0,
+                        "environment_id": r.1,
+                        "version": r.2,
+                        "sha": r.3,
+                        "status": r.4,
+                        "deployed_by": r.5,
+                        "rollback_of": r.6,
+                        "metadata": r.7,
+                        "created_at": r.8,
+                    })
+                })
+                .collect();
+            (StatusCode::OK, Json(deployments)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_deployment_history(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    auth: AuthUser,
+    Json(req): Json<CreateDeploymentHistoryRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_history(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let metadata = req.metadata.unwrap_or(serde_json::json!({}));
+
+    match sqlx::query_as::<_, (Uuid, Uuid, String, String, String, Uuid, Option<Uuid>, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO environment_deployment_history_v18
+         (environment_id, version, sha, status, deployed_by, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         RETURNING id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at",
+    )
+    .bind(eid)
+    .bind(&req.version)
+    .bind(&req.sha)
+    .bind(&req.status)
+    .bind(user_id)
+    .bind(&metadata)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            let deployment = serde_json::json!({
+                "id": r.0,
+                "environment_id": r.1,
+                "version": r.2,
+                "sha": r.3,
+                "status": r.4,
+                "deployed_by": r.5,
+                "rollback_of": r.6,
+                "metadata": r.7,
+                "created_at": r.8,
+            });
+            (StatusCode::CREATED, Json(deployment)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_deployment_history(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, history_id)): Path<(String, String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_history(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let hid = match Uuid::parse_str(&history_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid history ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, String, String, String, Uuid, Option<Uuid>, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at
+         FROM environment_deployment_history_v18
+         WHERE id = $1",
+    )
+    .bind(hid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(r)) => {
+            let deployment = serde_json::json!({
+                "id": r.0,
+                "environment_id": r.1,
+                "version": r.2,
+                "sha": r.3,
+                "status": r.4,
+                "deployed_by": r.5,
+                "rollback_of": r.6,
+                "metadata": r.7,
+                "created_at": r.8,
+            });
+            (StatusCode::OK, Json(deployment)).into_response()
+        }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("deployment not found".into()).error_response()),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn rollback_deployment_history(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, history_id)): Path<(String, String, String, String)>,
+    auth: AuthUser,
+    Json(req): Json<RollbackDeploymentHistoryRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_history(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let hid = match Uuid::parse_str(&history_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid history ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Get original deployment
+    let original = match sqlx::query_as::<_, (Uuid, Uuid, String, String, String, Uuid, Option<Uuid>, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at
+         FROM environment_deployment_history_v18
+         WHERE id = $1",
+    )
+    .bind(hid)
+    .fetch_optional(pool)
+    .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("deployment not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let metadata = if let Some(reason) = &req.reason {
+        serde_json::json!({
+            "rollback_reason": reason,
+            "original_deployment_id": hid,
+        })
+    } else {
+        serde_json::json!({
+            "original_deployment_id": hid,
+        })
+    };
+
+    // Create rollback entry
+    let rollback = match sqlx::query_as::<_, (Uuid, Uuid, String, String, String, Uuid, Option<Uuid>, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO environment_deployment_history_v18
+         (environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at)
+         VALUES ($1, $2, $3, 'rolled_back', $4, $5, $6, NOW())
+         RETURNING id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at",
+    )
+    .bind(original.1)
+    .bind(&original.2)
+    .bind(&original.3)
+    .bind(user_id)
+    .bind(hid)
+    .bind(&metadata)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    // Update original status
+    let _ = sqlx::query(
+        "UPDATE environment_deployment_history_v18 SET status = 'rolled_back' WHERE id = $1",
+    )
+    .bind(hid)
+    .execute(pool)
+    .await;
+
+    let deployment = serde_json::json!({
+        "id": rollback.0,
+        "environment_id": rollback.1,
+        "version": rollback.2,
+        "sha": rollback.3,
+        "status": rollback.4,
+        "deployed_by": rollback.5,
+        "rollback_of": rollback.6,
+        "metadata": rollback.7,
+        "created_at": rollback.8,
+    });
+
+    (StatusCode::CREATED, Json(deployment)).into_response()
+}
+
+pub async fn compare_deployments(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CompareDeploymentsRequest>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_history(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let _eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let from_id = match Uuid::parse_str(&req.from_deployment_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid from deployment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let to_id = match Uuid::parse_str(&req.to_deployment_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid to deployment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+        "INSERT INTO deployment_comparison_v18
+         (from_deployment_id, to_deployment_id, diff_summary, created_at)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (from_deployment_id, to_deployment_id) DO UPDATE
+         SET diff_summary = EXCLUDED.diff_summary
+         RETURNING id, from_deployment_id, to_deployment_id, diff_summary, created_at",
+    )
+    .bind(from_id)
+    .bind(to_id)
+    .bind(&req.diff_summary)
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            let comparison = serde_json::json!({
+                "id": r.0,
+                "from_deployment_id": r.1,
+                "to_deployment_id": r.2,
+                "diff_summary": r.3,
+                "created_at": r.4,
+            });
+            (StatusCode::CREATED, Json(comparison)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_deployment_history_analytics(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id_for_history(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i32, i32, i32, i64, i32, chrono::DateTime<chrono::Utc>)>(
+        "SELECT id, environment_id, period_start, total_deployments, successful_deployments,
+                failed_deployments, avg_deploy_time_ms, rollback_count, created_at
+         FROM deployment_analytics_v18
+         WHERE environment_id = $1
+         ORDER BY period_start DESC",
+    )
+    .bind(eid)
+    .fetch_all(pool)
+    .await
+    {
+        Ok(rows) => {
+            let analytics: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|r| {
+                    serde_json::json!({
+                        "id": r.0,
+                        "environment_id": r.1,
+                        "period_start": r.2,
+                        "total_deployments": r.3,
+                        "successful_deployments": r.4,
+                        "failed_deployments": r.5,
+                        "avg_deploy_time_ms": r.6,
+                        "rollback_count": r.7,
+                        "created_at": r.8,
+                    })
+                })
+                .collect();
+            (StatusCode::OK, Json(analytics)).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }
 
 #[cfg(test)]
