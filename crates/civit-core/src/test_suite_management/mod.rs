@@ -32,4 +32,8 @@ pub use types::{
     TestSuiteBaselineV8, CreateTestSuiteBaselineV8Request, UpdateTestSuiteBaselineV8Request,
     TestSuiteRegressionV8, TestSuitePerformanceAlertV8,
     TestSuiteMetricsSummaryV8, TestSuitePerformanceReportV8,
+    TestSuiteMetricV15, CreateTestSuiteMetricV15Request,
+    TestSuiteBaselineV15, CreateTestSuiteBaselineV15Request, UpdateTestSuiteBaselineV15Request,
+    TestSuiteRegressionV15, TestSuitePerformanceAlertV15,
+    TestSuiteMetricsSummaryV15, TestSuitePerformanceReportV15,
 };
