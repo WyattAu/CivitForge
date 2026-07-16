@@ -924,6 +924,15 @@ pub const M_536_RATE_LIMIT_TIERS_V18_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_alerts_v15; DROP TABLE IF EXISTS rate_limit_tiers_v18;";
 pub const M_537_API_ANALYTICS_V21_UP: &str = include_str!("537_add_api_analytics_v21.sql");
 pub const M_537_API_ANALYTICS_V21_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v21;";
+pub const M_538_DATABASE_REPLICATION_V18_UP: &str = include_str!("538_add_database_replication_v18.sql");
+pub const M_538_DATABASE_REPLICATION_V18_DOWN: &str =
+    "DROP TABLE IF EXISTS database_replication_alerts_v16; DROP TABLE IF EXISTS database_replication_config_v16;";
+pub const M_539_ENCRYPTION_V19_UP: &str = include_str!("539_add_encryption_v19.sql");
+pub const M_539_ENCRYPTION_V19_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_compliance_checks_v16; DROP TABLE IF EXISTS encryption_key_versions_v16;";
+pub const M_540_DATA_RESIDENCY_V18_UP: &str = include_str!("540_add_data_residency_v18.sql");
+pub const M_540_DATA_RESIDENCY_V18_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance_v16; DROP TABLE IF EXISTS data_residency_reports_v16;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3077,6 +3086,24 @@ impl MigrationManager {
             name: "add_api_analytics_v21".into(),
             up_sql: M_537_API_ANALYTICS_V21_UP.into(),
             down_sql: M_537_API_ANALYTICS_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 538,
+            name: "add_database_replication_v18".into(),
+            up_sql: M_538_DATABASE_REPLICATION_V18_UP.into(),
+            down_sql: M_538_DATABASE_REPLICATION_V18_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 539,
+            name: "add_encryption_v19".into(),
+            up_sql: M_539_ENCRYPTION_V19_UP.into(),
+            down_sql: M_539_ENCRYPTION_V19_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 540,
+            name: "add_data_residency_v18".into(),
+            up_sql: M_540_DATA_RESIDENCY_V18_UP.into(),
+            down_sql: M_540_DATA_RESIDENCY_V18_DOWN.into(),
         });
     }
 
