@@ -1006,6 +1006,12 @@ pub const M_596_CODE_QUALITY_RULES_V21_DOWN: &str =
 pub const M_597_PERFORMANCE_TESTING_V22_UP: &str = include_str!("597_add_performance_testing_v22.sql");
 pub const M_597_PERFORMANCE_TESTING_V22_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v19; DROP TABLE IF EXISTS performance_test_alerts_v19;";
+pub const M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_UP: &str = include_str!("610_add_api_doc_examples_changelogs_v21.sql");
+pub const M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_DOWN: &str = include_str!("down/610_add_api_doc_examples_changelogs_v21_down.sql");
+pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_UP: &str = include_str!("611_add_rate_limit_tier_quotas_v21.sql");
+pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_DOWN: &str = include_str!("down/611_add_rate_limit_tier_quotas_v21_down.sql");
+pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_UP: &str = include_str!("612_add_analytics_dashboard_templates_alert_rules_v21.sql");
+pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_DOWN: &str = include_str!("down/612_add_analytics_dashboard_templates_alert_rules_v21_down.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3339,6 +3345,24 @@ impl MigrationManager {
             name: "add_performance_testing_v22".into(),
             up_sql: M_597_PERFORMANCE_TESTING_V22_UP.into(),
             down_sql: M_597_PERFORMANCE_TESTING_V22_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 610,
+            name: "add_api_doc_examples_changelogs_v21".into(),
+            up_sql: M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_UP.into(),
+            down_sql: M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 611,
+            name: "add_rate_limit_tier_quotas_v21".into(),
+            up_sql: M_611_RATE_LIMIT_TIER_QUOTAS_V21_UP.into(),
+            down_sql: M_611_RATE_LIMIT_TIER_QUOTAS_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 612,
+            name: "add_analytics_dashboard_templates_alert_rules_v21".into(),
+            up_sql: M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_UP.into(),
+            down_sql: M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_DOWN.into(),
         });
     }
 

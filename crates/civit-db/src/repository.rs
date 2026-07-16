@@ -5,6 +5,7 @@ use crate::models::{
     ActivityEvent, ApiAnalyticV2, ApiAnalyticV3, ApiAnalyticV4, ApiAnalyticV5, ApiAnalyticV6,
     ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticV9, ApiAnalyticV10, ApiAnalyticV11, ApiAnalyticV12, ApiAnalyticV13, ApiAnalyticV14, ApiAnalyticV15, ApiAnalyticV16,     ApiAnalyticV17, ApiAnalyticV18,     ApiAnalyticV19, ApiAnalyticV20, ApiAnalyticV21, ApiAnalyticV23,
     ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation,
+    ApiDocExampleV21, ApiDocChangelogV21,
     ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8, ApiDocsV9, ApiDocsV10, ApiDocsV11, ApiDocsV12, ApiDocsV13, ApiDocsV14, ApiDocsV15,     ApiDocsV16, ApiDocsV17, ApiDocsV18, ApiDocsV19, ApiDocsV20, ApiDocsV22,
     ApiDocumentation, ApiVersion, ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee,
     BoardCardLabel, BranchProtectionRule, CacheCostOptimizationV3, CacheCostOptimizationV6,
@@ -22,7 +23,10 @@ use crate::models::{
     PipelineActionReviewV7, PipelineAnalytics, PipelineTemplate, PrComment, PrReviewer, PrStatusCheck, PrTimeline, PullRequest,
     RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitAlertV4, RateLimitAlertV5, RateLimitAlertV6, RateLimitAlertV7, RateLimitAlertV8, RateLimitAlertV9, RateLimitAlertV10, RateLimitAlertV11, RateLimitAlertV12, RateLimitAlertV13, RateLimitAlertV14, RateLimitAlertV15, RateLimitAlertV17, RateLimitOverage,
     RateLimitTier, RateLimitTierV2, RateLimitTierV3, RateLimitTierV4, RateLimitTierV5,
-    RateLimitTierV6, RateLimitTierV7, RateLimitTierV8, RateLimitTierV9, RateLimitTierV10, RateLimitTierV11, RateLimitTierV12, RateLimitTierV13,     RateLimitTierV14, RateLimitTierV15, RateLimitTierV16, RateLimitTierV17, RateLimitTierV18, RateLimitTierV20, RateLimitUsageV2, Release, ReleaseAsset, Repository, ReviewAssignment,
+    RateLimitTierV6, RateLimitTierV7, RateLimitTierV8, RateLimitTierV9, RateLimitTierV10, RateLimitTierV11, RateLimitTierV12, RateLimitTierV13,     RateLimitTierV14, RateLimitTierV15, RateLimitTierV16, RateLimitTierV17, RateLimitTierV18, RateLimitTierV20, RateLimitUsageV2,
+    RateLimitTierQuotaV21, RateLimitUsageAnalyticsV21,
+    AnalyticsDashboardTemplateV21, AnalyticsAlertRuleV21,
+    Release, ReleaseAsset, Repository, ReviewAssignment,
     ReviewAnalyticsV3, ReviewAnalyticsV7, ReviewHelpfulnessV3, ReviewHelpfulnessV7,
     ReviewModerationQueueV3, ReviewModerationQueueV7, ReviewRecommendationV3,
     ReviewRecommendationV7, ReviewSummary, SshKey, Team, TeamMember, TestCoverage,
@@ -20794,6 +20798,322 @@ impl DbRepository {
             .collect();
 
         Ok(result)
+    }
+
+    // --- API Doc Examples v21 ---
+
+    pub async fn list_api_doc_examples_v21(&self, endpoint_id: Uuid) -> Result<Vec<ApiDocExampleV21>> {
+        sqlx::query_as::<_, ApiDocExampleV21>(
+            "SELECT * FROM api_doc_examples_v21 WHERE endpoint_id = $1 ORDER BY language, title",
+        )
+        .bind(endpoint_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_doc_examples_v21: {e}")))
+    }
+
+    pub async fn create_api_doc_example_v21(
+        &self,
+        endpoint_id: Uuid,
+        title: &str,
+        language: &str,
+        request_example: &str,
+        response_example: &str,
+        description: &str,
+    ) -> Result<ApiDocExampleV21> {
+        sqlx::query_as::<_, ApiDocExampleV21>(
+            r#"INSERT INTO api_doc_examples_v21 (endpoint_id, title, language, request_example, response_example, description)
+               VALUES ($1, $2, $3, $4, $5, $6)
+               RETURNING *"#,
+        )
+        .bind(endpoint_id)
+        .bind(title)
+        .bind(language)
+        .bind(request_example)
+        .bind(response_example)
+        .bind(description)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_doc_example_v21: {e}")))
+    }
+
+    pub async fn delete_api_doc_example_v21(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM api_doc_examples_v21 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_api_doc_example_v21: {e}")))?;
+        Ok(())
+    }
+
+    // --- API Doc Changelogs v21 ---
+
+    pub async fn list_api_doc_changelogs_v21(&self, endpoint_id: Uuid) -> Result<Vec<ApiDocChangelogV21>> {
+        sqlx::query_as::<_, ApiDocChangelogV21>(
+            "SELECT * FROM api_doc_changelogs_v21 WHERE endpoint_id = $1 ORDER BY created_at DESC",
+        )
+        .bind(endpoint_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_api_doc_changelogs_v21: {e}")))
+    }
+
+    pub async fn create_api_doc_changelog_v21(
+        &self,
+        endpoint_id: Uuid,
+        version: &str,
+        change_type: &str,
+        description: &str,
+    ) -> Result<ApiDocChangelogV21> {
+        sqlx::query_as::<_, ApiDocChangelogV21>(
+            r#"INSERT INTO api_doc_changelogs_v21 (endpoint_id, version, change_type, description)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(endpoint_id)
+        .bind(version)
+        .bind(change_type)
+        .bind(description)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_api_doc_changelog_v21: {e}")))
+    }
+
+    // --- Rate Limit Tier Quotas v21 ---
+
+    pub async fn list_rate_limit_tier_quotas_v21(&self) -> Result<Vec<RateLimitTierQuotaV21>> {
+        sqlx::query_as::<_, RateLimitTierQuotaV21>(
+            "SELECT * FROM rate_limit_tier_quotas_v21 ORDER BY tier",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_rate_limit_tier_quotas_v21: {e}")))
+    }
+
+    pub async fn get_rate_limit_tier_quota_v21_by_tier(&self, tier: &str) -> Result<Option<RateLimitTierQuotaV21>> {
+        sqlx::query_as::<_, RateLimitTierQuotaV21>(
+            "SELECT * FROM rate_limit_tier_quotas_v21 WHERE tier = $1",
+        )
+        .bind(tier)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_quota_v21_by_tier: {e}")))
+    }
+
+    pub async fn create_rate_limit_tier_quota_v21(
+        &self,
+        tier: &str,
+        requests_per_second: i32,
+        requests_per_day: i32,
+        burst_size: i32,
+        enabled: bool,
+    ) -> Result<RateLimitTierQuotaV21> {
+        sqlx::query_as::<_, RateLimitTierQuotaV21>(
+            r#"INSERT INTO rate_limit_tier_quotas_v21 (tier, requests_per_second, requests_per_day, burst_size, enabled)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(tier)
+        .bind(requests_per_second)
+        .bind(requests_per_day)
+        .bind(burst_size)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_rate_limit_tier_quota_v21: {e}")))
+    }
+
+    pub async fn update_rate_limit_tier_quota_v21(
+        &self,
+        tier: &str,
+        requests_per_second: Option<i32>,
+        requests_per_day: Option<i32>,
+        burst_size: Option<i32>,
+        enabled: Option<bool>,
+    ) -> Result<RateLimitTierQuotaV21> {
+        sqlx::query_as::<_, RateLimitTierQuotaV21>(
+            r#"UPDATE rate_limit_tier_quotas_v21 SET
+                requests_per_second = COALESCE($2, requests_per_second),
+                requests_per_day = COALESCE($3, requests_per_day),
+                burst_size = COALESCE($4, burst_size),
+                enabled = COALESCE($5, enabled)
+               WHERE tier = $1
+               RETURNING *"#,
+        )
+        .bind(tier)
+        .bind(requests_per_second)
+        .bind(requests_per_day)
+        .bind(burst_size)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_rate_limit_tier_quota_v21: {e}")))
+    }
+
+    // --- Rate Limit Usage Analytics v21 ---
+
+    pub async fn create_rate_limit_usage_analytics_v21(
+        &self,
+        user_id: Uuid,
+        tier: &str,
+        requests_used: i32,
+        period_start: DateTime<Utc>,
+        period_end: DateTime<Utc>,
+    ) -> Result<RateLimitUsageAnalyticsV21> {
+        sqlx::query_as::<_, RateLimitUsageAnalyticsV21>(
+            r#"INSERT INTO rate_limit_usage_analytics_v21 (user_id, tier, requests_used, period_start, period_end)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(user_id)
+        .bind(tier)
+        .bind(requests_used)
+        .bind(period_start)
+        .bind(period_end)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_rate_limit_usage_analytics_v21: {e}")))
+    }
+
+    pub async fn get_rate_limit_usage_analytics_v21_by_user(&self, user_id: Uuid) -> Result<Vec<RateLimitUsageAnalyticsV21>> {
+        sqlx::query_as::<_, RateLimitUsageAnalyticsV21>(
+            "SELECT * FROM rate_limit_usage_analytics_v21 WHERE user_id = $1 ORDER BY period_start DESC",
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_rate_limit_usage_analytics_v21_by_user: {e}")))
+    }
+
+    // --- Analytics Dashboard Templates v21 ---
+
+    pub async fn list_analytics_dashboard_templates_v21(&self) -> Result<Vec<AnalyticsDashboardTemplateV21>> {
+        sqlx::query_as::<_, AnalyticsDashboardTemplateV21>(
+            "SELECT * FROM analytics_dashboard_templates_v21 ORDER BY usage_count DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_analytics_dashboard_templates_v21: {e}")))
+    }
+
+    pub async fn get_analytics_dashboard_template_v21_by_id(&self, id: Uuid) -> Result<Option<AnalyticsDashboardTemplateV21>> {
+        sqlx::query_as::<_, AnalyticsDashboardTemplateV21>(
+            "SELECT * FROM analytics_dashboard_templates_v21 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_analytics_dashboard_template_v21_by_id: {e}")))
+    }
+
+    pub async fn create_analytics_dashboard_template_v21(
+        &self,
+        name: &str,
+        description: &str,
+        category: &str,
+        template_data: &serde_json::Value,
+    ) -> Result<AnalyticsDashboardTemplateV21> {
+        sqlx::query_as::<_, AnalyticsDashboardTemplateV21>(
+            r#"INSERT INTO analytics_dashboard_templates_v21 (name, description, category, template_data)
+               VALUES ($1, $2, $3, $4)
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(category)
+        .bind(template_data)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_analytics_dashboard_template_v21: {e}")))
+    }
+
+    pub async fn delete_analytics_dashboard_template_v21(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM analytics_dashboard_templates_v21 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_analytics_dashboard_template_v21: {e}")))?;
+        Ok(())
+    }
+
+    // --- Analytics Alert Rules v21 ---
+
+    pub async fn list_analytics_alert_rules_v21(&self) -> Result<Vec<AnalyticsAlertRuleV21>> {
+        sqlx::query_as::<_, AnalyticsAlertRuleV21>(
+            "SELECT * FROM analytics_alert_rules_v21 ORDER BY metric_name, severity",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_analytics_alert_rules_v21: {e}")))
+    }
+
+    pub async fn get_analytics_alert_rule_v21_by_id(&self, id: Uuid) -> Result<Option<AnalyticsAlertRuleV21>> {
+        sqlx::query_as::<_, AnalyticsAlertRuleV21>(
+            "SELECT * FROM analytics_alert_rules_v21 WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_analytics_alert_rule_v21_by_id: {e}")))
+    }
+
+    pub async fn create_analytics_alert_rule_v21(
+        &self,
+        metric_name: &str,
+        condition: &str,
+        threshold: f64,
+        severity: &str,
+        enabled: bool,
+    ) -> Result<AnalyticsAlertRuleV21> {
+        sqlx::query_as::<_, AnalyticsAlertRuleV21>(
+            r#"INSERT INTO analytics_alert_rules_v21 (metric_name, condition, threshold, severity, enabled)
+               VALUES ($1, $2, $3, $4, $5)
+               RETURNING *"#,
+        )
+        .bind(metric_name)
+        .bind(condition)
+        .bind(threshold)
+        .bind(severity)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_analytics_alert_rule_v21: {e}")))
+    }
+
+    pub async fn update_analytics_alert_rule_v21(
+        &self,
+        id: Uuid,
+        condition: Option<&str>,
+        threshold: Option<f64>,
+        severity: Option<&str>,
+        enabled: Option<bool>,
+    ) -> Result<AnalyticsAlertRuleV21> {
+        sqlx::query_as::<_, AnalyticsAlertRuleV21>(
+            r#"UPDATE analytics_alert_rules_v21 SET
+                condition = COALESCE($2, condition),
+                threshold = COALESCE($3, threshold),
+                severity = COALESCE($4, severity),
+                enabled = COALESCE($5, enabled)
+               WHERE id = $1
+               RETURNING *"#,
+        )
+        .bind(id)
+        .bind(condition)
+        .bind(threshold)
+        .bind(severity)
+        .bind(enabled)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("update_analytics_alert_rule_v21: {e}")))
+    }
+
+    pub async fn delete_analytics_alert_rule_v21(&self, id: Uuid) -> Result<()> {
+        sqlx::query("DELETE FROM analytics_alert_rules_v21 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_analytics_alert_rule_v21: {e}")))?;
+        Ok(())
     }
 }
 

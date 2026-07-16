@@ -4561,3 +4561,82 @@ pub struct ScheduledTaskTemplateCategoryV20 {
     pub parent_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
+
+// --- API Doc Examples v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiDocExampleV21 {
+    pub id: Uuid,
+    pub endpoint_id: Uuid,
+    pub title: String,
+    pub language: String,
+    pub request_example: String,
+    pub response_example: String,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- API Doc Changelogs v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ApiDocChangelogV21 {
+    pub id: Uuid,
+    pub endpoint_id: Uuid,
+    pub version: String,
+    pub change_type: String,
+    pub description: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Rate Limit Tier Quotas v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RateLimitTierQuotaV21 {
+    pub id: Uuid,
+    pub tier: String,
+    pub requests_per_second: i32,
+    pub requests_per_day: i32,
+    pub burst_size: i32,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Rate Limit Usage Analytics v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RateLimitUsageAnalyticsV21 {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub tier: String,
+    pub requests_used: i32,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Analytics Dashboard Templates v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AnalyticsDashboardTemplateV21 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub template_data: serde_json::Value,
+    pub usage_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Analytics Alert Rules v21 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AnalyticsAlertRuleV21 {
+    pub id: Uuid,
+    pub metric_name: String,
+    pub condition: String,
+    pub threshold: f64,
+    pub severity: String,
+    pub enabled: bool,
+    pub last_triggered_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
