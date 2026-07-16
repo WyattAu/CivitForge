@@ -4487,3 +4487,77 @@ pub struct ScheduledTaskTemplateV19 {
     pub rating: f64,
     pub created_at: DateTime<Utc>,
 }
+
+// --- Workflow Version Control v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowVersionControlV20 {
+    pub id: Uuid,
+    pub workflow_id: Uuid,
+    pub version: i32,
+    pub definition: serde_json::Value,
+    pub change_description: String,
+    pub created_by: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Workflow Branches v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkflowBranchV20 {
+    pub id: Uuid,
+    pub workflow_id: Uuid,
+    pub name: String,
+    pub parent_version: Option<i32>,
+    pub created_by: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Automation Rule Templates v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AutomationRuleTemplateV20 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub rule_definition: serde_json::Value,
+    pub usage_count: i32,
+    pub rating: f64,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Automation Rule Template Ratings v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AutomationRuleTemplateRatingV20 {
+    pub id: Uuid,
+    pub template_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Scheduled Task Template Ratings v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ScheduledTaskTemplateRatingV20 {
+    pub id: Uuid,
+    pub template_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// --- Scheduled Task Template Categories v20 ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct ScheduledTaskTemplateCategoryV20 {
+    pub id: Uuid,
+    pub name: String,
+    pub description: String,
+    pub parent_id: Option<Uuid>,
+    pub created_at: DateTime<Utc>,
+}

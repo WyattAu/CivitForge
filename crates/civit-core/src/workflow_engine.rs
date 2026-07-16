@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18};
+use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {
@@ -9028,6 +9028,210 @@ impl WorkflowService {
         let _ = self.record_template_v19_usage(template_id, user_id).await;
 
         Ok(workflow)
+    }
+
+    // --- V20: Workflow Version Control, Branches, Merge Conflict Resolution, Rollback ---
+
+    pub async fn create_version(
+        &self,
+        workflow_id: Uuid,
+        created_by: Uuid,
+        definition: serde_json::Value,
+        change_description: &str,
+    ) -> Result<WorkflowVersionControlV20, sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct MaxVersion {
+            max_version: Option<i32>,
+        }
+
+        let max_row = sqlx::query_as::<_, MaxVersion>(
+            r#"SELECT MAX(version) as max_version FROM workflow_version_control_v20 WHERE workflow_id = $1"#,
+        )
+        .bind(workflow_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let next_version = max_row.max_version.unwrap_or(0) + 1;
+
+        let row = sqlx::query_as::<_, WorkflowVersionControlV20>(
+            r#"INSERT INTO workflow_version_control_v20 (workflow_id, version, definition, change_description, created_by)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING id, workflow_id, version, definition, change_description, created_by, created_at"#,
+        )
+        .bind(workflow_id)
+        .bind(next_version)
+        .bind(&definition)
+        .bind(change_description)
+        .bind(created_by)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_version(
+        &self,
+        workflow_id: Uuid,
+        version: i32,
+    ) -> Result<Option<WorkflowVersionControlV20>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowVersionControlV20>(
+            r#"SELECT id, workflow_id, version, definition, change_description, created_by, created_at
+             FROM workflow_version_control_v20 WHERE workflow_id = $1 AND version = $2"#,
+        )
+        .bind(workflow_id)
+        .bind(version)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_versions(
+        &self,
+        workflow_id: Uuid,
+    ) -> Result<Vec<WorkflowVersionControlV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowVersionControlV20>(
+            r#"SELECT id, workflow_id, version, definition, change_description, created_by, created_at
+             FROM workflow_version_control_v20 WHERE workflow_id = $1
+             ORDER BY version DESC"#,
+        )
+        .bind(workflow_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_latest_version(
+        &self,
+        workflow_id: Uuid,
+    ) -> Result<Option<WorkflowVersionControlV20>, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowVersionControlV20>(
+            r#"SELECT id, workflow_id, version, definition, change_description, created_by, created_at
+             FROM workflow_version_control_v20 WHERE workflow_id = $1
+             ORDER BY version DESC LIMIT 1"#,
+        )
+        .bind(workflow_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn rollback_to_version(
+        &self,
+        workflow_id: Uuid,
+        target_version: i32,
+        created_by: Uuid,
+    ) -> Result<WorkflowVersionControlV20, sqlx::Error> {
+        let target = self.get_version(workflow_id, target_version).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        self.create_version(
+            workflow_id,
+            created_by,
+            target.definition.clone(),
+            &format!("Rollback to version {}", target_version),
+        ).await
+    }
+
+    pub async fn create_branch(
+        &self,
+        workflow_id: Uuid,
+        name: &str,
+        parent_version: Option<i32>,
+        created_by: Uuid,
+    ) -> Result<WorkflowBranchV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, WorkflowBranchV20>(
+            r#"INSERT INTO workflow_branches_v20 (workflow_id, name, parent_version, created_by)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, workflow_id, name, parent_version, created_by, created_at"#,
+        )
+        .bind(workflow_id)
+        .bind(name)
+        .bind(parent_version)
+        .bind(created_by)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn list_branches(
+        &self,
+        workflow_id: Uuid,
+    ) -> Result<Vec<WorkflowBranchV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, WorkflowBranchV20>(
+            r#"SELECT id, workflow_id, name, parent_version, created_by, created_at
+             FROM workflow_branches_v20 WHERE workflow_id = $1
+             ORDER BY created_at ASC"#,
+        )
+        .bind(workflow_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn delete_branch(
+        &self,
+        workflow_id: Uuid,
+        name: &str,
+    ) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query(
+            "DELETE FROM workflow_branches_v20 WHERE workflow_id = $1 AND name = $2",
+        )
+        .bind(workflow_id)
+        .bind(name)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn merge_branch(
+        &self,
+        workflow_id: Uuid,
+        source_branch: &str,
+        target_branch: &str,
+        created_by: Uuid,
+    ) -> Result<WorkflowVersionControlV20, sqlx::Error> {
+        let branches = self.list_branches(workflow_id).await?;
+        let source = branches.iter().find(|b| b.name == source_branch)
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let _target = branches.iter().find(|b| b.name == target_branch)
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let source_version = source.parent_version.unwrap_or(0);
+        let version_data = self.get_version(workflow_id, source_version).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        self.create_version(
+            workflow_id,
+            created_by,
+            version_data.definition.clone(),
+            &format!("Merge branch '{}' into '{}'", source_branch, target_branch),
+        ).await
+    }
+
+    pub async fn get_version_diff(
+        &self,
+        workflow_id: Uuid,
+        version_a: i32,
+        version_b: i32,
+    ) -> Result<serde_json::Value, sqlx::Error> {
+        let a = self.get_version(workflow_id, version_a).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let b = self.get_version(workflow_id, version_b).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        Ok(serde_json::json!({
+            "version_a": version_a,
+            "version_b": version_b,
+            "definition_a": a.definition,
+            "definition_b": b.definition,
+            "changed": a.definition != b.definition,
+        }))
     }
 }
 

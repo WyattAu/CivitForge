@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11, ScheduledTaskTemplateV12, ScheduledTaskTemplateV13, ScheduledTaskTemplateV14, ScheduledTaskTemplateV15, ScheduledTaskTemplateV16, ScheduledTaskTemplateV17, ScheduledTaskTemplateV18, ScheduledTaskTemplateV19};
+use civit_db::models::{ScheduledTaskTemplateV8, WorkflowTemplateReviewV7, ScheduledTaskTemplateV10, ScheduledTaskTemplateV11, ScheduledTaskTemplateV12, ScheduledTaskTemplateV13, ScheduledTaskTemplateV14, ScheduledTaskTemplateV15, ScheduledTaskTemplateV16, ScheduledTaskTemplateV17, ScheduledTaskTemplateV18, ScheduledTaskTemplateV19, ScheduledTaskTemplateRatingV20, ScheduledTaskTemplateCategoryV20};
 use crate::workflow_engine::{WorkflowTemplateAnalytics, WorkflowTemplateRecommendation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -6731,6 +6731,233 @@ impl ScheduledTaskService {
         let _ = self.record_template_v19_usage(template_id, user_id).await;
 
         Ok(task)
+    }
+
+    // --- V20: Scheduled Task Template Ratings, Categories, Search, Recommendations ---
+
+    pub async fn rate_task_template(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        rating: i32,
+        review: &str,
+    ) -> Result<ScheduledTaskTemplateRatingV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateRatingV20>(
+            r#"INSERT INTO scheduled_task_template_ratings_v20 (template_id, user_id, rating, review)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (template_id, user_id) DO UPDATE SET rating = $3, review = $4
+             RETURNING id, template_id, user_id, rating, review, created_at"#,
+        )
+        .bind(template_id)
+        .bind(user_id)
+        .bind(rating)
+        .bind(review)
+        .fetch_one(&self.pool)
+        .await?;
+
+        self.recalculate_task_template_rating(template_id).await?;
+
+        Ok(row.into())
+    }
+
+    async fn recalculate_task_template_rating(
+        &self,
+        template_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct RatingAvg {
+            avg_rating: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, RatingAvg>(
+            r#"SELECT AVG(rating::double precision) as avg_rating
+             FROM scheduled_task_template_ratings_v20 WHERE template_id = $1"#,
+        )
+        .bind(template_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let avg = row.avg_rating.unwrap_or(0.0);
+        sqlx::query("UPDATE scheduled_task_templates_v19 SET rating = $2 WHERE id = $1")
+            .bind(template_id)
+            .bind(avg)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_task_template_ratings(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<ScheduledTaskTemplateRatingV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateRatingV20>(
+            r#"SELECT id, template_id, user_id, rating, review, created_at
+             FROM scheduled_task_template_ratings_v20 WHERE template_id = $1
+             ORDER BY created_at DESC"#,
+        )
+        .bind(template_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn create_task_category(
+        &self,
+        name: &str,
+        description: &str,
+        parent_id: Option<Uuid>,
+    ) -> Result<ScheduledTaskTemplateCategoryV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateCategoryV20>(
+            r#"INSERT INTO scheduled_task_template_categories_v20 (name, description, parent_id)
+             VALUES ($1, $2, $3)
+             RETURNING id, name, description, parent_id, created_at"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(parent_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_task_category(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<ScheduledTaskTemplateCategoryV20>, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateCategoryV20>(
+            r#"SELECT id, name, description, parent_id, created_at
+             FROM scheduled_task_template_categories_v20 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_task_categories(
+        &self,
+    ) -> Result<Vec<ScheduledTaskTemplateCategoryV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateCategoryV20>(
+            r#"SELECT id, name, description, parent_id, created_at
+             FROM scheduled_task_template_categories_v20
+             ORDER BY name ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_task_subcategories(
+        &self,
+        parent_id: Uuid,
+    ) -> Result<Vec<ScheduledTaskTemplateCategoryV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateCategoryV20>(
+            r#"SELECT id, name, description, parent_id, created_at
+             FROM scheduled_task_template_categories_v20 WHERE parent_id = $1
+             ORDER BY name ASC"#,
+        )
+        .bind(parent_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_task_category(
+        &self,
+        id: Uuid,
+        name: Option<&str>,
+        description: Option<&str>,
+    ) -> Result<ScheduledTaskTemplateCategoryV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, ScheduledTaskTemplateCategoryV20>(
+            r#"UPDATE scheduled_task_template_categories_v20 SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description)
+             WHERE id = $1
+             RETURNING id, name, description, parent_id, created_at"#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(description)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_task_category(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM scheduled_task_template_categories_v20 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn search_task_templates_v20(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<ScheduledTaskTemplateV19>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, ScheduledTaskTemplateV19Row>(
+            r#"SELECT id, name, description, task_type, config, is_public, author_id, usage_count, rating, created_at
+             FROM scheduled_task_templates_v19
+             WHERE name ILIKE $1 OR description ILIKE $1
+             ORDER BY rating DESC, usage_count DESC LIMIT $2"#,
+        )
+        .bind(format!("%{}%", query))
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn get_task_template_recommendations_v20(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<TaskTemplateRecommendation>, sqlx::Error> {
+        let template = self.get_template_v19(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let mut recommendations = Vec::new();
+
+        if template.usage_count == 0 {
+            recommendations.push(TaskTemplateRecommendation {
+                template_id,
+                recommendation_type: "unused".into(),
+                description: "Template has never been used. Consider promoting it.".into(),
+                confidence: 0.9,
+                suggested_changes: serde_json::json!({"action": "promote"}),
+            });
+        }
+
+        if template.rating < 3.0 && template.usage_count > 0 {
+            recommendations.push(TaskTemplateRecommendation {
+                template_id,
+                recommendation_type: "low_rating".into(),
+                description: format!("Template has a low rating of {:.1}. Consider improving it.", template.rating),
+                confidence: 0.85,
+                suggested_changes: serde_json::json!({"action": "improve", "current_rating": template.rating}),
+            });
+        }
+
+        if template.rating >= 4.0 && template.usage_count > 10 {
+            recommendations.push(TaskTemplateRecommendation {
+                template_id,
+                recommendation_type: "featured_candidate".into(),
+                description: "Template is a strong candidate for featuring.".into(),
+                confidence: 0.8,
+                suggested_changes: serde_json::json!({"action": "feature", "rating": template.rating, "usage": template.usage_count}),
+            });
+        }
+
+        Ok(recommendations)
     }
 }
 

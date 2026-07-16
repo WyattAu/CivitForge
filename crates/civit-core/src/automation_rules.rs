@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14, AutomationRuleV15, AutomationRuleV16, AutomationRuleV17, AutomationRuleV18, AutomationRuleV19, AutomationRuleV20, AutomationRuleV21, AutomationRuleV22};
+use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14, AutomationRuleV15, AutomationRuleV16, AutomationRuleV17, AutomationRuleV18, AutomationRuleV19, AutomationRuleV20, AutomationRuleV21, AutomationRuleV22, AutomationRuleTemplateV20, AutomationRuleTemplateRatingV20};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRule {
@@ -8343,6 +8343,299 @@ impl AutomationRuleService {
         rule_id: Uuid,
     ) -> Result<Vec<RuleRecommendation>, sqlx::Error> {
         self.get_rule_v22_optimization_suggestions(rule_id).await
+    }
+
+    // --- V20: Automation Rule Template Management, Ratings, Search, Recommendations ---
+
+    pub async fn create_rule_template(
+        &self,
+        name: &str,
+        description: &str,
+        category: &str,
+        rule_definition: serde_json::Value,
+    ) -> Result<AutomationRuleTemplateV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"INSERT INTO automation_rule_templates_v20 (name, description, category, rule_definition)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id, name, description, category, rule_definition, usage_count, rating, created_at"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(category)
+        .bind(&rule_definition)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn get_rule_template(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<AutomationRuleTemplateV20>, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"SELECT id, name, description, category, rule_definition, usage_count, rating, created_at
+             FROM automation_rule_templates_v20 WHERE id = $1"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.map(|r| r.into()))
+    }
+
+    pub async fn list_rule_templates(
+        &self,
+    ) -> Result<Vec<AutomationRuleTemplateV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"SELECT id, name, description, category, rule_definition, usage_count, rating, created_at
+             FROM automation_rule_templates_v20 ORDER BY rating DESC, usage_count DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn list_rule_templates_by_category(
+        &self,
+        category: &str,
+    ) -> Result<Vec<AutomationRuleTemplateV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"SELECT id, name, description, category, rule_definition, usage_count, rating, created_at
+             FROM automation_rule_templates_v20 WHERE category = $1
+             ORDER BY rating DESC, usage_count DESC"#,
+        )
+        .bind(category)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn update_rule_template(
+        &self,
+        id: Uuid,
+        name: Option<&str>,
+        description: Option<&str>,
+        category: Option<&str>,
+        rule_definition: Option<serde_json::Value>,
+    ) -> Result<AutomationRuleTemplateV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"UPDATE automation_rule_templates_v20 SET
+             name = COALESCE($2, name),
+             description = COALESCE($3, description),
+             category = COALESCE($4, category),
+             rule_definition = COALESCE($5, rule_definition)
+             WHERE id = $1
+             RETURNING id, name, description, category, rule_definition, usage_count, rating, created_at"#,
+        )
+        .bind(id)
+        .bind(name)
+        .bind(description)
+        .bind(category)
+        .bind(rule_definition)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.into())
+    }
+
+    pub async fn delete_rule_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM automation_rule_templates_v20 WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn search_rule_templates(
+        &self,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<AutomationRuleTemplateV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"SELECT id, name, description, category, rule_definition, usage_count, rating, created_at
+             FROM automation_rule_templates_v20
+             WHERE name ILIKE $1 OR description ILIKE $1
+             ORDER BY rating DESC, usage_count DESC LIMIT $2"#,
+        )
+        .bind(format!("%{}%", query))
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn rate_rule_template(
+        &self,
+        template_id: Uuid,
+        user_id: Uuid,
+        rating: i32,
+        review: &str,
+    ) -> Result<AutomationRuleTemplateRatingV20, sqlx::Error> {
+        let row = sqlx::query_as::<_, AutomationRuleTemplateRatingV20>(
+            r#"INSERT INTO automation_rule_template_ratings_v20 (template_id, user_id, rating, review)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (template_id, user_id) DO UPDATE SET rating = $3, review = $4
+             RETURNING id, template_id, user_id, rating, review, created_at"#,
+        )
+        .bind(template_id)
+        .bind(user_id)
+        .bind(rating)
+        .bind(review)
+        .fetch_one(&self.pool)
+        .await?;
+
+        self.recalculate_rule_template_rating(template_id).await?;
+
+        Ok(row.into())
+    }
+
+    async fn recalculate_rule_template_rating(
+        &self,
+        template_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        #[derive(sqlx::FromRow)]
+        struct RatingAvg {
+            avg_rating: Option<f64>,
+        }
+
+        let row = sqlx::query_as::<_, RatingAvg>(
+            r#"SELECT AVG(rating::double precision) as avg_rating
+             FROM automation_rule_template_ratings_v20 WHERE template_id = $1"#,
+        )
+        .bind(template_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        let avg = row.avg_rating.unwrap_or(0.0);
+        sqlx::query("UPDATE automation_rule_templates_v20 SET rating = $2 WHERE id = $1")
+            .bind(template_id)
+            .bind(avg)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_rule_template_ratings(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<AutomationRuleTemplateRatingV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleTemplateRatingV20>(
+            r#"SELECT id, template_id, user_id, rating, review, created_at
+             FROM automation_rule_template_ratings_v20 WHERE template_id = $1
+             ORDER BY created_at DESC"#,
+        )
+        .bind(template_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn record_rule_template_usage(
+        &self,
+        template_id: Uuid,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE automation_rule_templates_v20 SET usage_count = usage_count + 1 WHERE id = $1")
+            .bind(template_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn get_rule_template_recommendations(
+        &self,
+        template_id: Uuid,
+    ) -> Result<Vec<RuleRecommendation>, sqlx::Error> {
+        let template = self.get_rule_template(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let mut recommendations = Vec::new();
+
+        if template.usage_count == 0 {
+            recommendations.push(RuleRecommendation {
+                rule_id: template_id,
+                recommendation_type: "unused".into(),
+                description: "Template has never been used. Consider promoting it.".into(),
+                confidence: 0.9,
+                suggested_changes: serde_json::json!({"action": "promote"}),
+            });
+        }
+
+        if template.rating < 3.0 && template.usage_count > 0 {
+            recommendations.push(RuleRecommendation {
+                rule_id: template_id,
+                recommendation_type: "low_rating".into(),
+                description: format!("Template has a low rating of {:.1}. Consider improving it.", template.rating),
+                confidence: 0.85,
+                suggested_changes: serde_json::json!({"action": "improve", "current_rating": template.rating}),
+            });
+        }
+
+        if template.rating >= 4.0 && template.usage_count > 10 {
+            recommendations.push(RuleRecommendation {
+                rule_id: template_id,
+                recommendation_type: "featured_candidate".into(),
+                description: "Template is a strong candidate for featuring.".into(),
+                confidence: 0.8,
+                suggested_changes: serde_json::json!({"action": "feature", "rating": template.rating, "usage": template.usage_count}),
+            });
+        }
+
+        Ok(recommendations)
+    }
+
+    pub async fn get_popular_rule_templates(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<AutomationRuleTemplateV20>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, AutomationRuleTemplateV20>(
+            r#"SELECT id, name, description, category, rule_definition, usage_count, rating, created_at
+             FROM automation_rule_templates_v20
+             ORDER BY usage_count DESC LIMIT $1"#,
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|r| r.into()).collect())
+    }
+
+    pub async fn create_rule_from_template(
+        &self,
+        template_id: Uuid,
+        repo_id: Uuid,
+        name: &str,
+    ) -> Result<AutomationRuleV22, sqlx::Error> {
+        let template = self.get_rule_template(template_id).await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
+        let trigger_type = template.rule_definition.get("trigger_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("manual")
+            .to_string();
+        let conditions = template.rule_definition.get("conditions").cloned();
+        let actions = template.rule_definition.get("actions").cloned();
+
+        let input = CreateAutomationRuleV7 {
+            repo_id,
+            name: name.to_string(),
+            trigger_type,
+            conditions,
+            actions,
+            priority: Some(0),
+            enabled: Some(true),
+        };
+
+        let _ = self.record_rule_template_usage(template_id).await;
+
+        self.create_rule_v22(input).await
     }
 }
 
