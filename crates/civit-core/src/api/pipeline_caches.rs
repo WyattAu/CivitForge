@@ -187,6 +187,27 @@ pub fn pipeline_cache_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{repo}/caches/v17/performance/{cache_id}",
             get(get_performance_insights_v17).post(generate_performance_v17),
         )
+        // Cache Analysis v18 endpoints
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v18/hit-analysis/{cache_id}",
+            get(get_hit_analysis_v18),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v18/hit-analysis/{cache_id}/record",
+            post(record_hit_miss_v18),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v18/size/{cache_id}",
+            get(get_size_history_v18),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v18/cost/{cache_id}",
+            get(get_cost_optimizations_v18),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/caches/v18/performance/{cache_id}",
+            get(get_performance_insights_v18),
+        )
 }
 
 async fn get_repo_id(
@@ -2515,6 +2536,243 @@ pub async fn generate_performance_v17(
             });
             (axum::http::StatusCode::CREATED, Json(insights)).into_response()
         }
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cache Hit Analysis v18 handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct RecordHitMissV18Request {
+    pub is_hit: bool,
+    #[serde(default)]
+    pub size_bytes: i64,
+}
+
+pub async fn get_hit_analysis_v18(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_hit_analysis_v18(pool, cid).await {
+        Ok(analysis) => (axum::http::StatusCode::OK, Json(analysis)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn record_hit_miss_v18(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<RecordHitMissV18Request>,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::record_hit_miss_v18(pool, cid, req.is_hit, req.size_bytes).await {
+        Ok(analysis) => (axum::http::StatusCode::CREATED, Json(analysis)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_size_history_v18(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_size_history_v18(pool, cid).await {
+        Ok(history) => (axum::http::StatusCode::OK, Json(history)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_cost_optimizations_v18(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_cost_optimizations_v18(pool, cid, 0.023).await {
+        Ok(optimizations) => (axum::http::StatusCode::OK, Json(optimizations)).into_response(),
+        Err(e) => (
+            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_performance_insights_v18(
+    State(state): State<AppState>,
+    Path((owner, repo_name, cache_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> axum::response::Response {
+    let pool = state.db.pool();
+    let _repo_id = match get_repo_id(pool, &owner, &repo_name).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(CoreError::NotFound("repository not found".into()).error_response()),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(CoreError::Database(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let cid = match Uuid::parse_str(&cache_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                axum::http::StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid cache ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match caches::get_performance_insights_v18(pool, cid).await {
+        Ok(insights) => (axum::http::StatusCode::OK, Json(insights)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),

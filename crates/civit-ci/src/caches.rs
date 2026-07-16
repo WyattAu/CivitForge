@@ -956,3 +956,174 @@ mod tests {
         assert!(json.contains("\"size_bytes\":-1"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Cache Hit Analysis V18
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheHitAnalysisV18Response {
+    pub id: String,
+    pub cache_id: String,
+    pub period_start: String,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub avg_hit_size_bytes: i64,
+    pub total_size_bytes: i64,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct CacheHitAnalysisV18Row {
+    pub id: uuid::Uuid,
+    pub cache_id: uuid::Uuid,
+    pub period_start: chrono::DateTime<chrono::Utc>,
+    pub hit_count: i32,
+    pub miss_count: i32,
+    pub avg_hit_size_bytes: i64,
+    pub total_size_bytes: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<CacheHitAnalysisV18Row> for CacheHitAnalysisV18Response {
+    fn from(r: CacheHitAnalysisV18Row) -> Self {
+        Self {
+            id: r.id.to_string(),
+            cache_id: r.cache_id.to_string(),
+            period_start: r.period_start.to_rfc3339(),
+            hit_count: r.hit_count,
+            miss_count: r.miss_count,
+            avg_hit_size_bytes: r.avg_hit_size_bytes,
+            total_size_bytes: r.total_size_bytes,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Get hit analysis v18 for a cache.
+pub async fn get_hit_analysis_v18(
+    pool: &sqlx::PgPool,
+    cache_id: uuid::Uuid,
+) -> std::result::Result<Vec<CacheHitAnalysisV18Response>, sqlx::Error> {
+    sqlx::query_as::<_, CacheHitAnalysisV18Row>(
+        "SELECT * FROM cache_hit_analysis_v18 WHERE cache_id = $1 ORDER BY period_start DESC",
+    )
+    .bind(cache_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Record a hit/miss v18.
+pub async fn record_hit_miss_v18(
+    pool: &sqlx::PgPool,
+    cache_id: uuid::Uuid,
+    is_hit: bool,
+    size_bytes: i64,
+) -> std::result::Result<CacheHitAnalysisV18Response, sqlx::Error> {
+    let now = chrono::Utc::now();
+    let period_start = now - chrono::Duration::hours(1);
+
+    sqlx::query_as::<_, CacheHitAnalysisV18Row>(
+        "INSERT INTO cache_hit_analysis_v18 \
+         (cache_id, period_start, hit_count, miss_count, avg_hit_size_bytes, total_size_bytes) \
+         VALUES ($1, $2, $3, $4, $5, $6) \
+         ON CONFLICT (cache_id, period_start) DO UPDATE SET \
+            hit_count = cache_hit_analysis_v18.hit_count + $3, \
+            miss_count = cache_hit_analysis_v18.miss_count + $4, \
+            avg_hit_size_bytes = CASE WHEN $3 > 0 THEN \
+                (cache_hit_analysis_v18.avg_hit_size_bytes + $5) / 2 \
+            ELSE cache_hit_analysis_v18.avg_hit_size_bytes END, \
+            total_size_bytes = cache_hit_analysis_v18.total_size_bytes + $6 \
+         RETURNING *",
+    )
+    .bind(cache_id)
+    .bind(period_start)
+    .bind(if is_hit { 1 } else { 0 })
+    .bind(if is_hit { 0 } else { 1 })
+    .bind(size_bytes)
+    .bind(size_bytes)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Get size history v18 for a cache.
+pub async fn get_size_history_v18(
+    pool: &sqlx::PgPool,
+    cache_id: uuid::Uuid,
+) -> std::result::Result<Vec<CacheHitAnalysisV18Response>, sqlx::Error> {
+    sqlx::query_as::<_, CacheHitAnalysisV18Row>(
+        "SELECT * FROM cache_hit_analysis_v18 WHERE cache_id = $1 \
+         ORDER BY period_start DESC LIMIT 24",
+    )
+    .bind(cache_id)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Get cost optimizations v18 for a cache.
+pub async fn get_cost_optimizations_v18(
+    pool: &sqlx::PgPool,
+    cache_id: uuid::Uuid,
+    cost_per_gb: f64,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let rows: Vec<CacheHitAnalysisV18Row> = sqlx::query_as(
+        "SELECT * FROM cache_hit_analysis_v18 WHERE cache_id = $1 ORDER BY period_start DESC LIMIT 30",
+    )
+    .bind(cache_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_hits: i64 = rows.iter().map(|r| r.hit_count as i64).sum();
+    let total_misses: i64 = rows.iter().map(|r| r.miss_count as i64).sum();
+    let total_size: i64 = rows.iter().map(|r| r.total_size_bytes).sum();
+    let hit_rate = if total_hits + total_misses > 0 {
+        total_hits as f64 / (total_hits + total_misses) as f64
+    } else {
+        0.0
+    };
+    let cost = (total_size as f64 / 1_073_741_824.0) * cost_per_gb;
+    let wasted_cost = cost * (1.0 - hit_rate);
+
+    Ok(serde_json::json!({
+        "cache_id": cache_id.to_string(),
+        "total_hits": total_hits,
+        "total_misses": total_misses,
+        "hit_rate": hit_rate,
+        "total_size_bytes": total_size,
+        "estimated_cost_usd": cost,
+        "potential_savings_usd": wasted_cost
+    }))
+}
+
+/// Get performance insights v18 for a cache.
+pub async fn get_performance_insights_v18(
+    pool: &sqlx::PgPool,
+    cache_id: uuid::Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let rows: Vec<CacheHitAnalysisV18Row> = sqlx::query_as(
+        "SELECT * FROM cache_hit_analysis_v18 WHERE cache_id = $1 ORDER BY period_start DESC LIMIT 30",
+    )
+    .bind(cache_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_hits: i64 = rows.iter().map(|r| r.hit_count as i64).sum();
+    let total_misses: i64 = rows.iter().map(|r| r.miss_count as i64).sum();
+    let avg_size: f64 = if !rows.is_empty() {
+        rows.iter().map(|r| r.avg_hit_size_bytes as f64).sum::<f64>() / rows.len() as f64
+    } else {
+        0.0
+    };
+
+    Ok(serde_json::json!({
+        "cache_id": cache_id.to_string(),
+        "total_hits": total_hits,
+        "total_misses": total_misses,
+        "hit_rate": if total_hits + total_misses > 0 { total_hits as f64 / (total_hits + total_misses) as f64 } else { 0.0 },
+        "average_hit_size_bytes": avg_size,
+        "performance_score": if total_hits > total_misses * 2 { "excellent" } else if total_hits > total_misses { "good" } else { "needs_improvement" }
+    }))
+}

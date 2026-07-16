@@ -1896,6 +1896,23 @@ pub fn environment_routes() -> Router<AppState> {
             "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/analytics",
             get(get_deployment_history_analytics),
         )
+        // Deployment History v19 routes
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/v19",
+            get(list_deployment_history_v19).post(create_deployment_history_v19),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/v19/{history_id}/rollback",
+            post(rollback_deployment_v19_endpoint),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/v19/compare",
+            post(compare_deployments_v19_endpoint),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployment-history/v19/analytics",
+            get(get_deployment_analytics_v19_endpoint),
+        )
 }
 
 // ---------------------------------------------------------------------------
@@ -2451,6 +2468,255 @@ pub async fn get_deployment_history_analytics(
                 .collect();
             (StatusCode::OK, Json(analytics)).into_response()
         }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Deployment History v19 handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct CreateDeploymentHistoryV19Request {
+    pub version: String,
+    pub sha: String,
+    pub metadata: Option<serde_json::Value>,
+    pub rollback_of: Option<String>,
+}
+
+pub async fn list_deployment_history_v19(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::list_deployment_history_v19(pool, eid, 50, 0).await {
+        Ok(history) => (StatusCode::OK, Json(history)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn create_deployment_history_v19(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    auth: AuthUser,
+    Json(req): Json<CreateDeploymentHistoryV19Request>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let metadata = req.metadata.unwrap_or(serde_json::json!({}));
+    let rollback_of = req.rollback_of.as_deref().and_then(|s| Uuid::parse_str(s).ok());
+
+    match pipeline::create_deployment_history_v19(
+        pool,
+        eid,
+        &req.version,
+        &req.sha,
+        user_id,
+        rollback_of,
+        &metadata,
+    )
+    .await
+    {
+        Ok(entry) => (StatusCode::CREATED, Json(entry)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn rollback_deployment_v19_endpoint(
+    State(state): State<AppState>,
+    Path((owner, name, env_id, history_id)): Path<(String, String, String, String)>,
+    auth: AuthUser,
+    _req: axum::extract::Json<serde_json::Value>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let hid = match Uuid::parse_str(&history_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid history ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&auth.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid user ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::rollback_deployment_v19(pool, eid, hid, user_id).await {
+        Ok(entry) => (StatusCode::CREATED, Json(entry)).into_response(),
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("returned no rows") {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(CoreError::NotFound("deployment not found".into()).error_response()),
+                )
+                    .into_response()
+            } else {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(CoreError::Database(msg).error_response()),
+                )
+                    .into_response()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CompareDeploymentsV19Request {
+    pub deployment_id_a: String,
+    pub deployment_id_b: String,
+}
+
+pub async fn compare_deployments_v19_endpoint(
+    State(state): State<AppState>,
+    Path((owner, name, _env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+    Json(req): Json<CompareDeploymentsV19Request>,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let aid = match Uuid::parse_str(&req.deployment_id_a) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid deployment A ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let bid = match Uuid::parse_str(&req.deployment_id_b) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid deployment B ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::compare_deployments_v19(pool, aid, bid).await {
+        Ok(comparison) => (StatusCode::OK, Json(comparison)).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn get_deployment_analytics_v19_endpoint(
+    State(state): State<AppState>,
+    Path((owner, name, env_id)): Path<(String, String, String)>,
+    _auth: AuthUser,
+) -> Response {
+    let pool = state.db.pool();
+    let _repo_id = match resolve_repo_id(pool, &owner, &name).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+
+    let eid = match Uuid::parse_str(&env_id) {
+        Ok(id) => id,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid environment ID".into()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    match pipeline::get_deployment_analytics_v19(pool, eid).await {
+        Ok(analytics) => (StatusCode::OK, Json(analytics)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),

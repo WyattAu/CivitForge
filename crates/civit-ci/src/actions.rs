@@ -756,6 +756,229 @@ pub async fn get_recommendations_for_user(
     Ok(rows.into_iter().map(|r| r.into()).collect())
 }
 
+// ---------------------------------------------------------------------------
+// Action Reviews V19
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionReviewV19Response {
+    pub id: String,
+    pub action_id: String,
+    pub user_id: String,
+    pub rating: i32,
+    pub review: String,
+    pub helpful_count: i32,
+    pub created_at: String,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct ActionReviewV19Row {
+    pub id: Uuid,
+    pub action_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub helpful_count: i32,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<ActionReviewV19Row> for ActionReviewV19Response {
+    fn from(r: ActionReviewV19Row) -> Self {
+        Self {
+            id: r.id.to_string(),
+            action_id: r.action_id.to_string(),
+            user_id: r.user_id.to_string(),
+            rating: r.rating,
+            review: r.review,
+            helpful_count: r.helpful_count,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create or update a review v19 for a pipeline action.
+pub async fn upsert_action_review_v19(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+    rating: i32,
+    review: &str,
+) -> std::result::Result<ActionReviewV19Response, sqlx::Error> {
+    sqlx::query_as::<_, ActionReviewV19Row>(
+        "INSERT INTO pipeline_action_reviews_v19 (action_id, user_id, rating, review) \
+         VALUES ($1, $2, $3, $4) \
+         ON CONFLICT (action_id, user_id) DO UPDATE \
+         SET rating = $3, review = $4 \
+         RETURNING *",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .bind(rating)
+    .bind(review)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// Get a user's review v19 for an action.
+pub async fn get_action_review_v19(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+) -> std::result::Result<Option<ActionReviewV19Response>, sqlx::Error> {
+    sqlx::query_as::<_, ActionReviewV19Row>(
+        "SELECT * FROM pipeline_action_reviews_v19 WHERE action_id = $1 AND user_id = $2",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map(|r| r.map(|r| r.into()))
+}
+
+/// List reviews v19 for an action.
+pub async fn list_action_reviews_v19(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<ActionReviewV19Response>, sqlx::Error> {
+    sqlx::query_as::<_, ActionReviewV19Row>(
+        "SELECT * FROM pipeline_action_reviews_v19 WHERE action_id = $1 \
+         ORDER BY helpful_count DESC, created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(action_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Delete a user's review v19 for an action.
+pub async fn delete_action_review_v19(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    user_id: Uuid,
+) -> std::result::Result<bool, sqlx::Error> {
+    let result = sqlx::query(
+        "DELETE FROM pipeline_action_reviews_v19 WHERE action_id = $1 AND user_id = $2",
+    )
+    .bind(action_id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Toggle helpfulness of a review v19.
+pub async fn toggle_review_helpfulness_v19(
+    pool: &sqlx::PgPool,
+    review_id: Uuid,
+    user_id: Uuid,
+    helpful: bool,
+) -> std::result::Result<(), sqlx::Error> {
+    let delta = if helpful { 1 } else { -1 };
+    sqlx::query(
+        "UPDATE pipeline_action_reviews_v19 \
+         SET helpful_count = GREATEST(0, helpful_count + $3) \
+         WHERE id = $1",
+    )
+    .bind(review_id)
+    .bind(user_id)
+    .bind(delta)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Get review analytics v22 (distribution, averages, trends).
+pub async fn get_review_analytics_v22(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let rows: Vec<(i32, i64)> = sqlx::query_as(
+        "SELECT rating, COUNT(*) as count \
+         FROM pipeline_action_reviews_v19 WHERE action_id = $1 \
+         GROUP BY rating ORDER BY rating",
+    )
+    .bind(action_id)
+    .fetch_all(pool)
+    .await?;
+
+    let total_reviews: (i64, f64) = sqlx::query_as(
+        "SELECT COUNT(*), COALESCE(AVG(rating), 0) \
+         FROM pipeline_action_reviews_v19 WHERE action_id = $1",
+    )
+    .bind(action_id)
+    .fetch_one(pool)
+    .await?;
+
+    let mut distribution = serde_json::Map::new();
+    for (rating, count) in rows {
+        distribution.insert(rating.to_string(), serde_json::Value::Number(count.into()));
+    }
+
+    Ok(serde_json::json!({
+        "action_id": action_id.to_string(),
+        "total_reviews": total_reviews.0,
+        "average_rating": total_reviews.1,
+        "distribution": distribution
+    }))
+}
+
+/// Moderate a review v22 (flag/approve).
+pub async fn moderate_review_v22(
+    pool: &sqlx::PgPool,
+    review_id: Uuid,
+    moderator_id: Uuid,
+    status: &str,
+) -> std::result::Result<(), sqlx::Error> {
+    match status {
+        "approved" => {
+            sqlx::query(
+                "UPDATE pipeline_action_reviews_v19 SET review = review WHERE id = $1",
+            )
+            .bind(review_id)
+            .execute(pool)
+            .await?;
+        }
+        "flagged" | "removed" => {
+            sqlx::query(
+                "UPDATE pipeline_action_reviews_v19 SET review = '[moderated]' WHERE id = $1",
+            )
+            .bind(review_id)
+            .execute(pool)
+            .await?;
+        }
+        _ => {}
+    }
+    let _ = moderator_id;
+    Ok(())
+}
+
+/// Get review-based recommendations v22.
+pub async fn get_review_recommendations_v22(
+    pool: &sqlx::PgPool,
+    action_id: Uuid,
+    limit: i64,
+) -> std::result::Result<Vec<PipelineActionResponse>, sqlx::Error> {
+    let rows: Vec<PipelineActionRow> = sqlx::query_as(
+        "SELECT pa.* FROM pipeline_actions pa \
+         JOIN pipeline_action_reviews_v19 par ON pa.id = par.action_id \
+         WHERE pa.action_type = (SELECT action_type FROM pipeline_actions WHERE id = $1) \
+         AND pa.id != $1 \
+         GROUP BY pa.id \
+         ORDER BY AVG(par.rating) DESC, SUM(par.helpful_count) DESC \
+         LIMIT $2",
+    )
+    .bind(action_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| r.into()).collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

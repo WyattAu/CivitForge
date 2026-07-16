@@ -1753,6 +1753,187 @@ mod tests {
         let req: TriggerPipelineRequest = serde_json::from_str(json).unwrap();
         assert!(req.changed_files.is_empty());
     }
+}
+
+// ---------------------------------------------------------------------------
+// Environment Deployment History V19
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeploymentHistoryV19Response {
+    pub id: String,
+    pub environment_id: String,
+    pub version: String,
+    pub sha: String,
+    pub status: String,
+    pub deployed_by: String,
+    pub rollback_of: Option<String>,
+    pub metadata: serde_json::Value,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct DeploymentHistoryV19Row {
+    pub id: Uuid,
+    pub environment_id: Uuid,
+    pub version: String,
+    pub sha: String,
+    pub status: String,
+    pub deployed_by: Uuid,
+    pub rollback_of: Option<Uuid>,
+    pub metadata: serde_json::Value,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl From<DeploymentHistoryV19Row> for DeploymentHistoryV19Response {
+    fn from(r: DeploymentHistoryV19Row) -> Self {
+        Self {
+            id: r.id.to_string(),
+            environment_id: r.environment_id.to_string(),
+            version: r.version,
+            sha: r.sha,
+            status: r.status,
+            deployed_by: r.deployed_by.to_string(),
+            rollback_of: r.rollback_of.map(|id| id.to_string()),
+            metadata: r.metadata,
+            created_at: r.created_at.to_rfc3339(),
+        }
+    }
+}
+
+/// Create a deployment history entry v19.
+pub async fn create_deployment_history_v19(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    version: &str,
+    sha: &str,
+    deployed_by: Uuid,
+    rollback_of: Option<Uuid>,
+    metadata: &serde_json::Value,
+) -> std::result::Result<DeploymentHistoryV19Response, sqlx::Error> {
+    sqlx::query_as::<_, DeploymentHistoryV19Row>(
+        "INSERT INTO environment_deployment_history_v19 \
+         (environment_id, version, sha, deployed_by, rollback_of, metadata) \
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+    )
+    .bind(environment_id)
+    .bind(version)
+    .bind(sha)
+    .bind(deployed_by)
+    .bind(rollback_of)
+    .bind(metadata)
+    .fetch_one(pool)
+    .await
+    .map(|r| r.into())
+}
+
+/// List deployment history v19 for an environment.
+pub async fn list_deployment_history_v19(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    limit: i64,
+    offset: i64,
+) -> std::result::Result<Vec<DeploymentHistoryV19Response>, sqlx::Error> {
+    sqlx::query_as::<_, DeploymentHistoryV19Row>(
+        "SELECT * FROM environment_deployment_history_v19 \
+         WHERE environment_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+    )
+    .bind(environment_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await
+    .map(|rows| rows.into_iter().map(|r| r.into()).collect())
+}
+
+/// Rollback to a specific deployment v19.
+pub async fn rollback_deployment_v19(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+    target_deployment_id: Uuid,
+    deployed_by: Uuid,
+) -> std::result::Result<DeploymentHistoryV19Response, sqlx::Error> {
+    let target = sqlx::query_as::<_, DeploymentHistoryV19Row>(
+        "SELECT * FROM environment_deployment_history_v19 WHERE id = $1",
+    )
+    .bind(target_deployment_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(sqlx::Error::RowNotFound)?;
+
+    create_deployment_history_v19(
+        pool,
+        environment_id,
+        &target.version,
+        &target.sha,
+        deployed_by,
+        Some(target_deployment_id),
+        &serde_json::json!({"rollback": true}),
+    )
+    .await
+}
+
+/// Compare two deployments v19.
+pub async fn compare_deployments_v19(
+    pool: &sqlx::PgPool,
+    deployment_id_a: Uuid,
+    deployment_id_b: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let rows: Vec<DeploymentHistoryV19Row> = sqlx::query_as(
+        "SELECT * FROM environment_deployment_history_v19 WHERE id IN ($1, $2)",
+    )
+    .bind(deployment_id_a)
+    .bind(deployment_id_b)
+    .fetch_all(pool)
+    .await?;
+
+    let a = rows.iter().find(|r| r.id == deployment_id_a);
+    let b = rows.iter().find(|r| r.id == deployment_id_b);
+
+    Ok(serde_json::json!({
+        "deployment_a": a.map(|r| DeploymentHistoryV19Response::from((*r).clone())),
+        "deployment_b": b.map(|r| DeploymentHistoryV19Response::from((*r).clone())),
+        "same_sha": a.map(|r| &r.sha) == b.map(|r| &r.sha),
+        "same_version": a.map(|r| &r.version) == b.map(|r| &r.version)
+    }))
+}
+
+/// Get deployment analytics v19 for an environment.
+pub async fn get_deployment_analytics_v19(
+    pool: &sqlx::PgPool,
+    environment_id: Uuid,
+) -> std::result::Result<serde_json::Value, sqlx::Error> {
+    let stats: (i64, i64, i64) = sqlx::query_as(
+        "SELECT \
+            COUNT(*) as total, \
+            COUNT(*) FILTER (WHERE status = 'deployed') as deployed, \
+            COUNT(*) FILTER (WHERE rollback_of IS NOT NULL) as rollbacks \
+         FROM environment_deployment_history_v19 WHERE environment_id = $1",
+    )
+    .bind(environment_id)
+    .fetch_one(pool)
+    .await?;
+
+    let versions: Vec<String> = sqlx::query_scalar(
+        "SELECT DISTINCT version FROM environment_deployment_history_v19 \
+         WHERE environment_id = $1 ORDER BY created_at DESC LIMIT 10",
+    )
+    .bind(environment_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(serde_json::json!({
+        "environment_id": environment_id.to_string(),
+        "total_deployments": stats.0,
+        "successful_deployments": stats.1,
+        "rollbacks": stats.2,
+        "recent_versions": versions
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     #[test]
     fn test_pipeline_run_response_long_strings() {
