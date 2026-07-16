@@ -979,6 +979,15 @@ pub const M_578_RATE_LIMIT_TIERS_V20_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_alerts_v17; DROP TABLE IF EXISTS rate_limit_tiers_v20;";
 pub const M_579_API_ANALYTICS_V23_UP: &str = include_str!("579_add_api_analytics_v23.sql");
 pub const M_579_API_ANALYTICS_V23_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v23;";
+pub const M_580_DATABASE_REPLICATION_V20_UP: &str = include_str!("580_add_database_replication_v20.sql");
+pub const M_580_DATABASE_REPLICATION_V20_DOWN: &str =
+    "DROP TABLE IF EXISTS database_replication_alerts_v18; DROP TABLE IF EXISTS database_replication_config_v18;";
+pub const M_581_ENCRYPTION_V21_UP: &str = include_str!("581_add_encryption_v21.sql");
+pub const M_581_ENCRYPTION_V21_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_compliance_checks_v18; DROP TABLE IF EXISTS encryption_key_versions_v18;";
+pub const M_582_DATA_RESIDENCY_V20_UP: &str = include_str!("582_add_data_residency_v20.sql");
+pub const M_582_DATA_RESIDENCY_V20_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance_v18; DROP TABLE IF EXISTS data_residency_reports_v18;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3258,6 +3267,24 @@ impl MigrationManager {
             name: "add_api_analytics_v23".into(),
             up_sql: M_579_API_ANALYTICS_V23_UP.into(),
             down_sql: M_579_API_ANALYTICS_V23_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 580,
+            name: "add_database_replication_v20".into(),
+            up_sql: M_580_DATABASE_REPLICATION_V20_UP.into(),
+            down_sql: M_580_DATABASE_REPLICATION_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 581,
+            name: "add_encryption_v21".into(),
+            up_sql: M_581_ENCRYPTION_V21_UP.into(),
+            down_sql: M_581_ENCRYPTION_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 582,
+            name: "add_data_residency_v20".into(),
+            up_sql: M_582_DATA_RESIDENCY_V20_UP.into(),
+            down_sql: M_582_DATA_RESIDENCY_V20_DOWN.into(),
         });
     }
 
