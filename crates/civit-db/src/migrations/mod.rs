@@ -971,7 +971,14 @@ pub const M_575_CODE_QUALITY_RULES_V20_DOWN: &str =
     "DROP TABLE IF EXISTS code_quality_thresholds_v17; DROP TABLE IF EXISTS code_quality_metrics_v18;";
 pub const M_576_PERFORMANCE_TESTING_V21_UP: &str = include_str!("576_add_performance_testing_v21.sql");
 pub const M_576_PERFORMANCE_TESTING_V21_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v18; DROP TABLE IF EXISTS performance_test_alerts_v18;";
+    "DROP TABLE IF EXISTS performance_test_alerts_v18; DROP TABLE IF EXISTS performance_test_baselines_v19;";
+pub const M_577_API_DOCS_V22_UP: &str = include_str!("577_add_api_docs_v22.sql");
+pub const M_577_API_DOCS_V22_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v22;";
+pub const M_578_RATE_LIMIT_TIERS_V20_UP: &str = include_str!("578_add_rate_limit_tiers_v20.sql");
+pub const M_578_RATE_LIMIT_TIERS_V20_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v17; DROP TABLE IF EXISTS rate_limit_tiers_v20;";
+pub const M_579_API_ANALYTICS_V23_UP: &str = include_str!("579_add_api_analytics_v23.sql");
+pub const M_579_API_ANALYTICS_V23_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v23;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3233,6 +3240,24 @@ impl MigrationManager {
             name: "add_performance_testing_v21".into(),
             up_sql: M_576_PERFORMANCE_TESTING_V21_UP.into(),
             down_sql: M_576_PERFORMANCE_TESTING_V21_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 577,
+            name: "add_api_docs_v22".into(),
+            up_sql: M_577_API_DOCS_V22_UP.into(),
+            down_sql: M_577_API_DOCS_V22_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 578,
+            name: "add_rate_limit_tiers_v20".into(),
+            up_sql: M_578_RATE_LIMIT_TIERS_V20_UP.into(),
+            down_sql: M_578_RATE_LIMIT_TIERS_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 579,
+            name: "add_api_analytics_v23".into(),
+            up_sql: M_579_API_ANALYTICS_V23_UP.into(),
+            down_sql: M_579_API_ANALYTICS_V23_DOWN.into(),
         });
     }
 
