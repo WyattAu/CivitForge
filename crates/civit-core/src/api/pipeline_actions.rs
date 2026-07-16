@@ -8,7 +8,7 @@ use crate::error::CoreError;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use civit_ci::action_installations;
 use civit_ci::actions;

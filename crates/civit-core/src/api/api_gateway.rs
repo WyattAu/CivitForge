@@ -541,7 +541,7 @@ pub async fn validate_api_key(
 }
 
 pub fn gateway_routes() -> axum::Router<AppState> {
-    use axum::routing::{delete, get, post, put};
+    use axum::routing::{delete, get};
     axum::Router::new()
         .route("/api/v1/admin/gateway/routes", get(list_routes).post(create_route))
         .route(

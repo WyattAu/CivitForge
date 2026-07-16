@@ -229,7 +229,7 @@ pub async fn download_artifact(
 
 pub async fn delete_artifact(
     State(state): State<AppState>,
-    Path((owner, repo_name, run_id, artifact_id)): Path<(String, String, String, String)>,
+    Path((owner, repo_name, _run_id, artifact_id)): Path<(String, String, String, String)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();

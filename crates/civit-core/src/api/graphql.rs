@@ -338,7 +338,7 @@ async fn handle_mutation(state: &AppState, mutation: &str) -> Response {
     }
 }
 
-async fn handle_create_subscription(state: &AppState) -> Response {
+async fn handle_create_subscription(_state: &AppState) -> Response {
     let id = uuid::Uuid::new_v4();
     let channel = "default".to_string();
 

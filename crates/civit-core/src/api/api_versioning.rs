@@ -10,7 +10,7 @@ use axum::{
     Router,
     extract::State,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::get,
 };
 use serde::{Deserialize, Serialize};
@@ -197,7 +197,7 @@ pub async fn deprecate_api_version(
 }
 
 pub async fn get_migration_guide(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     axum::extract::Path((from_version, to_version)): axum::extract::Path<(String, String)>,
 ) -> impl IntoResponse {
     let guide = MigrationGuide {

@@ -271,6 +271,7 @@ impl DatabaseReplicationV21Service {
     ) -> Result<FailoverStatusV21, sqlx::Error> {
         #[derive(sqlx::FromRow)]
         struct ReplicaRow {
+            #[allow(dead_code)]
             name: String,
             status: String,
             lag_ms: i32,

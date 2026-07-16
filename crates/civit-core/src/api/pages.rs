@@ -7,7 +7,7 @@ use axum::{
     Router,
     extract::{Path, Query, State},
     response::{IntoResponse, Json},
-    routing::{delete, get, patch, post},
+    routing::{get, patch, post},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

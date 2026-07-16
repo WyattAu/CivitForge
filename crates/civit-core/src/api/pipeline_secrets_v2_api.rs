@@ -3,14 +3,14 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::api::auth::{AuthUser, require_admin};
+use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use crate::pipeline_secrets_v2::{
     CreateSecretV2Request, PipelineSecretsV2Service, UpdateSecretV2Request,
 };
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::routing::{get, post, put, delete};
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use uuid::Uuid;
 
@@ -170,7 +170,7 @@ pub async fn get_secret_v2(
         }
     };
 
-    let user_id = match Uuid::parse_str(&auth.user_id) {
+    let _user_id = match Uuid::parse_str(&auth.user_id) {
         Ok(id) => Some(id),
         Err(_) => None,
     };

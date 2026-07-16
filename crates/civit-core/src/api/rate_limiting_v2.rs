@@ -10,7 +10,7 @@ use axum::{
     Router,
     extract::State,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::get,
 };
 use serde::{Deserialize, Serialize};
@@ -218,10 +218,10 @@ pub async fn delete_rate_limit_tier(
 }
 
 pub async fn check_rate_limit(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     auth: AuthUser,
 ) -> impl IntoResponse {
-    let user_id = auth.user_id;
+    let _user_id = auth.user_id;
     
     // In a real implementation, this would check the user's tier and current usage
     // For now, return a mock response
@@ -237,7 +237,7 @@ pub async fn check_rate_limit(
 }
 
 pub async fn get_user_usage(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     auth: AuthUser,
 ) -> impl IntoResponse {
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
@@ -257,7 +257,7 @@ pub async fn get_user_usage(
 }
 
 pub async fn get_rate_limit_dashboard(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     auth: AuthUser,
 ) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {

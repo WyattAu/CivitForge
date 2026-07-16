@@ -409,7 +409,7 @@ impl WebhookDispatcher {
         });
 
         let delivery_id = Uuid::new_v4().to_string();
-        let delivery = WebhookDelivery {
+        let _delivery = WebhookDelivery {
             id: delivery_id.clone(),
             event: WebhookEvent::Push,
             payload: payload.clone(),
@@ -603,7 +603,7 @@ impl WebhookDispatcher {
 }
 
 #[derive(Debug, sqlx::FromRow)]
-struct StoredWebhook {
+pub struct StoredWebhook {
     #[allow(dead_code)]
     id: Uuid,
     url: String,

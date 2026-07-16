@@ -916,6 +916,7 @@ impl DashboardReportingService {
         }
 
         #[derive(Debug, sqlx::FromRow)]
+        #[allow(dead_code)]
         struct TemplateStatsRow {
             total_templates: i64,
             public_templates: i64,

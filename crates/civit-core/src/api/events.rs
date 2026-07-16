@@ -144,7 +144,7 @@ pub async fn get_event(
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
-    let event_system = crate::events::EventPublisher::new();
+    let _event_system = crate::events::EventPublisher::new();
 
     let event_uuid = match Uuid::parse_str(&event_id) {
         Ok(id) => id,

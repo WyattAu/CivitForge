@@ -665,7 +665,7 @@ impl CodeQualityStore {
 
         let rule = self.get_rule_v2(rule_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
 
-        let actual_violations = if let Some(ref pattern) = rule.pattern {
+        let actual_violations = if let Some(_pattern) = rule.pattern {
             match rule.rule_type {
                 RuleType::Regex => {
                     sqlx::query_scalar::<_, i64>(
@@ -912,7 +912,6 @@ impl CodeQualityStore {
         if let Some(v) = req.enabled {
             if !first { builder.push(", "); }
             builder.push("enabled = ").push_bind(v);
-            first = false;
         }
 
         builder.push(", version = version + 1 WHERE id = ").push_bind(id);
@@ -1399,7 +1398,7 @@ impl CodeQualityStore {
         let thresholds = self.list_thresholds_v2(repo_id).await?;
         let violations = self.detect_violations_v2(repo_id).await?;
 
-        let total_thresholds = thresholds.len() as i64;
+        let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
         let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
@@ -1721,7 +1720,7 @@ impl CodeQualityStore {
         let thresholds = self.list_thresholds_v4(repo_id).await?;
         let violations = self.detect_violations_v3(repo_id).await?;
 
-        let total_thresholds = thresholds.len() as i64;
+        let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
         let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
@@ -1993,7 +1992,7 @@ impl CodeQualityStore {
         let thresholds = self.list_thresholds_v8(repo_id).await?;
         let violations = self.detect_violations_v4(repo_id).await?;
 
-        let total_thresholds = thresholds.len() as i64;
+        let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
         let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
@@ -2265,7 +2264,7 @@ impl CodeQualityStore {
         let thresholds = self.list_thresholds_v15(repo_id).await?;
         let violations = self.detect_violations_v5(repo_id).await?;
 
-        let total_thresholds = thresholds.len() as i64;
+        let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
         let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
@@ -2587,7 +2586,7 @@ impl CodeQualityStore {
         let thresholds = self.list_thresholds_v18(repo_id).await?;
         let violations = self.detect_violations_v6(repo_id).await?;
 
-        let total_thresholds = thresholds.len() as i64;
+        let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
         let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;

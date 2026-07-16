@@ -2,7 +2,7 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use crate::error::{CoreError, ErrorResponse};
+use crate::error::CoreError;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,

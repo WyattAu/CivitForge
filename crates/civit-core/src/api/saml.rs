@@ -8,7 +8,7 @@ use axum::{
     Router,
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::{get, post},
 };
 use axum::extract::Json;

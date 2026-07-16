@@ -2,17 +2,15 @@
 
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
-use crate::error::CoreError;
 use axum::{
     Json,
     Router,
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
-    routing::{get, post, delete},
+    response::IntoResponse,
+    routing::get,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdminDashboardWidgetResponse {

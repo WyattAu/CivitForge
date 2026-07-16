@@ -10,7 +10,7 @@ use axum::{
     Router,
     extract::State,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::get,
 };
 use serde::{Deserialize, Serialize};
@@ -249,7 +249,7 @@ pub async fn get_performance_stats(
 }
 
 pub async fn get_usage_trends(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     auth: AuthUser,
 ) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
@@ -283,7 +283,7 @@ pub async fn get_usage_trends(
 }
 
 pub async fn get_realtime_analytics(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     auth: AuthUser,
 ) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {

@@ -9,7 +9,7 @@ use axum::{
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::IntoResponse,
-    routing::{get, put},
+    routing::get,
     Router,
 };
 use uuid::Uuid;
@@ -22,7 +22,7 @@ pub async fn get_maven_artifact(
     let pool = state.db.pool();
 
     // Parse packaging from filename (e.g., "my-artifact-1.0.0.jar" -> "jar")
-    let packaging = file.rsplit('.').next().unwrap_or("jar");
+    let _packaging = file.rsplit('.').next().unwrap_or("jar");
 
     // Find any repo that has this maven package
     let row = sqlx::query_as::<_, (Uuid, String, String, String, String, chrono::DateTime<chrono::Utc>)>(
@@ -63,7 +63,7 @@ pub async fn publish_maven_artifact(
     State(state): State<AppState>,
     auth: AuthUser,
     Path((group, artifact, version, file)): Path<(String, String, String, String)>,
-    body: axum::body::Bytes,
+    _body: axum::body::Bytes,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());

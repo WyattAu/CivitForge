@@ -4,13 +4,13 @@
 //! error code documentation, SDK generation info, and API changelog.
 
 use crate::api::AppState;
-use crate::api::auth::{AuthUser, require_admin};
+use crate::api::auth::AuthUser;
 use axum::{
     Json,
     Router,
     extract::State,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::get,
 };
 use serde::{Deserialize, Serialize};

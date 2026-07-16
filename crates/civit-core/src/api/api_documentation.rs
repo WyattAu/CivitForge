@@ -10,7 +10,7 @@ use axum::{
     Router,
     extract::State,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::get,
 };
 use serde::{Deserialize, Serialize};

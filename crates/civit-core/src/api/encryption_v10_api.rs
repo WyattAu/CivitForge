@@ -225,7 +225,7 @@ async fn get_key_lifecycle(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
     .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "key not found"}))).into_response())?;
 
-    let versions_count: (i64,) = sqlx::query_as(
+    let _versions_count: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM encryption_key_versions_v13 WHERE key_id = $1"#,
     )
     .bind(key_id)

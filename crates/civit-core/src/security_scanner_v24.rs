@@ -4,10 +4,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::security_scanner_v23::{
-    DeduplicationEngineV23, DeduplicationResultV23, FalsePositiveTrackerV23,
-    RuleSetManagerV23, ScanScheduleV23, ScanSchedulingEngineV23, SecurityScanRuleSetV23,
-};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreatIntelligenceV24 {

@@ -265,12 +265,13 @@ impl DataResidencyV21Service {
     pub async fn enforce_policy(
         &self,
         data_category: &str,
-        source_region: &str,
+        _source_region: &str,
         target_region: &str,
     ) -> Result<bool, sqlx::Error> {
         #[derive(sqlx::FromRow)]
         struct PolicyRow {
             allowed_regions: Vec<String>,
+            #[allow(dead_code)]
             encryption_required: bool,
         }
 

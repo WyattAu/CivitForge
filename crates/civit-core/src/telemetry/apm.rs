@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
-use std::time::Instant;
 
 /// An APM transaction representing a single request or task.
 #[derive(Debug, Clone, Serialize, Deserialize)]

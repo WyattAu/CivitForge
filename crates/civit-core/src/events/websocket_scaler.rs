@@ -2,9 +2,8 @@
 
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -119,7 +118,7 @@ impl WebSocketScaler {
         removed
     }
 
-    pub fn broadcast(&self, channel: &str, message: &str, message_type: &str) -> usize {
+    pub fn broadcast(&self, channel: &str, _message: &str, message_type: &str) -> usize {
         let logged = LoggedMessage {
             channel: channel.to_string(),
             message_type: message_type.to_string(),
@@ -171,7 +170,7 @@ impl WebSocketScaler {
     pub fn cleanup_stale(&self, timeout: Duration) -> usize {
         let mut removed = 0;
         let now = chrono::Utc::now();
-        for mut ch in self.channels.iter_mut() {
+        for ch in self.channels.iter_mut() {
             let stale: Vec<Uuid> = ch
                 .subscribers
                 .iter()

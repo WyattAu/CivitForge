@@ -146,7 +146,7 @@ impl EventQueueService {
         &self,
         pool: &sqlx::PgPool,
         message_id: &str,
-        error: &str,
+        _error: &str,
     ) -> Result<bool, sqlx::Error> {
         let message_uuid = Uuid::parse_str(message_id).unwrap_or_default();
 
@@ -278,7 +278,7 @@ impl EventQueueService {
         queue_name: String,
         handler: impl Fn(EventQueueMessage) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send>> + Send + Sync + 'static,
     ) {
-        let max_retries = self.max_retries;
+        let _max_retries = self.max_retries;
 
         tokio::spawn(async move {
             tracing::info!("Event queue worker started for queue: {}", queue_name);

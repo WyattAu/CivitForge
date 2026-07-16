@@ -2,13 +2,12 @@
 
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
-use crate::error::CoreError;
 use axum::{
     Json,
     Router,
     extract::{Path, State},
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::{get, post, put, delete},
 };
 use serde::{Deserialize, Serialize};

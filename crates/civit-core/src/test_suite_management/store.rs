@@ -1,6 +1,6 @@
 use super::types::*;
 use chrono::Utc;
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::PgPool;
 use uuid::Uuid;
 use std::future::Future;
 use std::pin::Pin;
@@ -1080,7 +1080,7 @@ impl TestSuiteStore {
                 };
 
                 if regression_percent > baseline.threshold_percent {
-                    let severity = if regression_percent > 50.0 {
+                    let _severity = if regression_percent > 50.0 {
                         "critical"
                     } else if regression_percent > 25.0 {
                         "high"
@@ -1381,7 +1381,7 @@ impl TestSuiteStore {
                 };
 
                 if regression_percent > baseline.threshold_percent {
-                    let severity = if regression_percent > 50.0 {
+                    let _severity = if regression_percent > 50.0 {
                         "critical"
                     } else if regression_percent > 25.0 {
                         "high"
@@ -3067,7 +3067,8 @@ struct MetricSummaryRow {
     suites_affected: i64,
 }
 
-struct MetricSummary {
+#[allow(dead_code)]
+pub struct MetricSummary {
     metric_name: String,
     latest_value: f64,
     avg_value: f64,
@@ -3146,7 +3147,8 @@ struct MetricSummaryV2Row {
     suites_affected: i64,
 }
 
-struct MetricSummaryV2 {
+#[allow(dead_code)]
+pub struct MetricSummaryV2 {
     metric_name: String,
     latest_value: f64,
     avg_value: f64,

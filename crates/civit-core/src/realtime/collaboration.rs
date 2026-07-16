@@ -111,7 +111,7 @@ impl LiveCollaborationService {
         .await?;
 
         let session = match existing {
-            Some(mut s) => {
+            Some(s) => {
                 sqlx::query_as::<_, CollaborationSession>(
                     "UPDATE live_collaboration_sessions \
                      SET last_active = NOW() \

@@ -141,7 +141,7 @@ impl MigrationManager for InMemoryMigrationManager {
         _config: &MigrationConfig,
     ) -> Result<MigrationProgress, String> {
         let migrations = self.migrations.lock().unwrap();
-        let migration = migrations
+        let _migration = migrations
             .iter()
             .find(|(id, _, _, _)| id == migration_id)
             .ok_or_else(|| format!("migration {migration_id} not found"))?;
@@ -177,7 +177,7 @@ impl MigrationManager for InMemoryMigrationManager {
 
     fn rollback(&self, migration_id: &str) -> Result<RollbackPlan, String> {
         let migrations = self.migrations.lock().unwrap();
-        let migration = migrations
+        let _migration = migrations
             .iter()
             .find(|(id, _, _, _)| id == migration_id)
             .ok_or_else(|| format!("migration {migration_id} not found"))?;

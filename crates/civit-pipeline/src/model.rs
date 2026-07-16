@@ -462,6 +462,7 @@ pub enum VariableScope {
 /// A CEL-like expression used in `if:` conditions and triggers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
+#[allow(dead_code)]
 pub enum PipelineExpression {
     String(String),
 }

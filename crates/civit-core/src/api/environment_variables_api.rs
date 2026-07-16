@@ -10,7 +10,7 @@ use crate::environment_variables::{
 };
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::routing::{get, post, put, delete};
+use axum::routing::{get, delete};
 use axum::{Json, Router};
 use uuid::Uuid;
 
@@ -34,6 +34,7 @@ pub fn environment_variables_routes() -> Router<AppState> {
         )
 }
 
+#[allow(dead_code)]
 async fn resolve_repo_id(
     pool: &sqlx::PgPool,
     owner: &str,

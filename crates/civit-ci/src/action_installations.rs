@@ -2,7 +2,6 @@
 
 #![forbid(unsafe_code)]
 
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

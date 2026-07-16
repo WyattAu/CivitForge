@@ -9,7 +9,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, put},
+    routing::get,
     Router,
 };
 use serde::{Deserialize, Serialize};

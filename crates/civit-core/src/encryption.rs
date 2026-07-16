@@ -174,6 +174,7 @@ impl EncryptionService {
         #[derive(sqlx::FromRow)]
         struct KeyRow {
             key_material: Vec<u8>,
+            #[allow(dead_code)]
             algorithm: String,
         }
 

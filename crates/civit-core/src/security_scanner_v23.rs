@@ -4,9 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::security_scanner_v22::{
-    ComplianceMappingV22, RuleTypeV22, ScanFixV22, SecurityScanRuleV22, SeverityV22,
-};
+use crate::security_scanner_v22::SecurityScanRuleV22;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SecurityScanRuleSetV23 {

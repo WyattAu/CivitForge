@@ -6899,7 +6899,7 @@ impl LogAggregationService {
 
     pub async fn get_threshold_alerts_v20(
         &self,
-        window_seconds: i32,
+        _window_seconds: i32,
     ) -> Result<Vec<LogThresholdAlertV20>, sqlx::Error> {
         let rules = self.list_alert_rules_v17().await?;
         let mut alerts = Vec::new();

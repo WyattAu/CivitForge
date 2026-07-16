@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::compliance_v23::{
-    ComplianceCheckTypeV23, ComplianceEvidenceItemV23, ComplianceRuleV23, EvidenceCollectionV23,
+    ComplianceCheckTypeV23, ComplianceEvidenceItemV23,
 };
-use crate::compliance_v22::{CheckStatusV22, RequirementSeverityV22};
+use crate::compliance_v22::RequirementSeverityV22;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomatedCheckV24 {

@@ -239,7 +239,7 @@ impl ComplianceScoringEngine {
         let mut passed = 0u32;
         let mut failed = 0u32;
         let mut skipped = 0u32;
-        let mut severity_scores: HashMap<String, (u32, u32)> = HashMap::new();
+        let severity_scores: HashMap<String, (u32, u32)> = HashMap::new();
 
         for result in check_results {
             match result.status {

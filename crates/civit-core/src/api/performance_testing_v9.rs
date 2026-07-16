@@ -2,7 +2,7 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use crate::error::{CoreError, ErrorResponse};
+use crate::error::CoreError;
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -10,7 +10,6 @@ use axum::{
     routing::{get, post, patch},
     Router,
 };
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

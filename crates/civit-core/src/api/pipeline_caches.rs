@@ -7,7 +7,7 @@ use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use chrono::Utc;
 use civit_ci::caches::{self, CacheEntryResponse, CacheListParams, CreateCacheRequest};
@@ -1409,7 +1409,7 @@ pub async fn get_eviction_policy(
         }
     };
 
-    let pid = match Uuid::parse_str(&policy_id) {
+    let _pid = match Uuid::parse_str(&policy_id) {
         Ok(id) => id,
         Err(_) => {
             return (

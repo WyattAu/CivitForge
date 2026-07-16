@@ -4,9 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::audit_trail_v23::{
-    AuditEventCategoryV23, AuditEventCorrelationV23, CorrelationTypeV23, RiskTrendV23,
-};
+use crate::audit_trail_v23::RiskTrendV23;
 use crate::audit_trail_v22::{AuditTrailEventV22, RiskLevelV22};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

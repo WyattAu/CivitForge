@@ -112,7 +112,7 @@ impl ConnectionPool {
     }
 
     pub fn detect_leaks(&self, max_duration: Duration) -> Vec<ConnectionLeak> {
-        let now = Instant::now();
+        let _now = Instant::now();
         self.connection_owners
             .iter()
             .filter(|r| r.value().acquired_at.elapsed() > max_duration)

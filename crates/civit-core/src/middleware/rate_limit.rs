@@ -19,7 +19,6 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use chrono::{DateTime, Utc};
 use std::{
     collections::HashMap,
     net::IpAddr,
@@ -28,7 +27,6 @@ use std::{
 };
 use tokio::sync::Mutex;
 use tracing::warn;
-use uuid::Uuid;
 
 /// Rate limit tiers based on user role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -168,7 +166,7 @@ impl RateLimiter {
         }
 
         // Check if we have enough tokens (accounting for burst)
-        let effective_max = bucket.max_tokens + burst_size;
+        let _effective_max = bucket.max_tokens + burst_size;
         if bucket.tokens <= 0 {
             // Calculate retry time until next token
             let wait_time = if bucket.refill_rate > 0.0 {

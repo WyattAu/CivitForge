@@ -3,14 +3,14 @@
 #![forbid(unsafe_code)]
 
 use crate::api::AppState;
-use crate::api::auth::{AuthUser, require_admin};
+use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use crate::pipeline_runners_v2::{
     PipelineRunnersV2Service, RecordMetricsRequest, RegisterRunnerV2Request, UpdateRunnerV2Request,
 };
 use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
-use axum::routing::{get, post, put, delete};
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Deserialize;
 use uuid::Uuid;

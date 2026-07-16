@@ -74,7 +74,7 @@ async fn get_repo_id(
     .flatten()
 }
 
-fn generate_findings_for_type(report_type: &str, repo_id: Uuid, _pool: &sqlx::PgPool) -> Vec<ComplianceFinding> {
+fn generate_findings_for_type(report_type: &str, _repo_id: Uuid, _pool: &sqlx::PgPool) -> Vec<ComplianceFinding> {
     let mut findings = Vec::new();
 
     match report_type {

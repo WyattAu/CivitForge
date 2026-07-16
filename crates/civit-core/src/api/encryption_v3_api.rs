@@ -234,7 +234,7 @@ async fn get_compliance_report(
     State(state): State<AppState>,
     Json(input): Json<ComplianceReportRequest>,
 ) -> Result<Json<ComplianceReportResponse>, Response> {
-    let key_filter = input.key_id
+    let _key_filter = input.key_id
         .map(|_| "WHERE key_id = $1")
         .unwrap_or("");
 

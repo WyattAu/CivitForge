@@ -156,7 +156,7 @@ impl ScanRuleManager {
     }
 
     pub fn update_rule_pattern(&mut self, rule_id: &str, new_pattern: String, changed_by: Option<String>) -> Result<(), String> {
-        let (version_num, version_entry) = {
+        let (_version_num, version_entry) = {
             let rule = self.get_rule_mut(rule_id).ok_or("Rule not found")?;
             let version_num = rule.version + 1;
             rule.update_pattern(new_pattern.clone());

@@ -7,7 +7,6 @@
 
 use axum::{
     extract::Request,
-    http::{HeaderName, StatusCode},
     middleware::Next,
     response::Response,
 };
@@ -39,7 +38,7 @@ fn extract_client_ip(req: &Request) -> IpAddr {
 /// Extract user ID from JWT claims if present.
 fn extract_user_id(req: &Request) -> Option<uuid::Uuid> {
     if let Some(auth_header) = req.headers().get("authorization") {
-        if let Ok(auth_str) = auth_header.to_str() {
+        if let Ok(_auth_str) = auth_header.to_str() {
             if let Some(token) = auth_header.to_str().ok().and_then(|s| s.strip_prefix("Bearer ")) {
                 if let Some(jwt_service) = req.extensions().get::<std::sync::Arc<civit_auth::jwt::JwtService>>() {
                     if let Ok(claims) = jwt_service.validate_token(token) {
@@ -73,7 +72,7 @@ pub async fn api_analytics_middleware(req: Request, next: Next) -> Response {
     let user_id = extract_user_id(&req);
     let db = req.extensions().get::<std::sync::Arc<crate::db::DbRepository>>().cloned();
 
-    let mut response = next.run(req).await;
+    let response = next.run(req).await;
 
     let duration = start.elapsed();
     let response_time_ms = duration.as_millis() as i32;

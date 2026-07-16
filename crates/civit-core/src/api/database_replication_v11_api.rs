@@ -234,6 +234,7 @@ async fn get_failover_status(
 ) -> Result<Json<FailoverStatusResponseV21>, Response> {
     #[derive(sqlx::FromRow)]
     struct ReplicaRow {
+        #[allow(dead_code)]
         name: String,
         status: String,
         lag_ms: i32,

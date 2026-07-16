@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::compliance_v22::{
-    CheckStatusV22, ComplianceFindingV22, EvidenceTypeV22, FindingStatusV22,
+    ComplianceFindingV22, EvidenceTypeV22,
     RequirementSeverityV22,
 };
 

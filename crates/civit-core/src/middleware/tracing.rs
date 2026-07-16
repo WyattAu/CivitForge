@@ -69,7 +69,7 @@ pub async fn tracing_middleware(req: Request, next: Next) -> Response {
     );
 
     let start = Instant::now();
-    let mut response = next.run(req).await;
+    let response = next.run(req).await;
     let duration = start.elapsed();
 
     let status = response.status().as_u16();

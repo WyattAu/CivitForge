@@ -71,7 +71,7 @@ pub async fn list_traces(
     let provider = &state.provider;
 
     // Build a snapshot from completed spans
-    let mut spans: Vec<TraceSpanResponse> = Vec::new();
+    let spans: Vec<TraceSpanResponse> = Vec::new();
 
     // We can't export without consuming, so read from active + recently completed
     // For a real system, these would come from the database. Here we serve from memory.

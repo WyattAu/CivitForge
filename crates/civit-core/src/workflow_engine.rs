@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
-use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20, WorkflowExecutionLogV21, WorkflowTemplateV20};
+use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {
@@ -1332,6 +1332,7 @@ impl WorkflowService {
 
         #[derive(sqlx::FromRow)]
         struct StepRow {
+            #[allow(dead_code)]
             workflow_id: Uuid,
             steps: serde_json::Value,
         }

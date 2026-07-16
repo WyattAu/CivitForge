@@ -7,11 +7,10 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{delete, get, post},
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
 pub struct EventQueueResponse {
@@ -193,7 +192,7 @@ pub async fn dequeue_messages(
 
 pub async fn complete_message(
     State(state): State<AppState>,
-    Path((queue_name, message_id)): Path<(String, String)>,
+    Path((_queue_name, message_id)): Path<(String, String)>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
@@ -220,7 +219,7 @@ pub async fn complete_message(
 
 pub async fn fail_message(
     State(state): State<AppState>,
-    Path((queue_name, message_id)): Path<(String, String)>,
+    Path((_queue_name, message_id)): Path<(String, String)>,
     _auth: AuthUser,
     Json(req): Json<serde_json::Value>,
 ) -> impl IntoResponse {

@@ -726,7 +726,7 @@ fn api_v2_routes() -> axum::Router<AppState> {
 }
 
 /// Middleware that adds deprecation headers to v1 API responses.
-async fn deprecation_header_middleware(mut req: Request, next: Next) -> Response {
+async fn deprecation_header_middleware(req: Request, next: Next) -> Response {
     let mut response = next.run(req).await;
 
     // Add deprecation headers for v1 endpoints

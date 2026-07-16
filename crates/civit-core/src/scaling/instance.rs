@@ -5,7 +5,7 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -223,7 +223,7 @@ impl HeartbeatTask {
                 let stale = mgr.stale_instances(Duration::from_secs(90));
                 drop(mgr);
                 if !stale.is_empty() {
-                    let mut mgr = self.manager.write().await;
+                    let mgr = self.manager.write().await;
                     for id in stale {
                         mgr.unregister_instance(id);
                     }

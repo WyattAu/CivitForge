@@ -342,7 +342,7 @@ pub fn apply_response_transform(
 }
 
 pub fn transform_routes() -> axum::Router<AppState> {
-    use axum::routing::{delete, get, post, put};
+    use axum::routing::get;
     axum::Router::new()
         .route(
             "/api/v1/admin/transforms",

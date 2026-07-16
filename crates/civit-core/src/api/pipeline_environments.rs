@@ -278,7 +278,7 @@ pub async fn update_environment(
     };
 
     let url = req.url.unwrap_or(None);
-    let deployment_branch_policy = req.deployment_branch_policy.unwrap_or(None);
+    let _deployment_branch_policy = req.deployment_branch_policy.unwrap_or(None);
 
     match pipeline::update_environment(
         pool,
@@ -1578,7 +1578,7 @@ pub async fn get_health_check(
         }
     };
 
-    let cid = match Uuid::parse_str(&check_id) {
+    let _cid = match Uuid::parse_str(&check_id) {
         Ok(id) => id,
         Err(_) => {
             return (
@@ -2151,7 +2151,7 @@ pub async fn create_deployment_history(
 
 pub async fn get_deployment_history(
     State(state): State<AppState>,
-    Path((owner, name, env_id, history_id)): Path<(String, String, String, String)>,
+    Path((owner, name, _env_id, history_id)): Path<(String, String, String, String)>,
     _auth: AuthUser,
 ) -> Response {
     let pool = state.db.pool();

@@ -120,7 +120,7 @@ impl EventPublisher {
         for subscription in subscriptions {
             if let Some(ref callback_url) = subscription.callback_url {
                 let delivery_id = Uuid::new_v4();
-                let payload = serde_json::json!({
+                let _payload = serde_json::json!({
                     "event": event,
                     "subscription": subscription,
                 });

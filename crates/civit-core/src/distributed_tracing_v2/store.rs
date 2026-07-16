@@ -554,11 +554,14 @@ impl DistributedTracingV2Service {
 
         #[derive(Debug, sqlx::FromRow)]
         struct LatencyRow {
+            #[allow(dead_code)]
             id: Uuid,
             trace_id: String,
             service_name: String,
             endpoint: String,
+            #[allow(dead_code)]
             latency_ms: f64,
+            #[allow(dead_code)]
             recorded_at: DateTime<Utc>,
         }
 
@@ -6726,6 +6729,7 @@ impl DistributedTracingV2Service {
         endpoint: &str,
     ) -> Result<bool, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
+        #[allow(dead_code)]
         struct SamplingRuleV19Row {
             id: uuid::Uuid,
             service_name: String,

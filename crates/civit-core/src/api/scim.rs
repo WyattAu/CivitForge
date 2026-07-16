@@ -8,7 +8,7 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Json},
-    routing::{delete, get, post, put},
+    routing::{get, put},
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -87,6 +87,7 @@ pub struct ScimErrorResponse {
 // SCIM Token Authentication
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 async fn authenticate_scim_token(state: &AppState, auth_header: &str) -> Result<Uuid, CoreError> {
     let token = auth_header
         .strip_prefix("Bearer ")

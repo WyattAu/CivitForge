@@ -186,6 +186,7 @@ fn should_cache(req: &Request) -> bool {
 }
 
 /// Check if the response should be cached.
+#[allow(dead_code)]
 fn should_cache_response(req: &Request, status: StatusCode) -> bool {
     if !should_cache(req) {
         return false;
