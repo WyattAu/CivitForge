@@ -951,6 +951,9 @@ pub const M_554_CODE_QUALITY_RULES_V19_DOWN: &str =
 pub const M_555_PERFORMANCE_TESTING_V20_UP: &str = include_str!("555_add_performance_testing_v20.sql");
 pub const M_555_PERFORMANCE_TESTING_V20_DOWN: &str =
     "DROP TABLE IF EXISTS performance_test_alert_history_v17; DROP TABLE IF EXISTS performance_test_alerts_v17;";
+pub const M_556_API_DOCS_V21_UP: &str = include_str!("556_add_api_docs_v21.sql");
+pub const M_557_RATE_LIMIT_TIERS_V19_UP: &str = include_str!("557_add_rate_limit_tiers_v19.sql");
+pub const M_558_API_ANALYTICS_V22_UP: &str = include_str!("558_add_api_analytics_v22.sql");
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3158,6 +3161,24 @@ impl MigrationManager {
             name: "add_performance_testing_v20".into(),
             up_sql: M_555_PERFORMANCE_TESTING_V20_UP.into(),
             down_sql: M_555_PERFORMANCE_TESTING_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 556,
+            name: "add_api_docs_v21".into(),
+            up_sql: M_556_API_DOCS_V21_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
+            version: 557,
+            name: "add_rate_limit_tiers_v19".into(),
+            up_sql: M_557_RATE_LIMIT_TIERS_V19_UP.into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
+            version: 558,
+            name: "add_api_analytics_v22".into(),
+            up_sql: M_558_API_ANALYTICS_V22_UP.into(),
+            down_sql: String::new(),
         });
     }
 
