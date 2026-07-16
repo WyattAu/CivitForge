@@ -251,3 +251,14 @@ pub use db::{DatabasePool, DbRepository};
 pub use error::{CoreError, Result};
 pub use events::{Event, EventBus, EventCategory, EventPayload, EventSubscriber, EventPublisher, PublishedEvent, EventSubscription, WebSocketManager};
 pub use ssh::{SshAuthService, SshConfig, SshServer};
+
+#[cfg(test)]
+mod workflow_engine_tests;
+#[cfg(test)]
+mod automation_rules_tests;
+#[cfg(test)]
+mod security_scanner_tests;
+#[cfg(test)]
+mod compliance_tests;
+#[cfg(test)]
+mod audit_trail_tests;
