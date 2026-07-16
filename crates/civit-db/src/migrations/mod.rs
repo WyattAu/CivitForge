@@ -917,6 +917,14 @@ pub const M_042_WEBHOOK_DELIVERIES_UP: &str = include_str!("042_add_webhook_deli
 pub const M_042_WEBHOOK_DELIVERIES_DOWN: &str =
     include_str!("down/042_add_webhook_deliveries_down.sql");
 
+pub const M_535_API_DOCS_V20_UP: &str = include_str!("535_add_api_docs_v20.sql");
+pub const M_535_API_DOCS_V20_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v20;";
+pub const M_536_RATE_LIMIT_TIERS_V18_UP: &str = include_str!("536_add_rate_limit_tiers_v18.sql");
+pub const M_536_RATE_LIMIT_TIERS_V18_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v15; DROP TABLE IF EXISTS rate_limit_tiers_v18;";
+pub const M_537_API_ANALYTICS_V21_UP: &str = include_str!("537_add_api_analytics_v21.sql");
+pub const M_537_API_ANALYTICS_V21_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v21;";
+
 #[derive(Debug, Clone)]
 pub struct Migration {
     pub version: i64,
@@ -3051,6 +3059,24 @@ impl MigrationManager {
             name: "add_cache_hit_analysis_v15".into(),
             up_sql: M_531_CACHE_HIT_ANALYSIS_V15_UP.into(),
             down_sql: M_531_CACHE_HIT_ANALYSIS_V15_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 535,
+            name: "add_api_docs_v20".into(),
+            up_sql: M_535_API_DOCS_V20_UP.into(),
+            down_sql: M_535_API_DOCS_V20_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 536,
+            name: "add_rate_limit_tiers_v18".into(),
+            up_sql: M_536_RATE_LIMIT_TIERS_V18_UP.into(),
+            down_sql: M_536_RATE_LIMIT_TIERS_V18_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 537,
+            name: "add_api_analytics_v21".into(),
+            up_sql: M_537_API_ANALYTICS_V21_UP.into(),
+            down_sql: M_537_API_ANALYTICS_V21_DOWN.into(),
         });
     }
 
