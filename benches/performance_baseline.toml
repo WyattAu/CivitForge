@@ -93,3 +93,115 @@ description = "Reassemble 256KB of data from chunks"
 baseline_us = 10
 threshold_percent = 30
 description = "Publish an event to the in-memory event bus"
+
+# ── Scale benchmarks ──────────────────────────────────────────────────────────
+
+[scale.list_1k_repos]
+baseline_us = 50000
+threshold_percent = 10
+description = "Paginate through 1K repositories (page size 50)"
+
+[scale.list_10k_repos]
+baseline_us = 200000
+threshold_percent = 15
+description = "Paginate through 10K repositories (page size 50)"
+
+[scale.iterate_all_10k_repos]
+baseline_us = 100000
+threshold_percent = 15
+description = "Iterate all 10K repository entries"
+
+[scale.search_10k_repos_by_name]
+baseline_us = 80000
+threshold_percent = 15
+description = "Search 10K repos by name prefix"
+
+[scale.search_10k_repos_by_description]
+baseline_us = 120000
+threshold_percent = 15
+description = "Search 10K repos by description full-text"
+
+[scale.sort_10k_repos]
+baseline_us = 150000
+threshold_percent = 20
+description = "Sort 10K repos by name"
+
+[scale.list_10k_issues]
+baseline_us = 80000
+threshold_percent = 15
+description = "Paginate through 10K issues (page size 50)"
+
+[scale.search_10k_issues]
+baseline_us = 100000
+threshold_percent = 20
+description = "Full-text search across 10K issues"
+
+[scale.bulk_create_1k_issues]
+baseline_us = 30000
+threshold_percent = 15
+description = "Bulk-create 1K issue records in memory"
+
+[scale.list_1k_pipelines]
+baseline_us = 40000
+threshold_percent = 15
+description = "Paginate through 1K pipelines (page size 50)"
+
+[scale.dag_resolve_10_deps]
+baseline_us = 5000
+threshold_percent = 20
+description = "Parse and resolve pipeline DAG with 10 dependencies"
+
+[scale.dag_resolve_50_deps]
+baseline_us = 15000
+threshold_percent = 20
+description = "Parse and resolve pipeline DAG with 50 dependencies"
+
+[scale.dag_resolve_100_deps]
+baseline_us = 30000
+threshold_percent = 20
+description = "Parse and resolve pipeline DAG with 100 dependencies"
+
+[scale.git_clone_100_commits]
+baseline_us = 50000
+threshold_percent = 25
+description = "Clone a repository with 100 commits"
+
+[scale.git_diff_100_files]
+baseline_us = 80000
+threshold_percent = 25
+description = "Diff 100 modified files between revisions"
+
+[scale.git_blame_10k_lines]
+baseline_us = 100000
+threshold_percent = 25
+description = "Blame a file with 10K lines"
+
+[scale.git_list_100_branches]
+baseline_us = 20000
+threshold_percent = 25
+description = "List 100 remote branches"
+
+[scale.jwt_concurrent_validation_10k]
+baseline_us = 500000
+threshold_percent = 30
+description = "Validate 10K JWT tokens concurrently"
+
+[scale.serialize_1k_repos]
+baseline_us = 30000
+threshold_percent = 20
+description = "Serialize 1K repo objects to JSON"
+
+[scale.serialize_10k_repos]
+baseline_us = 300000
+threshold_percent = 25
+description = "Serialize 10K repo objects to JSON"
+
+[scale.event_bus_publish_10k]
+baseline_us = 100000
+threshold_percent = 25
+description = "Publish 10K events to the in-memory event bus"
+
+[scale.event_bus_replay_10k]
+baseline_us = 50000
+threshold_percent = 25
+description = "Replay events from a 10K-entry event bus log"

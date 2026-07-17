@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly on Monday at 3 AM UTC
   workflow_dispatch:
     inputs:
       update_baseline:
@@ -105,3 +107,49 @@ jobs:
           else
             echo "PR #$EXISTING_PR already open for baseline update."
           fi
+
+  bench-scale:
+    name: Scale Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Run scale benchmarks
+        run: |
+          cargo bench -p civit-core --bench scale_benchmarks --locked -- --output-format bencher | tee scale-bench-results.txt
+
+      - name: Run generator benchmarks
+        run: |
+          cargo bench -p civit-core --bench generators --locked -- --output-format bencher | tee generator-bench-results.txt
+
+      - name: Check scale regressions
+        if: inputs.update_baseline != true
+        run: |
+          if [ -f scripts/check_perf_regression.sh ]; then
+            bash scripts/check_perf_regression.sh
+          else
+            echo "No regression checker found, skipping."
+          fi
+
+      - name: Upload scale benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: scale-bench-results-${{ github.sha }}
+          path: |
+            scale-bench-results.txt
+            generator-bench-results.txt
+          retention-days: 90
+
+      - name: Save scale baseline locally
+        if: inputs.update_baseline
+        run: |
+          mkdir -p .benchmarks
+          cat scale-bench-results.txt generator-bench-results.txt > .benchmarks/scale-baseline.txt

@@ -4,6 +4,7 @@ pub mod error;
 pub mod migrations;
 pub mod models;
 pub mod pool;
+pub mod pool_config;
 pub mod repository;
 pub mod session;
 
@@ -25,5 +26,6 @@ pub use models::{
     ScheduledTaskPerformanceV21, ScheduledTaskResourceUsageV21,
 };
 pub use pool::DatabasePool;
+pub use pool_config::PoolConfig;
 pub use repository::{DbRepository, OrgUsage};
 pub use session::{Session, SessionManager};

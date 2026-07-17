@@ -1038,6 +1038,8 @@ pub const M_636_ADD_MARKETPLACE_UP: &str = include_str!("636_add_marketplace.sql
 pub const M_636_ADD_MARKETPLACE_DOWN: &str = "DROP TABLE IF EXISTS marketplace_downloads_v1; DROP TABLE IF EXISTS marketplace_reviews_v1; DROP TABLE IF EXISTS marketplace_listings_v1;";
 pub const M_637_ADD_TENANT_ISOLATION_UP: &str = include_str!("637_add_tenant_isolation.sql");
 pub const M_637_ADD_TENANT_ISOLATION_DOWN: &str = "DROP TABLE IF EXISTS tenant_billing_v1; DROP TABLE IF EXISTS tenant_isolation_policies_v1; DROP TABLE IF EXISTS tenant_resource_quotas_v1;";
+pub const M_638_PERFORMANCE_INDEXES_V2_UP: &str = include_str!("638_add_performance_indexes_v2.sql");
+pub const M_638_PERFORMANCE_INDEXES_V2_DOWN: &str = "DROP INDEX IF EXISTS idx_repositories_name; DROP INDEX IF EXISTS idx_repositories_owner_name; DROP INDEX IF EXISTS idx_issues_repo_status; DROP INDEX IF EXISTS idx_issues_created_at; DROP INDEX IF EXISTS idx_pull_requests_repo_status; DROP INDEX IF EXISTS idx_pipeline_runs_repo_status; DROP INDEX IF EXISTS idx_commits_repo_date; DROP INDEX IF EXISTS idx_events_type_created; DROP INDEX IF EXISTS idx_audit_events_user_created; DROP INDEX IF EXISTS idx_access_tokens_hash; DROP INDEX IF EXISTS idx_sessions_user_id;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3467,6 +3469,12 @@ impl MigrationManager {
             name: "add_tenant_isolation".into(),
             up_sql: M_637_ADD_TENANT_ISOLATION_UP.into(),
             down_sql: M_637_ADD_TENANT_ISOLATION_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 638,
+            name: "add_performance_indexes_v2".into(),
+            up_sql: M_638_PERFORMANCE_INDEXES_V2_UP.into(),
+            down_sql: M_638_PERFORMANCE_INDEXES_V2_DOWN.into(),
         });
     }
 

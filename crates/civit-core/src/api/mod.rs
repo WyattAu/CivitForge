@@ -58,6 +58,7 @@ pub mod openapi_handler;
 pub mod orgs;
 pub mod pages;
 pub mod password;
+pub mod performance;
 pub mod performance_metrics;
 pub mod pipeline_actions;
 pub mod pipeline_caches;

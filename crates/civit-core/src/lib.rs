@@ -27,6 +27,7 @@ pub mod loadtest;
 pub mod merge_queue;
 pub mod middleware;
 pub mod mirror;
+pub mod static_assets;
 pub mod notifications;
 pub mod project_boards;
 pub mod performance;

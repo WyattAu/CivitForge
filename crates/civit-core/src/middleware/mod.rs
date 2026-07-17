@@ -2,6 +2,7 @@
 
 pub mod api_analytics;
 pub mod cache;
+pub mod compression;
 pub mod csrf;
 pub mod debug;
 pub mod error_reporter;
