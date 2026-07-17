@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_event_queue_creation() {
         let queue = EventQueue {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             queue_name: "test_queue".to_string(),
             message_count: 0,
             created_at: Utc::now(),
@@ -371,8 +371,8 @@ mod tests {
     #[test]
     fn test_event_queue_message_creation() {
         let message = EventQueueMessage {
-            id: Uuid::new_v4().to_string(),
-            queue_id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
+            queue_id: Uuid::new_v4(),
             payload: serde_json::json!({"data": "test"}),
             status: "pending".to_string(),
             attempts: 0,
@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn test_event_queue_serialization_roundtrip() {
         let queue = EventQueue {
-            id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
             queue_name: "test_queue".to_string(),
             message_count: 42,
             created_at: Utc::now(),
@@ -428,8 +428,8 @@ mod tests {
     #[test]
     fn test_event_queue_message_serialization_roundtrip() {
         let message = EventQueueMessage {
-            id: Uuid::new_v4().to_string(),
-            queue_id: Uuid::new_v4().to_string(),
+            id: Uuid::new_v4(),
+            queue_id: Uuid::new_v4(),
             payload: serde_json::json!({"key": "value"}),
             status: "pending".to_string(),
             attempts: 1,

@@ -172,7 +172,9 @@ pub async fn export_traces(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::telemetry::opentelemetry::{InstrumentationProvider, Resource};
+    use std::sync::Arc;
 
     #[test]
     fn test_observability_state() {

@@ -336,6 +336,7 @@ pub async fn cache_clear_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::Method;
 
     #[test]
     fn test_cache_store_new() {
@@ -414,7 +415,7 @@ mod tests {
     #[test]
     fn test_generate_cache_key_get() {
         let req = Request::builder()
-            .method(http::Method::GET)
+            .method(Method::GET)
             .uri("/api/repos?page=1")
             .body(Body::empty())
             .unwrap();
@@ -425,7 +426,7 @@ mod tests {
     #[test]
     fn test_generate_cache_key_post() {
         let req = Request::builder()
-            .method(http::Method::POST)
+            .method(Method::POST)
             .uri("/api/repos")
             .body(Body::empty())
             .unwrap();
@@ -436,7 +437,7 @@ mod tests {
     #[test]
     fn test_should_cache_get() {
         let req = Request::builder()
-            .method(http::Method::GET)
+            .method(Method::GET)
             .body(Body::empty())
             .unwrap();
         assert!(should_cache(&req));
@@ -445,7 +446,7 @@ mod tests {
     #[test]
     fn test_should_cache_no_cache_header() {
         let req = Request::builder()
-            .method(http::Method::GET)
+            .method(Method::GET)
             .header("Cache-Control", "no-cache")
             .body(Body::empty())
             .unwrap();

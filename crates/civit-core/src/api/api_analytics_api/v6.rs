@@ -417,6 +417,7 @@ pub fn routes() -> Router<AppState> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
     fn test_analytics_v6_response_serialization() {

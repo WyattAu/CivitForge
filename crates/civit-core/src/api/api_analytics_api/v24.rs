@@ -340,6 +340,7 @@ pub async fn get_analytics_dashboard_template_v24_by_id(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
     fn test_dashboard_template_v24_response_serialization() {

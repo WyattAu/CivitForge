@@ -1996,6 +1996,10 @@ mod tests {
             parent_repo_id: None,
             ssh_clone_url: Some("ssh://git@host/owner/test.git".into()),
             http_clone_url: Some("http://host:8080/owner/test.git".into()),
+            starred: None,
+            watched: None,
+            stars_count: None,
+            watchers_count: None,
             created_at: Utc.timestamp_opt(0, 0).unwrap(),
             updated_at: Utc.timestamp_opt(0, 0).unwrap(),
         };

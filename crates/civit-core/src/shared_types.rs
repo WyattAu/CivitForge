@@ -44,6 +44,12 @@ impl std::str::FromStr for RunStatus {
     }
 }
 
+impl From<&str> for RunStatus {
+    fn from(s: &str) -> Self {
+        s.parse().unwrap_or_else(|_| RunStatus::Pending)
+    }
+}
+
 impl RunStatus {
     pub fn is_terminal(&self) -> bool {
         matches!(
@@ -81,6 +87,12 @@ impl std::str::FromStr for ExecutionResult {
             "error" => Ok(ExecutionResult::Error),
             other => Err(format!("unknown execution result: {other}")),
         }
+    }
+}
+
+impl From<&str> for ExecutionResult {
+    fn from(s: &str) -> Self {
+        s.parse().unwrap_or_else(|_| ExecutionResult::Error)
     }
 }
 
