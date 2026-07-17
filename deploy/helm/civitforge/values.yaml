@@ -144,8 +144,21 @@ ingress:
     - host: forge.example.com
       paths:
         - path: /
+          pathType: Prefix
           service: api
           port: 8080
+        - path: /ws
+          pathType: Prefix
+          service: api
+          port: 8080
+        - path: /vfs
+          pathType: Prefix
+          service: vfs
+          port: 8083
+        - path: /runner
+          pathType: Prefix
+          service: runner
+          port: 8081
   tls:
     - secretName: civitforge-tls
       hosts:
@@ -176,6 +189,17 @@ hpa:
     minReplicas: 2
     maxReplicas: 6
     targetCPUUtilization: 70
+
+podDisruptionBudget:
+  enabled: true
+  api:
+    minAvailable: 2
+  runner:
+    minAvailable: 1
+  brain:
+    maxUnavailable: 0
+  vfs:
+    minAvailable: 1
 
 tolerations: []
 affinity:
