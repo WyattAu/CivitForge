@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::error::{CoreError, Result};
+use crate::error::{FedError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use tracing::{debug, info};
@@ -75,12 +75,12 @@ impl DagSyncEngine {
 
     pub fn find_sync_path(&self, target: &str) -> Result<Vec<String>> {
         if !self.nodes.contains_key(target) {
-            return Err(CoreError::Federation(format!(
+            return Err(FedError(format!(
                 "target node not found: {target}"
             )));
         }
         if !self.nodes.contains_key(&self.instance_id) {
-            return Err(CoreError::Federation("self node not registered".into()));
+            return Err(FedError("self node not registered".into()));
         }
 
         let mut visited: HashSet<String> = HashSet::new();
@@ -108,7 +108,7 @@ impl DagSyncEngine {
             }
         }
 
-        Err(CoreError::Federation(format!("no sync path to {target}")))
+        Err(FedError(format!("no sync path to {target}")))
     }
 
     pub fn has_cycle(&self) -> bool {

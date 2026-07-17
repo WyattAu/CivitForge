@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::federation::vector_clock::VectorClock;
+use crate::vector_clock::VectorClock;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

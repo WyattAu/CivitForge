@@ -1,0 +1,24 @@
+[package]
+name = "civit-security"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Security, compliance, and audit modules for CivitForge"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sqlx = { workspace = true }
+regex = { workspace = true }
+aes-gcm = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+civit-types = { path = "../civit-types" }
+
+[dev-dependencies]

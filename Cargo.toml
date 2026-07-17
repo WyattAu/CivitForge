@@ -4,6 +4,8 @@ members = [
     "crates/civit-shared",
     "crates/civit-pipeline",
     "crates/civit-core",
+    "crates/civit-workflow",
+    "crates/civit-federation",
     "crates/civit-ci",
     "crates/civit-storage",
     "crates/civit-db",
@@ -14,7 +16,10 @@ members = [
     "crates/civit-crypto",
     "crates/civit-auth",
     "crates/civit-shard",
+    "crates/civit-types",
     "crates/civit-ui",
+    "crates/civit-telemetry",
+    "crates/civit-security",
     # NOTE: civit-desktop requires system deps (webkit2gtk).
     # Build separately: cd crates/civit-desktop && cargo tauri build
     # "crates/civit-desktop",

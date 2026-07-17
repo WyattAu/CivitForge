@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::workflow_engine::*;
-use crate::shared_types::RunStatus;
+use civit_types::RunStatus;
 use chrono::Utc;
 use uuid::Uuid;
 

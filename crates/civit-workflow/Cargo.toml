@@ -1,0 +1,24 @@
+[package]
+name = "civit-workflow"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+reqwest = { workspace = true }
+tar = "0.4"
+hex = { workspace = true }
+hmac = { workspace = true }
+sha2 = { workspace = true }
+civit-types = { path = "../civit-types" }
+civit-db = { path = "../civit-db" }
+civit-pipeline = { path = "../civit-pipeline" }

@@ -78,13 +78,11 @@ impl<T: Hash + Eq + Clone + Ord> ORSet<T> {
         for (elem, other_tags) in other.elements {
             let own_tags = self.elements.entry(elem.clone()).or_default();
             own_tags.extend(other_tags);
-            // If all tags for this element are in the tombstones, keep it removed
         }
         for (elem, other_tags) in other.tombstones {
             let own_tombs = self.tombstones.entry(elem.clone()).or_default();
             own_tombs.extend(other_tags);
         }
-        // Clean up: if an element's add tags are a subset of its tombstone tags, it stays removed
         self.cleanup();
     }
 
@@ -94,7 +92,6 @@ impl<T: Hash + Eq + Clone + Ord> ORSet<T> {
             .iter()
             .filter(|(elem, tags)| {
                 if let Some(tombs) = self.tombstones.get(*elem) {
-                    // If all add tags are in tombstones, the element is dead
                     tags.iter().all(|t| tombs.contains(t))
                 } else {
                     false
@@ -202,23 +199,18 @@ impl<T: Clone> RGA<T> {
     pub fn merge(&mut self, other: RGA<T>) {
         let mut merged: Vec<RgaEntry<T>> = Vec::new();
 
-        // Collect all known timestamps from self
         let self_timestamps: HashSet<u64> = self.entries.iter().map(|e| e.timestamp).collect();
-        let _other_timestamps: HashSet<u64> = other.entries.iter().map(|e| e.timestamp).collect();
 
-        // Add all entries from self
         for entry in self.entries.drain(..) {
             merged.push(entry);
         }
 
-        // Add entries from other that are not in self
         for entry in other.entries {
             if !self_timestamps.contains(&entry.timestamp) {
                 merged.push(entry);
             }
         }
 
-        // Sort by timestamp to maintain ordering consistency
         merged.sort_by_key(|e| e.timestamp);
 
         self.entries = merged;
@@ -271,8 +263,6 @@ impl<T: Hash + Eq + Clone + Ord> AddWinsSet<T> {
     }
 
     pub fn remove(&mut self, element: T, timestamp: u64, node_id: String) {
-        // A node always knows about its own prior adds for this element.
-        // Remove only the add tags from the same node_id (concurrent adds from other nodes remain).
         if let Some(add_tags) = self.adds.get(&element) {
             let own_tags: Vec<(u64, String)> = add_tags
                 .iter()
@@ -284,7 +274,6 @@ impl<T: Hash + Eq + Clone + Ord> AddWinsSet<T> {
                 .or_default()
                 .extend(own_tags);
         }
-        // Also record the explicit remove tag
         self.removes
             .entry(element)
             .or_default()
@@ -292,7 +281,6 @@ impl<T: Hash + Eq + Clone + Ord> AddWinsSet<T> {
     }
 
     /// Merge another AddWinsSet. Add wins over concurrent remove.
-    /// An element is present if its add set minus its remove set is non-empty.
     pub fn merge(&mut self, other: AddWinsSet<T>) {
         for (elem, other_tags) in other.adds {
             let own = self.adds.entry(elem.clone()).or_default();
@@ -308,7 +296,6 @@ impl<T: Hash + Eq + Clone + Ord> AddWinsSet<T> {
     pub fn contains(&self, element: &T) -> bool {
         match (self.adds.get(element), self.removes.get(element)) {
             (Some(adds), Some(removes)) => {
-                // Add wins: if there exists an add tag not covered by removes
                 adds.iter().any(|t| !removes.contains(t))
             }
             (Some(_), None) => true,
@@ -338,17 +325,17 @@ impl<T: Hash + Eq + Clone + Ord> Default for AddWinsSet<T> {
 /// CausalContext wraps a VectorClock to provide causal ordering utilities.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CausalContext {
-    clock: crate::federation::vector_clock::VectorClock<String>,
+    clock: crate::vector_clock::VectorClock<String>,
 }
 
 impl CausalContext {
     pub fn new() -> Self {
         Self {
-            clock: crate::federation::vector_clock::VectorClock::new(),
+            clock: crate::vector_clock::VectorClock::new(),
         }
     }
 
-    pub fn with_clock(clock: crate::federation::vector_clock::VectorClock<String>) -> Self {
+    pub fn with_clock(clock: crate::vector_clock::VectorClock<String>) -> Self {
         Self { clock }
     }
 
@@ -359,8 +346,8 @@ impl CausalContext {
     /// Returns true if `a` happened before `b`.
     pub fn happens_before(
         &self,
-        a: &crate::federation::vector_clock::VectorClock<String>,
-        b: &crate::federation::vector_clock::VectorClock<String>,
+        a: &crate::vector_clock::VectorClock<String>,
+        b: &crate::vector_clock::VectorClock<String>,
     ) -> bool {
         a.happened_before(b)
     }
@@ -368,8 +355,8 @@ impl CausalContext {
     /// Returns true if `a` and `b` are concurrent (neither happened before the other).
     pub fn concurrent(
         &self,
-        a: &crate::federation::vector_clock::VectorClock<String>,
-        b: &crate::federation::vector_clock::VectorClock<String>,
+        a: &crate::vector_clock::VectorClock<String>,
+        b: &crate::vector_clock::VectorClock<String>,
     ) -> bool {
         a.is_concurrent(b)
     }
@@ -377,15 +364,15 @@ impl CausalContext {
     /// Merge two vector clocks, returning the result (element-wise max).
     pub fn merge_clocks(
         &self,
-        a: &crate::federation::vector_clock::VectorClock<String>,
-        b: &crate::federation::vector_clock::VectorClock<String>,
-    ) -> crate::federation::vector_clock::VectorClock<String> {
+        a: &crate::vector_clock::VectorClock<String>,
+        b: &crate::vector_clock::VectorClock<String>,
+    ) -> crate::vector_clock::VectorClock<String> {
         let mut result = a.clone();
         result.merge(b);
         result
     }
 
-    pub fn clock(&self) -> &crate::federation::vector_clock::VectorClock<String> {
+    pub fn clock(&self) -> &crate::vector_clock::VectorClock<String> {
         &self.clock
     }
 }
@@ -399,7 +386,7 @@ impl Default for CausalContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::federation::vector_clock::VectorClock;
+    use crate::vector_clock::VectorClock;
 
     // ===== LWWRegister Tests =====
 
@@ -434,7 +421,6 @@ mod tests {
         let a = LWWRegister::new("value-a".to_string(), 100, "node-a".into());
         let b = LWWRegister::new("value-b".to_string(), 100, "node-b".into());
         let merged = a.merge(b);
-        // "node-b" > "node-a" lexicographically
         assert_eq!(merged.get(), "value-b");
         assert_eq!(merged.node_id, "node-b");
     }
@@ -444,7 +430,6 @@ mod tests {
         let a = LWWRegister::new("value".to_string(), 100, "node-a".into());
         let b = LWWRegister::new("value2".to_string(), 100, "node-a".into());
         let merged = a.clone().merge(b);
-        // Same timestamp and node_id => self wins
         assert_eq!(merged.get(), "value");
     }
 
@@ -454,7 +439,7 @@ mod tests {
         let b = LWWRegister::new(2, 20, "n2".into());
         let c = LWWRegister::new(3, 15, "n3".into());
         let result = a.merge(b).merge(c);
-        assert_eq!(*result.get(), 2); // timestamp 20 is highest
+        assert_eq!(*result.get(), 2);
     }
 
     // ===== ORSet Tests =====
@@ -525,23 +510,19 @@ mod tests {
         let mut b = ORSet::new();
         b.add("shared".to_string(), 2, "n2".into());
         a.merge(b);
-        // "shared" should have two tags (from n1 and n2)
         assert!(a.contains(&"shared".to_string()));
         assert_eq!(a.len(), 1);
     }
 
     #[test]
     fn orset_merge_concurrent_add_remove() {
-        // n1 adds "x", n2 removes "x" concurrently
         let mut a = ORSet::new();
         a.add("x".to_string(), 1, "n1".into());
         let mut b = ORSet::new();
-        b.add("x".to_string(), 1, "n1".into()); // sees the add
-        b.remove(&"x".to_string()); // then removes it
+        b.add("x".to_string(), 1, "n1".into());
+        b.remove(&"x".to_string());
 
         a.merge(b);
-        // In basic ORSet, if all tags are tombstoned, it's removed
-        // The add tag from n1 was tombstoned by b's remove
         assert!(!a.contains(&"x".to_string()));
     }
 
@@ -584,7 +565,6 @@ mod tests {
         s.add("x".to_string(), 1, "n1".into());
         s.remove(&"x".to_string());
         assert!(!s.contains(&"x".to_string()));
-        // Re-add with new timestamp
         s.add("x".to_string(), 5, "n1".into());
         assert!(s.contains(&"x".to_string()));
     }
@@ -616,7 +596,7 @@ mod tests {
         let mut rga = RGA::new();
         rga.append("a".to_string(), 1, "n1".into());
         rga.append("c".to_string(), 3, "n1".into());
-        rga.insert("b".to_string(), 1, 2, "n1".into()); // insert after "a" (timestamp 1)
+        rga.insert("b".to_string(), 1, 2, "n1".into());
         assert_eq!(
             rga.to_vec(),
             vec![&"a".to_string(), &"b".to_string(), &"c".to_string()]
@@ -627,7 +607,7 @@ mod tests {
     fn rga_insert_at_beginning() {
         let mut rga = RGA::new();
         rga.append("b".to_string(), 2, "n1".into());
-        rga.insert("a".to_string(), 0, 1, "n1".into()); // after_timestamp=0 => insert at start
+        rga.insert("a".to_string(), 0, 1, "n1".into());
         assert_eq!(rga.to_vec(), vec![&"a".to_string(), &"b".to_string()]);
     }
 
@@ -669,7 +649,6 @@ mod tests {
         let mut b = RGA::new();
         b.append("shared".to_string(), 1, "n1".into());
         a.merge(b);
-        // Same timestamp => deduplicated
         assert_eq!(a.to_vec(), vec![&"shared".to_string()]);
     }
 
@@ -699,7 +678,6 @@ mod tests {
         b.append("y".to_string(), 2, "n1".into());
 
         a.merge(b);
-        // "x" was deleted in a, "y" was not => only "y" visible
         assert_eq!(a.to_vec(), vec![&"y".to_string()]);
     }
 
@@ -747,12 +725,9 @@ mod tests {
 
     #[test]
     fn add_wins_set_concurrent_add_remove() {
-        // n1 adds at time 1, n2 removes at time 1 (concurrent)
-        // Both happen concurrently => add wins
         let mut s = AddWinsSet::new();
         s.add("item".to_string(), 1, "n1".into());
         s.remove("item".to_string(), 1, "n2".into());
-        // Add tag (1, n1) is NOT in remove set (which has (1, n2)) => add wins
         assert!(s.contains(&"item".to_string()));
     }
 
@@ -760,7 +735,6 @@ mod tests {
     fn add_wins_set_sequential_remove_wins() {
         let mut s = AddWinsSet::new();
         s.add("item".to_string(), 1, "n1".into());
-        // Remove with same tag as add => not concurrent
         s.remove("item".to_string(), 1, "n1".into());
         assert!(!s.contains(&"item".to_string()));
     }
@@ -778,8 +752,6 @@ mod tests {
 
     #[test]
     fn add_wins_set_merge_concurrent_add_remove() {
-        // a has add(x, 1, n1)
-        // b has add(x, 1, n1) and remove(x, 1, n2) concurrently
         let mut a = AddWinsSet::new();
         a.add("x".to_string(), 1, "n1".into());
 
@@ -788,8 +760,6 @@ mod tests {
         b.remove("x".to_string(), 1, "n2".into());
 
         a.merge(b);
-        // After merge: add tags = {(1,n1)}, remove tags = {(1,n2)}
-        // Add wins because (1,n1) not in remove set
         assert!(a.contains(&"x".to_string()));
     }
 
@@ -800,10 +770,9 @@ mod tests {
 
         let mut b = AddWinsSet::new();
         b.add("x".to_string(), 1, "n1".into());
-        b.remove("x".to_string(), 1, "n1".into()); // same tag removed
+        b.remove("x".to_string(), 1, "n1".into());
 
         a.merge(b);
-        // add tags = {(1,n1)}, remove tags = {(1,n1)} => all adds covered => removed
         assert!(!a.contains(&"x".to_string()));
     }
 

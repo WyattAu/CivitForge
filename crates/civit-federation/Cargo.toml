@@ -1,0 +1,25 @@
+[package]
+name = "civit-federation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Federation protocol support for CivitForge (ActivityPub, ForgeFed, CRDTs, replication)"
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+base64 = { workspace = true }
+hmac = { workspace = true }
+ring = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+regex = { workspace = true }
+thiserror = { workspace = true }

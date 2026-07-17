@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
 
-use crate::federation::http_signatures::{
+use crate::http_signatures::{
     HttpSigningConfig, SignatureAlgorithm, SignatureVerifier,
 };
-use crate::federation::inbox_outbox::{BackoffStrategy, FederatedActivity, OutboxProcessor};
-use crate::federation::webfinger::resolve_webfinger;
+use crate::inbox_outbox::{BackoffStrategy, FederatedActivity, OutboxProcessor};
+use crate::webfinger::resolve_webfinger;
 use base64::Engine;
 use base64::prelude::BASE64_STANDARD as BASE64;
 use std::collections::HashMap;
@@ -46,7 +46,7 @@ impl Default for FederationDeliveryConfig {
             max_concurrent: 10,
             max_attempts: 5,
             backoff_base_ms: 1000,
-            backoff_max_ms: 300_000, // 5 min
+            backoff_max_ms: 300_000,
             jitter_enabled: true,
             jitter_factor: 0.5,
             http_timeout: Duration::from_secs(30),
@@ -127,26 +127,18 @@ impl CachedActor {
 
 /// Federation delivery service — the transport glue between the outbox queue
 /// and remote ActivityPub inboxes.
-///
-/// Ties together:
-/// - `OutboxProcessor` (queue management, backoff tracking)
-/// - `resolve_webfinger()` (remote actor → inbox URL resolution)
-/// - `SignatureVerifier::sign_request()` (Ed25519 HTTP Signatures)
-/// - `reqwest::Client` (HTTP POST to remote inboxes)
 pub struct FederationDeliveryService {
     config: FederationDeliveryConfig,
     http_client: reqwest::Client,
     outbox: Arc<Mutex<OutboxProcessor>>,
-    /// WebFinger + actor cache. Key = "acct:user@domain".
     actor_cache: Arc<Mutex<HashMap<String, CachedActor>>>,
-    /// Actor cache TTL.
     actor_cache_ttl: Duration,
     verifier: SignatureVerifier,
 }
 
 impl FederationDeliveryService {
     /// Create a new delivery service.
-    pub fn new(config: FederationDeliveryConfig) -> Result<Self, DeliveryError> {
+    pub fn new(config: FederationDeliveryConfig) -> std::result::Result<Self, DeliveryError> {
         let verifier = SignatureVerifier::new();
         let backoff = BackoffStrategy::Exponential {
             base_ms: config.backoff_base_ms,
@@ -163,7 +155,7 @@ impl FederationDeliveryService {
             http_client,
             outbox: Arc::new(Mutex::new(OutboxProcessor::with_backoff(backoff))),
             actor_cache: Arc::new(Mutex::new(HashMap::new())),
-            actor_cache_ttl: Duration::from_secs(300), // 5 min
+            actor_cache_ttl: Duration::from_secs(300),
             verifier,
         })
     }
@@ -175,9 +167,6 @@ impl FederationDeliveryService {
     }
 
     /// Run the delivery loop until cancelled.
-    ///
-    /// Drains pending + retry-ready entries from the outbox, resolves
-    /// their inbox URLs via WebFinger, signs the request, and POSTs.
     pub async fn run_until_cancelled(&self, mut cancel: watch::Receiver<bool>) {
         info!("federation delivery service started");
 
@@ -197,7 +186,7 @@ impl FederationDeliveryService {
     }
 
     /// Deliver a batch of ready entries.
-    async fn deliver_batch(&self) -> Result<(), DeliveryError> {
+    async fn deliver_batch(&self) -> std::result::Result<(), DeliveryError> {
         let pending: Vec<(String, String)>;
         let retry_ready: Vec<(String, String)>;
         {
@@ -226,8 +215,7 @@ impl FederationDeliveryService {
         &self,
         activity_id: &str,
         target_instance: &str,
-    ) -> Result<(), DeliveryError> {
-        // 1. Resolve inbox URL via WebFinger (with cache)
+    ) -> std::result::Result<(), DeliveryError> {
         let inbox_url = self.resolve_inbox_url(target_instance).await?;
         if inbox_url.is_empty() {
             return Err(DeliveryError::NoInboxUrl {
@@ -235,7 +223,6 @@ impl FederationDeliveryService {
             });
         }
 
-        // 2. Get the activity JSON and compute digest
         let body;
         let digest_header;
         {
@@ -244,15 +231,12 @@ impl FederationDeliveryService {
             digest_header = compute_digest(body.as_bytes());
         }
 
-        // 3. Mark in-flight
         {
             let mut outbox = self.outbox.lock().await;
             outbox.mark_in_flight(activity_id, target_instance);
         }
 
-        // 4. Sign the request
         let signature = if self.config.private_key.is_empty() {
-            // No key configured — send unsigned (for development/testing)
             None
         } else {
             let mut headers = HashMap::new();
@@ -281,7 +265,6 @@ impl FederationDeliveryService {
             }
         };
 
-        // 5. Build and send the HTTP POST
         let mut req = self
             .http_client
             .post(&inbox_url)
@@ -343,14 +326,10 @@ impl FederationDeliveryService {
     }
 
     /// Resolve an inbox URL for a target instance.
-    /// Uses WebFinger lookup with in-memory TTL cache.
-    async fn resolve_inbox_url(&self, target_instance: &str) -> Result<String, DeliveryError> {
-        // target_instance format: "user@domain" or just "domain"
+    async fn resolve_inbox_url(&self, target_instance: &str) -> std::result::Result<String, DeliveryError> {
         let (username, domain) = parse_instance_target(target_instance);
-
         let cache_key = format!("acct:{username}@{domain}");
 
-        // Check cache first
         {
             let cache = self.actor_cache.lock().await;
             if let Some(cached) = cache.get(&cache_key)
@@ -360,7 +339,6 @@ impl FederationDeliveryService {
             }
         }
 
-        // Resolve via WebFinger HTTP
         let wf_result = resolve_webfinger(&domain, &username).await.map_err(|e| {
             DeliveryError::WebFingerFailed {
                 target: target_instance.into(),
@@ -368,7 +346,6 @@ impl FederationDeliveryService {
             }
         })?;
 
-        // Extract inbox URL from WebFinger links
         let inbox_url = wf_result
             .links
             .iter()
@@ -377,7 +354,6 @@ impl FederationDeliveryService {
             })
             .map(|l| l.href.clone())
             .unwrap_or_else(|| {
-                // Fallback: construct from first link + /inbox
                 wf_result
                     .links
                     .first()
@@ -385,7 +361,6 @@ impl FederationDeliveryService {
                     .unwrap_or_default()
             });
 
-        // Update cache
         {
             let mut cache = self.actor_cache.lock().await;
             cache.insert(
@@ -435,12 +410,11 @@ fn parse_instance_target(target: &str) -> (String, String) {
     if let Some((user, domain)) = target.split_once('@') {
         (user.to_string(), domain.to_string())
     } else {
-        // Bare domain — use "actor" as default username
         ("actor".to_string(), target.to_string())
     }
 }
 
-/// Parse the path from a URL (e.g., "https://example.com/users/alice/inbox" → "/users/alice/inbox").
+/// Parse the path from a URL.
 fn parse_path(url: &str) -> String {
     url.find("//")
         .and_then(|scheme_end| {
@@ -478,14 +452,12 @@ fn httpdate_format() -> String {
 }
 
 /// Compute an HTTP Signature (draft-cavage-http-signatures) for the given request components.
-///
-/// Returns the `Signature` header value string.
 pub fn compute_signature(
     _method: &str,
     _path: &str,
     headers: &HashMap<String, String>,
     signing_key: &[u8],
-) -> Result<String, DeliveryError> {
+) -> std::result::Result<String, DeliveryError> {
     let config = HttpSigningConfig {
         algorithm: SignatureAlgorithm::Ed25519,
         required_headers: vec![
@@ -505,23 +477,14 @@ pub fn compute_signature(
 }
 
 /// Simple synchronous delivery interface for pushing a single Activity to a target inbox.
-///
-/// Wraps the full `FederationDeliveryService` for one-shot use (e.g., from route handlers).
 pub struct FederationDelivery;
 
 impl FederationDelivery {
-    /// Deliver an ActivityPub activity to a remote inbox URL.
-    ///
-    /// Performs an HTTP POST with Content-Type `application/activity+json`,
-    /// a SHA-256 Digest header, an HTTP Date header, and an HTTP Signature
-    /// (draft-cavage-http-signatures) signed with the provided Ed25519 key.
-    ///
-    /// Retries up to 3 times with exponential backoff (1s, 2s, 4s).
     pub async fn deliver_activity(
-        activity: &crate::federation::activitypub::Activity,
+        activity: &crate::activitypub::Activity,
         target_url: &str,
         signing_key: &[u8],
-    ) -> Result<(), DeliveryError> {
+    ) -> std::result::Result<(), DeliveryError> {
         let body = serde_json::to_vec(activity)
             .map_err(|e| DeliveryError::HttpClientError(format!("serialize activity: {e}")))?;
 
@@ -546,7 +509,6 @@ impl FederationDelivery {
                 tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
             }
 
-            // Build signing headers
             let mut sig_headers = HashMap::new();
             sig_headers.insert("(method)".into(), "POST".into());
             sig_headers.insert("(path)".into(), path.clone());
@@ -763,7 +725,7 @@ mod tests {
     #[test]
     fn test_compute_signature_returns_header_value() {
         let (private_key, _public_key) =
-            crate::federation::http_signatures::generate_ed25519_keypair();
+            crate::http_signatures::generate_ed25519_keypair();
         let mut headers = HashMap::new();
         headers.insert("(method)".into(), "POST".into());
         headers.insert("(path)".into(), "/users/alice/inbox".into());

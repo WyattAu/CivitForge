@@ -1017,10 +1017,15 @@ dependencies = [
  "civit-auth",
  "civit-ci",
  "civit-db",
+ "civit-federation",
  "civit-git",
  "civit-pipeline",
+ "civit-security",
  "civit-shared",
  "civit-storage",
+ "civit-telemetry",
+ "civit-types",
+ "civit-workflow",
  "dashmap",
  "flate2",
  "futures",
@@ -1107,6 +1112,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "civit-federation"
+version = "1.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "dashmap",
+ "hex",
+ "hmac 0.12.1",
+ "rand 0.10.1",
+ "regex",
+ "reqwest",
+ "ring",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "civit-git"
 version = "1.1.0"
 dependencies = [
@@ -1169,6 +1195,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "civit-security"
+version = "1.1.0"
+dependencies = [
+ "aes-gcm 0.10.3",
+ "chrono",
+ "civit-types",
+ "rand 0.10.1",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "civit-shard"
 version = "1.1.0"
 dependencies = [
@@ -1214,6 +1258,32 @@ dependencies = [
  "tower-http",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "civit-telemetry"
+version = "1.1.0"
+dependencies = [
+ "chrono",
+ "dashmap",
+ "hex",
+ "rand 0.10.1",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror 2.0.18",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "civit-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1264,6 +1334,27 @@ dependencies = [
  "tonic-build",
  "tracing",
  "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "civit-workflow"
+version = "1.1.0"
+dependencies = [
+ "chrono",
+ "civit-db",
+ "civit-pipeline",
+ "civit-types",
+ "hex",
+ "hmac 0.12.1",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sqlx",
+ "tar",
+ "tokio",
+ "tracing",
  "uuid",
 ]
 

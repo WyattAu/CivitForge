@@ -8,7 +8,7 @@
 //!
 //! No new crate dependencies — reuses `reqwest`, `serde`, `serde_json`, `chrono`.
 
-use super::opentelemetry::{
+use crate::opentelemetry::{
     InstrumentationProvider, MetricInstrument, MetricPoint, MetricType, OtSpan, OtelAttribute,
     Resource, SpanKind, SpanStatus,
 };
@@ -811,7 +811,7 @@ fn chrono_to_nano(dt: chrono::DateTime<chrono::Utc>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::telemetry::opentelemetry::MetricDefinition;
+    use crate::opentelemetry::MetricDefinition;
 
     fn make_resource() -> Resource {
         Resource {

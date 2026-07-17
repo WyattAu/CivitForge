@@ -52,11 +52,16 @@ bcrypt = "0.17"
 ldap3 = { version = "0.11", default-features = false, features = ["tls", "sync"] }
 civit-shared = { path = "../civit-shared" }
 civit-pipeline = { path = "../civit-pipeline" }
+civit-federation = { path = "../civit-federation" }
 civit-ci = { path = "../civit-ci" }
 civit-storage = { path = "../civit-storage" }
 civit-db = { path = "../civit-db" }
 civit-git = { path = "../civit-git" }
 civit-auth = { path = "../civit-auth" }
+civit-types = { path = "../civit-types" }
+civit-telemetry = { path = "../civit-telemetry" }
+civit-security = { path = "../civit-security" }
+civit-workflow = { path = "../civit-workflow" }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

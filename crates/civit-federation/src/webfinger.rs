@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::error::{CoreError, Result};
+use crate::error::{FedError, Result};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
@@ -25,7 +25,7 @@ pub struct Link {
 /// remote server is unreachable, ensuring callers always get a usable result.
 pub async fn resolve_webfinger(domain: &str, username: &str) -> Result<WebFingerResponse> {
     if domain.is_empty() || username.is_empty() {
-        return Err(CoreError::Federation(
+        return Err(FedError(
             "domain and username must be non-empty".into(),
         ));
     }
@@ -36,7 +36,7 @@ pub async fn resolve_webfinger(domain: &str, username: &str) -> Result<WebFinger
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
-        .map_err(|e| CoreError::Federation(format!("HTTP client error: {e}")))?;
+        .map_err(|e| FedError(format!("HTTP client error: {e}")))?;
 
     match client.get(&url).send().await {
         Ok(resp) if resp.status().is_success() => match resp.json::<serde_json::Value>().await {
@@ -169,7 +169,7 @@ pub fn verify_http_signature(
     headers: &HashMap<String, String>,
 ) -> Result<bool> {
     if signature.key_id.is_empty() || signature.signature.is_empty() {
-        return Err(CoreError::Federation(
+        return Err(FedError(
             "key_id and signature must be non-empty".into(),
         ));
     }
@@ -201,7 +201,7 @@ pub fn verify_http_signature_ed25519(
     headers: &HashMap<String, String>,
 ) -> Result<bool> {
     if signature.key_id.is_empty() || signature.signature.is_empty() {
-        return Err(CoreError::Federation(
+        return Err(FedError(
             "key_id and signature must be non-empty".into(),
         ));
     }
@@ -221,7 +221,7 @@ pub fn verify_http_signature_ed25519(
         &base64::engine::general_purpose::STANDARD,
         &signature.signature,
     )
-    .map_err(|_| CoreError::Federation("invalid base64 signature".into()))?;
+    .map_err(|_| FedError("invalid base64 signature".into()))?;
 
     let public_key =
         ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
@@ -240,7 +240,7 @@ pub fn create_http_signature(
     headers: &HashMap<String, String>,
 ) -> Result<HttpSignature> {
     if key_id.is_empty() || private_key.is_empty() {
-        return Err(CoreError::Federation(
+        return Err(FedError(
             "key_id and private_key must be non-empty".into(),
         ));
     }
@@ -275,7 +275,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_webfinger_fallback() {
-        // Unreachable domain should fall back to constructed response
         let response = resolve_webfinger("nonexistent.invalid.tld", "alice")
             .await
             .unwrap();
@@ -329,7 +328,6 @@ mod tests {
         let body = serde_json::json!({});
         let result = parse_webfinger_json(&body, "acct:a@b.com", "b.com", "a").unwrap();
         assert_eq!(result.subject, "acct:a@b.com");
-        // Fallback aliases/links used when JSON fields missing
         assert_eq!(result.aliases.len(), 2);
         assert_eq!(result.links.len(), 2);
     }

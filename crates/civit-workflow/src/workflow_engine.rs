@@ -12,7 +12,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 use civit_db::models::{WorkflowTemplateV8, WorkflowTemplateReviewV7, WorkflowTemplateV10, WorkflowTemplateReviewV9, WorkflowTemplateV11, WorkflowTemplateReviewV10, WorkflowTemplateV12, WorkflowTemplateReviewV11, WorkflowTemplateV13, WorkflowTemplateReviewV12, WorkflowTemplateV14, WorkflowTemplateReviewV13, WorkflowTemplateV15, WorkflowTemplateReviewV14, WorkflowTemplateV16, WorkflowTemplateReviewV15, WorkflowTemplateV17, WorkflowTemplateReviewV16, WorkflowTemplateV18, WorkflowTemplateReviewV17, WorkflowTemplateV19, WorkflowTemplateReviewV18, WorkflowVersionControlV20, WorkflowBranchV20};
 
-use crate::shared_types::RunStatus;
+use civit_types::RunStatus;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Workflow {

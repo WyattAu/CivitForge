@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::automation_rules::*;
-use crate::shared_types::ExecutionResult;
+use civit_types::ExecutionResult;
 use chrono::Utc;
 use uuid::Uuid;
 

@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 
-use crate::error::{CoreError, Result};
-use crate::federation::activitypub::{Activity, ActivityObject, ActivityType};
+use crate::error::{FedError, Result};
+use crate::activitypub::{Activity, ActivityObject, ActivityType};
+use crate::webfinger::WebFingerResponse;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -557,15 +558,10 @@ impl ForgeFedProcessor {
         }
     }
 
-    /// Verify signature using SHA-256 hash comparison (insecure, legacy).
-    ///
-    /// WARNING: This is NOT cryptographic signature verification. It compares a
-    /// hash of payload+key_id against the signature. Use `verify_signature_ed25519`
-    /// for real cryptographic verification.
     #[deprecated(note = "Use verify_signature_ed25519 for real crypto verification")]
     pub fn verify_signature(payload: &str, signature: &str, key_id: &str) -> Result<bool> {
         if payload.is_empty() || signature.is_empty() || key_id.is_empty() {
-            return Err(CoreError::Federation(
+            return Err(FedError(
                 "payload, signature, and key_id must all be non-empty".into(),
             ));
         }
@@ -578,10 +574,6 @@ impl ForgeFedProcessor {
         Ok(signature == expected)
     }
 
-    /// Verify a ForgeFed activity signature using Ed25519 cryptographic verification.
-    ///
-    /// `public_key_bytes` must be the raw 32-byte Ed25519 public key of the signing actor.
-    /// `signature` must be the base64-encoded 64-byte Ed25519 signature.
     pub fn verify_signature_ed25519(
         payload: &str,
         signature: &str,
@@ -589,7 +581,7 @@ impl ForgeFedProcessor {
         public_key_bytes: &[u8],
     ) -> Result<bool> {
         if payload.is_empty() || signature.is_empty() || key_id.is_empty() {
-            return Err(CoreError::Federation(
+            return Err(FedError(
                 "payload, signature, and key_id must all be non-empty".into(),
             ));
         }
@@ -600,7 +592,7 @@ impl ForgeFedProcessor {
 
         let signature_bytes =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, signature)
-                .map_err(|_| CoreError::Federation("invalid base64 signature".into()))?;
+                .map_err(|_| FedError("invalid base64 signature".into()))?;
 
         let public_key =
             ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key_bytes);
@@ -611,8 +603,6 @@ impl ForgeFedProcessor {
         }
     }
 }
-
-use crate::federation::webfinger::WebFingerResponse;
 
 pub struct CrossInstanceIdentityResolver {
     cache: DashMap<String, WebFingerResponse>,

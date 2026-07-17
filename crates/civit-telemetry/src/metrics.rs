@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::telemetry::tracing_setup::MetricsSnapshot;
+use crate::tracing_setup::MetricsSnapshot;
 use dashmap::DashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
@@ -203,8 +203,8 @@ mod tests {
 
     #[test]
     fn test_validate_slo_meets_target() {
-        crate::telemetry::tracing_setup::reset_all_metrics();
-        crate::telemetry::tracing_setup::record_http_request(Duration::from_millis(30));
+        crate::tracing_setup::reset_all_metrics();
+        crate::tracing_setup::record_http_request(Duration::from_millis(30));
         let snap = MetricsSnapshot::capture();
         let report = validate_slo(&snap);
         assert!(report.meets_target);
@@ -213,8 +213,8 @@ mod tests {
 
     #[test]
     fn test_validate_slo_exceeds_target() {
-        crate::telemetry::tracing_setup::reset_all_metrics();
-        crate::telemetry::tracing_setup::record_http_request(Duration::from_millis(200));
+        crate::tracing_setup::reset_all_metrics();
+        crate::tracing_setup::record_http_request(Duration::from_millis(200));
         let snap = MetricsSnapshot::capture();
         let report = validate_slo(&snap);
         assert!(!report.meets_target);

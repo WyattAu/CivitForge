@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+pub mod error;
+
 pub mod activitypub;
 pub mod crdt;
 pub mod delivery;

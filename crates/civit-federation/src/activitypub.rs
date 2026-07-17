@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use crate::error::{CoreError, Result};
+use crate::error::{FedError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
@@ -107,26 +107,26 @@ impl InboxHandler {
 
     pub fn validate_actor(&self, actor: &Actor) -> Result<()> {
         if actor.id.is_empty() {
-            return Err(CoreError::Federation("actor id required".into()));
+            return Err(FedError("actor id required".into()));
         }
         if actor.inbox.is_empty() {
-            return Err(CoreError::Federation("actor inbox required".into()));
+            return Err(FedError("actor inbox required".into()));
         }
         if actor.preferred_username.is_empty() {
-            return Err(CoreError::Federation("actor username required".into()));
+            return Err(FedError("actor username required".into()));
         }
         Ok(())
     }
 
     pub fn validate_activity(&self, activity: &Activity) -> Result<()> {
         if activity.actor.is_empty() {
-            return Err(CoreError::Federation("activity actor required".into()));
+            return Err(FedError("activity actor required".into()));
         }
         if activity.id.is_empty() {
-            return Err(CoreError::Federation("activity id required".into()));
+            return Err(FedError("activity id required".into()));
         }
         if activity.to.is_empty() && activity.cc.is_empty() {
-            return Err(CoreError::Federation("activity needs recipient".into()));
+            return Err(FedError("activity needs recipient".into()));
         }
         Ok(())
     }

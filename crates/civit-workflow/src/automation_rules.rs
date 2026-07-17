@@ -12,7 +12,7 @@ use std::str::FromStr;
 use uuid::Uuid;
 use civit_db::models::{AutomationRuleV11, AutomationRuleV13, AutomationRuleV14, AutomationRuleV15, AutomationRuleV16, AutomationRuleV17, AutomationRuleV18, AutomationRuleV19, AutomationRuleV20, AutomationRuleV21, AutomationRuleV22, AutomationRuleTemplateV20, AutomationRuleTemplateRatingV20};
 
-use crate::shared_types::ExecutionResult;
+use civit_types::ExecutionResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutomationRule {
