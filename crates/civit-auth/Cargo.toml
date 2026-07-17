@@ -26,6 +26,7 @@ base64 = { workspace = true }
 webauthn-rs = { version = "0.5", optional = true, features = ["danger-credential-internals"] }
 url = { version = "2", optional = true }
 dashmap = { workspace = true, optional = true }
+parking_lot = { workspace = true }
 
 [features]
 default = []

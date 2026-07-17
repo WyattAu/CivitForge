@@ -76,7 +76,12 @@ pub mod marketplace;
 pub mod data_retention;
 pub mod database_replication;
 pub mod data_residency;
+pub mod data_portability;
+pub mod multi_region;
 pub mod tenant_isolation;
+pub mod compliance_config;
+pub mod sla_monitoring;
+pub mod compliance_reporting;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{
@@ -99,4 +104,5 @@ pub use security::{
     security_scanner, compliance, audit_trail, vuln_scanner, license_scanner,
     acl, firewall, intrusion_detection, ddos_protection,
     encryption, backup_encryption, secrets, network_policy,
+    audit_compliance,
 };

@@ -13,6 +13,7 @@ pub mod encryption;
 pub mod backup_encryption;
 pub mod secrets;
 pub mod network_policy;
+pub mod audit_compliance;
 
 #[cfg(test)]
 mod security_scanner_tests;

@@ -24,6 +24,8 @@ pub mod deployment_strategy;
 pub mod infrastructure;
 pub mod service_mesh;
 pub mod data_export;
+pub mod data_export_api;
+pub mod region_api;
 pub mod deploy_keys;
 pub mod deployments;
 pub mod deployment_history;
@@ -102,6 +104,9 @@ pub mod code_quality_rules_api;
 pub mod database_replication_api;
 pub mod data_residency_api;
 pub mod encryption_api;
+pub mod audit_api;
+pub mod sla_api;
+pub mod compliance_report_api;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -321,6 +326,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(rate_limiting_api::routes())
         .merge(usage_quotas::usage_quota_routes())
         .merge(data_export::export_routes())
+        .merge(data_export_api::data_export_routes())
+        .merge(region_api::region_routes())
         .merge(compliance::compliance_routes())
         .merge(observability_routes())
         .merge(chaos::chaos_routes())
@@ -337,6 +344,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(test_suite_management_api::test_suite_management_routes())
         .merge(code_quality_rules_api::code_quality_rules_routes())
         .merge(performance_testing_api::performance_testing_routes())
+        .merge(audit_api::audit_api_routes())
+        .merge(sla_api::sla_api_routes())
+        .merge(compliance_report_api::compliance_report_api_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
