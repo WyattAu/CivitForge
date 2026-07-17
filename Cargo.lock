@@ -315,6 +315,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast_node"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2eb025ef00a6da925cf40870b9c8d008526b6004ece399cb0974209720f0b194"
+dependencies = [
+ "quote",
+ "swc_macros_common",
+ "syn",
+]
+
+[[package]]
 name = "async-broadcast"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,7 +967,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlparser",
- "swc_common 12.0.1",
+ "swc_common 23.0.2",
  "swc_ecma_ast 12.0.0",
  "swc_ecma_parser",
  "swc_ecma_visit",
@@ -2395,6 +2406,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "from_variant"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5ff35a391aef949120a0340d690269b3d9f63460a6106e99bd07b961f345ea9"
+dependencies = [
+ "swc_macros_common",
+ "syn",
+]
+
+[[package]]
 name = "fs-err"
 version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3510,6 +3531,20 @@ dependencies = [
  "new_debug_unreachable",
  "once_cell",
  "rustc-hash 2.1.2",
+ "triomphe",
+]
+
+[[package]]
+name = "hstr"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83bb87e4b300d73412f6dcc7022ee7741452b51b155c2b06e5994d0770c2dbe2"
+dependencies = [
+ "hashbrown 0.14.5",
+ "new_debug_unreachable",
+ "once_cell",
+ "rustc-hash 2.1.2",
+ "serde",
  "triomphe",
 ]
 
@@ -7365,9 +7400,20 @@ version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d7077ba879f95406459bc0c81f3141c529b34580bc64d7ab7bd15e7118a0391"
 dependencies = [
- "hstr",
+ "hstr 1.1.6",
  "once_cell",
  "rustc-hash 2.1.2",
+ "serde",
+]
+
+[[package]]
+name = "swc_atoms"
+version = "9.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "845f31910b5236db42dba106e8277681098d183b9b65b8dfa88ca8abe464aeff"
+dependencies = [
+ "hstr 3.0.6",
+ "once_cell",
  "serde",
 ]
 
@@ -7378,11 +7424,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a56b6f5a8e5affa271b56757a93badee6f44defcd28f3ba106bb2603afe40d3d"
 dependencies = [
  "anyhow",
- "ast_node",
+ "ast_node 3.0.4",
  "better_scoped_tls",
  "cfg-if",
  "either",
- "from_variant",
+ "from_variant 2.0.2",
  "new_debug_unreachable",
  "num-bigint",
  "once_cell",
@@ -7390,11 +7436,11 @@ dependencies = [
  "serde",
  "siphasher 0.3.11",
  "swc_allocator",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_eq_ignore_macros",
  "swc_visit",
  "tracing",
- "unicode-width",
+ "unicode-width 0.1.14",
  "url",
 ]
 
@@ -7405,12 +7451,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd2adffdd9f42af6cfefa16b1aaa8a0984a21854637ef9d89332dd29420d4b23"
 dependencies = [
  "anyhow",
- "ast_node",
+ "ast_node 3.0.4",
  "better_scoped_tls",
  "bytes-str",
  "cfg-if",
  "either",
- "from_variant",
+ "from_variant 2.0.2",
  "new_debug_unreachable",
  "num-bigint",
  "once_cell",
@@ -7418,11 +7464,36 @@ dependencies = [
  "serde",
  "siphasher 0.3.11",
  "swc_allocator",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_eq_ignore_macros",
  "swc_visit",
  "tracing",
- "unicode-width",
+ "unicode-width 0.1.14",
+ "url",
+]
+
+[[package]]
+name = "swc_common"
+version = "23.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "176fb11b1abd0a175e8ac47d4b061c5c8a9ae13b9196f30d44fe5db9cb7dfcbd"
+dependencies = [
+ "anyhow",
+ "ast_node 5.0.0",
+ "better_scoped_tls",
+ "bytes-str",
+ "either",
+ "from_variant 3.0.0",
+ "num-bigint",
+ "once_cell",
+ "rustc-hash 2.1.2",
+ "serde",
+ "siphasher 0.3.11",
+ "swc_atoms 9.0.3",
+ "swc_eq_ignore_macros",
+ "swc_visit",
+ "tracing",
+ "unicode-width 0.2.2",
  "url",
 ]
 
@@ -7440,7 +7511,7 @@ dependencies = [
  "rustc-hash 2.1.2",
  "scoped-tls",
  "string_enum",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_common 9.2.0",
  "swc_visit",
  "unicode-id-start",
@@ -7460,7 +7531,7 @@ dependencies = [
  "rustc-hash 2.1.2",
  "scoped-tls",
  "string_enum",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_common 12.0.1",
  "swc_visit",
  "unicode-id-start",
@@ -7484,7 +7555,7 @@ dependencies = [
  "smallvec",
  "smartstring",
  "stacker",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_common 9.2.0",
  "swc_ecma_ast 9.0.0",
  "tracing",
@@ -7509,7 +7580,7 @@ dependencies = [
  "smallvec",
  "smartstring",
  "stacker",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_common 9.2.0",
  "swc_ecma_ast 9.0.0",
  "swc_ecma_lexer",
@@ -7525,7 +7596,7 @@ checksum = "0698960f28169c5eaa01127273aca31999bbbb6b1d3f2576ee5400daaa295d0a"
 dependencies = [
  "new_debug_unreachable",
  "num-bigint",
- "swc_atoms",
+ "swc_atoms 5.0.0",
  "swc_common 12.0.1",
  "swc_ecma_ast 12.0.0",
  "swc_visit",
@@ -8575,6 +8646,12 @@ name = "unicode-width"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
+
+[[package]]
+name = "unicode-width"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "unicode-xid"
