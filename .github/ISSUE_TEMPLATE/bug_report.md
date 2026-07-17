@@ -1,19 +1,16 @@
 ---
 name: Bug Report
-about: Report a bug in CivitForge
+about: Report a bug
 title: '[BUG] '
 labels: bug
 assignees: ''
 ---
 
 **Describe the bug**
-A clear description of what the bug is.
+A clear description of the bug.
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '...'
-3. See error
+**To reproduce**
+Steps to reproduce the behavior.
 
 **Expected behavior**
 What you expected to happen.
@@ -21,11 +18,7 @@ What you expected to happen.
 **Screenshots**
 If applicable, add screenshots.
 
-**Environment:**
+**Environment**
 - OS: [e.g., Ubuntu 22.04]
-- Rust version: [e.g., 1.88]
-- CivitForge version: [e.g., 2.1.3]
-- Database: [e.g., PostgreSQL 17]
-
-**Additional context**
-Add any other context about the problem here.
+- Rust version: [e.g., 1.96]
+- CivitForge version: [e.g., 3.0.0]

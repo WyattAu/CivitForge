@@ -1,8 +1,8 @@
 # CivitForge Version Tracker
 
-Version: 3.0.0
+Version: 3.0.1
 Last Updated: 2026-07-17
-Tests: 4,830 #[test] annotations (118 ignored, require PostgreSQL)
+Tests: 4,830 #[test] annotations (76 gated on `integration` feature)
 Clippy: 0 warnings
 Format: 0 violations
 
@@ -16,13 +16,13 @@ Format: 0 violations
 - Total .rs files: 613
 - Total lines of Rust: 347,247
 - Unit + integration tests: 4,830 #[test] annotations
-- Tests ignored (require PostgreSQL): 118
+- Tests ignored (require PostgreSQL): 118 (76 now gated on `integration` feature)
 - Clippy warnings: 0
 - Format violations: 0
 - `#![forbid(unsafe_code)]`: Enforced across all crates
 - API endpoints: ~85 routes (debug gated by --debug flag)
 - Migrations: 612 SQL migration files in civit-db
-- Versioned module files: 8 (_v*.rs)
+- Versioned module files: 6 (_v*.rs)
 - OpenAPI: v3.1 spec at /api/v1/openapi.json
 - WASM: Leptos CSR build via trunk
 - WASM rendering tests: gated on wasm32+csr
@@ -36,6 +36,22 @@ Format: 0 violations
 - Wiki: Git-backed via gix (bare repos with commit history)
 - Pre-commit hook: `.githooks/pre-commit` (emoji + conflict + large file + secret scan + fmt + clippy + test)
 - Formal verification scaffolding: `.specs/02_architecture/proofs/` (Lean4 proof sketches for hash, pipeline expr, CDC)
+
+## v3.0.1 Changes
+
+### File Cleanup
+- Renamed `pipeline_secrets_v2_api.rs` → `pipeline_secrets_api.rs`
+- Renamed `runners_v2_api.rs` → `runners_api.rs`
+- Reduced versioned module files from 8 to 6
+
+### Test Infrastructure
+- Replaced `#[ignore]` with `#[cfg(feature = "integration")]` for 76 PostgreSQL-dependent tests
+- Added `integration` feature to civit-core Cargo.toml
+- Removed "Requires PostgreSQL database" comments from gated tests
+
+### Developer Experience
+- Added GitHub issue templates (bug report + feature request)
+- Updated VERSION.md for v3.0.1
 
 ## v3.0.0 Changes
 

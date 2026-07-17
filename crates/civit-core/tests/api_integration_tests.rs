@@ -260,8 +260,7 @@ async fn create_repo(
 // Auth tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_register_success(pool: PgPool) {
     let config = test_config();
@@ -271,8 +270,7 @@ async fn test_register_success(pool: PgPool) {
     assert_eq!(json["user"]["username"], "alice");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_register_duplicate(pool: PgPool) {
     let config = test_config();
@@ -282,8 +280,7 @@ async fn test_register_duplicate(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_login_success(pool: PgPool) {
     let config = test_config();
@@ -294,8 +291,7 @@ async fn test_login_success(pool: PgPool) {
     assert!(!json["token"].as_str().unwrap().is_empty());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_login_wrong_password(pool: PgPool) {
     let config = test_config();
@@ -305,8 +301,7 @@ async fn test_login_wrong_password(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_login_locked_account(pool: PgPool) {
     let config = test_config();
@@ -319,8 +314,7 @@ async fn test_login_locked_account(pool: PgPool) {
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_me(pool: PgPool) {
     let config = test_config();
@@ -335,8 +329,7 @@ async fn test_me(pool: PgPool) {
 // Repos tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_repo(pool: PgPool) {
     let config = test_config();
@@ -347,8 +340,7 @@ async fn test_create_repo(pool: PgPool) {
     assert_eq!(json["visibility"], "public");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_repos(pool: PgPool) {
     let config = test_config();
@@ -362,8 +354,7 @@ async fn test_list_repos(pool: PgPool) {
     assert!(data.len() >= 2);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_repo(pool: PgPool) {
     let config = test_config();
@@ -375,8 +366,7 @@ async fn test_get_repo(pool: PgPool) {
     assert_eq!(json["name"], "target");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_repo(pool: PgPool) {
     let config = test_config();
@@ -390,8 +380,7 @@ async fn test_update_repo(pool: PgPool) {
     assert_eq!(json["description"], "Updated description");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_delete_repo(pool: PgPool) {
     let config = test_config();
@@ -404,8 +393,7 @@ async fn test_delete_repo(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_star_toggle(pool: PgPool) {
     let config = test_config();
@@ -423,8 +411,7 @@ async fn test_star_toggle(pool: PgPool) {
     assert!(json["starred"].as_bool().unwrap());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_watch_toggle(pool: PgPool) {
     let config = test_config();
@@ -442,8 +429,7 @@ async fn test_watch_toggle(pool: PgPool) {
     assert!(json["watched"].as_bool().unwrap());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_set_topics(pool: PgPool) {
     let config = test_config();
@@ -463,8 +449,7 @@ async fn test_set_topics(pool: PgPool) {
     assert!(topics.contains(&serde_json::json!("rust")));
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_archive_toggle(pool: PgPool) {
     let config = test_config();
@@ -486,8 +471,7 @@ async fn test_archive_toggle(pool: PgPool) {
 // Issues tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_issue(pool: PgPool) {
     let config = test_config();
@@ -507,8 +491,7 @@ async fn test_create_issue(pool: PgPool) {
     assert_eq!(json["status"], "open");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_issues(pool: PgPool) {
     let config = test_config();
@@ -542,8 +525,7 @@ async fn test_list_issues(pool: PgPool) {
     assert!(data.len() >= 2);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_issue(pool: PgPool) {
     let config = test_config();
@@ -569,8 +551,7 @@ async fn test_get_issue(pool: PgPool) {
     assert_eq!(json["title"], "My issue");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_issue(pool: PgPool) {
     let config = test_config();
@@ -598,8 +579,7 @@ async fn test_update_issue(pool: PgPool) {
     assert_eq!(json["title"], "Updated title");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_add_comment(pool: PgPool) {
     let config = test_config();
@@ -627,8 +607,7 @@ async fn test_add_comment(pool: PgPool) {
     assert_eq!(json["body"], "Nice work!");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_toggle_pin(pool: PgPool) {
     let config = test_config();
@@ -655,8 +634,7 @@ async fn test_toggle_pin(pool: PgPool) {
     assert!(json["is_pinned"].as_bool().unwrap());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_toggle_lock(pool: PgPool) {
     let config = test_config();
@@ -683,8 +661,7 @@ async fn test_toggle_lock(pool: PgPool) {
     assert!(json["is_locked"].as_bool().unwrap());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_log_time(pool: PgPool) {
     let config = test_config();
@@ -712,8 +689,7 @@ async fn test_log_time(pool: PgPool) {
     assert_eq!(json["hours"], 2.5);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_time(pool: PgPool) {
     let config = test_config();
@@ -751,8 +727,7 @@ async fn test_get_time(pool: PgPool) {
 // Pull Requests tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_pull_request(pool: PgPool) {
     let config = test_config();
@@ -777,8 +752,7 @@ async fn test_create_pull_request(pool: PgPool) {
     assert_eq!(json["status"], "open");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_pull_requests(pool: PgPool) {
     let config = test_config();
@@ -820,8 +794,7 @@ async fn test_list_pull_requests(pool: PgPool) {
     assert!(items.len() >= 2);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_pull_request(pool: PgPool) {
     let config = test_config();
@@ -851,8 +824,7 @@ async fn test_get_pull_request(pool: PgPool) {
     assert_eq!(json["title"], "My PR");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_pr_patch(pool: PgPool) {
     let config = test_config();
@@ -890,8 +862,7 @@ async fn test_pr_patch(pool: PgPool) {
 // Labels tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_label(pool: PgPool) {
     let config = test_config();
@@ -910,8 +881,7 @@ async fn test_create_label(pool: PgPool) {
     assert_eq!(json["name"], "bug");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_labels(pool: PgPool) {
     let config = test_config();
@@ -941,8 +911,7 @@ async fn test_list_labels(pool: PgPool) {
 // Milestones tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_milestone(pool: PgPool) {
     let config = test_config();
@@ -961,8 +930,7 @@ async fn test_create_milestone(pool: PgPool) {
     assert_eq!(json["title"], "v1.0 Release");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_milestones(pool: PgPool) {
     let config = test_config();
@@ -992,8 +960,7 @@ async fn test_list_milestones(pool: PgPool) {
 // Wiki tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_wiki(pool: PgPool) {
     let config = test_config();
@@ -1016,8 +983,7 @@ async fn test_create_wiki(pool: PgPool) {
     assert_eq!(json["slug"], "home");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_wiki(pool: PgPool) {
     let config = test_config();
@@ -1051,8 +1017,7 @@ async fn test_list_wiki(pool: PgPool) {
 // Webhooks tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_webhook(pool: PgPool) {
     let config = test_config();
@@ -1074,8 +1039,7 @@ async fn test_create_webhook(pool: PgPool) {
     assert_eq!(json["url"], "https://example.com/hook");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_webhooks(pool: PgPool) {
     let config = test_config();
@@ -1105,8 +1069,7 @@ async fn test_list_webhooks(pool: PgPool) {
 // Releases tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_release(pool: PgPool) {
     let config = test_config();
@@ -1129,8 +1092,7 @@ async fn test_create_release(pool: PgPool) {
     assert_eq!(json["tag_name"], "v1.0.0");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_releases(pool: PgPool) {
     let config = test_config();
@@ -1160,8 +1122,7 @@ async fn test_list_releases(pool: PgPool) {
 // Branch Protection tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_set_branch_protection(pool: PgPool) {
     let config = test_config();
@@ -1186,8 +1147,7 @@ async fn test_set_branch_protection(pool: PgPool) {
     assert!(json["require_pull_request"].as_bool().unwrap());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_branch_protection(pool: PgPool) {
     let config = test_config();
@@ -1217,8 +1177,7 @@ async fn test_get_branch_protection(pool: PgPool) {
 // Search tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_global_search(pool: PgPool) {
     let config = test_config();
@@ -1232,8 +1191,7 @@ async fn test_global_search(pool: PgPool) {
 // Environments tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_environment(pool: PgPool) {
     let config = test_config();
@@ -1252,8 +1210,7 @@ async fn test_create_environment(pool: PgPool) {
     assert_eq!(json["name"], "production");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_environments(pool: PgPool) {
     let config = test_config();
@@ -1283,8 +1240,7 @@ async fn test_list_environments(pool: PgPool) {
 // Deployments tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_create_deployment(pool: PgPool) {
     let config = test_config();
@@ -1303,8 +1259,7 @@ async fn test_create_deployment(pool: PgPool) {
     assert_eq!(json["sha"], "abc123def456");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_deployments(pool: PgPool) {
     let config = test_config();
@@ -1334,8 +1289,7 @@ async fn test_list_deployments(pool: PgPool) {
 // Merge Queue tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_merge_queue_add_and_list(pool: PgPool) {
     let config = test_config();
@@ -1379,8 +1333,7 @@ async fn test_merge_queue_add_and_list(pool: PgPool) {
 // Users tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_users(pool: PgPool) {
     let config = test_config();
@@ -1392,8 +1345,7 @@ async fn test_list_users(pool: PgPool) {
     assert!(!data.is_empty());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_user(pool: PgPool) {
     let config = test_config();
@@ -1405,8 +1357,7 @@ async fn test_get_user(pool: PgPool) {
     assert_eq!(json["username"], "ugetter");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_profile(pool: PgPool) {
     let config = test_config();
@@ -1427,8 +1378,7 @@ async fn test_update_profile(pool: PgPool) {
 // Notifications tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_notifications(pool: PgPool) {
     let config = test_config();
@@ -1442,8 +1392,7 @@ async fn test_list_notifications(pool: PgPool) {
 // Activity tests
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_list_activity(pool: PgPool) {
     let config = test_config();
@@ -1457,8 +1406,7 @@ async fn test_list_activity(pool: PgPool) {
 // Health check
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_health(pool: PgPool) {
     let config = test_config();
@@ -1479,8 +1427,7 @@ async fn test_health(pool: PgPool) {
 // OIDC token exchange
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_oidc_exchange(pool: PgPool) {
     let config = test_config();
@@ -1496,8 +1443,7 @@ async fn test_oidc_exchange(pool: PgPool) {
     assert!(json["linked"].as_bool().unwrap());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_oidc_exchange_missing_provider(pool: PgPool) {
     let config = test_config();
@@ -1508,8 +1454,7 @@ async fn test_oidc_exchange_missing_provider(pool: PgPool) {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_oidc_exchange_no_auth(pool: PgPool) {
     let config = test_config();
@@ -1523,8 +1468,7 @@ async fn test_oidc_exchange_no_auth(pool: PgPool) {
 // Site settings CRUD
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_site_settings_default(pool: PgPool) {
     let config = test_config();
@@ -1534,8 +1478,7 @@ async fn test_get_site_settings_default(pool: PgPool) {
     assert_eq!(json["site_name"], "CivitForge");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_site_settings(pool: PgPool) {
     let config = test_config();
@@ -1552,8 +1495,7 @@ async fn test_update_site_settings(pool: PgPool) {
     assert_eq!(json["footer_text"], "(c) 2025");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_get_site_settings_after_update(pool: PgPool) {
     let config = test_config();
@@ -1570,8 +1512,7 @@ async fn test_get_site_settings_after_update(pool: PgPool) {
 // Issue analytics
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_issue_analytics(pool: PgPool) {
     let config = test_config();
@@ -1597,8 +1538,7 @@ async fn test_issue_analytics(pool: PgPool) {
     assert!(json["open_count"].as_i64().unwrap() >= 1);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_issue_analytics_repo_not_found(pool: PgPool) {
     let config = test_config();
@@ -1617,8 +1557,7 @@ async fn test_issue_analytics_repo_not_found(pool: PgPool) {
 // Merge queue remove
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_merge_queue_remove(pool: PgPool) {
     let config = test_config();
@@ -1660,8 +1599,7 @@ async fn test_merge_queue_remove(pool: PgPool) {
 // Environments update and delete
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_environment(pool: PgPool) {
     let config = test_config();
@@ -1689,8 +1627,7 @@ async fn test_update_environment(pool: PgPool) {
     assert_eq!(json["name"], "staging-updated");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_delete_environment(pool: PgPool) {
     let config = test_config();
@@ -1715,8 +1652,7 @@ async fn test_delete_environment(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_delete_environment_not_found(pool: PgPool) {
     let config = test_config();
@@ -1737,8 +1673,7 @@ async fn test_delete_environment_not_found(pool: PgPool) {
 // Deployments update status
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_deployment_status(pool: PgPool) {
     let config = test_config();
@@ -1766,8 +1701,7 @@ async fn test_update_deployment_status(pool: PgPool) {
     assert_eq!(json["status"], "success");
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_deployment_status_invalid(pool: PgPool) {
     let config = test_config();
@@ -1794,8 +1728,7 @@ async fn test_update_deployment_status_invalid(pool: PgPool) {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_update_deployment_status_not_found(pool: PgPool) {
     let config = test_config();
@@ -1818,8 +1751,7 @@ async fn test_update_deployment_status_not_found(pool: PgPool) {
 // Branch protection toggle (set then update)
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_branch_protection_update(pool: PgPool) {
     let config = test_config();
@@ -1858,8 +1790,7 @@ async fn test_branch_protection_update(pool: PgPool) {
 // Code search
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_global_code_search_empty(pool: PgPool) {
     let config = test_config();
@@ -1869,8 +1800,7 @@ async fn test_global_code_search_empty(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_global_code_search_missing_q(pool: PgPool) {
     let config = test_config();
@@ -1880,8 +1810,7 @@ async fn test_global_code_search_missing_q(pool: PgPool) {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_repo_search_languages(pool: PgPool) {
     let config = test_config();
@@ -1901,8 +1830,7 @@ async fn test_repo_search_languages(pool: PgPool) {
 // Notifications read/unread
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_notifications_unread_count(pool: PgPool) {
     let config = test_config();
@@ -1913,8 +1841,7 @@ async fn test_notifications_unread_count(pool: PgPool) {
     assert_eq!(json["count"], 0);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_notifications_mark_read_not_found(pool: PgPool) {
     let config = test_config();
@@ -1931,8 +1858,7 @@ async fn test_notifications_mark_read_not_found(pool: PgPool) {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_notifications_list_with_read_filter(pool: PgPool) {
     let config = test_config();
@@ -1946,8 +1872,7 @@ async fn test_notifications_list_with_read_filter(pool: PgPool) {
 // Activity feed
 // ===========================================================================
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_activity_with_pagination(pool: PgPool) {
     let config = test_config();
@@ -1960,8 +1885,7 @@ async fn test_activity_with_pagination(pool: PgPool) {
     assert!(pagination.get("per_page").is_some());
 }
 
-// Requires PostgreSQL database
-#[ignore]
+#[cfg(feature = "integration")]
 #[sqlx::test(migrations = "../civit-db/src/migrations")]
 async fn test_activity_unauthenticated(pool: PgPool) {
     let config = test_config();

@@ -66,8 +66,8 @@ pub mod pipeline_schedules;
 pub mod pipeline_secrets;
 pub mod pipeline_artifacts;
 pub mod pipeline_environments;
-pub mod pipeline_secrets_v2_api;
-pub mod runners_v2_api;
+pub mod pipeline_secrets_api;
+pub mod runners_api;
 pub mod environment_variables_api;
 pub mod pipelines;
 pub mod pr_templates;
@@ -205,8 +205,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(pipeline_actions::pipeline_action_routes())
         .merge(pipeline_caches::pipeline_cache_routes())
         .merge(runners::runner_routes())
-        .merge(pipeline_secrets_v2_api::pipeline_secrets_v2_routes())
-        .merge(runners_v2_api::runners_v2_routes())
+        .merge(pipeline_secrets_api::pipeline_secrets_v2_routes())
+        .merge(runners_api::runners_v2_routes())
         .merge(environment_variables_api::environment_variables_routes())
         .merge(oci::registry_routes())
         .merge(issues::issue_routes())

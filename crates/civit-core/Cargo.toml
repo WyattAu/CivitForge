@@ -80,6 +80,7 @@ harness = false
 default = ["webauthn"]
 webauthn = ["civit-auth/webauthn"]
 ssh-server = ["dep:russh"]
+integration = []
 
 [[bin]]
 name = "civit-bench"

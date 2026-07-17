@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature
+about: Suggest a feature
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''
@@ -13,7 +13,7 @@ A clear description of the problem.
 What you want to happen.
 
 **Describe alternatives you've considered**
-Other solutions you've considered.
+Other solutions you've thought about.
 
 **Additional context**
-Add any other context.
+Any other context or screenshots.
