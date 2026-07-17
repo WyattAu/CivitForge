@@ -56,7 +56,7 @@ swc_common = { version = "12", optional = true }
 sqlparser = { version = "0.62", optional = true }
 
 # Optional tree-sitter parsers (feature-gated, requires C compiler)
-tree-sitter = { version = "0.24", optional = true }
+tree-sitter = { version = "0.26", optional = true }
 tree-sitter-python = { version = "0.25", optional = true }
 tree-sitter-go = { version = "0.25", optional = true }
 tree-sitter-c = { version = "0.24", optional = true }
