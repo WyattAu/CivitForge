@@ -2187,6 +2187,23 @@ mod tests {
         let req: TriggerPipelineRequest = serde_json::from_str(json).unwrap();
         assert!(req.changed_files.is_empty());
     }
+
+    #[test]
+    fn test_pipeline_run_response_long_strings() {
+        let resp = PipelineRunResponse {
+            id: "a".repeat(1000),
+            repo_id: "b".repeat(1000),
+            trigger: "c".repeat(1000),
+            ref_name: Some("d".repeat(1000)),
+            commit_sha: "e".repeat(1000),
+            status: "f".repeat(1000),
+            created_at: "2025-01-01T00:00:00Z".into(),
+            started_at: None,
+            finished_at: None,
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains(&"a".repeat(1000)));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -2363,26 +2380,4 @@ pub async fn get_deployment_analytics_v19(
         "rollbacks": stats.2,
         "recent_versions": versions
     }))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_pipeline_run_response_long_strings() {
-        let resp = PipelineRunResponse {
-            id: "a".repeat(1000),
-            repo_id: "b".repeat(1000),
-            trigger: "c".repeat(1000),
-            ref_name: Some("d".repeat(1000)),
-            commit_sha: "e".repeat(1000),
-            status: "f".repeat(1000),
-            created_at: "2025-01-01T00:00:00Z".into(),
-            started_at: None,
-            finished_at: None,
-        };
-        let json = serde_json::to_string(&resp).unwrap();
-        assert!(json.contains(&"a".repeat(1000)));
-    }
 }

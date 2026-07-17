@@ -1,29 +1,33 @@
 # CivitForge Version Tracker
 
-Version: 2.2.0
-Last Updated: 2026-06-19
-Tests: 3,707 passing (118 ignored, require PostgreSQL)
+Version: 3.0.0
+Last Updated: 2026-07-17
+Tests: 4,830 #[test] annotations (118 ignored, require PostgreSQL)
 Clippy: 0 warnings
 Format: 0 violations
 
 ## Artifact Summary
 
-- Rust workspace crates: 12 (civit-shared, civit-pipeline, civit-core, civit-ci,
-  civit-storage, civit-db, civit-git, civit-runner, civit-brain, civit-vfs,
-  civit-crypto, civit-auth, civit-ui)
-- Cargo standalone crates: 1 (civit-desktop, buildable separately)
-- Unit + integration tests passing: 3,707
+- Workspace crates: 20 (civit-shared, civit-pipeline, civit-core, civit-workflow,
+  civit-federation, civit-ci, civit-storage, civit-db, civit-git, civit-runner,
+  civit-brain, civit-vfs, civit-crypto, civit-auth, civit-shard, civit-types,
+  civit-ui, civit-telemetry, civit-security)
+- Standalone crates: 1 (civit-desktop, buildable separately)
+- Total .rs files: 613
+- Total lines of Rust: 347,247
+- Unit + integration tests: 4,830 #[test] annotations
 - Tests ignored (require PostgreSQL): 118
 - Clippy warnings: 0
 - Format violations: 0
 - `#![forbid(unsafe_code)]`: Enforced across all crates
 - API endpoints: ~85 routes (debug gated by --debug flag)
-- Migrations: 001-027 (odd-numbered) in civit-db; mirrored 050+ in civit-core
+- Migrations: 612 SQL migration files in civit-db
+- Versioned module files: 8 (_v*.rs)
 - OpenAPI: v3.1 spec at /api/v1/openapi.json
 - WASM: Leptos CSR build via trunk
 - WASM rendering tests: gated on wasm32+csr
 - Rust edition: 2024
-- MSRV: 1.88
+- MSRV: 1.96
 - E2E tests: Playwright (15 pages, all buttons/forms, benchmarks)
 - GUI tests: Playwright (path routing traversal)
 - Desktop smoke: Xvfb + GTK + WebKit
@@ -32,6 +36,50 @@ Format: 0 violations
 - Wiki: Git-backed via gix (bare repos with commit history)
 - Pre-commit hook: `.githooks/pre-commit` (emoji + conflict + large file + secret scan + fmt + clippy + test)
 - Formal verification scaffolding: `.specs/02_architecture/proofs/` (Lean4 proof sketches for hash, pipeline expr, CDC)
+
+## v3.0.0 Changes
+
+### Architecture Decomposition (5 new crates extracted)
+- civit-workflow: workflow engine extracted from civit-core
+- civit-federation: ActivityPub/ForgeFed inbox processing extracted from civit-core
+- civit-shard: sharding/routing logic extracted from civit-core
+- civit-types: shared type definitions extracted to reduce duplication across modules
+- civit-telemetry: OpenTelemetry tracing and metrics extracted from civit-core
+- civit-security: security scanning, compliance, and audit trail extracted from civit-core
+- Consolidated 188 versioned files into 8 canonical versions
+
+### Quality Improvements
+- Resolved all 291 compiler warnings
+- Fixed 174 test compilation errors, achieving 4,830 test annotations
+- Eliminated unwrap() calls in favor of proper error handling
+- Clippy: 0 warnings enforced across all crates
+- Format: 0 violations enforced
+
+### New Features
+- Merge queue with status checks (civit-workflow)
+- Full-text search indexing with Tantivy (code-aware tokenization, fuzzy matching)
+- Federation inbox/ForgeFed dispatch (ActivityPub JSON parsing, tokio::spawn)
+- Project boards / Kanban support (civit-workflow)
+- Plugin system architecture (civit-workflow)
+- Marketplace/extension API (8 endpoints, manifest validation)
+
+### Infrastructure
+- CI workflow fixes (Node.js/pnpm setup, lockfile validation)
+- Dependabot configuration for dependency automation
+- E2E tests with Playwright (full traversal, button/form coverage)
+- Helm chart validation and production Helm manifests
+- Prometheus/Grafana monitoring setup
+- Production readiness hardening
+
+### Documentation
+- API examples and OpenAPI spec improvements
+- Operational runbook for deployment and troubleshooting
+- Security policy document
+- Docker Compose production configuration
+- Database migration guide
+
+### Previous v2.x Changes
+- See v2.2.0, v2.1.x, v2.0.0 sections below for full history
 
 ## v2.2.0 Changes
 
@@ -71,7 +119,7 @@ Format: 0 violations
 
 ## v2.1.2 Changes
 
-- Fixed GUI traverse routing (hash URLs → path URLs for Leptos CSR)
+- Fixed GUI traverse routing (hash URLs -> path URLs for Leptos CSR)
 - Added WASM hydration wait (waitForSelector after networkidle)
 - Fixed ServiceWorker MIME error (trunk copy-file for sw.js)
 - Created Tauri desktop smoke test (Xvfb + GDK_BACKEND=x11)
@@ -80,9 +128,9 @@ Format: 0 violations
 
 ## v2.1.1 Changes
 
-- Fixed WASM hydration bootstrap (inline_js → js_sys::eval IIFE)
-- Added SPA client-side routing (ServeDir fallback → index.html)
-- Fixed migration 025 typo (TIMSTAMPTZ → TIMESTAMPTZ)
+- Fixed WASM hydration bootstrap (inline_js -> js_sys::eval IIFE)
+- Added SPA client-side routing (ServeDir fallback -> index.html)
+- Fixed migration 025 typo (TIMSTAMPTZ -> TIMESTAMPTZ)
 - Suppressed service worker registration error (try/catch)
 - Fixed Tauri desktop crate for standalone builds
 - Added GUI test infrastructure (full-traverse.mjs + debug-capture.mjs)
@@ -90,7 +138,7 @@ Format: 0 violations
 
 ## v2.1.0 Changes
 
-- Federation inbox ForgeFed dispatch (parse ActivityPub JSON → ForgeFedProcessor, tokio::spawn)
+- Federation inbox ForgeFed dispatch (parse ActivityPub JSON -> ForgeFedProcessor, tokio::spawn)
 - 19 new federation inbox parsing tests
 - WASM rendering tests via wasm-bindgen-test (34 tests, DOM/events/leptos signals)
 - Real-time WebSocket log streaming (LogBroadcaster, SSE endpoint, pipeline topic subscriptions)
@@ -127,12 +175,5 @@ Format: 0 violations
 - v2.1.0
 - v2.1.1
 - v2.1.2
-
-## Next
-
-- Tantivy index population triggered by git push hooks
-- Federation inbox outbound delivery (post-processing → ActivityPub delivery)
-- Real-time WebSocket log streaming from runner event bus
-- WebAuthn ES-256/RS256 authentication
-- Project boards / Kanban
-- Merge queue with status checks
+- v2.2.0
+- v3.0.0

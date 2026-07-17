@@ -315,6 +315,10 @@ mod tests {
             env: None,
             secrets: None,
             services: None,
+            before: None,
+            after: None,
+            environment: None,
+            artifacts_from: None,
             steps: vec![Step {
                 name: "test".to_string(),
                 description: None,
@@ -358,6 +362,10 @@ mod tests {
             env: None,
             secrets: None,
             services: None,
+            before: None,
+            after: None,
+            environment: None,
+            artifacts_from: None,
             steps: vec![Step {
                 name: "test".to_string(),
                 description: None,
@@ -402,6 +410,10 @@ mod tests {
             env: None,
             secrets: None,
             services: None,
+            before: None,
+            after: None,
+            environment: None,
+            artifacts_from: None,
             steps: vec![Step {
                 name: "test".to_string(),
                 description: None,
@@ -562,6 +574,10 @@ jobs:
             env: None,
             secrets: None,
             services: None,
+            before: None,
+            after: None,
+            environment: None,
+            artifacts_from: None,
             steps: vec![Step {
                 name: "test".to_string(),
                 description: None,
