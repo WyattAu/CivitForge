@@ -5,8 +5,8 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
-use crate::pipeline_secrets_v2::{
-    CreateSecretV2Request, PipelineSecretsV2Service, UpdateSecretV2Request,
+use crate::pipeline_secrets::{
+    CreateSecretRequest, PipelineSecretsService, UpdateSecretRequest,
 };
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
@@ -77,7 +77,7 @@ pub async fn list_secrets_v2(
         }
     };
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service.list_secrets(repo_id, None).await {
         Ok(secrets) => (axum::http::StatusCode::OK, Json(secrets)).into_response(),
         Err(e) => (
@@ -92,7 +92,7 @@ pub async fn create_secret_v2(
     State(state): State<AppState>,
     Path((owner, repo_name)): Path<(String, String)>,
     auth: AuthUser,
-    Json(req): Json<CreateSecretV2Request>,
+    Json(req): Json<CreateSecretRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
@@ -121,7 +121,7 @@ pub async fn create_secret_v2(
     // For now, we'll store the value as bytes directly (encryption would be added in production)
     let encrypted_value = req.value.as_bytes().to_vec();
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service.create_secret(repo_id, req, encrypted_value, user_id).await {
         Ok(secret) => (axum::http::StatusCode::CREATED, Json(secret)).into_response(),
         Err(e) => {
@@ -175,7 +175,7 @@ pub async fn get_secret_v2(
         Err(_) => None,
     };
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service.get_secret(repo_id, &secret_name, "all").await {
         Ok(Some(secret)) => {
             // Log access
@@ -199,7 +199,7 @@ pub async fn update_secret_v2(
     State(state): State<AppState>,
     Path((owner, repo_name, secret_name)): Path<(String, String, String)>,
     auth: AuthUser,
-    Json(req): Json<UpdateSecretV2Request>,
+    Json(req): Json<UpdateSecretRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let repo_id = match get_repo_id(pool, &owner, &repo_name).await {
@@ -227,7 +227,7 @@ pub async fn update_secret_v2(
 
     let encrypted_value = req.value.as_ref().map(|v| v.as_bytes().to_vec());
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service
         .update_secret(repo_id, &secret_name, "all", req, encrypted_value, user_id)
         .await
@@ -265,7 +265,7 @@ pub async fn delete_secret_v2(
         }
     };
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service.delete_secret(repo_id, &secret_name, "all").await {
         Ok(true) => (axum::http::StatusCode::NO_CONTENT, "").into_response(),
         Ok(false) => (
@@ -329,7 +329,7 @@ pub async fn rotate_secret_v2(
 
     let encrypted_value = new_value.as_bytes().to_vec();
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service
         .rotate_secret(repo_id, &secret_name, "all", encrypted_value, user_id, reason)
         .await
@@ -367,7 +367,7 @@ pub async fn get_rotation_log_v2(
         }
     };
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service.get_secret(repo_id, &secret_name, "all").await {
         Ok(Some(secret)) => match service.get_rotation_log(secret.id).await {
             Ok(log) => (axum::http::StatusCode::OK, Json(log)).into_response(),
@@ -414,7 +414,7 @@ pub async fn get_access_log_v2(
         }
     };
 
-    let service = PipelineSecretsV2Service::new(pool.clone());
+    let service = PipelineSecretsService::new(pool.clone());
     match service.get_secret(repo_id, &secret_name, "all").await {
         Ok(Some(secret)) => match service.get_access_log(secret.id).await {
             Ok(log) => (axum::http::StatusCode::OK, Json(log)).into_response(),
@@ -444,7 +444,7 @@ mod tests {
     #[test]
     fn test_create_secret_v2_request_deserialize() {
         let json = r#"{"name": "MY_TOKEN", "value": "abc123", "description": "Token", "environment": "production"}"#;
-        let req: CreateSecretV2Request = serde_json::from_str(json).unwrap();
+        let req: CreateSecretRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.name, "MY_TOKEN");
         assert_eq!(req.value, "abc123");
     }
@@ -452,7 +452,7 @@ mod tests {
     #[test]
     fn test_update_secret_v2_request_deserialize() {
         let json = r#"{"value": "new_value", "description": "Updated"}"#;
-        let req: UpdateSecretV2Request = serde_json::from_str(json).unwrap();
+        let req: UpdateSecretRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.value.as_deref(), Some("new_value"));
     }
 }

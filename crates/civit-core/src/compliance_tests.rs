@@ -1,8 +1,6 @@
 #![cfg(test)]
 
-use super::compliance_v24::*;
-use super::compliance_v22::{RequirementSeverityV22, EvidenceTypeV22};
-use super::compliance_v23::{ComplianceCheckTypeV23, ComplianceEvidenceItemV23};
+use super::compliance::*;
 use std::collections::HashMap;
 
 // --- AutomatedCheckV24 ---

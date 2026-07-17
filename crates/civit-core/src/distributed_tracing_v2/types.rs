@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1940,4 +1941,257 @@ pub struct CapacityPlanningDataV18 {
     pub time_to_capacity_hours: f64,
     pub utilization_score: f64,
     pub recommended_replicas: i32,
+}
+
+// V23 types (from distributed_tracing_v23.rs)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceAnomalyDetectionV19 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub anomaly_type: String,
+    pub severity: String,
+    pub detected_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
+    pub details: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceAnomalyDetectionV19 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub anomaly_type: String,
+    pub severity: Option<String>,
+    pub details: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TracePerformanceBaselineV19 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub endpoint: String,
+    pub p50_latency_ms: f64,
+    pub p95_latency_ms: f64,
+    pub p99_latency_ms: f64,
+    pub sample_count: i32,
+    pub last_updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTracePerformanceBaselineV19 {
+    pub service_name: String,
+    pub endpoint: String,
+    pub p50_latency_ms: f64,
+    pub p95_latency_ms: f64,
+    pub p99_latency_ms: f64,
+    pub sample_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateTracePerformanceBaselineV19 {
+    pub p50_latency_ms: Option<f64>,
+    pub p95_latency_ms: Option<f64>,
+    pub p99_latency_ms: Option<f64>,
+    pub sample_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceAnomalyAlertV23 {
+    pub id: Uuid,
+    pub anomaly_id: Uuid,
+    pub alert_type: String,
+    pub severity: String,
+    pub message: String,
+    pub acknowledged: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceRootCauseAnalysisV23 {
+    pub id: Uuid,
+    pub trace_id: String,
+    pub service_name: String,
+    pub endpoint: String,
+    pub root_cause: String,
+    pub confidence: f64,
+    pub contributing_factors: Vec<String>,
+    pub recommendations: Vec<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceAnomalyStatsV19 {
+    pub total_anomalies: i64,
+    pub unresolved_count: i64,
+    pub severity_counts: HashMap<String, i64>,
+    pub service_counts: HashMap<String, i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TracePerformanceStatsV19 {
+    pub total_baselines: i64,
+    pub avg_p50_latency_ms: f64,
+    pub avg_p95_latency_ms: f64,
+    pub avg_p99_latency_ms: f64,
+    pub services_with_baselines: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceAnomalyDetectionRequestV23 {
+    pub service_name: Option<String>,
+    pub endpoint: Option<String>,
+    pub severity: Option<String>,
+    pub since: Option<DateTime<Utc>>,
+    pub until: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceRootCauseRequestV23 {
+    pub trace_id: String,
+    pub include_recommendations: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceAlertIntegrationV23 {
+    pub anomaly_id: Uuid,
+    pub alert_channel: String,
+    pub notification_sent: bool,
+    pub acknowledged_by: Option<String>,
+    pub acknowledged_at: Option<DateTime<Utc>>,
+}
+
+// V24 types (from distributed_tracing_v24.rs)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceServiceHealthV20 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub health_score: f64,
+    pub error_rate: f64,
+    pub avg_latency_ms: f64,
+    pub throughput_rps: f64,
+    pub checked_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceServiceHealthV20 {
+    pub service_name: String,
+    pub health_score: Option<f64>,
+    pub error_rate: Option<f64>,
+    pub avg_latency_ms: Option<f64>,
+    pub throughput_rps: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceCascadeFailureDetectionV20 {
+    pub id: Uuid,
+    pub source_service: String,
+    pub affected_service: String,
+    pub failure_type: String,
+    pub cascade_depth: i32,
+    pub detected_at: DateTime<Utc>,
+    pub resolved_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceCascadeFailureDetectionV20 {
+    pub source_service: String,
+    pub affected_service: String,
+    pub failure_type: String,
+    pub cascade_depth: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceCircuitBreakerStateV24 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub state: String,
+    pub failure_count: i32,
+    pub success_count: i32,
+    pub last_failure_at: Option<DateTime<Utc>>,
+    pub last_state_change_at: DateTime<Utc>,
+    pub timeout_seconds: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceCircuitBreakerStateV24 {
+    pub service_name: String,
+    pub state: Option<String>,
+    pub timeout_seconds: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceSelfHealingSuggestionV24 {
+    pub id: Uuid,
+    pub service_name: String,
+    pub suggestion_type: String,
+    pub description: String,
+    pub confidence: f64,
+    pub applied: bool,
+    pub created_at: DateTime<Utc>,
+    pub applied_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTraceSelfHealingSuggestionV24 {
+    pub service_name: String,
+    pub suggestion_type: String,
+    pub description: String,
+    pub confidence: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceServiceHealthSummaryV20 {
+    pub total_services: i64,
+    pub healthy_services: i64,
+    pub degraded_services: i64,
+    pub unhealthy_services: i64,
+    pub avg_health_score: f64,
+    pub services: Vec<TraceServiceHealthV20>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceCascadeFailureSummaryV20 {
+    pub total_cascades: i64,
+    pub unresolved_count: i64,
+    pub max_cascade_depth: i32,
+    pub affected_services: Vec<String>,
+    pub failure_type_counts: HashMap<String, i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceCircuitBreakerSummaryV24 {
+    pub total_circuit_breakers: i64,
+    pub open_count: i64,
+    pub half_open_count: i64,
+    pub closed_count: i64,
+    pub services: Vec<TraceCircuitBreakerStateV24>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceSelfHealingSummaryV24 {
+    pub total_suggestions: i64,
+    pub applied_count: i64,
+    pub pending_count: i64,
+    pub avg_confidence: f64,
+    pub suggestions: Vec<TraceSelfHealingSuggestionV24>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceServiceHealthRequestV20 {
+    pub service_name: Option<String>,
+    pub since: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TraceCascadeFailureRequestV20 {
+    pub source_service: Option<String>,
+    pub affected_service: Option<String>,
+    pub failure_type: Option<String>,
+    pub since: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
 }

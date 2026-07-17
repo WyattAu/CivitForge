@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2204,4 +2205,267 @@ pub struct DashboardStatsV21 {
     pub total_schedules: i64,
     pub avg_shares_per_dashboard: f64,
     pub total_views: i64,
+}
+
+// V22 types (from dashboard_reporting_v22.rs)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardVersionV19 {
+    pub id: Uuid,
+    pub dashboard_id: Uuid,
+    pub version: i32,
+    pub definition: serde_json::Value,
+    pub change_description: String,
+    pub created_by: Uuid,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardVersionV19 {
+    pub dashboard_id: Uuid,
+    pub definition: serde_json::Value,
+    pub change_description: Option<String>,
+    pub created_by: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportTemplateRatingV19 {
+    pub id: Uuid,
+    pub template_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportTemplateRatingV19 {
+    pub template_id: Uuid,
+    pub user_id: Uuid,
+    pub rating: i32,
+    pub review: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateReportTemplateRatingV19 {
+    pub rating: Option<i32>,
+    pub review: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSharingAnalyticsV22 {
+    pub dashboard_id: Uuid,
+    pub total_shares: i64,
+    pub unique_viewers: i64,
+    pub share_count_last_24h: i64,
+    pub share_count_last_7d: i64,
+    pub top_sharers: Vec<DashboardSharerV22>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSharerV22 {
+    pub user_id: Uuid,
+    pub username: String,
+    pub share_count: i64,
+    pub last_shared_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardPerformanceV22 {
+    pub dashboard_id: Uuid,
+    pub avg_load_time_ms: f64,
+    pub p95_load_time_ms: f64,
+    pub total_loads: i64,
+    pub cache_hit_rate: f64,
+    pub last_measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardVersionStatsV19 {
+    pub total_versions: i64,
+    pub latest_version: i32,
+    pub total_changes: i64,
+    pub contributors: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportTemplateRatingStatsV19 {
+    pub template_id: Uuid,
+    pub total_ratings: i64,
+    pub average_rating: f64,
+    pub rating_distribution: HashMap<i32, i64>,
+    pub total_reviews: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardVersionDiffV19 {
+    pub version_a: DashboardVersionV19,
+    pub version_b: DashboardVersionV19,
+    pub changes: serde_json::Value,
+    pub added_widgets: Vec<String>,
+    pub removed_widgets: Vec<String>,
+    pub modified_widgets: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSharingRequestV22 {
+    pub dashboard_id: Uuid,
+    pub user_id: Uuid,
+    pub permission: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardPerformanceRequestV22 {
+    pub dashboard_id: Uuid,
+    pub load_time_ms: f64,
+    pub cache_hit: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardAnalyticsSummaryV22 {
+    pub total_dashboards: i64,
+    pub total_shares: i64,
+    pub total_views: i64,
+    pub avg_load_time_ms: f64,
+    pub most_viewed_dashboards: Vec<DashboardViewCountV22>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardViewCountV22 {
+    pub dashboard_id: Uuid,
+    pub dashboard_name: String,
+    pub view_count: i64,
+    pub last_viewed_at: DateTime<Utc>,
+}
+
+// V23 types (from dashboard_reporting_v23.rs)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardWidgetLibraryV20 {
+    pub id: Uuid,
+    pub name: String,
+    pub r#type: String,
+    pub category: String,
+    pub config: serde_json::Value,
+    pub preview_url: Option<String>,
+    pub usage_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateDashboardWidgetLibraryV20 {
+    pub name: String,
+    pub r#type: String,
+    pub category: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub preview_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateDashboardWidgetLibraryV20 {
+    pub name: Option<String>,
+    pub r#type: Option<String>,
+    pub category: Option<String>,
+    pub config: Option<serde_json::Value>,
+    pub preview_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportGenerationQueueV20 {
+    pub id: Uuid,
+    pub report_id: Uuid,
+    pub status: String,
+    pub priority: i32,
+    pub scheduled_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateReportGenerationQueueV20 {
+    pub report_id: Uuid,
+    pub status: Option<String>,
+    pub priority: Option<i32>,
+    pub scheduled_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSharingAnalyticsV23 {
+    pub dashboard_id: Uuid,
+    pub total_shares: i64,
+    pub unique_viewers: i64,
+    pub share_count_last_24h: i64,
+    pub share_count_last_7d: i64,
+    pub top_sharers: Vec<DashboardSharerV23>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardSharerV23 {
+    pub user_id: Uuid,
+    pub username: String,
+    pub share_count: i64,
+    pub last_shared_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardPerformanceV23 {
+    pub dashboard_id: Uuid,
+    pub avg_load_time_ms: f64,
+    pub p95_load_time_ms: f64,
+    pub total_loads: i64,
+    pub cache_hit_rate: f64,
+    pub last_measured_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardWidgetLibrarySummaryV20 {
+    pub total_widgets: i64,
+    pub total_categories: i64,
+    pub most_used_widgets: Vec<DashboardWidgetLibraryV20>,
+    pub category_counts: HashMap<String, i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportGenerationQueueSummaryV20 {
+    pub total_queued: i64,
+    pub pending_count: i64,
+    pub processing_count: i64,
+    pub completed_count: i64,
+    pub failed_count: i64,
+    pub avg_generation_time_ms: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardAnalyticsSummaryV23 {
+    pub total_dashboards: i64,
+    pub total_shares: i64,
+    pub total_views: i64,
+    pub avg_load_time_ms: f64,
+    pub most_viewed_dashboards: Vec<DashboardViewCountV23>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardViewCountV23 {
+    pub dashboard_id: Uuid,
+    pub dashboard_name: String,
+    pub view_count: i64,
+    pub last_viewed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DashboardWidgetLibraryRequestV20 {
+    pub category: Option<String>,
+    pub r#type: Option<String>,
+    pub search: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReportGenerationQueueRequestV20 {
+    pub status: Option<String>,
+    pub since: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }

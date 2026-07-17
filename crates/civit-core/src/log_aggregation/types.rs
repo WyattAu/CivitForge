@@ -2123,3 +2123,209 @@ pub struct CreateLogNotificationConfigV11 {
     pub endpoint: String,
     pub enabled: Option<bool>,
 }
+
+// V22 types (from log_aggregation_v22.rs)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogRetentionPolicyV19 {
+    pub id: Uuid,
+    pub service: String,
+    pub level: String,
+    pub retention_days: i32,
+    pub archive_after_days: Option<i32>,
+    pub enabled: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogRetentionPolicyV19 {
+    pub service: String,
+    pub level: String,
+    pub retention_days: Option<i32>,
+    pub archive_after_days: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateLogRetentionPolicyV19 {
+    pub service: Option<String>,
+    pub level: Option<String>,
+    pub retention_days: Option<i32>,
+    pub archive_after_days: Option<i32>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogArchiveV19 {
+    pub id: Uuid,
+    pub service: String,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub entry_count: i64,
+    pub size_bytes: i64,
+    pub archive_path: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogArchiveV19 {
+    pub service: String,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub entry_count: i64,
+    pub size_bytes: i64,
+    pub archive_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogArchiveStatsV19 {
+    pub total_archives: i64,
+    pub total_size_bytes: i64,
+    pub total_entries: i64,
+    pub service_counts: std::collections::HashMap<String, i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogLifecycleEventV19 {
+    pub id: Uuid,
+    pub log_id: Uuid,
+    pub event_type: String,
+    pub details: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchOptimizationV22 {
+    pub index_name: String,
+    pub index_size_bytes: i64,
+    pub query_count: i64,
+    pub avg_query_time_ms: f64,
+    pub last_optimized_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogSearchPerformanceV22 {
+    pub total_queries: i64,
+    pub avg_response_time_ms: f64,
+    pub p95_response_time_ms: f64,
+    pub cache_hit_rate: f64,
+    pub index_efficiency: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogRetentionStatsV19 {
+    pub active_policies: i64,
+    pub total_entries_managed: i64,
+    pub entries_archived: i64,
+    pub entries_deleted: i64,
+    pub last_cleanup_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogArchiveRequestV19 {
+    pub service: Option<String>,
+    pub before_date: DateTime<Utc>,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogArchiveResultV19 {
+    pub entries_archived: i64,
+    pub size_bytes: i64,
+    pub archive_path: String,
+    pub duration_ms: i64,
+}
+
+// V23 types (from log_aggregation_v23.rs)
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogIndexOptimizationV20 {
+    pub id: Uuid,
+    pub index_name: String,
+    pub table_name: String,
+    pub columns: Vec<String>,
+    pub query_pattern: Option<String>,
+    pub improvement_percent: Option<f64>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogIndexOptimizationV20 {
+    pub index_name: String,
+    pub table_name: String,
+    pub columns: Vec<String>,
+    pub query_pattern: Option<String>,
+    pub improvement_percent: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogCompressionStatsV20 {
+    pub id: Uuid,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub original_bytes: i64,
+    pub compressed_bytes: i64,
+    pub compression_ratio: f64,
+    pub entry_count: i32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateLogCompressionStatsV20 {
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub original_bytes: i64,
+    pub compressed_bytes: i64,
+    pub compression_ratio: f64,
+    pub entry_count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogIndexOptimizationSummaryV20 {
+    pub total_optimizations: i64,
+    pub avg_improvement_percent: f64,
+    pub tables_optimized: Vec<String>,
+    pub last_optimized_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogCompressionSummaryV20 {
+    pub total_periods: i64,
+    pub total_original_bytes: i64,
+    pub total_compressed_bytes: i64,
+    pub avg_compression_ratio: f64,
+    pub total_entries_compressed: i64,
+    pub last_compressed_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogQueryPerformanceV23 {
+    pub query_pattern: String,
+    pub avg_execution_time_ms: f64,
+    pub p95_execution_time_ms: f64,
+    pub total_executions: i64,
+    pub suggested_index: Option<String>,
+    pub estimated_improvement_percent: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogStorageOptimizationV23 {
+    pub table_name: String,
+    pub current_size_bytes: i64,
+    pub estimated_optimizable_bytes: i64,
+    pub optimization_suggestions: Vec<String>,
+    pub last_analyzed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogIndexOptimizationRequestV20 {
+    pub table_name: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogCompressionRequestV20 {
+    pub since: Option<DateTime<Utc>>,
+    pub until: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+}

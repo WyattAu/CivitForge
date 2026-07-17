@@ -5,8 +5,8 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
-use crate::pipeline_runners_v2::{
-    PipelineRunnersV2Service, RecordMetricsRequest, RegisterRunnerV2Request, UpdateRunnerV2Request,
+use crate::pipeline_runners::{
+    PipelineRunnersService, RecordMetricsRequest, RegisterRunnerRequest, UpdateRunnerRequest,
 };
 use axum::extract::{Path, Query, State};
 use axum::response::IntoResponse;
@@ -51,7 +51,7 @@ pub async fn list_runners_v2(
     Query(params): Query<ListRunnersParams>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
 
     let tags: Option<Vec<String>> = params.tags.map(|t| {
         t.split(',')
@@ -76,10 +76,10 @@ pub async fn list_runners_v2(
 pub async fn register_runner_v2(
     State(state): State<AppState>,
     _auth: AuthUser,
-    Json(req): Json<RegisterRunnerV2Request>,
+    Json(req): Json<RegisterRunnerRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
 
     match service.register_runner(req).await {
         Ok(runner) => (axum::http::StatusCode::CREATED, Json(runner)).into_response(),
@@ -108,7 +108,7 @@ pub async fn get_runner_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.get_runner(id).await {
         Ok(Some(runner)) => (axum::http::StatusCode::OK, Json(runner)).into_response(),
         Ok(None) => (
@@ -128,7 +128,7 @@ pub async fn update_runner_v2(
     State(state): State<AppState>,
     Path(runner_id): Path<String>,
     _auth: AuthUser,
-    Json(req): Json<UpdateRunnerV2Request>,
+    Json(req): Json<UpdateRunnerRequest>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
     let id = match Uuid::parse_str(&runner_id) {
@@ -142,7 +142,7 @@ pub async fn update_runner_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.update_runner(id, req).await {
         Ok(runner) => (axum::http::StatusCode::OK, Json(runner)).into_response(),
         Err(e) => (
@@ -170,7 +170,7 @@ pub async fn delete_runner_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.delete_runner(id).await {
         Ok(true) => (axum::http::StatusCode::NO_CONTENT, "").into_response(),
         Ok(false) => (
@@ -202,7 +202,7 @@ pub async fn heartbeat_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.heartbeat(id).await {
         Ok(_) => (
             axum::http::StatusCode::OK,
@@ -244,7 +244,7 @@ pub async fn assign_job_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.assign_job(runner_id, job_id).await {
         Ok(_) => (
             axum::http::StatusCode::OK,
@@ -275,7 +275,7 @@ pub async fn clear_job_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.clear_job(id).await {
         Ok(_) => (
             axum::http::StatusCode::OK,
@@ -307,7 +307,7 @@ pub async fn get_metrics_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.get_runner_metrics(id, 100).await {
         Ok(metrics) => (axum::http::StatusCode::OK, Json(metrics)).into_response(),
         Err(e) => (
@@ -335,7 +335,7 @@ pub async fn record_metrics_v2(
         }
     };
 
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
     match service.record_metrics(id, req).await {
         Ok(metrics) => (axum::http::StatusCode::CREATED, Json(metrics)).into_response(),
         Err(e) => (
@@ -351,7 +351,7 @@ pub async fn find_available_runners_v2(
     Query(params): Query<ListRunnersParams>,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
 
     let required_tags: Vec<String> = params
         .tags
@@ -378,7 +378,7 @@ pub async fn cleanup_stale_runners_v2(
     _auth: AuthUser,
 ) -> impl IntoResponse {
     let pool = state.db.pool();
-    let service = PipelineRunnersV2Service::new(pool.clone());
+    let service = PipelineRunnersService::new(pool.clone());
 
     match service.cleanup_stale_runners(5).await {
         Ok(count) => (
@@ -401,7 +401,7 @@ mod tests {
     #[test]
     fn test_register_runner_v2_request_deserialize() {
         let json = r#"{"name": "linux-runner", "description": "Linux build runner", "tags": ["linux", "amd64"]}"#;
-        let req: RegisterRunnerV2Request = serde_json::from_str(json).unwrap();
+        let req: RegisterRunnerRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.name, "linux-runner");
         assert_eq!(req.tags.as_ref().unwrap().len(), 2);
     }

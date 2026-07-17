@@ -2,43 +2,9 @@
 
 pub mod activity;
 pub mod admin_dashboard;
-pub mod api_analytics;
-pub mod api_analytics_v2;
-pub mod api_analytics_v3;
-pub mod api_analytics_v5;
-pub mod api_analytics_v6;
-pub mod api_analytics_v9;
-pub mod api_analytics_v11;
-pub mod api_analytics_v12;
-pub mod api_analytics_v13;
-pub mod api_analytics_v14;
-pub mod api_analytics_v15;
-pub mod api_analytics_v16;
-pub mod api_analytics_v17;
-pub mod api_analytics_v18;
-pub mod api_analytics_v19;
-pub mod api_analytics_v20;
-pub mod api_analytics_v21;
-pub mod api_analytics_v23;
-pub mod analytics_v24;
+pub mod api_analytics_api;
 pub mod api_documentation;
-pub mod api_docs_v2;
-pub mod api_docs_v4;
-pub mod api_docs_v5;
-pub mod api_docs_v8;
-pub mod api_docs_v10;
-pub mod api_docs_v11;
-pub mod api_docs_v12;
-pub mod api_docs_v13;
-pub mod api_docs_v14;
-pub mod api_docs_v15;
-pub mod api_docs_v16;
-pub mod api_docs_v17;
-pub mod api_docs_v18;
-pub mod api_docs_v19;
-pub mod api_docs_v20;
-pub mod api_docs_v22;
-pub mod api_docs_v23;
+pub mod api_docs_api;
 pub mod api_gateway;
 pub mod api_transforms;
 pub mod api_versioning;
@@ -108,23 +74,7 @@ pub mod pr_templates;
 pub mod pull_requests;
 pub mod releases;
 pub mod repos;
-pub mod rate_limiting_v2;
-pub mod rate_limiting_v3;
-pub mod rate_limiting_v4;
-pub mod rate_limiting_v6;
-pub mod rate_limiting_v7;
-pub mod rate_limiting_v8;
-pub mod rate_limiting_v9;
-pub mod rate_limiting_v10;
-pub mod rate_limiting_v11;
-pub mod rate_limiting_v14;
-pub mod rate_limiting_v15;
-pub mod rate_limiting_v16;
-pub mod rate_limiting_v17;
-pub mod rate_limiting_v18;
-pub mod rate_limiting_v19;
-pub mod rate_limiting_v20;
-pub mod rate_limiting_v21;
+pub mod rate_limiting_api;
 pub mod resilience;
 pub mod runners;
 pub mod saml;
@@ -145,58 +95,12 @@ pub mod users;
 pub mod webauthn;
 pub mod webhooks;
 pub mod wiki;
-pub mod database_replication_v2_api;
-pub mod database_replication_v5_api;
-pub mod encryption_v3_api;
-pub mod encryption_v6_api;
-pub mod data_residency_v2_api;
-pub mod test_suite_management_v5;
-pub mod test_suite_management_v6;
-pub mod test_suite_management_v7;
-pub mod test_suite_management_v9;
-pub mod test_suite_management_v13;
-pub mod test_suite_management_v14;
-pub mod test_suite_management_v17;
-pub mod code_quality_rules_v5;
-pub mod code_quality_rules_v6;
-pub mod code_quality_rules_v7;
-pub mod code_quality_rules_v9;
-pub mod code_quality_rules_v13;
-pub mod code_quality_rules_v14;
-pub mod code_quality_rules_v17;
-pub mod performance_testing_v6;
-pub mod performance_testing_v7;
-pub mod performance_testing_v8;
-pub mod performance_testing_v9;
-pub mod performance_testing_v14;
-pub mod performance_testing_v15;
-pub mod performance_testing_v16;
-pub mod performance_testing_v17;
-pub mod performance_testing_v18;
-pub mod performance_testing_v20;
-pub mod performance_testing_v21;
-pub mod test_suite_management_v15;
-pub mod test_suite_management_v16;
-pub mod test_suite_management_v19;
-pub mod test_suite_management_v20;
-pub mod test_suite_management_v21;
-pub mod code_quality_rules_v15;
-pub mod code_quality_rules_v16;
-pub mod code_quality_rules_v19;
-pub mod code_quality_rules_v20;
-pub mod data_residency_v5_api;
-pub mod database_replication_v8_api;
-pub mod encryption_v9_api;
-pub mod data_residency_v8_api;
-pub mod database_replication_v9_api;
-pub mod encryption_v10_api;
-pub mod data_residency_v9_api;
-pub mod database_replication_v11_api;
-pub mod database_replication_v12_api;
-pub mod encryption_v12_api;
-pub mod encryption_v13_api;
-pub mod data_residency_v11_api;
-pub mod data_residency_v12_api;
+pub mod test_suite_management_api;
+pub mod performance_testing_api;
+pub mod code_quality_rules_api;
+pub mod database_replication_api;
+pub mod data_residency_api;
+pub mod encryption_api;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -409,61 +313,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(sso::sso_routes())
         .merge(feature_flags::feature_flag_routes())
         .merge(admin_dashboard::admin_dashboard_routes())
-        .merge(api_analytics::api_analytics_routes())
-        .merge(api_analytics_v2::api_analytics_v2_routes())
-        .merge(api_analytics_v3::api_analytics_v3_routes())
-        .merge(api_analytics_v5::api_analytics_v5_routes())
-        .merge(api_analytics_v6::api_analytics_v6_routes())
-        .merge(api_analytics_v9::api_analytics_v9_routes())
-        .merge(api_analytics_v11::api_analytics_v11_routes())
-        .merge(api_analytics_v12::api_analytics_v12_routes())
-        .merge(api_analytics_v13::api_analytics_v13_routes())
-        .merge(api_analytics_v14::api_analytics_v14_routes())
-        .merge(api_analytics_v15::api_analytics_v15_routes())
-        .merge(api_analytics_v16::api_analytics_v16_routes())
-        .merge(api_analytics_v17::api_analytics_v17_routes())
-        .merge(api_analytics_v18::api_analytics_v18_routes())
-        .merge(api_analytics_v19::api_analytics_v19_routes())
-        .merge(api_analytics_v20::api_analytics_v20_routes())
-        .merge(api_analytics_v21::api_analytics_v21_routes())
-        .merge(api_analytics_v23::api_analytics_v23_routes())
-        .merge(analytics_v24::analytics_v24_routes())
+        .merge(api_analytics_api::api_analytics_api_routes())
         .merge(api_documentation::api_documentation_routes())
-        .merge(api_docs_v2::api_docs_v2_routes())
-        .merge(api_docs_v4::api_docs_v4_routes())
-        .merge(api_docs_v5::api_docs_v5_routes())
-        .merge(api_docs_v8::api_docs_v8_routes())
-        .merge(api_docs_v10::api_docs_v10_routes())
-        .merge(api_docs_v11::api_docs_v11_routes())
-        .merge(api_docs_v12::api_docs_v12_routes())
-        .merge(api_docs_v13::api_docs_v13_routes())
-        .merge(api_docs_v14::api_docs_v14_routes())
-        .merge(api_docs_v15::api_docs_v15_routes())
-        .merge(api_docs_v16::api_docs_v16_routes())
-        .merge(api_docs_v17::api_docs_v17_routes())
-        .merge(api_docs_v18::api_docs_v18_routes())
-        .merge(api_docs_v19::api_docs_v19_routes())
-        .merge(api_docs_v20::api_docs_v20_routes())
-        .merge(api_docs_v22::api_docs_v22_routes())
-        .merge(api_docs_v23::api_docs_v23_routes())
+        .merge(api_docs_api::api_docs_routes())
         .merge(api_versioning::api_version_routes())
-        .merge(rate_limiting_v2::rate_limiting_v2_routes())
-        .merge(rate_limiting_v3::rate_limiting_v3_routes())
-        .merge(rate_limiting_v4::rate_limiting_v4_routes())
-        .merge(rate_limiting_v6::rate_limiting_v6_routes())
-        .merge(rate_limiting_v7::rate_limiting_v7_routes())
-        .merge(rate_limiting_v8::rate_limiting_v8_routes())
-        .merge(rate_limiting_v9::rate_limiting_v9_routes())
-        .merge(rate_limiting_v10::rate_limiting_v10_routes())
-        .merge(rate_limiting_v11::rate_limiting_v11_routes())
-        .merge(rate_limiting_v14::rate_limiting_v14_routes())
-        .merge(rate_limiting_v15::rate_limiting_v15_routes())
-        .merge(rate_limiting_v16::rate_limiting_v16_routes())
-        .merge(rate_limiting_v17::rate_limiting_v17_routes())
-        .merge(rate_limiting_v18::rate_limiting_v18_routes())
-        .merge(rate_limiting_v19::rate_limiting_v19_routes())
-        .merge(rate_limiting_v20::rate_limiting_v20_routes())
-        .merge(rate_limiting_v21::rate_limiting_v21_routes())
+        .merge(rate_limiting_api::routes())
         .merge(usage_quotas::usage_quota_routes())
         .merge(data_export::export_routes())
         .merge(compliance::compliance_routes())
@@ -476,58 +330,12 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(deployment_strategy::deployment_strategy_routes())
         .merge(infrastructure::infrastructure_routes())
         .merge(service_mesh::service_mesh_routes())
-        .merge(database_replication_v2_api::replication_v2_routes())
-        .merge(database_replication_v5_api::replication_v5_routes())
-        .merge(database_replication_v8_api::replication_v8_routes())
-        .merge(encryption_v3_api::encryption_v3_routes())
-        .merge(encryption_v6_api::encryption_v6_routes())
-        .merge(encryption_v9_api::encryption_v9_routes())
-        .merge(data_residency_v2_api::data_residency_v2_routes())
-        .merge(data_residency_v5_api::data_residency_v5_routes())
-        .merge(data_residency_v8_api::data_residency_v8_routes())
-        .merge(database_replication_v9_api::replication_v9_routes())
-        .merge(encryption_v10_api::encryption_v10_routes())
-        .merge(data_residency_v9_api::data_residency_v9_routes())
-        .merge(database_replication_v11_api::replication_v11_routes())
-        .merge(database_replication_v12_api::replication_v12_routes())
-        .merge(encryption_v12_api::encryption_v12_routes())
-        .merge(encryption_v13_api::encryption_v13_routes())
-        .merge(data_residency_v11_api::data_residency_v11_routes())
-        .merge(data_residency_v12_api::data_residency_v12_routes())
-        .merge(test_suite_management_v5::test_suite_v5_routes())
-        .merge(test_suite_management_v6::test_suite_v6_routes())
-        .merge(test_suite_management_v7::test_suite_v7_routes())
-        .merge(test_suite_management_v9::test_suite_v9_routes())
-        .merge(test_suite_management_v13::test_suite_v13_routes())
-        .merge(test_suite_management_v14::test_suite_v14_routes())
-        .merge(test_suite_management_v15::test_suite_v15_routes())
-        .merge(test_suite_management_v16::test_suite_v16_routes())
-        .merge(test_suite_management_v17::test_suite_v17_routes())
-        .merge(test_suite_management_v19::test_suite_v19_routes())
-        .merge(test_suite_management_v20::test_suite_v20_routes())
-        .merge(test_suite_management_v21::test_suite_v21_routes())
-        .merge(code_quality_rules_v5::code_quality_v5_routes())
-        .merge(code_quality_rules_v6::code_quality_v6_routes())
-        .merge(code_quality_rules_v7::code_quality_v7_routes())
-        .merge(code_quality_rules_v9::code_quality_v9_routes())
-        .merge(code_quality_rules_v13::code_quality_v13_routes())
-        .merge(code_quality_rules_v14::code_quality_v14_routes())
-        .merge(code_quality_rules_v15::code_quality_v15_routes())
-        .merge(code_quality_rules_v16::code_quality_v16_routes())
-        .merge(code_quality_rules_v17::code_quality_v17_routes())
-        .merge(code_quality_rules_v19::code_quality_v19_routes())
-        .merge(code_quality_rules_v20::code_quality_v20_routes())
-        .merge(performance_testing_v6::performance_testing_v6_routes())
-        .merge(performance_testing_v7::performance_testing_v7_routes())
-        .merge(performance_testing_v8::performance_testing_v8_routes())
-        .merge(performance_testing_v9::performance_testing_v9_routes())
-        .merge(performance_testing_v14::performance_testing_v14_routes())
-        .merge(performance_testing_v15::performance_testing_v15_routes())
-        .merge(performance_testing_v16::performance_testing_v16_routes())
-        .merge(performance_testing_v17::performance_testing_v17_routes())
-        .merge(performance_testing_v18::performance_testing_v18_routes())
-        .merge(performance_testing_v20::performance_testing_v20_routes())
-        .merge(performance_testing_v21::performance_testing_v21_routes())
+        .merge(database_replication_api::database_replication_routes())
+        .merge(encryption_api::encryption_routes())
+        .merge(data_residency_api::data_residency_routes())
+        .merge(test_suite_management_api::test_suite_management_routes())
+        .merge(code_quality_rules_api::code_quality_rules_routes())
+        .merge(performance_testing_api::performance_testing_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))

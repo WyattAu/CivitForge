@@ -1,15 +1,13 @@
 #![cfg(test)]
 
-use super::security_scanner_v24::*;
+use super::security_scanner::*;
 use chrono::Utc;
-
-// --- ThreatIntelligenceV24 ---
 
 #[test]
 fn test_threat_intelligence_new() {
-    let threat = ThreatIntelligenceV24::new(
+    let threat = ThreatIntelligence::new(
         "CVE-2024-1234".into(),
-        ThreatSeverityV24::Critical,
+        ThreatSeverity::Critical,
         "Critical RCE in libfoo".into(),
     );
     assert_eq!(threat.cve_id, "CVE-2024-1234");
@@ -20,9 +18,9 @@ fn test_threat_intelligence_new() {
 
 #[test]
 fn test_threat_intelligence_with_packages() {
-    let threat = ThreatIntelligenceV24::new(
+    let threat = ThreatIntelligence::new(
         "CVE-2024-5678".into(),
-        ThreatSeverityV24::High,
+        ThreatSeverity::High,
         "SQL injection".into(),
     )
     .with_packages(vec!["libc".into(), "openssl".into()])
@@ -37,9 +35,9 @@ fn test_threat_intelligence_with_packages() {
 #[test]
 fn test_threat_intelligence_with_published_at() {
     let pub_date = Utc::now();
-    let threat = ThreatIntelligenceV24::new(
+    let threat = ThreatIntelligence::new(
         "CVE-2024-9999".into(),
-        ThreatSeverityV24::Medium,
+        ThreatSeverity::Medium,
         "XSS".into(),
     )
     .with_published_at(pub_date);
@@ -49,52 +47,48 @@ fn test_threat_intelligence_with_published_at() {
 
 #[test]
 fn test_threat_intelligence_not_critical() {
-    let threat = ThreatIntelligenceV24::new(
+    let threat = ThreatIntelligence::new(
         "CVE-2024-0001".into(),
-        ThreatSeverityV24::Low,
+        ThreatSeverity::Low,
         "Minor issue".into(),
     );
     assert!(!threat.is_critical());
 }
 
-// --- ThreatSeverityV24 ---
-
 #[test]
 fn test_threat_severity_risk_weights() {
-    assert_eq!(ThreatSeverityV24::Critical.risk_weight(), 5);
-    assert_eq!(ThreatSeverityV24::High.risk_weight(), 4);
-    assert_eq!(ThreatSeverityV24::Medium.risk_weight(), 2);
-    assert_eq!(ThreatSeverityV24::Low.risk_weight(), 1);
-    assert_eq!(ThreatSeverityV24::Informational.risk_weight(), 0);
+    assert_eq!(ThreatSeverity::Critical.risk_weight(), 5);
+    assert_eq!(ThreatSeverity::High.risk_weight(), 4);
+    assert_eq!(ThreatSeverity::Medium.risk_weight(), 2);
+    assert_eq!(ThreatSeverity::Low.risk_weight(), 1);
+    assert_eq!(ThreatSeverity::Informational.risk_weight(), 0);
 }
 
 #[test]
 fn test_threat_severity_display_names() {
-    assert_eq!(ThreatSeverityV24::Critical.display_name(), "Critical");
-    assert_eq!(ThreatSeverityV24::High.display_name(), "High");
-    assert_eq!(ThreatSeverityV24::Medium.display_name(), "Medium");
-    assert_eq!(ThreatSeverityV24::Low.display_name(), "Low");
-    assert_eq!(ThreatSeverityV24::Informational.display_name(), "Informational");
+    assert_eq!(ThreatSeverity::Critical.display_name(), "Critical");
+    assert_eq!(ThreatSeverity::High.display_name(), "High");
+    assert_eq!(ThreatSeverity::Medium.display_name(), "Medium");
+    assert_eq!(ThreatSeverity::Low.display_name(), "Low");
+    assert_eq!(ThreatSeverity::Informational.display_name(), "Informational");
 }
-
-// --- DependencyTreeNodeV24 ---
 
 #[test]
 fn test_dependency_tree_node_new() {
-    let node = DependencyTreeNodeV24::new("repo-1".into(), "serde".into(), "1.0.0".into());
+    let node = DependencyTreeNode::new("repo-1".into(), "serde".into(), "1.0.0".into());
     assert_eq!(node.package_name, "serde");
     assert_eq!(node.version, "1.0.0");
     assert_eq!(node.repo_id, "repo-1");
     assert_eq!(node.depth, 0);
     assert!(!node.is_transitive());
     assert!(node.parent_package.is_none());
-    assert_eq!(node.dependency_type, DependencyTypeV24::Direct);
+    assert_eq!(node.dependency_type, DependencyType::Direct);
 }
 
 #[test]
 fn test_dependency_tree_node_with_parent() {
-    let node = DependencyTreeNodeV24::new("repo-1".into(), "serde_derive".into(), "1.0.0".into())
-        .with_parent("serde".into(), DependencyTypeV24::Transitive)
+    let node = DependencyTreeNode::new("repo-1".into(), "serde_derive".into(), "1.0.0".into())
+        .with_parent("serde".into(), DependencyType::Transitive)
         .with_depth(2);
 
     assert!(node.is_transitive());
@@ -104,29 +98,25 @@ fn test_dependency_tree_node_with_parent() {
 
 #[test]
 fn test_dependency_tree_node_dev() {
-    let node = DependencyTreeNodeV24::new("repo-1".into(), "cargo-test".into(), "0.1.0".into())
-        .with_parent("project".into(), DependencyTypeV24::Dev);
+    let node = DependencyTreeNode::new("repo-1".into(), "cargo-test".into(), "0.1.0".into())
+        .with_parent("project".into(), DependencyType::Dev);
 
-    assert_eq!(node.dependency_type, DependencyTypeV24::Dev);
+    assert_eq!(node.dependency_type, DependencyType::Dev);
     assert!(!node.is_transitive());
 }
 
-// --- DependencyTypeV24 ---
-
 #[test]
 fn test_dependency_type_display_names() {
-    assert_eq!(DependencyTypeV24::Direct.display_name(), "direct");
-    assert_eq!(DependencyTypeV24::Transitive.display_name(), "transitive");
-    assert_eq!(DependencyTypeV24::Dev.display_name(), "dev");
-    assert_eq!(DependencyTypeV24::Optional.display_name(), "optional");
-    assert_eq!(DependencyTypeV24::Peer.display_name(), "peer");
+    assert_eq!(DependencyType::Direct.display_name(), "direct");
+    assert_eq!(DependencyType::Transitive.display_name(), "transitive");
+    assert_eq!(DependencyType::Dev.display_name(), "dev");
+    assert_eq!(DependencyType::Optional.display_name(), "optional");
+    assert_eq!(DependencyType::Peer.display_name(), "peer");
 }
-
-// --- VulnerabilityCorrelationV24 ---
 
 #[test]
 fn test_vulnerability_correlation_new() {
-    let corr = VulnerabilityCorrelationV24::new(
+    let corr = VulnerabilityCorrelation::new(
         "threat-1".into(),
         "dep-1".into(),
         "CVE-2024-1111".into(),
@@ -140,7 +130,7 @@ fn test_vulnerability_correlation_new() {
 
 #[test]
 fn test_vulnerability_correlation_with_fix() {
-    let corr = VulnerabilityCorrelationV24::new(
+    let corr = VulnerabilityCorrelation::new(
         "t1".into(),
         "d1".into(),
         "CVE-2024-2222".into(),
@@ -156,7 +146,7 @@ fn test_vulnerability_correlation_with_fix() {
 
 #[test]
 fn test_vulnerability_correlation_confidence_clamping() {
-    let corr = VulnerabilityCorrelationV24::new(
+    let corr = VulnerabilityCorrelation::new(
         "t1".into(),
         "d1".into(),
         "CVE-1".into(),
@@ -171,11 +161,9 @@ fn test_vulnerability_correlation_confidence_clamping() {
     assert_eq!(corr.correlation_confidence, 0.0);
 }
 
-// --- RiskScoreV24 ---
-
 #[test]
 fn test_risk_score_new() {
-    let score = RiskScoreV24::new("libc".into(), "repo-1".into());
+    let score = RiskScore::new("libc".into(), "repo-1".into());
     assert_eq!(score.overall_score, 0.0);
     assert_eq!(score.vulnerability_count, 0);
     assert_eq!(score.risk_level(), "informational");
@@ -183,12 +171,12 @@ fn test_risk_score_new() {
 
 #[test]
 fn test_risk_score_calculate() {
-    let mut score = RiskScoreV24::new("libc".into(), "repo-1".into());
+    let mut score = RiskScore::new("libc".into(), "repo-1".into());
     let corrs = vec![
-        VulnerabilityCorrelationV24::new(
+        VulnerabilityCorrelation::new(
             "t1".into(), "d1".into(), "CVE-1".into(), "libc".into(), "2.31".into(),
         ),
-        VulnerabilityCorrelationV24::new(
+        VulnerabilityCorrelation::new(
             "t2".into(), "d2".into(), "CVE-2".into(), "libc".into(), "2.31".into(),
         ),
     ];
@@ -199,7 +187,7 @@ fn test_risk_score_calculate() {
 
 #[test]
 fn test_risk_score_levels() {
-    let mut score = RiskScoreV24::new("pkg".into(), "repo-1".into());
+    let mut score = RiskScore::new("pkg".into(), "repo-1".into());
     score.overall_score = 85.0;
     assert_eq!(score.risk_level(), "critical");
 
@@ -218,8 +206,8 @@ fn test_risk_score_levels() {
 
 #[test]
 fn test_risk_score_calculate_critical_boost() {
-    let mut score = RiskScoreV24::new("pkg".into(), "repo-1".into());
-    let corrs = vec![VulnerabilityCorrelationV24::new(
+    let mut score = RiskScore::new("pkg".into(), "repo-1".into());
+    let corrs = vec![VulnerabilityCorrelation::new(
         "t1".into(),
         "d1".into(),
         "CVE-CRITICAL-1".into(),
@@ -233,8 +221,8 @@ fn test_risk_score_calculate_critical_boost() {
 
 #[test]
 fn test_risk_score_calculate_high_boost() {
-    let mut score = RiskScoreV24::new("pkg".into(), "repo-1".into());
-    let corr = VulnerabilityCorrelationV24::new(
+    let mut score = RiskScore::new("pkg".into(), "repo-1".into());
+    let corr = VulnerabilityCorrelation::new(
         "t1".into(),
         "d1".into(),
         "CVE-NORMAL".into(),
@@ -246,11 +234,9 @@ fn test_risk_score_calculate_high_boost() {
     assert_eq!(score.high_count, 1);
 }
 
-// --- ThreatIntelligenceStoreV24 ---
-
 #[test]
 fn test_threat_store_empty() {
-    let store = ThreatIntelligenceStoreV24::new();
+    let store = ThreatIntelligenceStore::new();
     assert_eq!(store.total(), 0);
     assert!(store.get_by_cve("CVE-1").is_empty());
     assert!(store.critical_threats().is_empty());
@@ -258,10 +244,10 @@ fn test_threat_store_empty() {
 
 #[test]
 fn test_threat_store_add_and_query() {
-    let mut store = ThreatIntelligenceStoreV24::new();
-    let threat = ThreatIntelligenceV24::new(
+    let mut store = ThreatIntelligenceStore::new();
+    let threat = ThreatIntelligence::new(
         "CVE-1".into(),
-        ThreatSeverityV24::Critical,
+        ThreatSeverity::Critical,
         "Critical vuln".into(),
     )
     .with_packages(vec!["libc".into(), "openssl".into()]);
@@ -276,20 +262,20 @@ fn test_threat_store_add_and_query() {
 
 #[test]
 fn test_threat_store_multiple_threats() {
-    let mut store = ThreatIntelligenceStoreV24::new();
-    store.add_threat(ThreatIntelligenceV24::new(
+    let mut store = ThreatIntelligenceStore::new();
+    store.add_threat(ThreatIntelligence::new(
         "CVE-1".into(),
-        ThreatSeverityV24::Critical,
+        ThreatSeverity::Critical,
         "d".into(),
     ));
-    store.add_threat(ThreatIntelligenceV24::new(
+    store.add_threat(ThreatIntelligence::new(
         "CVE-2".into(),
-        ThreatSeverityV24::High,
+        ThreatSeverity::High,
         "d".into(),
     ));
-    store.add_threat(ThreatIntelligenceV24::new(
+    store.add_threat(ThreatIntelligence::new(
         "CVE-1".into(),
-        ThreatSeverityV24::Medium,
+        ThreatSeverity::Medium,
         "d2".into(),
     ));
 
@@ -299,11 +285,9 @@ fn test_threat_store_multiple_threats() {
     assert_eq!(store.critical_threats().len(), 1);
 }
 
-// --- DependencyTreeAnalyzerV24 ---
-
 #[test]
 fn test_dependency_tree_analyzer_empty() {
-    let analyzer = DependencyTreeAnalyzerV24::new();
+    let analyzer = DependencyTreeAnalyzer::new();
     assert!(analyzer.get_nodes_for_repo("repo-1").is_empty());
     assert!(analyzer.get_children("pkg").is_empty());
     assert_eq!(analyzer.max_depth_for_repo("repo-1"), 0);
@@ -312,17 +296,17 @@ fn test_dependency_tree_analyzer_empty() {
 
 #[test]
 fn test_dependency_tree_analyzer_tree_structure() {
-    let mut analyzer = DependencyTreeAnalyzerV24::new();
+    let mut analyzer = DependencyTreeAnalyzer::new();
 
-    let root = DependencyTreeNodeV24::new("repo-1".into(), "root".into(), "1.0".into());
-    let child1 = DependencyTreeNodeV24::new("repo-1".into(), "child1".into(), "2.0".into())
-        .with_parent("root".into(), DependencyTypeV24::Direct)
+    let root = DependencyTreeNode::new("repo-1".into(), "root".into(), "1.0".into());
+    let child1 = DependencyTreeNode::new("repo-1".into(), "child1".into(), "2.0".into())
+        .with_parent("root".into(), DependencyType::Direct)
         .with_depth(1);
-    let child2 = DependencyTreeNodeV24::new("repo-1".into(), "child2".into(), "3.0".into())
-        .with_parent("root".into(), DependencyTypeV24::Direct)
+    let child2 = DependencyTreeNode::new("repo-1".into(), "child2".into(), "3.0".into())
+        .with_parent("root".into(), DependencyType::Direct)
         .with_depth(1);
-    let grandchild = DependencyTreeNodeV24::new("repo-1".into(), "grandchild".into(), "4.0".into())
-        .with_parent("child1".into(), DependencyTypeV24::Transitive)
+    let grandchild = DependencyTreeNode::new("repo-1".into(), "grandchild".into(), "4.0".into())
+        .with_parent("child1".into(), DependencyType::Transitive)
         .with_depth(2);
 
     analyzer.add_node(root);
@@ -345,20 +329,18 @@ fn test_dependency_tree_analyzer_tree_structure() {
 
 #[test]
 fn test_dependency_tree_analyzer_multi_repo() {
-    let mut analyzer = DependencyTreeAnalyzerV24::new();
-    analyzer.add_node(DependencyTreeNodeV24::new("repo-1".into(), "a".into(), "1.0".into()));
-    analyzer.add_node(DependencyTreeNodeV24::new("repo-2".into(), "b".into(), "1.0".into()));
+    let mut analyzer = DependencyTreeAnalyzer::new();
+    analyzer.add_node(DependencyTreeNode::new("repo-1".into(), "a".into(), "1.0".into()));
+    analyzer.add_node(DependencyTreeNode::new("repo-2".into(), "b".into(), "1.0".into()));
 
     assert_eq!(analyzer.get_nodes_for_repo("repo-1").len(), 1);
     assert_eq!(analyzer.get_nodes_for_repo("repo-2").len(), 1);
     assert_eq!(analyzer.get_nodes_for_repo("repo-3").len(), 0);
 }
 
-// --- VulnerabilityCorrelationEngineV24 ---
-
 #[test]
 fn test_correlation_engine_empty() {
-    let engine = VulnerabilityCorrelationEngineV24::new();
+    let engine = VulnerabilityCorrelationEngine::new();
     assert_eq!(engine.total(), 0);
     assert!(engine.get_correlations_for_threat("t1").is_empty());
     assert!(engine.get_correlations_for_dependency("d1").is_empty());
@@ -367,8 +349,8 @@ fn test_correlation_engine_empty() {
 
 #[test]
 fn test_correlation_engine_add_and_query() {
-    let mut engine = VulnerabilityCorrelationEngineV24::new();
-    let corr = VulnerabilityCorrelationV24::new(
+    let mut engine = VulnerabilityCorrelationEngine::new();
+    let corr = VulnerabilityCorrelation::new(
         "t1".into(),
         "d1".into(),
         "CVE-1".into(),
@@ -385,8 +367,8 @@ fn test_correlation_engine_add_and_query() {
 
 #[test]
 fn test_correlation_engine_low_confidence() {
-    let mut engine = VulnerabilityCorrelationEngineV24::new();
-    let corr = VulnerabilityCorrelationV24::new(
+    let mut engine = VulnerabilityCorrelationEngine::new();
+    let corr = VulnerabilityCorrelation::new(
         "t1".into(),
         "d1".into(),
         "CVE-1".into(),
@@ -401,11 +383,11 @@ fn test_correlation_engine_low_confidence() {
 
 #[test]
 fn test_correlation_engine_multiple_threats_for_dependency() {
-    let mut engine = VulnerabilityCorrelationEngineV24::new();
-    engine.add_correlation(VulnerabilityCorrelationV24::new(
+    let mut engine = VulnerabilityCorrelationEngine::new();
+    engine.add_correlation(VulnerabilityCorrelation::new(
         "t1".into(), "d1".into(), "CVE-1".into(), "pkg".into(), "1.0".into(),
     ));
-    engine.add_correlation(VulnerabilityCorrelationV24::new(
+    engine.add_correlation(VulnerabilityCorrelation::new(
         "t2".into(), "d1".into(), "CVE-2".into(), "pkg".into(), "1.0".into(),
     ));
 
@@ -413,20 +395,18 @@ fn test_correlation_engine_multiple_threats_for_dependency() {
     assert_eq!(engine.get_correlations_for_threat("t1").len(), 1);
 }
 
-// --- RiskScoringEngineV24 ---
-
 #[test]
 fn test_risk_scoring_engine_empty() {
-    let engine = RiskScoringEngineV24::new();
+    let engine = RiskScoringEngine::new();
     assert!(engine.get_score("pkg", "repo-1").is_none());
     assert!(engine.highest_risk_packages("repo-1").is_empty());
 }
 
 #[test]
 fn test_risk_scoring_engine_calculate_and_get() {
-    let mut engine = RiskScoringEngineV24::new();
+    let mut engine = RiskScoringEngine::new();
     let corrs = vec![
-        VulnerabilityCorrelationV24::new(
+        VulnerabilityCorrelation::new(
             "t1".into(), "d1".into(), "CVE-1".into(), "libc".into(), "2.31".into(),
         ),
     ];
@@ -440,15 +420,15 @@ fn test_risk_scoring_engine_calculate_and_get() {
 
 #[test]
 fn test_risk_scoring_engine_highest_risk() {
-    let mut engine = RiskScoringEngineV24::new();
-    let corrs_low = vec![VulnerabilityCorrelationV24::new(
+    let mut engine = RiskScoringEngine::new();
+    let corrs_low = vec![VulnerabilityCorrelation::new(
         "t1".into(), "d1".into(), "CVE-1".into(), "low-pkg".into(), "1.0".into(),
     )];
     let corrs_high = vec![
-        VulnerabilityCorrelationV24::new(
+        VulnerabilityCorrelation::new(
             "t2".into(), "d2".into(), "CVE-CRITICAL".into(), "high-pkg".into(), "1.0".into(),
         ),
-        VulnerabilityCorrelationV24::new(
+        VulnerabilityCorrelation::new(
             "t3".into(), "d3".into(), "CVE-2".into(), "high-pkg".into(), "1.0".into(),
         ),
     ];
@@ -463,8 +443,8 @@ fn test_risk_scoring_engine_highest_risk() {
 
 #[test]
 fn test_risk_scoring_engine_repo_summary() {
-    let mut engine = RiskScoringEngineV24::new();
-    let corrs = vec![VulnerabilityCorrelationV24::new(
+    let mut engine = RiskScoringEngine::new();
+    let corrs = vec![VulnerabilityCorrelation::new(
         "t1".into(), "d1".into(), "CVE-1".into(), "pkg".into(), "1.0".into(),
     )];
     engine.calculate_score("pkg", "repo-1", &corrs);
@@ -477,7 +457,7 @@ fn test_risk_scoring_engine_repo_summary() {
 
 #[test]
 fn test_risk_scoring_engine_repo_summary_empty() {
-    let engine = RiskScoringEngineV24::new();
+    let engine = RiskScoringEngine::new();
     let summary = engine.repo_risk_summary("repo-1");
     assert_eq!(summary.total_packages, 0);
     assert_eq!(summary.average_risk_score, 0.0);
