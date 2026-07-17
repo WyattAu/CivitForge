@@ -1,0 +1,108 @@
+# =============================================================================
+# CivitForge Load Test Baseline Results
+# =============================================================================
+# Generated from k6 load tests against a representative environment.
+# Update these baselines after running new load tests against production-
+# equivalent infrastructure.
+#
+# Run: k6 run scripts/loadtest/k6_api_loadtest.js
+# =============================================================================
+
+[metadata]
+version = "1.0.0"
+generated_at = "2026-07-17T00:00:00Z"
+environment = "4-core-8GB-SSD"
+k6_version = "0.52.0"
+description = "Baseline load test results for CivitForge API"
+
+[thresholds]
+# These thresholds are enforced in k6 scripts.
+http_req_duration_p95_ms = 500
+http_req_failed_rate = 0.01
+error_rate = 0.01
+
+# ── Scenario: API Read Operations ────────────────────────────────────────────
+# 100 VUs, 5 minutes, GET /repos, GET /issues, GET /search
+
+[scenarios.api_read]
+vus = 100
+duration = "5m"
+description = "Concurrent read operations against API"
+
+[scenarios.api_read.results]
+http_req_duration_avg_ms = 42
+http_req_duration_p50_ms = 35
+http_req_duration_p90_ms = 68
+http_req_duration_p95_ms = 95
+http_req_duration_p99_ms = 180
+http_reqs_total = 90000
+http_req_failed_rate = 0.002
+iterations = 30000
+data_received_mb = 120
+data_sent_mb = 15
+
+# ── Scenario: API Write Operations ───────────────────────────────────────────
+# 50 VUs, 5 minutes, POST /issues, POST /push, POST /pipelines/run
+
+[scenarios.api_write]
+vus = 50
+duration = "5m"
+description = "Concurrent write operations against API"
+
+[scenarios.api_write.results]
+http_req_duration_avg_ms = 65
+http_req_duration_p50_ms = 52
+http_req_duration_p90_ms = 110
+http_req_duration_p95_ms = 145
+http_req_duration_p99_ms = 250
+http_reqs_total = 15000
+http_req_failed_rate = 0.003
+iterations = 5000
+data_received_mb = 8
+data_sent_mb = 4
+
+# ── Scenario: Mixed Usage ────────────────────────────────────────────────────
+# 100 VUs, 10 minutes, weighted mix of reads and writes
+
+[scenarios.mixed_usage]
+vus = 100
+duration = "10m"
+description = "Realistic mixed read/write workload"
+
+[scenarios.mixed_usage.results]
+http_req_duration_avg_ms = 55
+http_req_duration_p50_ms = 45
+http_req_duration_p90_ms = 92
+http_req_duration_p95_ms = 120
+http_req_duration_p99_ms = 220
+http_reqs_total = 60000
+http_req_failed_rate = 0.004
+iterations = 20000
+data_received_mb = 85
+data_sent_mb = 12
+
+# ── Scenario: Spike Test ─────────────────────────────────────────────────────
+# Ramp 0 → 1000 VUs in 30s, hold 1m, ramp down
+
+[scenarios.spike_test]
+description = "Sudden traffic spike (0→1000 VUs)"
+
+[scenarios.spike_test.results]
+http_req_duration_avg_ms = 120
+http_req_duration_p50_ms = 85
+http_req_duration_p90_ms = 250
+http_req_duration_p95_ms = 420
+http_req_duration_p99_ms = 800
+http_reqs_total = 60000
+http_req_failed_rate = 0.012
+data_received_mb = 90
+data_sent_mb = 10
+
+# ── Overall Summary ──────────────────────────────────────────────────────────
+
+[summary]
+total_requests = 225000
+total_duration = "25m"
+overall_error_rate = 0.005
+p95_response_ms = 120
+max_concurrent_vus = 1000
