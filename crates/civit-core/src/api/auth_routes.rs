@@ -987,7 +987,7 @@ pub async fn oauth_token(
     hasher.update(req.code_verifier.as_bytes());
     let computed_challenge = base64::Engine::encode(
         &base64::engine::general_purpose::URL_SAFE_NO_PAD,
-        &hasher.finalize(),
+        hasher.finalize(),
     );
 
     if computed_challenge != code_record.1 {

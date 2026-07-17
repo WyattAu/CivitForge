@@ -108,7 +108,7 @@ pub fn parse_search_query(input: &str) -> ParsedQuery {
                     if words.len() > 1 {
                         parsed.phrases.push(words);
                     } else if !words.is_empty() {
-                        parsed.terms.push(words.into_iter().next().unwrap());
+                        parsed.terms.push(words.into_iter().next().expect("operation should succeed"));
                     }
                 }
             }
@@ -254,7 +254,7 @@ impl SearchQueryBuilder {
 
             if !content_clauses.is_empty() {
                 let content_query: Box<dyn Query> = if content_clauses.len() == 1 {
-                    content_clauses.into_iter().next().unwrap().1
+                    content_clauses.into_iter().next().expect("operation should succeed").1
                 } else {
                     Box::new(BooleanQuery::new(content_clauses))
                 };
@@ -274,14 +274,14 @@ impl SearchQueryBuilder {
             }
 
             if outer_clauses.len() == 1 {
-                outer_clauses.into_iter().next().unwrap().1
+                outer_clauses.into_iter().next().expect("operation should succeed").1
             } else {
                 Box::new(BooleanQuery::new(outer_clauses))
             }
         } else {
             // No filters: content clauses use Should (at least one must match)
             if content_clauses.len() == 1 {
-                content_clauses.into_iter().next().unwrap().1
+                content_clauses.into_iter().next().expect("operation should succeed").1
             } else {
                 Box::new(BooleanQuery::new(content_clauses))
             }

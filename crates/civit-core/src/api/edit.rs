@@ -141,7 +141,7 @@ fn ensure_worktree(
 
     // Create worktree from bare repo
     let output = std::process::Command::new("git")
-        .args(["worktree", "add", worktree_path.to_str().unwrap(), branch])
+        .args(["worktree", "add", worktree_path.to_str().expect("path not valid utf-8"), branch])
         .current_dir(&bare_path)
         .output()
         .map_err(|e| format!("failed to create worktree: {e}"))?;
@@ -170,7 +170,7 @@ fn remove_worktree(storage_root: &std::path::Path, owner: &str, name: &str, bran
             "worktree",
             "remove",
             "--force",
-            worktree_path.to_str().unwrap(),
+            worktree_path.to_str().expect("path not valid utf-8"),
         ])
         .current_dir(&bare_path)
         .output();

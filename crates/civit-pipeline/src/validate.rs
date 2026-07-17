@@ -182,22 +182,22 @@ fn validate_v2_features(pipeline: &Pipeline) -> Result<()> {
         }
 
         // Validate before/after hooks
-        if let Some(before) = &job.before {
-            if before.is_empty() {
-                return Err(PipelineError::Validation(format!(
-                    "job '{}' has empty before hooks",
-                    job.name
-                )));
-            }
+        if let Some(before) = &job.before
+            && before.is_empty()
+        {
+            return Err(PipelineError::Validation(format!(
+                "job '{}' has empty before hooks",
+                job.name
+            )));
         }
 
-        if let Some(after) = &job.after {
-            if after.is_empty() {
-                return Err(PipelineError::Validation(format!(
-                    "job '{}' has empty after hooks",
-                    job.name
-                )));
-            }
+        if let Some(after) = &job.after
+            && after.is_empty()
+        {
+            return Err(PipelineError::Validation(format!(
+                "job '{}' has empty after hooks",
+                job.name
+            )));
         }
     }
 

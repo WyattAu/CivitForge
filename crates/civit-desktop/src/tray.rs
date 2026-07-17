@@ -12,7 +12,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let menu = Menu::with_items(app, &[&show, &quit])?;
 
     let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(app.default_window_icon().expect("operation should succeed").clone())
         .menu(&menu)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "show" => {

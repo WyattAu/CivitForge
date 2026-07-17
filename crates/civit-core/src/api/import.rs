@@ -731,7 +731,7 @@ pub async fn import_url(
 
             let clone_url = if let Some(ref token) = req.token {
                 if req.url.starts_with("https://") {
-                    let without_proto = req.url.strip_prefix("https://").unwrap();
+                    let without_proto = req.url.strip_prefix("https://").expect("prefix present");
                     format!("https://{token}@{without_proto}")
                 } else {
                     req.url.clone()

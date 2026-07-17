@@ -102,7 +102,7 @@ where
                     let response = axum::http::Response::builder()
                         .status(axum::http::StatusCode::UNAUTHORIZED)
                         .body(axum::body::Body::from("client certificate required"))
-                        .unwrap();
+                        .expect("operation should succeed");
                     return Ok(response);
                 }
             }
@@ -130,7 +130,7 @@ impl axum::response::IntoResponse for MissingClientCert {
         axum::http::Response::builder()
             .status(axum::http::StatusCode::UNAUTHORIZED)
             .body(axum::body::Body::from(self.to_string()))
-            .unwrap()
+            .expect("operation should succeed")
     }
 }
 

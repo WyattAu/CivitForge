@@ -142,16 +142,12 @@ async fn main() {
             let total = successes + errors;
             let delta_ok = successes.saturating_sub(last_success);
             let delta_err = errors.saturating_sub(last_errors);
-            let avg_latency_ns = if total > 0 {
-                report_latency_sum.load(Ordering::Relaxed) / total
-            } else {
-                0
-            };
+            let avg_latency_ns = report_latency_sum.load(Ordering::Relaxed).checked_div(total).unwrap_or(0);
             eprintln!(
                 "[{:>5}s] total={:>6} ok={:>6} err={:>3} | +{}/s +{}/s err | avg={:.1}ms | rss={:?}MB",
                 std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .expect("operation should succeed")
                     .as_secs()
                     % 3600,
                 total,
@@ -181,11 +177,7 @@ async fn main() {
     let total_ok = success_count.load(Ordering::Relaxed);
     let total_err = error_count.load(Ordering::Relaxed);
     let total = total_ok + total_err;
-    let avg_latency_ns = if total > 0 {
-        latency_sum_ns.load(Ordering::Relaxed) / total
-    } else {
-        0
-    };
+    let avg_latency_ns = latency_sum_ns.load(Ordering::Relaxed).checked_div(total).unwrap_or(0);
     let max_latency_ns = latency_max_ns.load(Ordering::Relaxed);
     let rps = if duration_secs > 0 {
         total_ok as f64 / duration_secs as f64

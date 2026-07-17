@@ -267,6 +267,7 @@ impl Default for EdgeCacheManager {
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgeCacheEntry {
@@ -290,7 +291,7 @@ pub struct EdgeCacheNodeStats {
 }
 
 pub struct EdgeCacheNode {
-    entries: std::sync::Mutex<HashMap<String, EdgeCacheEntry>>,
+    entries: Mutex<HashMap<String, EdgeCacheEntry>>,
     max_size_bytes: u64,
     current_size_bytes: AtomicU64,
     hit_count: AtomicU64,
@@ -300,7 +301,7 @@ pub struct EdgeCacheNode {
 impl EdgeCacheNode {
     pub fn new(max_size_bytes: u64) -> Self {
         Self {
-            entries: std::sync::Mutex::new(HashMap::new()),
+            entries: Mutex::new(HashMap::new()),
             max_size_bytes,
             current_size_bytes: AtomicU64::new(0),
             hit_count: AtomicU64::new(0),
@@ -309,7 +310,7 @@ impl EdgeCacheNode {
     }
 
     pub fn get(&self, key: &str) -> Option<EdgeCacheEntry> {
-        let entries = self.entries.lock().unwrap();
+        let entries = self.entries.lock();
         if let Some(mut entry) = entries.get(key).cloned() {
             entry.access_count += 1;
             drop(entries);
@@ -337,7 +338,7 @@ impl EdgeCacheNode {
             size_bytes: size as usize,
         };
 
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.lock();
         let old_size: u64 = entries.get(key).map(|e| e.size_bytes as u64).unwrap_or(0);
 
         let current = self.current_size_bytes.load(Ordering::Relaxed);
@@ -346,7 +347,7 @@ impl EdgeCacheNode {
         if needed > self.max_size_bytes {
             drop(entries);
             self.evict(needed.saturating_sub(self.max_size_bytes / 10));
-            let mut entries = self.entries.lock().unwrap();
+            let mut entries = self.entries.lock();
             entries.insert(key.to_string(), entry);
             self.current_size_bytes.store(
                 current.saturating_sub(old_size).saturating_add(size),
@@ -363,7 +364,7 @@ impl EdgeCacheNode {
     }
 
     pub fn invalidate(&self, key: &str) -> bool {
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.lock();
         if let Some(entry) = entries.remove(key) {
             self.current_size_bytes
                 .fetch_sub(entry.size_bytes as u64, Ordering::Relaxed);
@@ -387,17 +388,17 @@ impl EdgeCacheNode {
             miss_count: misses,
             hit_rate,
             total_bytes: self.current_size_bytes.load(Ordering::Relaxed),
-            entry_count: self.entries.lock().unwrap().len(),
+            entry_count: self.entries.lock().len(),
         }
     }
 
     pub fn entry_count(&self) -> usize {
-        self.entries.lock().unwrap().len()
+        self.entries.lock().len()
     }
 
     fn evict(&self, target_bytes: u64) {
         let mut evicted = 0u64;
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.lock();
         let mut to_remove = Vec::new();
         for (key, entry) in entries.iter() {
             if evicted >= target_bytes {

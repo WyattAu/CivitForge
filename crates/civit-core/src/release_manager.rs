@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Release {
@@ -30,18 +31,18 @@ pub struct ReleaseAsset {
 }
 
 pub struct ReleaseManager {
-    releases: std::sync::Mutex<Vec<Release>>,
+    releases: Mutex<Vec<Release>>,
 }
 
 impl ReleaseManager {
     pub fn new() -> Self {
         Self {
-            releases: std::sync::Mutex::new(Vec::new()),
+            releases: Mutex::new(Vec::new()),
         }
     }
 
     pub fn create_release(&self, release: Release) -> Result<(), String> {
-        let mut releases = self.releases.lock().unwrap();
+        let mut releases = self.releases.lock();
         if releases.iter().any(|r| r.tag_name == release.tag_name) {
             return Err(format!(
                 "release with tag '{}' already exists",
@@ -55,14 +56,13 @@ impl ReleaseManager {
     pub fn get_by_tag(&self, tag: &str) -> Option<Release> {
         self.releases
             .lock()
-            .unwrap()
             .iter()
             .find(|r| r.tag_name == tag)
             .cloned()
     }
 
     pub fn get_latest(&self) -> Option<Release> {
-        let releases = self.releases.lock().unwrap();
+        let releases = self.releases.lock();
         releases
             .iter()
             .filter(|r| !r.draft && !r.prerelease)
@@ -71,7 +71,7 @@ impl ReleaseManager {
     }
 
     pub fn list_releases(&self, include_drafts: bool) -> Vec<Release> {
-        let releases = self.releases.lock().unwrap();
+        let releases = self.releases.lock();
         releases
             .iter()
             .filter(|r| include_drafts || !r.draft)
@@ -80,14 +80,14 @@ impl ReleaseManager {
     }
 
     pub fn delete_release(&self, tag: &str) -> bool {
-        let mut releases = self.releases.lock().unwrap();
+        let mut releases = self.releases.lock();
         let before = releases.len();
         releases.retain(|r| r.tag_name != tag);
         releases.len() < before
     }
 
     pub fn publish_release(&self, tag: &str) -> Result<(), String> {
-        let mut releases = self.releases.lock().unwrap();
+        let mut releases = self.releases.lock();
         let release = releases
             .iter_mut()
             .find(|r| r.tag_name == tag)
@@ -101,7 +101,7 @@ impl ReleaseManager {
     }
 
     pub fn add_asset(&self, tag: &str, asset: ReleaseAsset) -> Result<(), String> {
-        let mut releases = self.releases.lock().unwrap();
+        let mut releases = self.releases.lock();
         let release = releases
             .iter_mut()
             .find(|r| r.tag_name == tag)
@@ -111,7 +111,7 @@ impl ReleaseManager {
     }
 
     pub fn count(&self) -> usize {
-        self.releases.lock().unwrap().len()
+        self.releases.lock().len()
     }
 }
 

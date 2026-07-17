@@ -6,7 +6,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -82,17 +82,17 @@ impl WebhookService {
     }
 
     pub fn register_endpoint(&self, endpoint: WebhookEndpoint) {
-        let mut endpoints = self.endpoints.lock().unwrap();
+        let mut endpoints = self.endpoints.lock();
         endpoints.insert(endpoint.id.clone(), endpoint);
     }
 
     pub fn remove_endpoint(&self, id: &str) -> bool {
-        let mut endpoints = self.endpoints.lock().unwrap();
+        let mut endpoints = self.endpoints.lock();
         endpoints.remove(id).is_some()
     }
 
     pub fn trigger(&self, event: WebhookEvent, payload: serde_json::Value) -> Vec<WebhookDelivery> {
-        let endpoints = self.endpoints.lock().unwrap();
+        let endpoints = self.endpoints.lock();
         let matching: Vec<&WebhookEndpoint> = endpoints
             .values()
             .filter(|ep| ep.active && ep.events.contains(&event))
@@ -116,7 +116,7 @@ impl WebhookService {
             deliveries.push(delivery);
         }
 
-        let mut stored = self.deliveries.lock().unwrap();
+        let mut stored = self.deliveries.lock();
         for d in &deliveries {
             stored.push(d.clone());
         }
@@ -125,7 +125,7 @@ impl WebhookService {
     }
 
     pub fn get_deliveries(&self, endpoint_id: &str) -> Vec<WebhookDelivery> {
-        let deliveries = self.deliveries.lock().unwrap();
+        let deliveries = self.deliveries.lock();
         deliveries
             .iter()
             .filter(|d| d.endpoint_id == endpoint_id)
@@ -134,19 +134,19 @@ impl WebhookService {
     }
 
     pub fn get_endpoint(&self, id: &str) -> Option<WebhookEndpoint> {
-        self.endpoints.lock().unwrap().get(id).cloned()
+        self.endpoints.lock().get(id).cloned()
     }
 
     pub fn endpoint_count(&self) -> usize {
-        self.endpoints.lock().unwrap().len()
+        self.endpoints.lock().len()
     }
 
     pub fn delivery_count(&self) -> usize {
-        self.deliveries.lock().unwrap().len()
+        self.deliveries.lock().len()
     }
 
     pub fn mark_success(&self, delivery_id: &str) -> bool {
-        let mut deliveries = self.deliveries.lock().unwrap();
+        let mut deliveries = self.deliveries.lock();
         if let Some(d) = deliveries.iter_mut().find(|d| d.id == delivery_id) {
             d.status = DeliveryStatus::Success;
             return true;
@@ -155,7 +155,7 @@ impl WebhookService {
     }
 
     pub fn mark_failed(&self, delivery_id: &str) -> bool {
-        let mut deliveries = self.deliveries.lock().unwrap();
+        let mut deliveries = self.deliveries.lock();
         if let Some(d) = deliveries.iter_mut().find(|d| d.id == delivery_id) {
             d.status = DeliveryStatus::Failed;
             d.last_attempt = Some(Utc::now());
@@ -189,7 +189,7 @@ impl WebhookService {
 
     pub async fn dispatch_pending(&self) -> usize {
         let pending_ids: Vec<(String, String)> = {
-            let deliveries = self.deliveries.lock().unwrap();
+            let deliveries = self.deliveries.lock();
             deliveries
                 .iter()
                 .filter(|d| d.status == DeliveryStatus::Pending)
@@ -208,8 +208,8 @@ impl WebhookService {
 
     pub async fn dispatch_delivery(&self, delivery_id: &str) -> bool {
         let (endpoint, delivery) = {
-            let endpoints = self.endpoints.lock().unwrap();
-            let deliveries = self.deliveries.lock().unwrap();
+            let endpoints = self.endpoints.lock();
+            let deliveries = self.deliveries.lock();
             let delivery = match deliveries.iter().find(|d| d.id == delivery_id) {
                 Some(d) => d.clone(),
                 None => return false,

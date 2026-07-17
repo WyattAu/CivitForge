@@ -63,7 +63,7 @@ fn generate_token() -> String {
 fn parse_user_id(auth: &AuthUser) -> Uuid {
     auth.user_id
         .parse()
-        .unwrap_or_else(|_| auth.user_id.parse().unwrap())
+        .unwrap_or_else(|_| auth.user_id.parse().expect("invalid value"))
 }
 
 /// List personal access tokens for the authenticated user

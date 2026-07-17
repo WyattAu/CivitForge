@@ -336,7 +336,7 @@ impl EmbeddingWorker {
         let inputs = [text];
         self.embed_batch_api(&inputs)
             .await
-            .map(|mut vecs| vecs.pop().unwrap().data)
+            .map(|mut vecs| vecs.pop().expect("non-empty").data)
     }
 
     async fn embed_batch_api(&self, texts: &[&str]) -> anyhow::Result<Vec<EmbeddingVector>> {

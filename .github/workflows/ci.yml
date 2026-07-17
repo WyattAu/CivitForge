@@ -71,6 +71,37 @@ jobs:
       # CI without a DB validates that all other tests compile and pass.
       - run: cargo test --workspace --locked
 
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: civit
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: civit_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Run integration tests
+        run: cargo test --features integration -- --test-threads=1
+        env:
+          DATABASE_URL: postgres://civit:test@localhost:5432/civit_test
+
   audit:
     name: Security Audit
     runs-on: ubuntu-latest
@@ -190,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     if: github.event_name == 'push'
-    needs: [fmt, clippy, test, audit, wasm]
+    needs: [fmt, clippy, test, integration, audit, wasm]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

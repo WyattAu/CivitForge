@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeatureFlag {
@@ -44,28 +45,28 @@ impl EvaluationContext {
 }
 
 pub struct FeatureFlagService {
-    flags: std::sync::Mutex<HashMap<String, FeatureFlag>>,
+    flags: Mutex<HashMap<String, FeatureFlag>>,
 }
 
 impl FeatureFlagService {
     pub fn new() -> Self {
         Self {
-            flags: std::sync::Mutex::new(HashMap::new()),
+            flags: Mutex::new(HashMap::new()),
         }
     }
 
     pub fn set_flag(&self, flag: FeatureFlag) {
-        let mut flags = self.flags.lock().unwrap();
+        let mut flags = self.flags.lock();
         flags.insert(flag.key.clone(), flag);
     }
 
     pub fn remove_flag(&self, key: &str) -> bool {
-        let mut flags = self.flags.lock().unwrap();
+        let mut flags = self.flags.lock();
         flags.remove(key).is_some()
     }
 
     pub fn is_enabled(&self, key: &str, context: &EvaluationContext) -> bool {
-        let flags = self.flags.lock().unwrap();
+        let flags = self.flags.lock();
         let Some(flag) = flags.get(key) else {
             return false;
         };
@@ -93,7 +94,7 @@ impl FeatureFlagService {
 
     pub fn get_variant(&self, key: &str, context: &EvaluationContext) -> Option<String> {
         if self.is_enabled(key, context) {
-            let flags = self.flags.lock().unwrap();
+            let flags = self.flags.lock();
             flags.get(key).and_then(|f| f.variant.clone())
         } else {
             None
@@ -101,17 +102,17 @@ impl FeatureFlagService {
     }
 
     pub fn get_flag(&self, key: &str) -> Option<FeatureFlag> {
-        let flags = self.flags.lock().unwrap();
+        let flags = self.flags.lock();
         flags.get(key).cloned()
     }
 
     pub fn list_flags(&self) -> Vec<FeatureFlag> {
-        let flags = self.flags.lock().unwrap();
+        let flags = self.flags.lock();
         flags.values().cloned().collect()
     }
 
     pub fn flag_count(&self) -> usize {
-        let flags = self.flags.lock().unwrap();
+        let flags = self.flags.lock();
         flags.len()
     }
 }

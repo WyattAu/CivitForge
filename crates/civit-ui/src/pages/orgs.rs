@@ -341,7 +341,7 @@ pub fn OrgDetailPage() -> impl IntoView {
 
             <Show when=move || org_sig.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                 {move || {
-                    let org = org_sig.get().unwrap();
+                    let org = org_sig.get().expect("key present");
                     let member_count = org.member_count;
                     let repo_count = org.repo_count;
                     let vis = org.visibility;

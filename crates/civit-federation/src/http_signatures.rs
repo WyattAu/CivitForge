@@ -244,7 +244,7 @@ impl SignatureVerifier {
                 if public_key_bytes.len() < 16 {
                     return false;
                 }
-                let mut mac = Hmac::<Sha256>::new_from_slice(public_key_bytes).unwrap();
+                let mut mac = Hmac::<Sha256>::new_from_slice(public_key_bytes).expect("valid key length");
                 mac.update(&payload);
                 let expected = mac.finalize().into_bytes();
                 let provided = match BASE64.decode(&signature.signature) {
@@ -292,7 +292,7 @@ impl SignatureVerifier {
                 if private_key_bytes.len() < 16 {
                     return Err("HMAC key must be at least 16 bytes".into());
                 }
-                let mut mac = Hmac::<Sha256>::new_from_slice(private_key_bytes).unwrap();
+                let mut mac = Hmac::<Sha256>::new_from_slice(private_key_bytes).expect("valid key length");
                 mac.update(&payload);
                 mac.finalize().into_bytes().to_vec()
             }
@@ -376,7 +376,7 @@ impl SignatureVerifier {
                 let re = regex::Regex::new(
                     r"(?s)-----BEGIN PUBLIC KEY-----(.+?)-----END PUBLIC KEY-----",
                 )
-                .unwrap();
+                .expect("operation should succeed");
                 if let Some(caps) = re.captures(public_key_pem) {
                     match BASE64.decode(caps[1].split_whitespace().collect::<Vec<_>>().join("")) {
                         Ok(b) => b,

@@ -5,12 +5,13 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
+use parking_lot::{Mutex, RwLock};
 
 pub struct HsmKeyOperations {
     sessions: DashMap<String, HsmSession>,
     #[allow(dead_code)] // Kept for configuration intent; actual fallback is in HsmClient config
     software_fallback: bool,
-    client: std::sync::Mutex<HsmClient>,
+    client: Mutex<HsmClient>,
 }
 
 impl Default for HsmKeyOperations {
@@ -24,7 +25,7 @@ impl HsmKeyOperations {
         Self {
             sessions: DashMap::new(),
             software_fallback: true,
-            client: std::sync::Mutex::new(HsmClient::new()),
+            client: Mutex::new(HsmClient::new()),
         }
     }
 
@@ -32,7 +33,7 @@ impl HsmKeyOperations {
         Self {
             sessions: DashMap::new(),
             software_fallback: fallback,
-            client: std::sync::Mutex::new(HsmClient::with_config(HsmConfig {
+            client: Mutex::new(HsmClient::with_config(HsmConfig {
                 software_fallback: fallback,
                 ..HsmConfig::default()
             })),
@@ -40,7 +41,7 @@ impl HsmKeyOperations {
     }
 
     pub fn open_session(&self, id: impl Into<String>) -> anyhow::Result<()> {
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock();
         let session = client.connect()?;
         self.sessions.insert(id.into(), session);
         Ok(())
@@ -65,7 +66,7 @@ impl HsmKeyOperations {
             "ECDSA" | "ECC" => KeyType::Ecc,
             other => anyhow::bail!("unsupported algorithm: {other}"),
         };
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock();
         let (pub_key, priv_key) = client.generate_key_pair(label, key_type, size_bits)?;
         drop(client);
         self.sessions.insert(
@@ -80,7 +81,7 @@ impl HsmKeyOperations {
     }
 
     pub fn sign(&self, key_id: &str, data: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock();
         // Sessions store keys with "key-" prefix; strip to get the actual HsmClient key ID.
         let actual_id = key_id.strip_prefix("key-").unwrap_or(key_id);
         let key = HsmKeyHandle {
@@ -94,7 +95,7 @@ impl HsmKeyOperations {
     }
 
     pub fn verify(&self, key_id: &str, data: &[u8], signature: &[u8]) -> anyhow::Result<bool> {
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock();
         let actual_id = key_id.strip_prefix("key-").unwrap_or(key_id);
         let key = HsmKeyHandle {
             id: actual_id.to_string(),
@@ -107,7 +108,7 @@ impl HsmKeyOperations {
     }
 
     pub fn encrypt(&self, key_id: &str, plaintext: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock();
         let key = HsmKeyHandle {
             id: key_id.to_string(),
             label: key_id.to_string(),
@@ -119,7 +120,7 @@ impl HsmKeyOperations {
     }
 
     pub fn decrypt(&self, key_id: &str, ciphertext: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let client = self.client.lock().unwrap();
+        let client = self.client.lock();
         let key = HsmKeyHandle {
             id: key_id.to_string(),
             label: key_id.to_string(),
@@ -259,7 +260,7 @@ pub struct HsmFailover {
     failover_threshold: u32,
     keys_cache: DashMap<String, HsmKeyHandle>,
     consecutive_failures: std::sync::atomic::AtomicU32,
-    state: std::sync::RwLock<HsmFailoverState>,
+    state: RwLock<HsmFailoverState>,
 }
 
 impl HsmFailover {
@@ -276,12 +277,12 @@ impl HsmFailover {
             failover_threshold,
             keys_cache: DashMap::new(),
             consecutive_failures: std::sync::atomic::AtomicU32::new(0),
-            state: std::sync::RwLock::new(HsmFailoverState::Primary),
+            state: RwLock::new(HsmFailoverState::Primary),
         }
     }
 
     pub fn state(&self) -> HsmFailoverState {
-        self.state.read().unwrap().clone()
+        self.state.read().clone()
     }
 
     pub fn check_health(&self) -> bool {
@@ -298,8 +299,8 @@ impl HsmFailover {
                         .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
                         + 1;
                     if failures >= self.failover_threshold {
-                        drop(self.state.write().unwrap().clone());
-                        let mut state = self.state.write().unwrap();
+                        drop(self.state.write().clone());
+                        let mut state = self.state.write();
                         *state = HsmFailoverState::Backup;
                     }
                     false
@@ -315,7 +316,7 @@ impl HsmFailover {
     }
 
     pub fn switch_to_backup(&self) -> bool {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         if *state == HsmFailoverState::Primary || *state == HsmFailoverState::Unavailable {
             *state = HsmFailoverState::Backup;
             true
@@ -325,7 +326,7 @@ impl HsmFailover {
     }
 
     pub fn switch_to_primary(&self) -> bool {
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write();
         if *state == HsmFailoverState::Backup || *state == HsmFailoverState::Unavailable {
             *state = HsmFailoverState::Primary;
             self.consecutive_failures

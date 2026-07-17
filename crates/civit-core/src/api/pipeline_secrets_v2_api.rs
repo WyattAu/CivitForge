@@ -113,10 +113,7 @@ pub async fn create_secret_v2(
         }
     };
 
-    let user_id = match Uuid::parse_str(&auth.user_id) {
-        Ok(id) => Some(id),
-        Err(_) => None,
-    };
+    let user_id = Uuid::parse_str(&auth.user_id).ok();
 
     // For now, we'll store the value as bytes directly (encryption would be added in production)
     let encrypted_value = req.value.as_bytes().to_vec();
@@ -170,10 +167,7 @@ pub async fn get_secret_v2(
         }
     };
 
-    let _user_id = match Uuid::parse_str(&auth.user_id) {
-        Ok(id) => Some(id),
-        Err(_) => None,
-    };
+    let _user_id = Uuid::parse_str(&auth.user_id).ok();
 
     let service = PipelineSecretsService::new(pool.clone());
     match service.get_secret(repo_id, &secret_name, "all").await {
@@ -220,10 +214,7 @@ pub async fn update_secret_v2(
         }
     };
 
-    let user_id = match Uuid::parse_str(&auth.user_id) {
-        Ok(id) => Some(id),
-        Err(_) => None,
-    };
+    let user_id = Uuid::parse_str(&auth.user_id).ok();
 
     let encrypted_value = req.value.as_ref().map(|v| v.as_bytes().to_vec());
 
@@ -306,10 +297,7 @@ pub async fn rotate_secret_v2(
         }
     };
 
-    let user_id = match Uuid::parse_str(&auth.user_id) {
-        Ok(id) => Some(id),
-        Err(_) => None,
-    };
+    let user_id = Uuid::parse_str(&auth.user_id).ok();
 
     let new_value = match req.get("value").and_then(|v| v.as_str()) {
         Some(v) => v,

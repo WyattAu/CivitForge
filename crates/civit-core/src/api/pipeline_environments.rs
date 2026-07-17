@@ -438,10 +438,7 @@ pub async fn create_deployment(
         }
     };
 
-    let creator_id = match Uuid::parse_str(&auth.user_id) {
-        Ok(id) => Some(id),
-        Err(_) => None,
-    };
+    let creator_id = Uuid::parse_str(&auth.user_id).ok();
 
     let pipeline_run_id = match &req.pipeline_run_id {
         Some(id_str) => match Uuid::parse_str(id_str) {

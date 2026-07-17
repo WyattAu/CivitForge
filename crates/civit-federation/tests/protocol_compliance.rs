@@ -11,7 +11,7 @@ use civit_federation::http_signatures::{
     SignatureAlgorithm, SignatureVerifier,
 };
 use civit_federation::inbox_outbox::{
-    BackoffStrategy, DeliveryStatus, InboxProcessor, OutboxProcessor,
+    BackoffStrategy, InboxProcessor, OutboxProcessor,
 };
 use civit_federation::webfinger::{resolve_webfinger, Link, WebFingerResponse};
 use serde_json::Value;

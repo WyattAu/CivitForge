@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchProtectionRule {
@@ -25,22 +26,22 @@ pub struct PushEvaluation {
 }
 
 pub struct BranchProtectionEvaluator {
-    rules: std::sync::Mutex<Vec<BranchProtectionRule>>,
+    rules: Mutex<Vec<BranchProtectionRule>>,
 }
 
 impl BranchProtectionEvaluator {
     pub fn new() -> Self {
         Self {
-            rules: std::sync::Mutex::new(Vec::new()),
+            rules: Mutex::new(Vec::new()),
         }
     }
 
     pub fn add_rule(&self, rule: BranchProtectionRule) {
-        self.rules.lock().unwrap().push(rule);
+        self.rules.lock().push(rule);
     }
 
     pub fn remove_rule(&self, id: &str) -> bool {
-        let mut rules = self.rules.lock().unwrap();
+        let mut rules = self.rules.lock();
         let before = rules.len();
         rules.retain(|r| r.id != id);
         rules.len() < before
@@ -58,7 +59,7 @@ impl BranchProtectionEvaluator {
         is_force_push: bool,
         is_signed: bool,
     ) -> PushEvaluation {
-        let rules = self.rules.lock().unwrap();
+        let rules = self.rules.lock();
         let matching: Vec<&BranchProtectionRule> = rules
             .iter()
             .filter(|r| Self::pattern_matches(&r.pattern, branch))
@@ -121,11 +122,11 @@ impl BranchProtectionEvaluator {
     }
 
     pub fn get_rules(&self) -> Vec<BranchProtectionRule> {
-        self.rules.lock().unwrap().clone()
+        self.rules.lock().clone()
     }
 
     pub fn rule_count(&self) -> usize {
-        self.rules.lock().unwrap().len()
+        self.rules.lock().len()
     }
 }
 

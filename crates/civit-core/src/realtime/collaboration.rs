@@ -222,15 +222,14 @@ impl LiveCollaborationService {
                 let mut sent = 0;
 
                 for session_id in session_ids {
-                    if let Some(entry) = sessions.get(session_id) {
-                        if entry.session.user_id != change.user_id {
+                    if let Some(entry) = sessions.get(session_id)
+                        && entry.session.user_id != change.user_id {
                             for sender in &entry.senders {
                                 if sender.send(change.clone()).is_ok() {
                                     sent += 1;
                                 }
                             }
                         }
-                    }
                 }
 
                 sent

@@ -256,13 +256,11 @@ impl GraphqlSubscriptionService {
                 let subs = self.subscriptions.read().await;
                 let mut sent = 0;
                 for sub_id in ids {
-                    if let Some(entry) = subs.get(sub_id) {
-                        if entry.subscription.enabled {
-                            if entry.tx.send(event.clone()).is_ok() {
+                    if let Some(entry) = subs.get(sub_id)
+                        && entry.subscription.enabled
+                            && entry.tx.send(event.clone()).is_ok() {
                                 sent += 1;
                             }
-                        }
-                    }
                 }
                 sent
             }

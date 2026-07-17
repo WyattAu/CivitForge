@@ -138,11 +138,10 @@ impl InstanceManager {
         let now = Utc::now();
         if let Some(sessions) = self.user_sessions.get(&user_id) {
             for session_id in sessions.iter() {
-                if let Some(session) = self.sticky_sessions.get(session_id) {
-                    if session.expires_at > now && session.instance_id == self.instance_id {
+                if let Some(session) = self.sticky_sessions.get(session_id)
+                    && session.expires_at > now && session.instance_id == self.instance_id {
                         return Some(session.instance_id);
                     }
-                }
             }
         }
         None
@@ -158,11 +157,10 @@ impl InstanceManager {
             .collect();
         let count = expired.len();
         for id in &expired {
-            if let Some(session) = self.sticky_sessions.remove(id) {
-                if let Some(mut user_sessions) = self.user_sessions.get_mut(&session.1.user_id) {
+            if let Some(session) = self.sticky_sessions.remove(id)
+                && let Some(mut user_sessions) = self.user_sessions.get_mut(&session.1.user_id) {
                     user_sessions.retain(|s| s != id);
                 }
-            }
         }
         count
     }

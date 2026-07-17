@@ -1,0 +1,39 @@
+# CivitForge Code Owners
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything
+* @WyattAu
+
+# Core framework
+crates/civit-core/ @WyattAu
+crates/civit-shared/ @WyattAu
+
+# Security and crypto
+crates/civit-crypto/ @WyattAu
+crates/civit-security/ @WyattAu
+crates/civit-auth/ @WyattAu
+
+# CI/CD and pipeline
+crates/civit-runner/ @WyattAu
+crates/civit-pipeline/ @WyattAu
+
+# Infrastructure
+crates/civit-db/ @WyattAu
+crates/civit-vfs/ @WyattAu
+crates/civit-federation/ @WyattAu
+
+# Frontend
+crates/civit-ui/ @WyattAu
+
+# Telemetry
+crates/civit-telemetry/ @WyattAu
+
+# Documentation
+docs/ @WyattAu
+*.md @WyattAu
+
+# CI/CD configuration
+.github/ @WyattAu
+Dockerfile* @WyattAu
+docker-compose*.yml @WyattAu
+Makefile @WyattAu

@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MigrationConfig {
@@ -74,13 +75,13 @@ pub trait MigrationManager: Send + Sync {
 }
 
 pub struct InMemoryMigrationManager {
-    migrations: std::sync::Mutex<Vec<(String, String, String, f64)>>,
+    migrations: Mutex<Vec<(String, String, String, f64)>>,
 }
 
 impl InMemoryMigrationManager {
     pub fn new() -> Self {
         Self {
-            migrations: std::sync::Mutex::new(Vec::new()),
+            migrations: Mutex::new(Vec::new()),
         }
     }
 }
@@ -122,7 +123,7 @@ impl MigrationManager for InMemoryMigrationManager {
             },
         ];
 
-        let mut migrations = self.migrations.lock().unwrap();
+        let mut migrations = self.migrations.lock();
         migrations.push((id.clone(), source.to_string(), destination.to_string(), 0.0));
 
         Ok(MigrationPlan {
@@ -140,7 +141,7 @@ impl MigrationManager for InMemoryMigrationManager {
         migration_id: &str,
         _config: &MigrationConfig,
     ) -> Result<MigrationProgress, String> {
-        let migrations = self.migrations.lock().unwrap();
+        let migrations = self.migrations.lock();
         let _migration = migrations
             .iter()
             .find(|(id, _, _, _)| id == migration_id)
@@ -158,7 +159,7 @@ impl MigrationManager for InMemoryMigrationManager {
     }
 
     fn get_progress(&self, migration_id: &str) -> Result<MigrationProgress, String> {
-        let migrations = self.migrations.lock().unwrap();
+        let migrations = self.migrations.lock();
         let migration = migrations
             .iter()
             .find(|(id, _, _, _)| id == migration_id)
@@ -176,7 +177,7 @@ impl MigrationManager for InMemoryMigrationManager {
     }
 
     fn rollback(&self, migration_id: &str) -> Result<RollbackPlan, String> {
-        let migrations = self.migrations.lock().unwrap();
+        let migrations = self.migrations.lock();
         let _migration = migrations
             .iter()
             .find(|(id, _, _, _)| id == migration_id)
@@ -222,7 +223,7 @@ mod tests {
     #[test]
     fn test_in_memory_execute_migration() {
         let mgr = InMemoryMigrationManager::new();
-        let plan = mgr
+        let _plan = mgr
             .create_plan("src", "dst", "full")
             .unwrap();
         let config = MigrationConfig::default();
@@ -233,7 +234,7 @@ mod tests {
     #[test]
     fn test_in_memory_rollback() {
         let mgr = InMemoryMigrationManager::new();
-        let plan = mgr
+        let _plan = mgr
             .create_plan("src", "dst", "full")
             .unwrap();
         let rollback = mgr.rollback("nonexistent");

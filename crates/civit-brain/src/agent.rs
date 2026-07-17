@@ -152,7 +152,7 @@ impl<T: VectorDb> ReviewAgent<T> {
                 severity: Severity::Info,
                 message: format!(
                     "Note: {} found in code",
-                    trimmed.split_whitespace().next().unwrap()
+                    trimmed.split_whitespace().next().expect("non-empty")
                 ),
                 suggestion: None,
             });

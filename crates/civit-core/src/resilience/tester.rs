@@ -141,41 +141,46 @@ impl ResilienceTester {
         let (score, recommendations) = match test_type {
             TestType::Retry => {
                 let score = 85;
-                let mut recs = Vec::new();
-                recs.push("Implement exponential backoff for retries".to_string());
-                recs.push("Add jitter to prevent thundering herd".to_string());
-                recs.push("Set maximum retry count".to_string());
+                let recs = vec![
+                    "Implement exponential backoff for retries".to_string(),
+                    "Add jitter to prevent thundering herd".to_string(),
+                    "Set maximum retry count".to_string(),
+                ];
                 (score, recs)
             }
             TestType::Timeout => {
                 let score = 90;
-                let mut recs = Vec::new();
-                recs.push("Configure appropriate timeout values".to_string());
-                recs.push("Implement circuit breaker for repeated timeouts".to_string());
+                let recs = vec![
+                    "Configure appropriate timeout values".to_string(),
+                    "Implement circuit breaker for repeated timeouts".to_string(),
+                ];
                 (score, recs)
             }
             TestType::Fallback => {
                 let score = 75;
-                let mut recs = Vec::new();
-                recs.push("Implement graceful degradation".to_string());
-                recs.push("Provide default responses for failures".to_string());
-                recs.push("Cache fallback responses".to_string());
+                let recs = vec![
+                    "Implement graceful degradation".to_string(),
+                    "Provide default responses for failures".to_string(),
+                    "Cache fallback responses".to_string(),
+                ];
                 (score, recs)
             }
             TestType::Bulkhead => {
                 let score = 80;
-                let mut recs = Vec::new();
-                recs.push("Isolate critical components".to_string());
-                recs.push("Implement thread pool isolation".to_string());
-                recs.push("Set connection limits per service".to_string());
+                let recs = vec![
+                    "Isolate critical components".to_string(),
+                    "Implement thread pool isolation".to_string(),
+                    "Set connection limits per service".to_string(),
+                ];
                 (score, recs)
             }
             TestType::RateLimit => {
                 let score = 88;
-                let mut recs = Vec::new();
-                recs.push("Implement token bucket algorithm".to_string());
-                recs.push("Add rate limit headers to responses".to_string());
-                recs.push("Configure per-user rate limits".to_string());
+                let recs = vec![
+                    "Implement token bucket algorithm".to_string(),
+                    "Add rate limit headers to responses".to_string(),
+                    "Configure per-user rate limits".to_string(),
+                ];
                 (score, recs)
             }
         };

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::VecDeque;
 use uuid::Uuid;
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergeQueueEntry {
@@ -206,20 +207,20 @@ impl MergeQueueStore {
 }
 
 pub struct MergeQueue {
-    queue: std::sync::Mutex<VecDeque<MergeQueueEntry>>,
+    queue: Mutex<VecDeque<MergeQueueEntry>>,
     max_size: usize,
 }
 
 impl MergeQueue {
     pub fn new(max_size: usize) -> Self {
         Self {
-            queue: std::sync::Mutex::new(VecDeque::with_capacity(max_size)),
+            queue: Mutex::new(VecDeque::with_capacity(max_size)),
             max_size,
         }
     }
 
     pub fn enqueue(&self, entry: MergeQueueEntry) -> Result<u32, String> {
-        let mut queue = self.queue.lock().unwrap();
+        let mut queue = self.queue.lock();
         if queue.len() >= self.max_size {
             return Err("merge queue is full".into());
         }
@@ -229,17 +230,17 @@ impl MergeQueue {
     }
 
     pub fn dequeue_next(&self) -> Option<MergeQueueEntry> {
-        let mut queue = self.queue.lock().unwrap();
+        let mut queue = self.queue.lock();
         queue.pop_front()
     }
 
     pub fn peek(&self) -> Option<MergeQueueEntry> {
-        let queue = self.queue.lock().unwrap();
+        let queue = self.queue.lock();
         queue.front().cloned()
     }
 
     pub fn cancel(&self, pr_number: u32) -> bool {
-        let mut queue = self.queue.lock().unwrap();
+        let mut queue = self.queue.lock();
         if let Some(entry) = queue.iter_mut().find(|e| e.pr_number == pr_number)
             && (entry.status == MergeStatus::Queued || entry.status == MergeStatus::Testing)
         {
@@ -250,7 +251,7 @@ impl MergeQueue {
     }
 
     pub fn update_status(&self, pr_number: u32, status: MergeStatus) -> bool {
-        let mut queue = self.queue.lock().unwrap();
+        let mut queue = self.queue.lock();
         if let Some(entry) = queue.iter_mut().find(|e| e.pr_number == pr_number) {
             entry.status = status;
             match status {
@@ -266,15 +267,15 @@ impl MergeQueue {
     }
 
     pub fn len(&self) -> usize {
-        self.queue.lock().unwrap().len()
+        self.queue.lock().len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.queue.lock().unwrap().is_empty()
+        self.queue.lock().is_empty()
     }
 
     pub fn position_of(&self, pr_number: u32) -> Option<u32> {
-        let queue = self.queue.lock().unwrap();
+        let queue = self.queue.lock();
         queue
             .iter()
             .position(|e| e.pr_number == pr_number)
@@ -282,7 +283,7 @@ impl MergeQueue {
     }
 
     pub fn clear_completed(&self) -> usize {
-        let mut queue = self.queue.lock().unwrap();
+        let mut queue = self.queue.lock();
         let before = queue.len();
         queue.retain(|e| {
             e.status != MergeStatus::Completed

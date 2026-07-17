@@ -226,7 +226,7 @@ impl CsiDriver {
             .volumes
             .get(&request.volume_id)
             .map(|v| v.clone())
-            .unwrap();
+            .expect("operation should succeed");
 
         let mount_info = MountInfo {
             volume_id: request.volume_id.clone(),

@@ -4,6 +4,7 @@ use crate::error::{DbError, Result};
 use sqlx::postgres::PgPool;
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 use std::time::Duration;
+use parking_lot::Mutex;
 
 pub const CIRCUIT_CLOSED: u8 = 0;
 pub const CIRCUIT_OPEN: u8 = 1;
@@ -16,7 +17,7 @@ pub struct DatabasePool {
     circuit_state: AtomicU8,
     failure_threshold: u32,
     reset_timeout: Duration,
-    opened_at: std::sync::Mutex<Option<std::time::Instant>>,
+    opened_at: Mutex<Option<std::time::Instant>>,
 }
 
 impl DatabasePool {
@@ -33,7 +34,7 @@ impl DatabasePool {
             circuit_state: AtomicU8::new(CIRCUIT_CLOSED),
             failure_threshold: 5,
             reset_timeout: Duration::from_secs(30),
-            opened_at: std::sync::Mutex::new(None),
+            opened_at: Mutex::new(None),
         })
     }
 
@@ -47,7 +48,7 @@ impl DatabasePool {
 
     pub async fn health_check(&self) -> bool {
         if self.circuit_state() == CIRCUIT_OPEN {
-            if let Some(opened) = *self.opened_at.lock().unwrap() {
+            if let Some(opened) = *self.opened_at.lock() {
                 if opened.elapsed() >= self.reset_timeout {
                     self.set_circuit_state(CIRCUIT_HALF_OPEN);
                 } else {
@@ -94,21 +95,21 @@ impl DatabasePool {
     fn record_success(&self) {
         self.consecutive_failures.store(0, Ordering::Relaxed);
         self.set_circuit_state(CIRCUIT_CLOSED);
-        *self.opened_at.lock().unwrap() = None;
+        *self.opened_at.lock() = None;
     }
 
     fn record_failure(&self) {
         let failures = self.consecutive_failures.fetch_add(1, Ordering::Relaxed) + 1;
         if failures >= self.failure_threshold {
             self.set_circuit_state(CIRCUIT_OPEN);
-            *self.opened_at.lock().unwrap() = Some(std::time::Instant::now());
+            *self.opened_at.lock() = Some(std::time::Instant::now());
         }
     }
 
     pub fn is_circuit_open(&self) -> bool {
         let state = self.circuit_state();
         if state == CIRCUIT_OPEN {
-            if let Some(opened) = *self.opened_at.lock().unwrap()
+            if let Some(opened) = *self.opened_at.lock()
                 && opened.elapsed() >= self.reset_timeout
             {
                 self.set_circuit_state(CIRCUIT_HALF_OPEN);

@@ -6757,7 +6757,7 @@ impl ScheduledTaskService {
 
         self.recalculate_task_template_rating(template_id).await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     async fn recalculate_task_template_rating(
@@ -6800,7 +6800,7 @@ impl ScheduledTaskService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn create_task_category(
@@ -6820,7 +6820,7 @@ impl ScheduledTaskService {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     pub async fn get_task_category(
@@ -6835,7 +6835,7 @@ impl ScheduledTaskService {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(|r| r.into()))
+        Ok(row)
     }
 
     pub async fn list_task_categories(
@@ -6849,7 +6849,7 @@ impl ScheduledTaskService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn list_task_subcategories(
@@ -6865,7 +6865,7 @@ impl ScheduledTaskService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn update_task_category(
@@ -6887,7 +6887,7 @@ impl ScheduledTaskService {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     pub async fn delete_task_category(&self, id: Uuid) -> Result<bool, sqlx::Error> {

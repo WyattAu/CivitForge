@@ -70,7 +70,7 @@ pub async fn list_admin_dashboard_widgets(
     match state.db.list_admin_dashboard_widgets().await {
         Ok(widgets) => {
             let response = AdminDashboardWidgetsResponse {
-                widgets: widgets.iter().map(|w| widget_to_response(w)).collect(),
+                widgets: widgets.iter().map(widget_to_response).collect(),
                 total: widgets.len(),
             };
             (StatusCode::OK, Json(response)).into_response()

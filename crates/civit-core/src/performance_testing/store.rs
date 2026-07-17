@@ -220,7 +220,7 @@ impl PerformanceTestStore {
     ) -> Result<PerformanceTestRecord, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let config = serde_json::to_value(&req.config.unwrap_or_default())
+        let config = serde_json::to_value(req.config.unwrap_or_default())
             .unwrap_or(serde_json::json!({}));
 
         sqlx::query(
@@ -539,8 +539,8 @@ impl PerformanceTestStore {
         let max_value = data_points.iter().map(|d| d.metric_value).fold(f64::NEG_INFINITY, f64::max);
 
         let (trend_direction, change_percent) = if data_points.len() >= 2 {
-            let first = data_points.first().unwrap().metric_value;
-            let last = data_points.last().unwrap().metric_value;
+            let first = data_points.first().expect("non-empty").metric_value;
+            let last = data_points.last().expect("non-empty").metric_value;
             let change = if first != 0.0 {
                 ((last - first) / first) * 100.0
             } else {
@@ -3108,8 +3108,8 @@ impl PerformanceTestStore {
         };
 
         let change_percent = if data_points.len() >= 2 {
-            let first = data_points.last().unwrap().metric_value;
-            let last = data_points.first().unwrap().metric_value;
+            let first = data_points.last().expect("non-empty").metric_value;
+            let last = data_points.first().expect("non-empty").metric_value;
             if first != 0.0 {
                 ((last - first) / first) * 100.0
             } else {

@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MirrorConfig {
@@ -43,18 +44,18 @@ pub enum MirrorAuthMethod {
 }
 
 pub struct MirrorManager {
-    mirrors: std::sync::Mutex<Vec<MirrorConfig>>,
+    mirrors: Mutex<Vec<MirrorConfig>>,
 }
 
 impl MirrorManager {
     pub fn new() -> Self {
         Self {
-            mirrors: std::sync::Mutex::new(Vec::new()),
+            mirrors: Mutex::new(Vec::new()),
         }
     }
 
     pub fn add_mirror(&self, config: MirrorConfig) -> Result<(), String> {
-        let mut mirrors = self.mirrors.lock().unwrap();
+        let mut mirrors = self.mirrors.lock();
         if mirrors.iter().any(|m| m.id == config.id) {
             return Err(format!("mirror with id '{}' already exists", config.id));
         }
@@ -69,24 +70,24 @@ impl MirrorManager {
     }
 
     pub fn remove_mirror(&self, id: &str) -> bool {
-        let mut mirrors = self.mirrors.lock().unwrap();
+        let mut mirrors = self.mirrors.lock();
         let len_before = mirrors.len();
         mirrors.retain(|m| m.id != id);
         mirrors.len() < len_before
     }
 
     pub fn get_mirror(&self, id: &str) -> Option<MirrorConfig> {
-        let mirrors = self.mirrors.lock().unwrap();
+        let mirrors = self.mirrors.lock();
         mirrors.iter().find(|m| m.id == id).cloned()
     }
 
     pub fn list_mirrors(&self) -> Vec<MirrorConfig> {
-        let mirrors = self.mirrors.lock().unwrap();
+        let mirrors = self.mirrors.lock();
         mirrors.clone()
     }
 
     pub fn update_status(&self, id: &str, status: MirrorStatus) -> bool {
-        let mut mirrors = self.mirrors.lock().unwrap();
+        let mut mirrors = self.mirrors.lock();
         if let Some(m) = mirrors.iter_mut().find(|m| m.id == id) {
             m.status = status;
             true
@@ -96,7 +97,7 @@ impl MirrorManager {
     }
 
     pub fn mark_synced(&self, id: &str) -> bool {
-        let mut mirrors = self.mirrors.lock().unwrap();
+        let mut mirrors = self.mirrors.lock();
         if let Some(m) = mirrors.iter_mut().find(|m| m.id == id) {
             let now = Utc::now();
             m.last_sync = Some(now);
@@ -110,7 +111,7 @@ impl MirrorManager {
     }
 
     pub fn mirrors_due_for_sync(&self) -> Vec<MirrorConfig> {
-        let mirrors = self.mirrors.lock().unwrap();
+        let mirrors = self.mirrors.lock();
         let now = Utc::now();
         mirrors
             .iter()
@@ -128,7 +129,7 @@ impl MirrorManager {
     }
 
     pub fn count(&self) -> usize {
-        let mirrors = self.mirrors.lock().unwrap();
+        let mirrors = self.mirrors.lock();
         mirrors.len()
     }
 }

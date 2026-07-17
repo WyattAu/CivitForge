@@ -210,7 +210,7 @@ impl WebSocketScaler {
             .get(channel)
             .map(|log| {
                 let len = log.len();
-                let start = if len > limit { len - limit } else { 0 };
+                let start = len.saturating_sub(limit);
                 log[start..].to_vec()
             })
             .unwrap_or_default()

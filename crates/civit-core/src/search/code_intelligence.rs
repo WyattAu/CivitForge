@@ -70,6 +70,7 @@ impl CodeIntelligenceService {
         Self { db }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn index_symbol(
         &self,
         repo_id: Uuid,

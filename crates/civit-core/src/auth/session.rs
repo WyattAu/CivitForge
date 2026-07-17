@@ -5,7 +5,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -72,10 +72,7 @@ impl TokenRotationService {
     }
 
     pub fn rotate_tokens(&self, old_refresh_hash: &str, user_id: Uuid) -> Result<TokenPair> {
-        let sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| crate::error::CoreError::Internal(format!("Lock poisoned: {e}")))?;
+        let sessions = self.sessions.lock();
 
         let session = sessions
             .values()
@@ -106,7 +103,7 @@ impl TokenRotationService {
             refresh_token_hash: new_refresh_hash.clone(),
             access_token_jti: new_jti.clone(),
             device_info: {
-                let locked = self.sessions.lock().unwrap();
+                let locked = self.sessions.lock();
                 sessions::get_existing(&locked, old_refresh_hash)
                     .map(|s| s.device_info.clone())
                     .unwrap_or(DeviceInfo {
@@ -126,10 +123,10 @@ impl TokenRotationService {
         let new_session_id = new_session.session_id.to_string();
 
         {
-            let mut sessions = self.sessions.lock().unwrap();
+            let mut sessions = self.sessions.lock();
             sessions.insert(new_session_id.clone(), new_session);
 
-            let mut token_map = self.token_session_map.lock().unwrap();
+            let mut token_map = self.token_session_map.lock();
             token_map.remove(old_refresh_hash);
             token_map.insert(new_refresh_hash.clone(), new_session_id.clone());
         }
@@ -142,10 +139,7 @@ impl TokenRotationService {
     }
 
     pub fn validate_refresh_token(&self, token_hash: &str, user_id: Uuid) -> Result<bool> {
-        let sessions = self
-            .sessions
-            .lock()
-            .map_err(|e| crate::error::CoreError::Internal(format!("Lock poisoned: {e}")))?;
+        let sessions = self.sessions.lock();
 
         let valid = sessions.values().any(|s| {
             s.refresh_token_hash == token_hash
@@ -158,14 +152,14 @@ impl TokenRotationService {
 
     pub fn revoke_session(&self, session_id: &str) {
         let uuid = Uuid::parse_str(session_id).unwrap_or_else(|_| {
-            let mut sessions = self.sessions.lock().unwrap();
+            let mut sessions = self.sessions.lock();
             if let Some(s) = sessions.get_mut(session_id) {
                 s.revoked = true;
             }
             Uuid::nil()
         });
         if !uuid.is_nil() {
-            let mut sessions = self.sessions.lock().unwrap();
+            let mut sessions = self.sessions.lock();
             if let Some(s) = sessions.get_mut(&uuid.to_string()) {
                 s.revoked = true;
             }
@@ -173,7 +167,7 @@ impl TokenRotationService {
     }
 
     pub fn revoke_all_user_sessions(&self, user_id: &Uuid) {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock();
         for session in sessions.values_mut() {
             if session.user_id == *user_id {
                 session.revoked = true;
@@ -182,7 +176,7 @@ impl TokenRotationService {
     }
 
     pub fn list_active_devices(&self, user_id: &Uuid) -> Vec<DeviceInfo> {
-        let sessions = self.sessions.lock().unwrap();
+        let sessions = self.sessions.lock();
         sessions
             .values()
             .filter(|s| s.user_id == *user_id && !s.revoked && s.expires_at > Utc::now())
@@ -206,14 +200,14 @@ impl TokenRotationService {
     pub fn register_session(&self, session: AuthSession) {
         let session_id = session.session_id.to_string();
         let hash = session.refresh_token_hash.clone();
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = self.sessions.lock();
         sessions.insert(session_id.clone(), session);
-        let mut token_map = self.token_session_map.lock().unwrap();
+        let mut token_map = self.token_session_map.lock();
         token_map.insert(hash, session_id);
     }
 
     pub fn session_count(&self) -> usize {
-        self.sessions.lock().unwrap().len()
+        self.sessions.lock().len()
     }
 }
 

@@ -106,6 +106,7 @@ impl SearchIndexSyncService {
         Ok((0, 0))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn record_sync(
         &self,
         repository_id: Uuid,

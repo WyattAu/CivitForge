@@ -381,7 +381,7 @@ async fn test_oauth2_flow() {
     let url = format!(
         "{base}/api/v1/oauth/authorize?client_id={client_id}&redirect_uri=http://localhost:9999/callback&response_type=code&code_challenge=test_challenge&code_challenge_method=S256"
     );
-    let mut req = client().get(&url).header("authorization", format!("Bearer {token}"));
+    let req = client().get(&url).header("authorization", format!("Bearer {token}"));
     let resp = req.send().await.unwrap();
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();
@@ -449,7 +449,7 @@ async fn test_repo_crud() {
 
     // List repos
     let url = format!("{base}/api/v1/repos");
-    let (status, json) = api_get(&url, Some(&token)).await;
+    let (status, _json) = api_get(&url, Some(&token)).await;
     println!("[REPO LIST] status={status}");
     assert_eq!(status, StatusCode::OK);
 
@@ -597,7 +597,7 @@ async fn test_issue_crud() {
 
     // List issues
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/issues");
-    let (status, json) = api_get(&url, Some(&token)).await;
+    let (status, _json) = api_get(&url, Some(&token)).await;
     println!("[ISSUE LIST] status={status}");
     assert_eq!(status, StatusCode::OK);
 

@@ -679,12 +679,12 @@ pub async fn outbox(
 
     if let Some(next) = &next_url {
         resp.as_object_mut()
-            .unwrap()
+            .expect("operation should succeed")
             .insert("next".into(), serde_json::Value::String(next.clone()));
     }
     if let Some(prev) = &prev_url {
         resp.as_object_mut()
-            .unwrap()
+            .expect("operation should succeed")
             .insert("prev".into(), serde_json::Value::String(prev.clone()));
     }
 
@@ -695,7 +695,7 @@ pub async fn outbox(
     );
     headers.insert(
         axum::http::header::LINK,
-        HeaderValue::from_str(&format!("<{outbox_url}>; rel=\"self\"")).unwrap(),
+        HeaderValue::from_str(&format!("<{outbox_url}>; rel=\"self\"")).expect("valid header value"),
     );
 
     (StatusCode::OK, headers, Json(resp)).into_response()

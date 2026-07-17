@@ -85,7 +85,7 @@ impl AuditTrail {
         self.head_hash = hash;
         let id = entry.id;
         self.entries.push(entry.clone());
-        Ok(self.entries.iter().find(|e| e.id == id).unwrap().clone())
+        Ok(self.entries.iter().find(|e| e.id == id).expect("element found").clone())
     }
 
     pub fn verify_chain(&self) -> ChainVerification {

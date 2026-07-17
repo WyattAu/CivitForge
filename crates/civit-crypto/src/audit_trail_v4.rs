@@ -205,7 +205,7 @@ impl AuditTrailV4 {
         let mut detected = Vec::new();
 
         let hour = entry.created_at.time().hour();
-        if hour < 6 || hour > 22 {
+        if !(6..=22).contains(&hour) {
             let anomaly = AnomalyDetection {
                 id: format!("anomaly-{}", uuid::Uuid::new_v4()),
                 entry_id: entry.id.clone(),

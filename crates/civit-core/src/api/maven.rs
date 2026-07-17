@@ -74,7 +74,7 @@ pub async fn publish_maven_artifact(
         "SELECT id FROM repositories WHERE owner_id = $1 AND name = $2 LIMIT 1",
     )
     .bind(user_id)
-    .bind(&format!("maven-{group}-{artifact}"))
+    .bind(format!("maven-{group}-{artifact}"))
     .fetch_optional(pool)
     .await
     .unwrap_or(None);
@@ -87,7 +87,7 @@ pub async fn publish_maven_artifact(
                 "INSERT INTO repositories (id, name, description, owner_id, visibility, default_branch) VALUES ($1, $2, $3, $4, 'public', 'main') ON CONFLICT DO NOTHING",
             )
             .bind(new_id)
-            .bind(&format!("maven-{group}-{artifact}"))
+            .bind(format!("maven-{group}-{artifact}"))
             .bind(format!("maven artifact: {group}:{artifact}"))
             .bind(user_id)
             .execute(pool)

@@ -297,11 +297,11 @@ pub fn apply_request_transform(
     headers: &mut axum::http::HeaderMap,
     body: &mut serde_json::Value,
 ) {
-    if let Some(header_transforms) = transform.get("headers") {
-        if let Some(obj) = header_transforms.as_object() {
+    if let Some(header_transforms) = transform.get("headers")
+        && let Some(obj) = header_transforms.as_object() {
             for (key, value) in obj {
-                if let Some(val_str) = value.as_str() {
-                    if let Ok(header_value) = axum::http::HeaderValue::from_str(val_str) {
+                if let Some(val_str) = value.as_str()
+                    && let Ok(header_value) = axum::http::HeaderValue::from_str(val_str) {
                         headers.insert(
                             axum::http::HeaderName::from_bytes(key.as_bytes()).unwrap_or_else(|_| {
                                 axum::http::HeaderName::from_static("x-transform")
@@ -309,20 +309,16 @@ pub fn apply_request_transform(
                             header_value,
                         );
                     }
-                }
             }
         }
-    }
 
-    if let Some(body_transform) = transform.get("body") {
-        if let Some(merge_obj) = body_transform.as_object() {
-            if let Some(body_obj) = body.as_object_mut() {
+    if let Some(body_transform) = transform.get("body")
+        && let Some(merge_obj) = body_transform.as_object()
+            && let Some(body_obj) = body.as_object_mut() {
                 for (key, value) in merge_obj {
                     body_obj.insert(key.clone(), value.clone());
                 }
             }
-        }
-    }
 }
 
 /// Apply response transformation to body
@@ -330,15 +326,13 @@ pub fn apply_response_transform(
     transform: &serde_json::Value,
     body: &mut serde_json::Value,
 ) {
-    if let Some(body_transform) = transform.get("body") {
-        if let Some(merge_obj) = body_transform.as_object() {
-            if let Some(body_obj) = body.as_object_mut() {
+    if let Some(body_transform) = transform.get("body")
+        && let Some(merge_obj) = body_transform.as_object()
+            && let Some(body_obj) = body.as_object_mut() {
                 for (key, value) in merge_obj {
                     body_obj.insert(key.clone(), value.clone());
                 }
             }
-        }
-    }
 }
 
 pub fn transform_routes() -> axum::Router<AppState> {

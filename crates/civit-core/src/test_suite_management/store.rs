@@ -21,7 +21,7 @@ impl TestSuiteStore {
     ) -> Result<TestSuite, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let config = serde_json::to_value(&req.config.unwrap_or_default())
+        let config = serde_json::to_value(req.config.unwrap_or_default())
             .unwrap_or(serde_json::json!({}));
         let config_parsed: TestSuiteConfig =
             serde_json::from_value(config.clone()).unwrap_or_default();
@@ -202,6 +202,7 @@ impl TestSuiteStore {
         Ok(rows.into_iter().map(TestRun::from).collect())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn update_run(
         &self,
         id: Uuid,
@@ -2699,8 +2700,8 @@ impl TestSuiteStore {
         };
 
         let change_percent = if trends.len() >= 2 {
-            let first = trends.last().unwrap().metric_value;
-            let last = trends.first().unwrap().metric_value;
+            let first = trends.last().expect("non-empty").metric_value;
+            let last = trends.first().expect("non-empty").metric_value;
             if first != 0.0 {
                 ((last - first) / first) * 100.0
             } else {

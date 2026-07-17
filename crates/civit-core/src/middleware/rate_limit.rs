@@ -316,7 +316,7 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
                 (header::RETRY_AFTER, retry_after.to_string()),
                 (
                     HeaderName::from_static("x-ratelimit-limit"),
-                    limit.to_string().into(),
+                    limit.to_string(),
                 ),
                 (
                     HeaderName::from_static("x-ratelimit-remaining"),
@@ -324,7 +324,7 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
                 ),
                 (
                     HeaderName::from_static("x-ratelimit-reset"),
-                    reset_epoch.to_string().into(),
+                    reset_epoch.to_string(),
                 ),
             ],
             axum::Json(serde_json::json!({
@@ -341,15 +341,15 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
     let headers = response.headers_mut();
     headers.insert(
         HeaderName::from_static("x-ratelimit-limit"),
-        limit.to_string().parse().unwrap(),
+        limit.to_string().parse().expect("invalid value"),
     );
     headers.insert(
         HeaderName::from_static("x-ratelimit-remaining"),
-        remaining.to_string().parse().unwrap(),
+        remaining.to_string().parse().expect("invalid value"),
     );
     headers.insert(
         HeaderName::from_static("x-ratelimit-reset"),
-        reset_epoch.to_string().parse().unwrap(),
+        reset_epoch.to_string().parse().expect("invalid value"),
     );
 
     response

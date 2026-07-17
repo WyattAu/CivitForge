@@ -64,43 +64,43 @@ fn secret_patterns() -> Vec<SecretPattern> {
     vec![
         SecretPattern {
             name: "AWS Access Key",
-            pattern: Regex::new(r"AKIA[0-9A-Z]{16}").unwrap(),
+            pattern: Regex::new(r"AKIA[0-9A-Z]{16}").expect("invalid regex pattern"),
         },
         SecretPattern {
             name: "GitHub Token",
-            pattern: Regex::new(r"ghp_[A-Za-z0-9]{36}").unwrap(),
+            pattern: Regex::new(r"ghp_[A-Za-z0-9]{36}").expect("invalid regex pattern"),
         },
         SecretPattern {
             name: "GitHub OAuth Token",
-            pattern: Regex::new(r"gho_[A-Za-z0-9]{36}").unwrap(),
+            pattern: Regex::new(r"gho_[A-Za-z0-9]{36}").expect("invalid regex pattern"),
         },
         SecretPattern {
             name: "GitHub App Token",
-            pattern: Regex::new(r"(ghu|ghs)_[A-Za-z0-9]{36}").unwrap(),
+            pattern: Regex::new(r"(ghu|ghs)_[A-Za-z0-9]{36}").expect("valid regex pattern"),
         },
         SecretPattern {
             name: "Generic Password",
             pattern: Regex::new(r#"(?i)(password|passwd|pwd)\s*[:=]\s*['\"]([^'\"]{8,})['\"]"#)
-                .unwrap(),
+                .expect("valid regex pattern"),
         },
         SecretPattern {
             name: "Generic API Key",
             pattern: Regex::new(r#"(?i)(api[_-]?key|apikey)\s*[:=]\s*['\"]([^'\"]{8,})['\"]"#)
-                .unwrap(),
+                .expect("valid regex pattern"),
         },
         SecretPattern {
             name: "Private Key (PEM)",
-            pattern: Regex::new(r"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----").unwrap(),
+            pattern: Regex::new(r"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----").expect("valid regex pattern"),
         },
         SecretPattern {
             name: "JWT Token",
             pattern: Regex::new(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+")
-                .unwrap(),
+                .expect("valid regex pattern"),
         },
         SecretPattern {
             name: "Database Connection String",
             pattern: Regex::new(r"(?i)(mysql|postgres|postgresql|mongodb|redis|amqp)://[^\s]{10,}")
-                .unwrap(),
+                .expect("valid regex pattern"),
         },
     ]
 }

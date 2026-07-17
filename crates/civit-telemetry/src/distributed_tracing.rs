@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 /// A recorded distributed trace span stored in memory and exported to the database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,7 +195,7 @@ impl DistributedTracer {
         let now = Utc::now();
         span.end_time = Some(now);
         span.duration_ms = Some((now - span.start_time).num_milliseconds());
-        let mut spans = self.spans.lock().unwrap();
+        let mut spans = self.spans.lock();
         if spans.len() >= self.config.max_spans {
             spans.remove(0);
         }
@@ -228,13 +228,13 @@ impl DistributedTracer {
 
     /// Export all completed spans and clear the buffer.
     pub fn export_spans(&self) -> Vec<TraceSpan> {
-        let mut spans = self.spans.lock().unwrap();
+        let mut spans = self.spans.lock();
         std::mem::take(&mut *spans)
     }
 
     /// Get the current count of buffered spans.
     pub fn span_count(&self) -> usize {
-        self.spans.lock().unwrap().len()
+        self.spans.lock().len()
     }
 
     /// Get a reference to the configuration.

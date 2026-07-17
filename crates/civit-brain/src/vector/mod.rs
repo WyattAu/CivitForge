@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Embedding {
@@ -58,13 +59,13 @@ pub trait VectorDatabase: Send + Sync {
 }
 
 pub struct InMemoryVectorDb {
-    entries: std::sync::Mutex<Vec<Embedding>>,
+    entries: Mutex<Vec<Embedding>>,
 }
 
 impl InMemoryVectorDb {
     pub fn new() -> Self {
         Self {
-            entries: std::sync::Mutex::new(Vec::new()),
+            entries: Mutex::new(Vec::new()),
         }
     }
 }
@@ -77,13 +78,13 @@ impl Default for InMemoryVectorDb {
 
 impl VectorDatabase for InMemoryVectorDb {
     fn insert(&self, embedding: &Embedding) -> Result<(), String> {
-        let mut entries = self.entries.lock().map_err(|e| e.to_string())?;
+        let mut entries = self.entries.lock();
         entries.push(embedding.clone());
         Ok(())
     }
 
     fn search(&self, query: &Embedding, top_k: usize) -> Result<Vec<SearchResult>, String> {
-        let entries = self.entries.lock().map_err(|e| e.to_string())?;
+        let entries = self.entries.lock();
         let mut results: Vec<(f64, &str, Option<serde_json::Value>)> = Vec::new();
         for entry in entries.iter() {
             let score = query.cosine_similarity(entry);
@@ -103,7 +104,7 @@ impl VectorDatabase for InMemoryVectorDb {
     }
 
     fn delete(&self, id: &str) -> Result<(), String> {
-        let mut entries = self.entries.lock().map_err(|e| e.to_string())?;
+        let mut entries = self.entries.lock();
         let before = entries.len();
         entries.retain(|e| e.id != id);
         if entries.len() < before {
@@ -114,7 +115,7 @@ impl VectorDatabase for InMemoryVectorDb {
     }
 
     fn count(&self) -> usize {
-        self.entries.lock().map_or(0, |e| e.len())
+        self.entries.lock().len()
     }
 }
 

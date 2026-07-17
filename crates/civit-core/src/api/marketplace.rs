@@ -8,6 +8,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 // ---------------------------------------------------------------------------
 // Extension types
@@ -68,17 +69,17 @@ pub struct MessageResponse {
 // In-memory extension store (placeholder for future DB integration)
 // ---------------------------------------------------------------------------
 
-static EXTENSIONS: std::sync::OnceLock<std::sync::Mutex<Vec<ExtensionManifest>>> =
+static EXTENSIONS: std::sync::OnceLock<Mutex<Vec<ExtensionManifest>>> =
     std::sync::OnceLock::new();
 
-static INSTALLED: std::sync::OnceLock<std::sync::Mutex<Vec<String>>> = std::sync::OnceLock::new();
+static INSTALLED: std::sync::OnceLock<Mutex<Vec<String>>> = std::sync::OnceLock::new();
 
-fn extensions_store() -> &'static std::sync::Mutex<Vec<ExtensionManifest>> {
-    EXTENSIONS.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+fn extensions_store() -> &'static Mutex<Vec<ExtensionManifest>> {
+    EXTENSIONS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
-fn installed_store() -> &'static std::sync::Mutex<Vec<String>> {
-    INSTALLED.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+fn installed_store() -> &'static Mutex<Vec<String>> {
+    INSTALLED.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 // ---------------------------------------------------------------------------
@@ -111,11 +112,11 @@ pub fn marketplace_routes() -> Router<crate::api::AppState> {
 // ---------------------------------------------------------------------------
 
 pub async fn list_extensions() -> impl IntoResponse {
-    let store = extensions_store().lock().unwrap();
+    let store = extensions_store().lock();
     let summaries: Vec<ExtensionSummary> = store
         .iter()
         .map(|ext| {
-            let installed = installed_store().lock().unwrap().contains(&ext.name);
+            let installed = installed_store().lock().contains(&ext.name);
             ExtensionSummary {
                 name: ext.name.clone(),
                 version: ext.version.clone(),
@@ -129,7 +130,7 @@ pub async fn list_extensions() -> impl IntoResponse {
 }
 
 pub async fn get_extension(Path(name): Path<String>) -> impl IntoResponse {
-    let store = extensions_store().lock().unwrap();
+    let store = extensions_store().lock();
     match store.iter().find(|e| e.name == name) {
         Some(ext) => (StatusCode::OK, Json(ext.clone())).into_response(),
         None => (
@@ -164,7 +165,7 @@ pub async fn publish_extension(Json(manifest): Json<ExtensionManifest>) -> impl 
             .into_response();
     }
 
-    let mut store = extensions_store().lock().unwrap();
+    let mut store = extensions_store().lock();
     if let Some(existing) = store.iter_mut().find(|e| e.name == manifest.name) {
         *existing = manifest;
         (
@@ -187,7 +188,7 @@ pub async fn publish_extension(Json(manifest): Json<ExtensionManifest>) -> impl 
 }
 
 pub async fn delete_extension(Path(name): Path<String>) -> impl IntoResponse {
-    let mut store = extensions_store().lock().unwrap();
+    let mut store = extensions_store().lock();
     let before = store.len();
     store.retain(|e| e.name != name);
     if store.len() < before {
@@ -210,7 +211,7 @@ pub async fn delete_extension(Path(name): Path<String>) -> impl IntoResponse {
 }
 
 pub async fn verify_extension(Path(name): Path<String>) -> impl IntoResponse {
-    let store = extensions_store().lock().unwrap();
+    let store = extensions_store().lock();
     match store.iter().find(|e| e.name == name) {
         Some(manifest) => {
             let errors = ExtensionSandbox::validate_manifest(manifest);
@@ -236,8 +237,8 @@ pub async fn verify_extension(Path(name): Path<String>) -> impl IntoResponse {
 }
 
 pub async fn list_installed() -> impl IntoResponse {
-    let installed = installed_store().lock().unwrap();
-    let store = extensions_store().lock().unwrap();
+    let installed = installed_store().lock();
+    let store = extensions_store().lock();
     let results: Vec<ExtensionManifest> = installed
         .iter()
         .filter_map(|name| store.iter().find(|e| &e.name == name).cloned())
@@ -246,7 +247,7 @@ pub async fn list_installed() -> impl IntoResponse {
 }
 
 pub async fn install_extension(Path(name): Path<String>) -> impl IntoResponse {
-    let store = extensions_store().lock().unwrap();
+    let store = extensions_store().lock();
     if !store.iter().any(|e| e.name == name) {
         return (
             StatusCode::NOT_FOUND,
@@ -258,7 +259,7 @@ pub async fn install_extension(Path(name): Path<String>) -> impl IntoResponse {
     }
     drop(store);
 
-    let mut installed = installed_store().lock().unwrap();
+    let mut installed = installed_store().lock();
     if installed.contains(&name) {
         return (
             StatusCode::CONFLICT,
@@ -279,7 +280,7 @@ pub async fn install_extension(Path(name): Path<String>) -> impl IntoResponse {
 }
 
 pub async fn uninstall_extension(Path(name): Path<String>) -> impl IntoResponse {
-    let mut installed = installed_store().lock().unwrap();
+    let mut installed = installed_store().lock();
     let before = installed.len();
     installed.retain(|n| n != &name);
     if installed.len() < before {

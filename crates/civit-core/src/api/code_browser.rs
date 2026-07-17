@@ -1109,7 +1109,7 @@ pub async fn language_stats(
         .collect();
 
     // Sort by bytes descending
-    languages.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    languages.sort_by_key(|b| std::cmp::Reverse(b.bytes));
 
     (
         StatusCode::OK,

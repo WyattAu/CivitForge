@@ -87,11 +87,10 @@ pub async fn start_export(
             .into_response();
     }
 
-    if req.export_type == "users" {
-        if let Err(rejection) = require_admin(&auth) {
+    if req.export_type == "users"
+        && let Err(rejection) = require_admin(&auth) {
             return rejection.into_response();
         }
-    }
 
     let user_id = match Uuid::parse_str(&auth.user_id) {
         Ok(id) => id,
@@ -400,11 +399,10 @@ pub async fn import_data(
             .into_response();
     }
 
-    if req.import_type == "users" {
-        if let Err(rejection) = require_admin(&auth) {
+    if req.import_type == "users"
+        && let Err(rejection) = require_admin(&auth) {
             return rejection.into_response();
         }
-    }
 
     let user_id = match Uuid::parse_str(&auth.user_id) {
         Ok(id) => id,

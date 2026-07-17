@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use parking_lot::Mutex;
 
 /// OCI media type constants.
 pub mod media_types {
@@ -58,24 +59,23 @@ pub trait BlobStore: Send + Sync {
 
 /// In-memory blob store for testing and prototyping.
 pub struct InMemoryBlobStore {
-    blobs: std::sync::Mutex<HashMap<String, Vec<u8>>>,
+    blobs: Mutex<HashMap<String, Vec<u8>>>,
 }
 
 impl InMemoryBlobStore {
     pub fn new() -> Self {
         Self {
-            blobs: std::sync::Mutex::new(HashMap::new()),
+            blobs: Mutex::new(HashMap::new()),
         }
     }
 
     pub fn blob_count(&self) -> usize {
-        self.blobs.lock().unwrap().len()
+        self.blobs.lock().len()
     }
 
     pub fn total_bytes(&self) -> u64 {
         self.blobs
             .lock()
-            .unwrap()
             .values()
             .map(|v| v.len() as u64)
             .sum()
@@ -96,16 +96,16 @@ impl Default for InMemoryBlobStore {
 
 impl BlobStore for InMemoryBlobStore {
     fn exists(&self, digest: &str) -> bool {
-        self.blobs.lock().unwrap().contains_key(digest)
+        self.blobs.lock().contains_key(digest)
     }
 
     fn get(&self, digest: &str) -> Option<Vec<u8>> {
-        self.blobs.lock().unwrap().get(digest).cloned()
+        self.blobs.lock().get(digest).cloned()
     }
 
     fn put(&self, data: &[u8]) -> Result<String, String> {
         let digest = Self::compute_digest(data);
-        let mut blobs = self.blobs.lock().unwrap();
+        let mut blobs = self.blobs.lock();
         if !blobs.contains_key(&digest) {
             blobs.insert(digest.clone(), data.to_vec());
         }
@@ -113,7 +113,7 @@ impl BlobStore for InMemoryBlobStore {
     }
 
     fn delete(&self, digest: &str) -> Result<(), String> {
-        let mut blobs = self.blobs.lock().unwrap();
+        let mut blobs = self.blobs.lock();
         blobs
             .remove(digest)
             .map(|_| ())
@@ -123,7 +123,6 @@ impl BlobStore for InMemoryBlobStore {
     fn size(&self, digest: &str) -> Option<u64> {
         self.blobs
             .lock()
-            .unwrap()
             .get(digest)
             .map(|d| d.len() as u64)
     }
@@ -132,14 +131,14 @@ impl BlobStore for InMemoryBlobStore {
 /// Artifact registry for managing OCI manifests.
 pub struct ArtifactRegistry {
     store: Box<dyn BlobStore>,
-    manifests: std::sync::Mutex<HashMap<String, OciManifest>>,
+    manifests: Mutex<HashMap<String, OciManifest>>,
 }
 
 impl ArtifactRegistry {
     pub fn new(store: Box<dyn BlobStore>) -> Self {
         Self {
             store,
-            manifests: std::sync::Mutex::new(HashMap::new()),
+            manifests: Mutex::new(HashMap::new()),
         }
     }
 
@@ -152,14 +151,14 @@ impl ArtifactRegistry {
     pub fn push_manifest(&self, name: &str, manifest: &OciManifest) -> Result<String, String> {
         let data = serde_json::to_vec(manifest).map_err(|e| e.to_string())?;
         let digest = self.store.put(&data)?;
-        let mut manifests = self.manifests.lock().unwrap();
+        let mut manifests = self.manifests.lock();
         manifests.insert(name.to_string(), manifest.clone());
         Ok(digest)
     }
 
     /// Pull a manifest by name.
     pub fn pull_manifest(&self, name: &str) -> Option<OciManifest> {
-        self.manifests.lock().unwrap().get(name).cloned()
+        self.manifests.lock().get(name).cloned()
     }
 
     /// Pull a blob by digest.
@@ -174,12 +173,12 @@ impl ArtifactRegistry {
 
     /// List stored artifacts.
     pub fn list_artifacts(&self) -> Vec<String> {
-        self.manifests.lock().unwrap().keys().cloned().collect()
+        self.manifests.lock().keys().cloned().collect()
     }
 
     /// Delete a manifest.
     pub fn delete_manifest(&self, name: &str) -> Result<(), String> {
-        let mut manifests = self.manifests.lock().unwrap();
+        let mut manifests = self.manifests.lock();
         manifests
             .remove(name)
             .map(|_| ())

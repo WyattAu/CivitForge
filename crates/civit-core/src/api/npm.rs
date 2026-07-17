@@ -189,7 +189,7 @@ pub async fn publish_package(
         "SELECT id FROM repositories WHERE owner_id = $1 AND name = $2 LIMIT 1",
     )
     .bind(user_id)
-    .bind(&format!("npm-{name}"))
+    .bind(format!("npm-{name}"))
     .fetch_optional(pool)
     .await
     .unwrap_or(None);
@@ -202,7 +202,7 @@ pub async fn publish_package(
                 "INSERT INTO repositories (id, name, description, owner_id, visibility, default_branch) VALUES ($1, $2, $3, $4, 'public', 'main') ON CONFLICT DO NOTHING",
             )
             .bind(new_id)
-            .bind(&format!("npm-{name}"))
+            .bind(format!("npm-{name}"))
             .bind(format!("npm package: {name}"))
             .bind(user_id)
             .execute(pool)

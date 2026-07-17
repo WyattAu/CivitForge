@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetentionPolicy {
@@ -36,30 +37,30 @@ pub enum RetentionAction {
 }
 
 pub struct RetentionEvaluator {
-    policies: std::sync::Mutex<Vec<RetentionPolicy>>,
+    policies: Mutex<Vec<RetentionPolicy>>,
 }
 
 impl RetentionEvaluator {
     pub fn new() -> Self {
         Self {
-            policies: std::sync::Mutex::new(Vec::new()),
+            policies: Mutex::new(Vec::new()),
         }
     }
 
     pub fn add_policy(&self, policy: RetentionPolicy) {
-        let mut policies = self.policies.lock().unwrap();
+        let mut policies = self.policies.lock();
         policies.push(policy);
     }
 
     pub fn remove_policy(&self, id: &str) -> bool {
-        let mut policies = self.policies.lock().unwrap();
+        let mut policies = self.policies.lock();
         let before = policies.len();
         policies.retain(|p| p.id != id);
         policies.len() < before
     }
 
     pub fn evaluate(&self, data_type: DataType, created_at: DateTime<Utc>) -> Vec<RetentionPolicy> {
-        let policies = self.policies.lock().unwrap();
+        let policies = self.policies.lock();
         let now = Utc::now();
         policies
             .iter()
@@ -70,7 +71,7 @@ impl RetentionEvaluator {
     }
 
     pub fn policies_for(&self, data_type: DataType) -> Vec<RetentionPolicy> {
-        let policies = self.policies.lock().unwrap();
+        let policies = self.policies.lock();
         policies
             .iter()
             .filter(|p| p.data_type == data_type)
@@ -79,7 +80,7 @@ impl RetentionEvaluator {
     }
 
     pub fn all_policies(&self) -> Vec<RetentionPolicy> {
-        let policies = self.policies.lock().unwrap();
+        let policies = self.policies.lock();
         policies.clone()
     }
 }

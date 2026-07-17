@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Federation protocol support for CivitForge (ActivityPub, ForgeFed, CRDTs, replication)"
 
 [dependencies]
+parking_lot = { workspace = true }
 tokio = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

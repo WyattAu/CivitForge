@@ -140,7 +140,7 @@ pub async fn create_usage_quota(
             .into_response();
     }
 
-    let period_start = req.period_start.unwrap_or_else(|| Utc::now());
+    let period_start = req.period_start.unwrap_or_else(Utc::now);
 
     match state.db.create_usage_quota(req.user_id, &req.quota_type, req.quota_limit, period_start).await {
         Ok(quota) => {

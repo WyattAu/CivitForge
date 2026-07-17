@@ -176,6 +176,7 @@ pub async fn get_cache_stats(
     pool: &sqlx::PgPool,
     repo_id: Uuid,
 ) -> std::result::Result<CacheStats, sqlx::Error> {
+    #[allow(clippy::type_complexity)]
     let row: (Option<i64>, Option<i64>, Option<i64>, Option<f64>, Option<i64>) = sqlx::query_as(
         "SELECT
             COUNT(*) as total_entries,
@@ -598,7 +599,7 @@ pub async fn record_cache_hit_analysis(
     let period_start = chrono::Utc::now()
         .date_naive()
         .and_hms_opt(0, 0, 0)
-        .unwrap()
+        .expect("operation should succeed")
         .and_utc();
 
     sqlx::query(
@@ -626,7 +627,7 @@ pub async fn record_cache_miss_analysis(
     let period_start = chrono::Utc::now()
         .date_naive()
         .and_hms_opt(0, 0, 0)
-        .unwrap()
+        .expect("operation should succeed")
         .and_utc();
 
     sqlx::query(

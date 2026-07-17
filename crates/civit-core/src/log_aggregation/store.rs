@@ -5694,7 +5694,7 @@ impl LogAggregationService {
         .bind(since)
         .fetch_optional(&self.pool)
         .await?
-        .unwrap_or_else(|| chrono::Utc::now());
+        .unwrap_or_else(chrono::Utc::now);
 
         let last_match = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             r#"SELECT MAX(created_at) FROM log_entries_v18
@@ -5705,7 +5705,7 @@ impl LogAggregationService {
         .bind(since)
         .fetch_optional(&self.pool)
         .await?
-        .unwrap_or_else(|| chrono::Utc::now());
+        .unwrap_or_else(chrono::Utc::now);
 
         #[derive(Debug, sqlx::FromRow)]
         struct ServiceCount {
@@ -7195,7 +7195,7 @@ impl LogAggregationService {
         .bind(since)
         .fetch_optional(&self.pool)
         .await?
-        .unwrap_or_else(|| chrono::Utc::now());
+        .unwrap_or_else(chrono::Utc::now);
 
         let last_match = sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
             r#"SELECT MAX(created_at) FROM log_entries_v21
@@ -7206,7 +7206,7 @@ impl LogAggregationService {
         .bind(since)
         .fetch_optional(&self.pool)
         .await?
-        .unwrap_or_else(|| chrono::Utc::now());
+        .unwrap_or_else(chrono::Utc::now);
 
         #[derive(Debug, sqlx::FromRow)]
         struct ServiceCount {

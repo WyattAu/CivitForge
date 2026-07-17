@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenRotationConfig {
@@ -38,14 +39,14 @@ pub struct TokenValidationResult {
 
 pub struct TokenRotationService {
     config: TokenRotationConfig,
-    active_sessions: std::sync::Mutex<HashMap<String, DateTime<Utc>>>,
+    active_sessions: Mutex<HashMap<String, DateTime<Utc>>>,
 }
 
 impl TokenRotationService {
     pub fn new(config: TokenRotationConfig) -> Self {
         Self {
             config,
-            active_sessions: std::sync::Mutex::new(HashMap::new()),
+            active_sessions: Mutex::new(HashMap::new()),
         }
     }
 
@@ -82,7 +83,7 @@ impl TokenRotationService {
         let rotation_threshold = self.config.access_token_ttl.num_seconds() * 4 / 5;
         let needs_rotation = (now - issued_at).num_seconds() > rotation_threshold;
 
-        let session_count = self.active_sessions.lock().unwrap().len() as u32;
+        let session_count = self.active_sessions.lock().len() as u32;
 
         TokenValidationResult {
             is_valid: true,
@@ -93,7 +94,7 @@ impl TokenRotationService {
     }
 
     pub fn register_session(&self, token_id: &str) -> Result<(), String> {
-        let mut sessions = self.active_sessions.lock().unwrap();
+        let mut sessions = self.active_sessions.lock();
         if sessions.len() >= self.config.max_active_sessions as usize {
             return Err(format!(
                 "max active sessions ({}) exceeded",
@@ -105,16 +106,16 @@ impl TokenRotationService {
     }
 
     pub fn revoke_session(&self, token_id: &str) -> bool {
-        let mut sessions = self.active_sessions.lock().unwrap();
+        let mut sessions = self.active_sessions.lock();
         sessions.remove(token_id).is_some()
     }
 
     pub fn active_session_count(&self) -> usize {
-        self.active_sessions.lock().unwrap().len()
+        self.active_sessions.lock().len()
     }
 
     pub fn cleanup_expired(&self) -> usize {
-        let mut sessions = self.active_sessions.lock().unwrap();
+        let mut sessions = self.active_sessions.lock();
         let now = Utc::now();
         let before = sessions.len();
         sessions.retain(|_, created| now - *created < self.config.refresh_token_ttl);
@@ -296,7 +297,7 @@ mod tests {
         assert!(expired.is_ok());
 
         {
-            let mut sessions = svc.active_sessions.lock().unwrap();
+            let mut sessions = svc.active_sessions.lock();
             if let Some(ts) = sessions.get_mut("expired") {
                 *ts = Utc::now() - Duration::days(2);
             }

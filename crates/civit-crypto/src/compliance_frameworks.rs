@@ -252,7 +252,7 @@ impl ComplianceManagerV3 {
         ));
 
         let tracking = self.compute_verification_tracking();
-        report.push_str(&format!("\nEvidence Tracking:\n"));
+        report.push_str("\nEvidence Tracking:\n");
         report.push_str(&format!("  Total Evidence: {}\n", tracking.total_evidence));
         report.push_str(&format!("  Verified: {}\n", tracking.verified_count));
         report.push_str(&format!("  Pending: {}\n", tracking.pending_count));

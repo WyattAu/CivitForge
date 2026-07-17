@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeployKey {
@@ -26,18 +27,18 @@ pub enum DeployKeyType {
 }
 
 pub struct DeployKeyManager {
-    keys: std::sync::Mutex<Vec<DeployKey>>,
+    keys: Mutex<Vec<DeployKey>>,
 }
 
 impl DeployKeyManager {
     pub fn new() -> Self {
         Self {
-            keys: std::sync::Mutex::new(Vec::new()),
+            keys: Mutex::new(Vec::new()),
         }
     }
 
     pub fn add_key(&self, key: DeployKey) -> Result<(), String> {
-        let mut keys = self.keys.lock().unwrap();
+        let mut keys = self.keys.lock();
         if keys
             .iter()
             .any(|k| k.fingerprint == key.fingerprint && k.repository_id == key.repository_id)
@@ -49,7 +50,7 @@ impl DeployKeyManager {
     }
 
     pub fn get_by_fingerprint(&self, fingerprint: &str) -> Vec<DeployKey> {
-        let keys = self.keys.lock().unwrap();
+        let keys = self.keys.lock();
         keys.iter()
             .filter(|k| k.fingerprint == fingerprint)
             .cloned()
@@ -57,7 +58,7 @@ impl DeployKeyManager {
     }
 
     pub fn get_by_repository(&self, repo_id: &str) -> Vec<DeployKey> {
-        let keys = self.keys.lock().unwrap();
+        let keys = self.keys.lock();
         keys.iter()
             .filter(|k| k.repository_id == repo_id)
             .cloned()
@@ -65,14 +66,14 @@ impl DeployKeyManager {
     }
 
     pub fn remove_key(&self, id: &str) -> bool {
-        let mut keys = self.keys.lock().unwrap();
+        let mut keys = self.keys.lock();
         let before = keys.len();
         keys.retain(|k| k.id != id);
         keys.len() < before
     }
 
     pub fn deactivate_key(&self, id: &str) -> bool {
-        let mut keys = self.keys.lock().unwrap();
+        let mut keys = self.keys.lock();
         if let Some(key) = keys.iter_mut().find(|k| k.id == id) {
             key.active = false;
             return true;
@@ -81,14 +82,14 @@ impl DeployKeyManager {
     }
 
     pub fn record_usage(&self, fingerprint: &str) {
-        let mut keys = self.keys.lock().unwrap();
+        let mut keys = self.keys.lock();
         if let Some(key) = keys.iter_mut().find(|k| k.fingerprint == fingerprint) {
             key.last_used_at = Some(Utc::now());
         }
     }
 
     pub fn count(&self) -> usize {
-        self.keys.lock().unwrap().len()
+        self.keys.lock().len()
     }
 }
 

@@ -234,7 +234,7 @@ impl CertificateAuthority {
                 })?;
         }
 
-        let last_cert = certs.last().unwrap();
+        let last_cert = certs.last().expect("non-empty");
         let issuer_raw = last_cert.issuer().as_raw();
         let ca_subject_raw = ca_cert.subject().as_raw();
         if issuer_raw != ca_subject_raw {

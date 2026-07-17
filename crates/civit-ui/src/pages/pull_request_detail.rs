@@ -405,7 +405,7 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                                     </Show>
                                     <Show when=move || mergeability.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                                         {
-                                            let m = mergeability.get().unwrap();
+                                            let m = mergeability.get().expect("key present");
                                             view! {
                                                 <Badge
                                                     color=if m.mergeable { BadgeColor::Success } else { BadgeColor::Danger }
@@ -492,7 +492,7 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                         <Show when=move || merge_result.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                             <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
                                 {
-                                    let mr = merge_result.get().unwrap();
+                                    let mr = merge_result.get().expect("key present");
                                     view! {
                                         <div class={
                                             if mr.merged { "rounded border border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700 p-3 text-sm text-green-800 dark:text-green-200" }
@@ -784,7 +784,7 @@ pub fn PullRequestDetailPage() -> impl IntoView {
                             <Show when=move || diff_data.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                                 <span class="text-xs text-gray-500 font-mono">
                                     {move || {
-                                        let d = diff_data.get().unwrap();
+                                        let d = diff_data.get().expect("key present");
                                         format!(
                                             "+{} -{} \u{00b7} {} file{}",
                                             d.total_additions,

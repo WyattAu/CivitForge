@@ -57,6 +57,7 @@ impl Default for PullThroughConfig {
 pub struct PullThroughCache {
     config: PullThroughConfig,
     entries: dashmap::DashMap<String, CacheEntry>,
+    #[allow(dead_code)]
     current_bytes: std::sync::atomic::AtomicU64,
 }
 
@@ -107,7 +108,7 @@ impl PullThroughCache {
             upstream_ref: upstream_ref.to_string(),
             local_digest: local_digest.to_string(),
             cached_at: now,
-            expires_at: now + chrono::Duration::from_std(self.config.default_ttl).unwrap(),
+            expires_at: now + chrono::Duration::from_std(self.config.default_ttl).expect("operation should succeed"),
         };
 
         let key = Self::cache_key(repo_id, upstream_ref);

@@ -3,7 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use uuid::Uuid;
 
 /// A deduplicated error record.
@@ -112,7 +112,7 @@ impl ErrorTracker {
         let fingerprint = error_fingerprint(error_type, message, stack_trace);
         let now = Utc::now();
 
-        let mut errors = self.errors.lock().unwrap();
+        let mut errors = self.errors.lock();
 
         if let Some(existing) = errors.get_mut(&fingerprint) {
             existing.count += 1;
@@ -120,15 +120,14 @@ impl ErrorTracker {
             existing.clone()
         } else {
             // Evict oldest if at capacity
-            if errors.len() >= self.config.max_errors {
-                if let Some(oldest_key) = errors
+            if errors.len() >= self.config.max_errors
+                && let Some(oldest_key) = errors
                     .iter()
                     .min_by_key(|(_, e)| e.first_seen_at)
                     .map(|(k, _)| k.clone())
                 {
                     errors.remove(&oldest_key);
                 }
-            }
 
             let record = ErrorRecord {
                 id: Uuid::new_v4(),
@@ -150,7 +149,7 @@ impl ErrorTracker {
 
     /// Mark an error as resolved.
     pub fn resolve_error(&self, id: Uuid) -> bool {
-        let mut errors = self.errors.lock().unwrap();
+        let mut errors = self.errors.lock();
         if let Some(record) = errors.values_mut().find(|e| e.id == id) {
             record.resolved = true;
             true
@@ -161,7 +160,7 @@ impl ErrorTracker {
 
     /// Get all unresolved errors.
     pub fn unresolved_errors(&self) -> Vec<ErrorRecord> {
-        let errors = self.errors.lock().unwrap();
+        let errors = self.errors.lock();
         errors
             .values()
             .filter(|e| !e.resolved)
@@ -171,19 +170,19 @@ impl ErrorTracker {
 
     /// Get all errors.
     pub fn all_errors(&self) -> Vec<ErrorRecord> {
-        let errors = self.errors.lock().unwrap();
+        let errors = self.errors.lock();
         errors.values().cloned().collect()
     }
 
     /// Get an error by ID.
     pub fn get_error(&self, id: Uuid) -> Option<ErrorRecord> {
-        let errors = self.errors.lock().unwrap();
+        let errors = self.errors.lock();
         errors.values().find(|e| e.id == id).cloned()
     }
 
     /// Get errors for a specific user.
     pub fn errors_for_user(&self, user_id: Uuid) -> Vec<ErrorRecord> {
-        let errors = self.errors.lock().unwrap();
+        let errors = self.errors.lock();
         errors
             .values()
             .filter(|e| e.user_id == Some(user_id))
@@ -193,17 +192,17 @@ impl ErrorTracker {
 
     /// Get error count.
     pub fn error_count(&self) -> usize {
-        self.errors.lock().unwrap().len()
+        self.errors.lock().len()
     }
 
     /// Get total occurrence count across all errors.
     pub fn total_occurrences(&self) -> u64 {
-        self.errors.lock().unwrap().values().map(|e| e.count).sum()
+        self.errors.lock().values().map(|e| e.count).sum()
     }
 
     /// Export all errors and clear the buffer.
     pub fn export_errors(&self) -> Vec<ErrorRecord> {
-        let mut errors = self.errors.lock().unwrap();
+        let mut errors = self.errors.lock();
         errors.drain().map(|(_, v)| v).collect()
     }
 
@@ -214,7 +213,7 @@ impl ErrorTracker {
 
     /// Build a summary of errors grouped by type.
     pub fn summary(&self) -> ErrorSummary {
-        let errors = self.errors.lock().unwrap();
+        let errors = self.errors.lock();
         let total = errors.len() as u64;
         let unresolved = errors.values().filter(|e| !e.resolved).count() as u64;
         let total_occurrences: u64 = errors.values().map(|e| e.count).sum();
@@ -225,7 +224,7 @@ impl ErrorTracker {
         }
 
         let mut top_errors: Vec<ErrorRecord> = errors.values().cloned().collect();
-        top_errors.sort_by(|a, b| b.count.cmp(&a.count));
+        top_errors.sort_by_key(|b| std::cmp::Reverse(b.count));
         top_errors.truncate(10);
 
         ErrorSummary {

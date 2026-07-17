@@ -207,7 +207,7 @@ impl RepoKeyStore {
             let rotation = KeyRotation::new(master, repo_id)?;
             self.keys.insert(repo_id, rotation);
         }
-        Ok(self.keys.get(&repo_id).unwrap())
+        Ok(self.keys.get(&repo_id).expect("key present"))
     }
 
     pub fn rotate_key(&mut self, repo_id: Uuid) -> Result<(), RepoKeyError> {

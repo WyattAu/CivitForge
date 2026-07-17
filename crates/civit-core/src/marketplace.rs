@@ -64,6 +64,7 @@ impl MarketplaceService {
         Self { pool }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn publish_listing(
         &self,
         name: &str,

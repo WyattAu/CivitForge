@@ -1495,11 +1495,10 @@ impl WorkflowService {
                 }
             }
 
-            if all_match {
-                if let Some(wf) = self.get_workflow(trigger.workflow_id).await? {
+            if all_match
+                && let Some(wf) = self.get_workflow(trigger.workflow_id).await? {
                     matched.push((wf, trigger));
                 }
-            }
         }
 
         Ok(matched)
@@ -9072,7 +9071,7 @@ impl WorkflowService {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     pub async fn get_version(
@@ -9089,7 +9088,7 @@ impl WorkflowService {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(|r| r.into()))
+        Ok(row)
     }
 
     pub async fn list_versions(
@@ -9105,7 +9104,7 @@ impl WorkflowService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn get_latest_version(
@@ -9121,7 +9120,7 @@ impl WorkflowService {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(|r| r.into()))
+        Ok(row)
     }
 
     pub async fn rollback_to_version(
@@ -9160,7 +9159,7 @@ impl WorkflowService {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     pub async fn list_branches(
@@ -9176,7 +9175,7 @@ impl WorkflowService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn delete_branch(

@@ -3,6 +3,7 @@
 use crate::rag_extended::context::{ContextChunk, ContextConfig};
 use crate::rag_extended::conversation::{ConversationHistory, TokenBudget};
 use serde::{Deserialize, Serialize};
+use parking_lot::RwLock;
 
 /// Query type for routing to appropriate retrieval strategies.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,19 +220,19 @@ pub trait Retriever: Send + Sync {
 /// a dedicated vector database.
 #[derive(Debug)]
 pub struct KeywordRetriever {
-    chunks: std::sync::RwLock<Vec<ContextChunk>>,
+    chunks: RwLock<Vec<ContextChunk>>,
 }
 
 impl KeywordRetriever {
     pub fn new() -> Self {
         Self {
-            chunks: std::sync::RwLock::new(Vec::new()),
+            chunks: RwLock::new(Vec::new()),
         }
     }
 
     pub fn with_chunks(chunks: Vec<ContextChunk>) -> Self {
         Self {
-            chunks: std::sync::RwLock::new(chunks),
+            chunks: RwLock::new(chunks),
         }
     }
 }
@@ -246,7 +247,7 @@ impl Retriever for KeywordRetriever {
     fn retrieve(&self, query: &ParsedQuery, config: &RetrievalConfig) -> RetrievalResult {
         let start = std::time::Instant::now();
         let query_lower = query.raw.to_lowercase();
-        let chunks = self.chunks.read().expect("retriever lock poisoned");
+        let chunks = self.chunks.read();
         let mut scored: Vec<(usize, f32)> = Vec::new();
 
         for (idx, chunk) in chunks.iter().enumerate() {
@@ -298,7 +299,6 @@ impl Retriever for KeywordRetriever {
     fn add_chunk(&self, chunk: ContextChunk) {
         self.chunks
             .write()
-            .expect("retriever lock poisoned")
             .push(chunk);
     }
 }

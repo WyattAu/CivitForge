@@ -97,7 +97,7 @@ pub async fn list_feature_flags_for_user(
     match state.db.list_enabled_feature_flags_for_user(user_id).await {
         Ok(flags) => {
             let response = FeatureFlagsListResponse {
-                flags: flags.iter().map(|f| flag_to_response(f)).collect(),
+                flags: flags.iter().map(flag_to_response).collect(),
                 total: flags.len(),
             };
             (StatusCode::OK, Json(response)).into_response()
@@ -121,7 +121,7 @@ pub async fn list_all_feature_flags(
     match state.db.list_feature_flags().await {
         Ok(flags) => {
             let response = FeatureFlagsListResponse {
-                flags: flags.iter().map(|f| flag_to_response(f)).collect(),
+                flags: flags.iter().map(flag_to_response).collect(),
                 total: flags.len(),
             };
             (StatusCode::OK, Json(response)).into_response()

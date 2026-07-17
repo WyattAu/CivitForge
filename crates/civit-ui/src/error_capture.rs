@@ -65,7 +65,7 @@ pub fn error_count() -> usize {
 
 fn get_url() -> String {
     if cfg!(target_arch = "wasm32") {
-        let window = web_sys::window().unwrap();
+        let window = web_sys::window().expect("browser window available");
         window.location().href().unwrap_or_default()
     } else {
         "test://non-wasm".to_string()
@@ -134,7 +134,7 @@ pub fn install_global_error_listeners() {
 /// Synchronize JS-captured errors into the Rust error store
 pub fn sync_js_errors() {
     use leptos::wasm_bindgen::JsCast;
-    let window = web_sys::window().unwrap();
+    let window = web_sys::window().expect("browser window available");
     let errors = js_sys::Reflect::get(&window, &JsValue::from_str("__civitforgeErrors"))
         .ok()
         .and_then(|v| {

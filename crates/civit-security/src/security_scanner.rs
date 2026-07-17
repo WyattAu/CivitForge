@@ -669,11 +669,10 @@ impl ScanRuleManager {
             return Err("Fix must be tested before applying".into());
         }
 
-        if let Some(ref test) = fix.test_result {
-            if !test.passed {
+        if let Some(ref test) = fix.test_result
+            && !test.passed {
                 return Err("Fix failed testing".into());
             }
-        }
 
         fix.applied = true;
         fix.applied_at = Some(Utc::now());
@@ -1156,8 +1155,8 @@ impl DeduplicationEngine {
             SecurityScanDedupEntry::new(vulnerability_id, repo_id, file_path, line_number);
         let hash = entry.dedup_hash.clone();
 
-        if let Some(indices) = self.hash_index.get(&hash) {
-            if let Some(&idx) = indices.first() {
+        if let Some(indices) = self.hash_index.get(&hash)
+            && let Some(&idx) = indices.first() {
                 let existing = &mut self.entries[idx];
                 existing.touch();
                 return DeduplicationResult {
@@ -1168,7 +1167,6 @@ impl DeduplicationEngine {
                     occurrence_count: indices.len() as u32 + 1,
                 };
             }
-        }
 
         let idx = self.entries.len();
         let entry_id = entry.id.clone();
@@ -1259,7 +1257,7 @@ impl FalsePositiveRecord {
     }
 
     pub fn is_expired(&self) -> bool {
-        self.expires_at.map_or(false, |exp| Utc::now() > exp)
+        self.expires_at.is_some_and(|exp| Utc::now() > exp)
     }
 
     pub fn revoke(&mut self) {
@@ -1374,7 +1372,7 @@ impl ScanSchedule {
     }
 
     pub fn is_due(&self) -> bool {
-        self.next_run.map_or(false, |next| Utc::now() >= next)
+        self.next_run.is_some_and(|next| Utc::now() >= next)
     }
 }
 
@@ -1989,7 +1987,7 @@ impl RiskScoringEngine {
             .values()
             .filter(|s| s.repo_id == repo_id)
             .collect();
-        scores.sort_by(|a, b| b.overall_score.partial_cmp(&a.overall_score).unwrap());
+        scores.sort_by(|a, b| b.overall_score.partial_cmp(&a.overall_score).expect("operation should succeed"));
         scores
     }
 

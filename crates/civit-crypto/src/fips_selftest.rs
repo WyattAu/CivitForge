@@ -65,7 +65,7 @@ impl FipsSelfTest {
         let data = b"abc";
         let expected =
             hex::decode("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
-                .unwrap();
+                .expect("operation should succeed");
         let result = Sha256::digest(data).to_vec();
         let duration = start.elapsed().as_micros();
         let passed = result == expected;
@@ -89,12 +89,12 @@ impl FipsSelfTest {
         let start = Instant::now();
         use hmac::{Hmac, Mac};
         type HmacSha256 = Hmac<Sha256>;
-        let key = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").unwrap();
+        let key = hex::decode("0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b").expect("invalid hex");
         let data = b"Hi There";
         let expected =
             hex::decode("b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7")
-                .unwrap();
-        let mut mac = HmacSha256::new_from_slice(&key).unwrap();
+                .expect("operation should succeed");
+        let mut mac = HmacSha256::new_from_slice(&key).expect("valid key length");
         mac.update(data);
         let result = mac.finalize().into_bytes().to_vec();
         let duration = start.elapsed().as_micros();
@@ -120,14 +120,14 @@ impl FipsSelfTest {
         use ring::aead::{AES_256_GCM, Aad, LessSafeKey, Nonce, UnboundKey};
         let key_bytes: [u8; 32] = [0u8; 32];
         let nonce_bytes: [u8; 12] = [0u8; 12];
-        let key = UnboundKey::new(&AES_256_GCM, &key_bytes).unwrap();
+        let key = UnboundKey::new(&AES_256_GCM, &key_bytes).expect("operation should succeed");
         let key = LessSafeKey::new(key);
         let nonce = Nonce::assume_unique_for_key(nonce_bytes);
         let plaintext = b"FIPS AES-256-GCM test plaintext";
         let aad = Aad::empty();
         let mut in_out = plaintext.to_vec();
         key.seal_in_place_append_tag(nonce, aad, &mut in_out)
-            .unwrap();
+            .expect("operation should succeed");
         let duration = start.elapsed().as_micros();
         let passed = in_out.len() > plaintext.len();
         FipsTestResult {
@@ -171,12 +171,12 @@ impl FipsSelfTest {
         let start = Instant::now();
         use ring::signature::{ECDSA_P256_SHA256_ASN1_SIGNING, EcdsaKeyPair};
         let rng = ring::rand::SystemRandom::new();
-        let key_pair = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).unwrap();
+        let key_pair = EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, &rng).expect("keypair operation");
         let key_pair =
             EcdsaKeyPair::from_pkcs8(&ECDSA_P256_SHA256_ASN1_SIGNING, key_pair.as_ref(), &rng)
-                .unwrap();
+                .expect("operation should succeed");
         let message = b"FIPS ECDSA-P256 signing test message";
-        let signature = key_pair.sign(&rng, message).unwrap();
+        let signature = key_pair.sign(&rng, message).expect("keypair operation");
         let duration = start.elapsed().as_micros();
         let passed = !signature.as_ref().is_empty();
         FipsTestResult {

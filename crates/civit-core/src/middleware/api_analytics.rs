@@ -37,17 +37,13 @@ fn extract_client_ip(req: &Request) -> IpAddr {
 
 /// Extract user ID from JWT claims if present.
 fn extract_user_id(req: &Request) -> Option<uuid::Uuid> {
-    if let Some(auth_header) = req.headers().get("authorization") {
-        if let Ok(_auth_str) = auth_header.to_str() {
-            if let Some(token) = auth_header.to_str().ok().and_then(|s| s.strip_prefix("Bearer ")) {
-                if let Some(jwt_service) = req.extensions().get::<std::sync::Arc<civit_auth::jwt::JwtService>>() {
-                    if let Ok(claims) = jwt_service.validate_token(token) {
+    if let Some(auth_header) = req.headers().get("authorization")
+        && let Ok(_auth_str) = auth_header.to_str()
+            && let Some(token) = auth_header.to_str().ok().and_then(|s| s.strip_prefix("Bearer "))
+                && let Some(jwt_service) = req.extensions().get::<std::sync::Arc<civit_auth::jwt::JwtService>>()
+                    && let Ok(claims) = jwt_service.validate_token(token) {
                         return claims.sub.parse::<uuid::Uuid>().ok();
                     }
-                }
-            }
-        }
-    }
     None
 }
 

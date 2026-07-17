@@ -252,7 +252,7 @@ impl FirewallService {
                     &test.protocol,
                 );
                 Ok(FirewallEvaluation {
-                    allowed: matches && r.action == "allow" || !matches,
+                    allowed: !matches || r.action == "allow",
                     matched_rule_id: Some(r.id),
                     action: if matches { r.action } else { "no_match".into() },
                 })
@@ -276,19 +276,16 @@ impl FirewallService {
             return false;
         }
 
-        if let Some(ref src_ip) = row.source_ip {
-            if src_ip != source_ip && src_ip != "*" && !Self::cidr_match(src_ip, source_ip) {
+        if let Some(ref src_ip) = row.source_ip
+            && src_ip != source_ip && src_ip != "*" && !Self::cidr_match(src_ip, source_ip) {
                 return false;
             }
-        }
 
-        if let Some(src_port) = row.source_port {
-            if let Some(tp) = destination_port {
-                if src_port != tp {
+        if let Some(src_port) = row.source_port
+            && let Some(tp) = destination_port
+                && src_port != tp {
                     return false;
                 }
-            }
-        }
 
         if let Some(ref dst_ip) = row.destination_ip {
             if let Some(dip) = destination_ip {
@@ -300,13 +297,11 @@ impl FirewallService {
             }
         }
 
-        if let Some(dst_port) = row.destination_port {
-            if let Some(tp) = destination_port {
-                if dst_port != tp {
+        if let Some(dst_port) = row.destination_port
+            && let Some(tp) = destination_port
+                && dst_port != tp {
                     return false;
                 }
-            }
-        }
 
         true
     }

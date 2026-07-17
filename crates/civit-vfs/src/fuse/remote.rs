@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlockFetchRequest {
@@ -23,40 +24,39 @@ pub trait RemoteBlockProvider: Send + Sync {
 }
 
 pub struct OnDemandFetcher {
-    cache: std::sync::Mutex<std::collections::HashMap<String, Vec<u8>>>,
+    cache: Mutex<std::collections::HashMap<String, Vec<u8>>>,
     max_cache_size: usize,
 }
 
 impl OnDemandFetcher {
     pub fn new(max_cache_size: usize) -> Self {
         Self {
-            cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+            cache: Mutex::new(std::collections::HashMap::new()),
             max_cache_size,
         }
     }
 
     pub fn fetch_cached(&self, block_id: &str) -> Option<Vec<u8>> {
-        let cache = self.cache.lock().ok()?;
+        let cache = self.cache.lock();
         cache.get(block_id).cloned()
     }
 
     pub fn store_cached(&self, block_id: &str, data: &[u8]) {
-        if let Ok(mut cache) = self.cache.lock()
-            && cache.len() < self.max_cache_size
-        {
+        let mut cache = self.cache.lock();
+        if cache.len() < self.max_cache_size {
             cache.insert(block_id.to_string(), data.to_vec());
         }
     }
 
     pub fn cache_len(&self) -> usize {
-        self.cache.lock().map(|c| c.len()).unwrap_or(0)
+        self.cache.lock().len()
     }
 
     pub fn invalidate_cached(&self, block_id: &str) -> bool {
         self.cache
             .lock()
-            .map(|mut c| c.remove(block_id).is_some())
-            .unwrap_or(false)
+            .remove(block_id)
+            .is_some()
     }
 }
 

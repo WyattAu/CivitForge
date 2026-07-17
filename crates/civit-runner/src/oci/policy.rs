@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// Repository-level policy for container image management.
 #[derive(Debug, Clone, Serialize, Deserialize)]

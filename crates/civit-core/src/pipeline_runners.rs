@@ -138,11 +138,10 @@ impl PipelineRunnersService {
 
         let mut runners: Vec<PipelineRunner> = rows.into_iter().map(|r| r.into()).collect();
 
-        if let Some(filter_tags) = tags {
-            if !filter_tags.is_empty() {
+        if let Some(filter_tags) = tags
+            && !filter_tags.is_empty() {
                 runners.retain(|r| filter_tags.iter().all(|t| r.tags.contains(t)));
             }
-        }
 
         Ok(runners)
     }

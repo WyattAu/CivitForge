@@ -213,7 +213,7 @@ impl SecurityScannerV3 {
         report.push('\n');
 
         let analytics = self.compute_fix_analytics();
-        report.push_str(&format!("Fix Analytics:\n"));
+        report.push_str("Fix Analytics:\n");
         report.push_str(&format!("  Total Fixes: {}\n", analytics.total_fixes));
         report.push_str(&format!("  Applied: {}\n", analytics.applied_fixes));
         report.push_str(&format!("  Failed: {}\n", analytics.failed_fixes));

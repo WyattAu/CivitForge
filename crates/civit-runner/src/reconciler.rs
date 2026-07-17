@@ -4,7 +4,7 @@ use crate::crd::{PipelineRunSpec, PipelineRunStatus, RunPhase};
 use chrono::Utc;
 use dashmap::DashMap;
 use std::collections::VecDeque;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
@@ -174,7 +174,7 @@ impl Reconciler {
             let started = status.started_at;
             let finished = status.finished_at.unwrap_or(Utc::now());
             let duration = finished - started.unwrap_or(finished);
-            self.completed.lock().unwrap().push_back(CompletedRun {
+            self.completed.lock().push_back(CompletedRun {
                 name: name.into(),
                 status,
                 duration,
@@ -206,12 +206,12 @@ impl Reconciler {
     }
 
     pub fn completed_count(&self) -> usize {
-        self.completed.lock().unwrap().len()
+        self.completed.lock().len()
     }
 
     pub fn cleanup_old(&self, max_age: Duration) -> usize {
         let max_age_delta = chrono::Duration::from_std(max_age).unwrap_or(chrono::Duration::zero());
-        let mut completed = self.completed.lock().unwrap();
+        let mut completed = self.completed.lock();
         let mut removed = 0;
         while let Some(front) = completed.front() {
             if front.duration < max_age_delta {

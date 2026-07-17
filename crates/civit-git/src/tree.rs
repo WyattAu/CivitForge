@@ -209,7 +209,7 @@ pub fn language_stats(repo_path: &Path) -> Result<LanguageStats> {
         })
         .collect();
 
-    languages.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+    languages.sort_by_key(|b| std::cmp::Reverse(b.bytes));
 
     Ok(LanguageStats {
         languages,

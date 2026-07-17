@@ -188,10 +188,8 @@ pub async fn list_pipeline_actions(
         _ => "created_at DESC",
     };
 
-    let mut builder = sqlx::QueryBuilder::new(format!(
-        "SELECT id, name, description, action_type, config, version, author_id, downloads, rating, created_at, updated_at \
-         FROM pipeline_actions WHERE 1=1"
-    ));
+    let mut builder = sqlx::QueryBuilder::new("SELECT id, name, description, action_type, config, version, author_id, downloads, rating, created_at, updated_at \
+         FROM pipeline_actions WHERE 1=1".to_string());
 
     if let Some(at) = action_type {
         builder.push(" AND action_type = ").push_bind(at);

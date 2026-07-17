@@ -64,7 +64,7 @@ impl SshDaemon {
 
             let addr_parsed: std::net::SocketAddr = addr
                 .parse()
-                .unwrap_or_else(|_| "0.0.0.0:2222".parse().unwrap());
+                .unwrap_or_else(|_| "0.0.0.0:2222".parse().expect("invalid value"));
 
             let russh_config = Arc::new(russh::server::Config {
                 keys: vec![secret_key],
@@ -107,7 +107,7 @@ impl SshDaemon {
         }
 
         let mut rng = rand::rng();
-        let key = PrivateKey::random(&mut rng, Algorithm::Ed25519).unwrap();
+        let key = PrivateKey::random(&mut rng, Algorithm::Ed25519).expect("key generation");
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }

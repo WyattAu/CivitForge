@@ -205,19 +205,17 @@ impl AutomatedCheckExecutor {
     }
 
     fn evaluate_check(requirement: &ComplianceRequirementRecord, target_data: &str) -> bool {
-        if let Some(pattern) = requirement.check_config.get("pattern") {
-            if let Some(pat_str) = pattern.as_str() {
+        if let Some(pattern) = requirement.check_config.get("pattern")
+            && let Some(pat_str) = pattern.as_str() {
                 match regex::Regex::new(pat_str) {
                     Ok(re) => return re.is_match(target_data),
                     Err(_) => return false,
                 }
             }
-        }
-        if let Some(keyword) = requirement.check_config.get("keyword") {
-            if let Some(kw_str) = keyword.as_str() {
+        if let Some(keyword) = requirement.check_config.get("keyword")
+            && let Some(kw_str) = keyword.as_str() {
                 return target_data.contains(kw_str);
             }
-        }
         !target_data.is_empty()
     }
 }
@@ -576,11 +574,10 @@ impl ComplianceFrameworkV2 {
 
     pub fn increment_version(&mut self) {
         let parts: Vec<&str> = self.version.split('.').collect();
-        if parts.len() == 2 {
-            if let Ok(minor) = parts[1].parse::<u32>() {
+        if parts.len() == 2
+            && let Ok(minor) = parts[1].parse::<u32>() {
                 self.version = format!("{}.{}", parts[0], minor + 1);
             }
-        }
     }
 }
 
@@ -1608,11 +1605,10 @@ impl ComplianceFrameworkV22 {
 
     pub fn increment_version(&mut self) {
         let parts: Vec<&str> = self.version.split('.').collect();
-        if parts.len() == 2 {
-            if let Ok(minor) = parts[1].parse::<u32>() {
+        if parts.len() == 2
+            && let Ok(minor) = parts[1].parse::<u32>() {
                 self.version = format!("{}.{}", parts[0], minor + 1);
             }
-        }
         self.updated_at = Utc::now();
     }
 

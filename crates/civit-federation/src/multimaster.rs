@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::info;
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SyncCheckpoint {
@@ -138,32 +139,32 @@ pub struct PartitionStatus {
 
 #[derive(Debug)]
 pub struct IncrementalSyncEngine {
-    checkpoints: std::sync::Mutex<HashMap<String, SyncCheckpoint>>,
-    deltas: std::sync::Mutex<Vec<SyncDelta>>,
+    checkpoints: Mutex<HashMap<String, SyncCheckpoint>>,
+    deltas: Mutex<Vec<SyncDelta>>,
     max_deltas: usize,
 }
 
 impl IncrementalSyncEngine {
     pub fn new(max_deltas: usize) -> Self {
         Self {
-            checkpoints: std::sync::Mutex::new(HashMap::new()),
-            deltas: std::sync::Mutex::new(Vec::new()),
+            checkpoints: Mutex::new(HashMap::new()),
+            deltas: Mutex::new(Vec::new()),
             max_deltas,
         }
     }
 
     pub fn save_checkpoint(&self, checkpoint: SyncCheckpoint) {
-        let mut cps = self.checkpoints.lock().unwrap();
+        let mut cps = self.checkpoints.lock();
         cps.insert(checkpoint.instance_id.clone(), checkpoint);
     }
 
     pub fn get_checkpoint(&self, instance_id: &str) -> Option<SyncCheckpoint> {
-        let cps = self.checkpoints.lock().unwrap();
+        let cps = self.checkpoints.lock();
         cps.get(instance_id).cloned()
     }
 
     pub fn record_delta(&self, delta: SyncDelta) {
-        let mut deltas = self.deltas.lock().unwrap();
+        let mut deltas = self.deltas.lock();
         deltas.push(delta);
         while deltas.len() > self.max_deltas {
             deltas.remove(0);
@@ -190,7 +191,7 @@ impl IncrementalSyncEngine {
     }
 
     pub fn get_deltas_since(&self, revision: &str) -> Vec<SyncDelta> {
-        let deltas = self.deltas.lock().unwrap();
+        let deltas = self.deltas.lock();
         deltas
             .iter()
             .filter(|d| d.old_revision.as_str() >= revision)
@@ -199,11 +200,11 @@ impl IncrementalSyncEngine {
     }
 
     pub fn delta_count(&self) -> usize {
-        self.deltas.lock().unwrap().len()
+        self.deltas.lock().len()
     }
 
     pub fn checkpoint_count(&self) -> usize {
-        self.checkpoints.lock().unwrap().len()
+        self.checkpoints.lock().len()
     }
 
     pub fn recompute_deltas(&self, base: &[u8], new: &[u8]) -> Vec<u8> {
@@ -218,13 +219,13 @@ impl Default for IncrementalSyncEngine {
 }
 
 pub struct PartitionTracker {
-    partitions: std::sync::Mutex<Vec<PartitionStatus>>,
+    partitions: Mutex<Vec<PartitionStatus>>,
 }
 
 impl PartitionTracker {
     pub fn new() -> Self {
         Self {
-            partitions: std::sync::Mutex::new(Vec::new()),
+            partitions: Mutex::new(Vec::new()),
         }
     }
 
@@ -236,12 +237,12 @@ impl PartitionTracker {
             healed_at: None,
             is_active: true,
         };
-        let mut partitions = self.partitions.lock().unwrap();
+        let mut partitions = self.partitions.lock();
         partitions.push(status);
     }
 
     pub fn heal_partition(&self, partition_id: &str) -> bool {
-        let mut partitions = self.partitions.lock().unwrap();
+        let mut partitions = self.partitions.lock();
         if let Some(p) = partitions
             .iter_mut()
             .find(|p| p.partition_id == partition_id && p.is_active)
@@ -254,22 +255,22 @@ impl PartitionTracker {
     }
 
     pub fn active_partitions(&self) -> Vec<PartitionStatus> {
-        let partitions = self.partitions.lock().unwrap();
+        let partitions = self.partitions.lock();
         partitions.iter().filter(|p| p.is_active).cloned().collect()
     }
 
     pub fn all_partitions(&self) -> Vec<PartitionStatus> {
-        let partitions = self.partitions.lock().unwrap();
+        let partitions = self.partitions.lock();
         partitions.clone()
     }
 
     pub fn partition_count(&self) -> usize {
-        let partitions = self.partitions.lock().unwrap();
+        let partitions = self.partitions.lock();
         partitions.len()
     }
 
     pub fn active_count(&self) -> usize {
-        let partitions = self.partitions.lock().unwrap();
+        let partitions = self.partitions.lock();
         partitions.iter().filter(|p| p.is_active).count()
     }
 }

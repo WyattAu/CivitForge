@@ -193,7 +193,7 @@ pub fn LoginPage() -> impl IntoView {
     #[cfg(feature = "csr")]
     {
         leptos::task::spawn_local(async move {
-            let window = web_sys::window().unwrap();
+            let window = web_sys::window().expect("browser window available");
             let location = window.location();
             let search = location.search().unwrap_or_default();
             
@@ -443,7 +443,7 @@ fn generate_random_state() -> String {
 /// Get the current page origin (protocol + host)
 #[cfg(feature = "csr")]
 fn get_current_origin() -> String {
-    let window = web_sys::window().unwrap();
+    let window = web_sys::window().expect("browser window available");
     let location = window.location();
     let protocol = location.protocol().unwrap_or_default();
     let host = location.host().unwrap_or_default();

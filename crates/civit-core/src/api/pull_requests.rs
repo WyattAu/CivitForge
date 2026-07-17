@@ -350,7 +350,7 @@ pub async fn list_pull_requests(
     let items: Vec<PrResponse> = prs
         .into_iter()
         .filter(|pr| {
-            params.state.as_deref().is_none() || pr.status == params.state.as_deref().unwrap()
+            params.state.as_deref().is_none() || pr.status == params.state.as_deref().expect("operation should succeed")
         })
         .map(|pr| pr_to_response(pr, None, None, None))
         .collect();

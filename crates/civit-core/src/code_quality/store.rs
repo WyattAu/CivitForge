@@ -1200,7 +1200,7 @@ impl CodeQualityStore {
 
         Ok(row.map(|r| {
             let threshold_value = threshold.as_ref().map(|t| t.threshold_value);
-            let threshold_exceeded = threshold_value.map_or(false, |tv| r.latest_value > tv);
+            let threshold_exceeded = threshold_value.is_some_and(|tv| r.latest_value > tv);
             CodeQualityMetricSummaryV2 {
                 metric_name: r.metric_name,
                 latest_value: r.latest_value,
@@ -1522,7 +1522,7 @@ impl CodeQualityStore {
 
         Ok(row.map(|r| {
             let threshold_value = threshold.as_ref().map(|t| t.threshold_value);
-            let threshold_exceeded = threshold_value.map_or(false, |tv| r.latest_value > tv);
+            let threshold_exceeded = threshold_value.is_some_and(|tv| r.latest_value > tv);
             CodeQualityMetricSummaryV3 {
                 metric_name: r.metric_name,
                 latest_value: r.latest_value,
@@ -2332,7 +2332,7 @@ impl CodeQualityStore {
 
         Ok(row.map(|r| {
             let threshold_value = threshold.as_ref().map(|t| t.threshold_value);
-            let threshold_exceeded = threshold_value.map_or(false, |tv| r.latest_value > tv);
+            let threshold_exceeded = threshold_value.is_some_and(|tv| r.latest_value > tv);
             CodeQualityMetricSummaryV5 {
                 metric_name: r.metric_name,
                 latest_value: r.latest_value,
@@ -2654,7 +2654,7 @@ impl CodeQualityStore {
 
         Ok(row.map(|r| {
             let threshold_value = threshold.as_ref().map(|t| t.threshold_value);
-            let threshold_exceeded = threshold_value.map_or(false, |tv| r.latest_value > tv);
+            let threshold_exceeded = threshold_value.is_some_and(|tv| r.latest_value > tv);
             CodeQualityMetricSummaryV6 {
                 metric_name: r.metric_name,
                 latest_value: r.latest_value,
@@ -2704,7 +2704,7 @@ impl CodeQualityStore {
 
         Ok(row.map(|r| {
             let threshold_value = threshold.as_ref().map(|t| t.threshold_value);
-            let threshold_exceeded = threshold_value.map_or(false, |tv| r.latest_value > tv);
+            let threshold_exceeded = threshold_value.is_some_and(|tv| r.latest_value > tv);
             CodeQualityMetricSummaryV4 {
                 metric_name: r.metric_name,
                 latest_value: r.latest_value,
@@ -2979,11 +2979,7 @@ impl CodeQualityStore {
             0.0
         };
 
-        let false_positive_rate = if stats.total_violations > 0 {
-            0.0
-        } else {
-            0.0
-        };
+        let false_positive_rate = 0.0;
 
         let trend = Vec::new();
 

@@ -63,7 +63,7 @@ impl OciRegistry {
             let encoded = base64::engine::general_purpose::STANDARD.encode(creds);
             headers.insert(
                 reqwest::header::AUTHORIZATION,
-                reqwest::header::HeaderValue::from_str(&format!("Basic {encoded}")).unwrap(),
+                reqwest::header::HeaderValue::from_str(&format!("Basic {encoded}")).expect("valid header value"),
             );
         }
         headers

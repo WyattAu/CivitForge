@@ -546,7 +546,7 @@ pub async fn list_branches(
     for reference in all_refs.flatten() {
         let full_name = reference.name().shorten().to_string();
         if full_name.starts_with("refs/heads/") {
-            let branch_name = full_name.strip_prefix("refs/heads/").unwrap().to_string();
+            let branch_name = full_name.strip_prefix("refs/heads/").expect("prefix present").to_string();
             let is_default = head_ref.as_ref() == Some(&branch_name);
             branches.push(BranchResponse {
                 name: branch_name,
@@ -610,7 +610,7 @@ pub async fn list_tags(
     for reference in all_refs.flatten() {
         let full_name = reference.name().shorten().to_string();
         if full_name.starts_with("refs/tags/") {
-            let tag_name = full_name.strip_prefix("refs/tags/").unwrap().to_string();
+            let tag_name = full_name.strip_prefix("refs/tags/").expect("prefix present").to_string();
             tags.push(TagResponse { name: tag_name });
         }
     }
@@ -758,7 +758,7 @@ pub async fn raw_file(
             format!("attachment; filename=\"{filename}\""),
         )
         .body(body)
-        .unwrap();
+        .expect("operation should succeed");
     response.into_response()
 }
 
@@ -905,7 +905,7 @@ pub async fn archive(
         )
         .header("content-type", content_type)
         .body(body)
-        .unwrap();
+        .expect("operation should succeed");
     response.into_response()
 }
 

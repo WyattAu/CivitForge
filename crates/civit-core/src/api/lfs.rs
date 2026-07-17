@@ -217,7 +217,7 @@ pub async fn get_object(
     );
     headers.insert(
         "content-length",
-        HeaderValue::from_str(&size.to_string()).unwrap(),
+        HeaderValue::from_str(&size.to_string()).expect("valid header value"),
     );
 
     (StatusCode::OK, headers, axum::body::Body::from(data)).into_response()

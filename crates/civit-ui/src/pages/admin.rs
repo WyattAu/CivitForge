@@ -904,14 +904,14 @@ pub fn AdminPage() -> impl IntoView {
                             &parts,
                             web_sys::BlobPropertyBag::new().type_("text/csv"),
                         )
-                        .unwrap();
+                        .expect("operation should succeed");
                         let url = web_sys::Url::create_object_url_with_blob(&blob).unwrap_or_default();
                         let _ = web_sys::window()
-                            .unwrap()
+                            .expect("operation should succeed")
                             .document()
-                            .unwrap()
+                            .expect("operation should succeed")
                             .create_element("a")
-                            .unwrap()
+                            .expect("operation should succeed")
                             .dyn_ref::<web_sys::HtmlAnchorElement>()
                             .map(|a| {
                                 a.set_href(&url);
@@ -2043,7 +2043,7 @@ pub fn AdminPage() -> impl IntoView {
                                 // Sync Result
                                 <Show when=move || ldap_sync_result.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                                     {move || {
-                                        let result = ldap_sync_result.get().unwrap();
+                                        let result = ldap_sync_result.get().expect("key present");
                                         view! {
                                             <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 text-sm text-blue-700 dark:text-blue-400">
                                                 <p class="font-medium">{result.message}</p>
@@ -2098,7 +2098,7 @@ pub fn AdminPage() -> impl IntoView {
 
                     <Show when=move || !license_loading.get() && license_report.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                         {move || {
-                            let report = license_report.get().unwrap();
+                            let report = license_report.get().expect("key present");
                             let compliant = report.compliant;
                             let spdx_id = report.spdx_id.clone();
                             let file_count = report.file_count;

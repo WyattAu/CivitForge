@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LicenseInfo {
@@ -223,35 +224,33 @@ fn builtin_licenses() -> HashMap<&'static str, LicenseInfo> {
 }
 
 pub struct LicenseScanner {
-    allowed_licenses: std::sync::Mutex<Vec<String>>,
-    denied_licenses: std::sync::Mutex<Vec<String>>,
+    allowed_licenses: Mutex<Vec<String>>,
+    denied_licenses: Mutex<Vec<String>>,
 }
 
 impl LicenseScanner {
     pub fn new() -> Self {
         Self {
-            allowed_licenses: std::sync::Mutex::new(Vec::new()),
-            denied_licenses: std::sync::Mutex::new(Vec::new()),
+            allowed_licenses: Mutex::new(Vec::new()),
+            denied_licenses: Mutex::new(Vec::new()),
         }
     }
 
     pub fn allow_license(&self, spdx_id: &str) {
         self.allowed_licenses
             .lock()
-            .unwrap()
             .push(spdx_id.to_string());
     }
 
     pub fn deny_license(&self, spdx_id: &str) {
         self.denied_licenses
             .lock()
-            .unwrap()
             .push(spdx_id.to_string());
     }
 
     pub fn scan(&self, results: &[LicenseScanResult]) -> Vec<LicenseViolation> {
-        let allowed = self.allowed_licenses.lock().unwrap();
-        let denied = self.denied_licenses.lock().unwrap();
+        let allowed = self.allowed_licenses.lock();
+        let denied = self.denied_licenses.lock();
         let mut violations = Vec::new();
 
         for result in results {
@@ -290,8 +289,8 @@ impl LicenseScanner {
     }
 
     pub fn is_allowed(&self, spdx_id: &str) -> bool {
-        let allowed = self.allowed_licenses.lock().unwrap();
-        let denied = self.denied_licenses.lock().unwrap();
+        let allowed = self.allowed_licenses.lock();
+        let denied = self.denied_licenses.lock();
         if denied.iter().any(|d| d.eq_ignore_ascii_case(spdx_id)) {
             return false;
         }

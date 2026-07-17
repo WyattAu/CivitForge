@@ -2,6 +2,7 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArchiveConfig {
@@ -62,13 +63,14 @@ pub trait ArchiveManager: Send + Sync {
 }
 
 pub struct InMemoryArchiveManager {
-    archives: std::sync::Mutex<Vec<(String, String, i64, DateTime<Utc>)>>,
+    #[allow(clippy::type_complexity)]
+    archives: Mutex<Vec<(String, String, i64, DateTime<Utc>)>>,
 }
 
 impl InMemoryArchiveManager {
     pub fn new() -> Self {
         Self {
-            archives: std::sync::Mutex::new(Vec::new()),
+            archives: Mutex::new(Vec::new()),
         }
     }
 }
@@ -85,7 +87,7 @@ impl ArchiveManager for InMemoryArchiveManager {
         let id = uuid::Uuid::new_v4().to_string();
         let file_path = format!("/{}/{}.tar.gz", "/var/lib/civitforge/archives", id);
 
-        let mut archives = self.archives.lock().unwrap();
+        let mut archives = self.archives.lock();
         archives.push((
             id.clone(),
             request.archive_type.clone(),
@@ -104,7 +106,7 @@ impl ArchiveManager for InMemoryArchiveManager {
     }
 
     fn delete_archive(&self, archive_id: &str) -> Result<(), String> {
-        let mut archives = self.archives.lock().unwrap();
+        let mut archives = self.archives.lock();
         let before = archives.len();
         archives.retain(|(id, _, _, _)| id != archive_id);
         if archives.len() < before {
@@ -119,7 +121,7 @@ impl ArchiveManager for InMemoryArchiveManager {
     }
 
     fn get_stats(&self) -> Result<ArchiveStats, String> {
-        let archives = self.archives.lock().unwrap();
+        let archives = self.archives.lock();
         Ok(ArchiveStats {
             total_archives: archives.len() as i64,
             total_size_bytes: archives.iter().map(|(_, _, size, _)| size).sum(),

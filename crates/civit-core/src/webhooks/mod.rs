@@ -438,7 +438,7 @@ impl WebhookDispatcher {
                 let _duration = start_time.elapsed();
                 let status = resp.status().as_u16();
                 let response_body = resp.text().await.unwrap_or_default();
-                let success = status >= 200 && status < 300;
+                let success = (200..300).contains(&status);
 
                 let final_status = if success {
                     DeliveryStatus::Delivered

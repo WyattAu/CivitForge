@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
+use parking_lot::Mutex;
 
 pub trait EventSubscriber: Send + Sync {
     fn on_event(&self, event: &Event);
@@ -12,7 +13,7 @@ pub trait EventSubscriber: Send + Sync {
 
 pub struct EventBus {
     subscribers: DashMap<String, Vec<Box<dyn EventSubscriber>>>,
-    event_log: std::sync::Mutex<VecDeque<Event>>,
+    event_log: Mutex<VecDeque<Event>>,
     max_log_size: usize,
     publish_count: AtomicU64,
 }
@@ -21,7 +22,7 @@ impl EventBus {
     pub fn new(max_log_size: usize) -> Self {
         Self {
             subscribers: DashMap::new(),
-            event_log: std::sync::Mutex::new(VecDeque::with_capacity(max_log_size)),
+            event_log: Mutex::new(VecDeque::with_capacity(max_log_size)),
             max_log_size,
             publish_count: AtomicU64::new(0),
         }
@@ -42,7 +43,7 @@ impl EventBus {
         self.publish_count.fetch_add(1, Ordering::Relaxed);
 
         {
-            let mut log = self.event_log.lock().expect("event log lock poisoned");
+            let mut log = self.event_log.lock();
             if log.len() >= self.max_log_size {
                 log.pop_front();
             }
@@ -65,7 +66,7 @@ impl EventBus {
     }
 
     pub fn replay(&self, topic: &str, since: DateTime<Utc>) -> Vec<Event> {
-        let log = self.event_log.lock().expect("event log lock poisoned");
+        let log = self.event_log.lock();
         log.iter()
             .filter(|e| e.timestamp >= since)
             .filter(|e| self.event_matches_topic(e, topic))
@@ -74,7 +75,7 @@ impl EventBus {
     }
 
     pub fn recent(&self, count: usize) -> Vec<Event> {
-        let log = self.event_log.lock().expect("event log lock poisoned");
+        let log = self.event_log.lock();
         let len = log.len();
         let start = len.saturating_sub(count);
         log.iter().skip(start).cloned().collect()

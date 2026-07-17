@@ -35,6 +35,15 @@ pub fn info_refs(
         .wait_with_output()
         .map_err(|e| CoreError::Git(format!("failed to read git {service} output: {e}")))?;
 
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        warn!(status = %output.status, stderr = %stderr, "git info-refs failed");
+        return Err(CoreError::Git(format!(
+            "git {service} exited with {}: {stderr}",
+            output.status
+        )));
+    }
+
     let refs_data = output.stdout;
 
     // For HTTP v1, wrap in service line + flush. For v2, return raw output
@@ -233,7 +242,13 @@ mod tests {
         assert!(text.contains("# service=git-receive-pack"));
     }
 
-    // TODO: Test invalid repo after adding exit-status checking to git subprocess calls.
+    #[test]
+    fn test_info_refs_invalid_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo_path = tmp.path().to_path_buf().join("nonexistent");
+        let result = info_refs(&repo_path, "upload-pack", None);
+        assert!(result.is_err(), "nonexistent repo should error");
+    }
 
     #[test]
     fn test_info_refs_v2_protocol() {

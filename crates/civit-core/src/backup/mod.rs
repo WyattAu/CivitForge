@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupManifest {
@@ -93,13 +94,13 @@ pub trait BackupManager: Send + Sync {
 }
 
 pub struct InMemoryBackupManager {
-    backups: std::sync::Mutex<Vec<BackupManifest>>,
+    backups: Mutex<Vec<BackupManifest>>,
 }
 
 impl InMemoryBackupManager {
     pub fn new() -> Self {
         Self {
-            backups: std::sync::Mutex::new(Vec::new()),
+            backups: Mutex::new(Vec::new()),
         }
     }
 }
@@ -154,7 +155,7 @@ impl BackupManager for InMemoryBackupManager {
             checksum: format!("sha256_{id}"),
         };
 
-        let mut backups = self.backups.lock().unwrap();
+        let mut backups = self.backups.lock();
         backups.push(manifest.clone());
 
         while backups.len() > config.retention_count as usize {
@@ -175,7 +176,7 @@ impl BackupManager for InMemoryBackupManager {
         _config: &BackupConfig,
     ) -> Result<RestoreResult, String> {
         let start = std::time::Instant::now();
-        let backups = self.backups.lock().unwrap();
+        let backups = self.backups.lock();
         let manifest = backups
             .iter()
             .find(|b| b.id == backup_id)
@@ -194,11 +195,11 @@ impl BackupManager for InMemoryBackupManager {
     }
 
     fn list_backups(&self) -> Vec<BackupManifest> {
-        self.backups.lock().unwrap().clone()
+        self.backups.lock().clone()
     }
 
     fn delete_backup(&self, backup_id: &str) -> Result<(), String> {
-        let mut backups = self.backups.lock().unwrap();
+        let mut backups = self.backups.lock();
         let before = backups.len();
         backups.retain(|b| b.id != backup_id);
         if backups.len() < before {
@@ -298,15 +299,16 @@ pub trait DatabaseBackupManager: Send + Sync {
 }
 
 pub struct InMemoryDatabaseBackupManager {
-    backups: std::sync::Mutex<Vec<(String, DatabaseBackupType, u64, String, DateTime<Utc>)>>,
-    recovery_points: std::sync::Mutex<Vec<RecoveryPoint>>,
+    #[allow(clippy::type_complexity)]
+    backups: Mutex<Vec<(String, DatabaseBackupType, u64, String, DateTime<Utc>)>>,
+    recovery_points: Mutex<Vec<RecoveryPoint>>,
 }
 
 impl InMemoryDatabaseBackupManager {
     pub fn new() -> Self {
         Self {
-            backups: std::sync::Mutex::new(Vec::new()),
-            recovery_points: std::sync::Mutex::new(Vec::new()),
+            backups: Mutex::new(Vec::new()),
+            recovery_points: Mutex::new(Vec::new()),
         }
     }
 }
@@ -326,7 +328,7 @@ impl DatabaseBackupManager for InMemoryDatabaseBackupManager {
         let id = uuid::Uuid::new_v4().to_string();
         let file_path = format!("/var/lib/civitforge/backups/db_{}.dump", id);
 
-        let mut backups = self.backups.lock().unwrap();
+        let mut backups = self.backups.lock();
         backups.push((
             id.clone(),
             request.backup_type.clone(),
@@ -351,7 +353,7 @@ impl DatabaseBackupManager for InMemoryDatabaseBackupManager {
         request: &RestoreFromBackupRequest,
     ) -> Result<RestoreFromBackupResult, String> {
         let start = std::time::Instant::now();
-        let backups = self.backups.lock().unwrap();
+        let backups = self.backups.lock();
         let _ = backups
             .iter()
             .find(|(id, _, _, _, _)| id == &request.backup_id)
@@ -380,14 +382,14 @@ impl DatabaseBackupManager for InMemoryDatabaseBackupManager {
             created_at: Utc::now(),
         };
 
-        let mut points = self.recovery_points.lock().unwrap();
+        let mut points = self.recovery_points.lock();
         points.push(point.clone());
 
         Ok(point)
     }
 
     fn list_recovery_points(&self, backup_id: &str) -> Vec<RecoveryPoint> {
-        let points = self.recovery_points.lock().unwrap();
+        let points = self.recovery_points.lock();
         points
             .iter()
             .filter(|p| p.backup_id == backup_id)

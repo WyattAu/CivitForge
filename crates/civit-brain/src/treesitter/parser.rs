@@ -249,7 +249,7 @@ fn tokenize(
     let mut block_end_marker: Option<String> = None;
 
     while i < len {
-        let ch = source[i..].chars().next().unwrap();
+        let ch = source[i..].chars().next().expect("non-empty string");
         let ch_len = ch.len_utf8();
 
         if ch == '\n' {
@@ -270,7 +270,7 @@ fn tokenize(
                     if source[i..].starts_with('\n') {
                         current_line += 1;
                     }
-                    i += source[i..].chars().next().unwrap().len_utf8();
+                    i += source[i..].chars().next().expect("non-empty string").len_utf8();
                 }
                 tokens.push(Token {
                     kind: TokenKind::Whitespace,
@@ -313,7 +313,7 @@ fn tokenize(
 
             let mut escaped = false;
             while i < len {
-                let c = source[i..].chars().next().unwrap();
+                let c = source[i..].chars().next().expect("non-empty string");
                 let c_len = c.len_utf8();
                 if c == '\n' {
                     current_line += 1;
@@ -418,7 +418,7 @@ fn tokenize(
         if is_word_char(ch) {
             let start = i;
             while i < len && source[i..].chars().next().is_some_and(is_word_char) {
-                i += source[i..].chars().next().unwrap().len_utf8();
+                i += source[i..].chars().next().expect("non-empty string").len_utf8();
             }
             let word = &source[start..i];
 
@@ -1319,7 +1319,7 @@ mod tests {
     #[test]
     fn test_tokenization_basic() {
         let registry = LanguageRegistry::new();
-        let rust = registry.get("rust").unwrap();
+        let rust = registry.get("rust").expect("key present");
         let opts = ParseOptions::default();
         let tokens = tokenize("fn main() { let x = 42; }", rust, &opts);
         assert!(

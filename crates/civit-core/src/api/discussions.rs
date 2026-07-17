@@ -404,14 +404,13 @@ pub async fn create_discussion_comment(
 
     // Check if discussion is locked
     let discussion = state.db.get_discussion(discussion_id).await;
-    if let Ok(ref d) = discussion {
-        if d.is_locked {
+    if let Ok(ref d) = discussion
+        && d.is_locked {
             return err_response(
                 axum::http::StatusCode::FORBIDDEN,
                 "discussion is locked",
             );
         }
-    }
 
     match state
         .db

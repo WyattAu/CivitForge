@@ -259,7 +259,7 @@ fn BlameRow(line: BlameLineData, owner: String, repo: String) -> impl IntoView {
             let _ = js_sys::eval(&js_code);
             set_copied.set(true);
             let _ = js_sys::Promise::resolve(
-                &js_sys::eval("new Promise(r => setTimeout(r, 1500))").unwrap(),
+                &js_sys::eval("new Promise(r => setTimeout(r, 1500))").expect("operation should succeed"),
             )
             .await;
             set_copied.set(false);

@@ -231,15 +231,14 @@ pub async fn update_variable_v3(
     };
 
     // Validate variable value if provided
-    if let Some(ref value) = req.value {
-        if let Err(e) = EnvironmentVariablesService::validate_variable_value(value).await {
+    if let Some(ref value) = req.value
+        && let Err(e) = EnvironmentVariablesService::validate_variable_value(value).await {
             return (
                 axum::http::StatusCode::BAD_REQUEST,
                 Json(CoreError::BadRequest(e).error_response()),
             )
                 .into_response();
         }
-    }
 
     let service = EnvironmentVariablesService::new(pool.clone());
     match service.update_variable(eid, &var_name, req).await {

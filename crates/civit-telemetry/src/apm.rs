@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 /// An APM transaction representing a single request or task.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,7 +154,7 @@ impl ApmRecorder {
         tx.end_time = Some(now);
         tx.duration_ms = Some((now - tx.start_time).num_milliseconds());
         tx.result = result.to_string();
-        let mut txns = self.transactions.lock().unwrap();
+        let mut txns = self.transactions.lock();
         if txns.len() >= self.config.max_transactions {
             txns.remove(0);
         }
@@ -166,43 +166,42 @@ impl ApmRecorder {
         let now = Utc::now();
         span.end_time = Some(now);
         span.duration_ms = Some((now - span.start_time).num_milliseconds());
-        let mut spans = self.spans.lock().unwrap();
+        let mut spans = self.spans.lock();
         // Enforce per-transaction limit by removing oldest spans from this transaction
         let count_here = spans
             .iter()
             .filter(|s| s.transaction_id == span.transaction_id)
             .count();
-        if count_here >= self.config.max_spans_per_transaction {
-            if let Some(pos) = spans
+        if count_here >= self.config.max_spans_per_transaction
+            && let Some(pos) = spans
                 .iter()
                 .position(|s| s.transaction_id == span.transaction_id)
             {
                 spans.remove(pos);
             }
-        }
         spans.push(span);
     }
 
     /// Export all completed transactions.
     pub fn export_transactions(&self) -> Vec<ApmTransaction> {
-        let mut txns = self.transactions.lock().unwrap();
+        let mut txns = self.transactions.lock();
         std::mem::take(&mut *txns)
     }
 
     /// Export all completed spans.
     pub fn export_spans(&self) -> Vec<ApmSpan> {
-        let mut spans = self.spans.lock().unwrap();
+        let mut spans = self.spans.lock();
         std::mem::take(&mut *spans)
     }
 
     /// Get the count of buffered transactions.
     pub fn transaction_count(&self) -> usize {
-        self.transactions.lock().unwrap().len()
+        self.transactions.lock().len()
     }
 
     /// Get the count of buffered spans.
     pub fn span_count(&self) -> usize {
-        self.spans.lock().unwrap().len()
+        self.spans.lock().len()
     }
 
     /// Get a reference to the configuration.
@@ -212,7 +211,7 @@ impl ApmRecorder {
 
     /// Calculate performance statistics for a given transaction name.
     pub fn stats_for_transaction(&self, name: &str) -> TransactionStats {
-        let txns = self.transactions.lock().unwrap();
+        let txns = self.transactions.lock();
         let matching: Vec<&ApmTransaction> = txns
             .iter()
             .filter(|t| t.name == name && t.duration_ms.is_some())
@@ -222,11 +221,11 @@ impl ApmRecorder {
             return TransactionStats::default();
         }
 
-        let durations: Vec<i64> = matching.iter().map(|t| t.duration_ms.unwrap()).collect();
+        let durations: Vec<i64> = matching.iter().map(|t| t.duration_ms.expect("operation should succeed")).collect();
         let count = durations.len() as u64;
         let sum: i64 = durations.iter().sum();
-        let min = *durations.iter().min().unwrap();
-        let max = *durations.iter().max().unwrap();
+        let min = *durations.iter().min().expect("operation should succeed");
+        let max = *durations.iter().max().expect("operation should succeed");
         let avg = sum as f64 / count as f64;
 
         let error_count = matching
@@ -277,8 +276,8 @@ pub struct ApmDashboard {
 impl ApmRecorder {
     /// Build a dashboard summary.
     pub fn dashboard(&self) -> ApmDashboard {
-        let txns = self.transactions.lock().unwrap();
-        let spans = self.spans.lock().unwrap();
+        let txns = self.transactions.lock();
+        let spans = self.spans.lock();
 
         let total_transactions = txns.len() as u64;
         let total_spans = spans.len() as u64;

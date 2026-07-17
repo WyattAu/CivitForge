@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use parking_lot::Mutex;
 
 // --- Core Event Types ---
 
@@ -376,23 +377,24 @@ impl AuditTrailBuilder {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AuditTrailRecorder {
-    events: std::sync::Mutex<Vec<AuditTrailEvent>>,
+    #[serde(skip)]
+    events: Mutex<Vec<AuditTrailEvent>>,
 }
 
 impl AuditTrailRecorder {
     pub fn new() -> Self {
         Self {
-            events: std::sync::Mutex::new(Vec::new()),
+            events: Mutex::new(Vec::new()),
         }
     }
 
     pub fn record(&self, event: AuditTrailEvent) {
-        let mut events = self.events.lock().unwrap();
+        let mut events = self.events.lock();
         events.push(event);
     }
 
     pub fn search(&self, query: &AuditTrailQuery) -> Vec<AuditTrailEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| query.matches(e))
@@ -403,12 +405,12 @@ impl AuditTrailRecorder {
     }
 
     pub fn count(&self) -> usize {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events.len()
     }
 
     pub fn count_by_session(&self, session_id: &str) -> usize {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| e.session_id.as_deref() == Some(session_id))
@@ -416,7 +418,7 @@ impl AuditTrailRecorder {
     }
 
     pub fn get_session_events(&self, session_id: &str) -> Vec<AuditTrailEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| e.session_id.as_deref() == Some(session_id))
@@ -425,7 +427,7 @@ impl AuditTrailRecorder {
     }
 
     pub fn get_request_events(&self, request_id: &str) -> Vec<AuditTrailEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| e.request_id.as_deref() == Some(request_id))
@@ -434,7 +436,7 @@ impl AuditTrailRecorder {
     }
 
     pub fn get_events_by_geo_country(&self, country: &str) -> Vec<AuditTrailEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| {
@@ -452,7 +454,7 @@ impl AuditTrailRecorder {
         &self,
         status: ComplianceStatus,
     ) -> Vec<AuditTrailEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| e.compliance_status == status)
@@ -461,7 +463,7 @@ impl AuditTrailRecorder {
     }
 
     pub fn get_high_risk_events(&self, threshold: u32) -> Vec<AuditTrailEvent> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         events
             .iter()
             .filter(|e| e.risk_score >= threshold)
@@ -475,7 +477,7 @@ impl AuditTrailRecorder {
         since: DateTime<Utc>,
         until: DateTime<Utc>,
     ) -> ComplianceAuditResult {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         let relevant: Vec<_> = events
             .iter()
             .filter(|e| {
@@ -554,7 +556,7 @@ impl AuditTrailRecorder {
         since: DateTime<Utc>,
         until: DateTime<Utc>,
     ) -> ForensicsExport {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         let relevant: Vec<_> = events
             .iter()
             .filter(|e| {
@@ -627,7 +629,7 @@ impl AuditTrailRecorder {
     }
 
     pub fn detect_anomalies(&self) -> Vec<AnomalyDetectionResult> {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         let mut anomalies = Vec::new();
 
         let mut actor_event_counts: std::collections::HashMap<String, u32> =
@@ -732,7 +734,7 @@ impl AuditTrailRecorder {
     }
 
     pub fn risk_assessment(&self) -> RiskAssessmentResult {
-        let events = self.events.lock().unwrap();
+        let events = self.events.lock();
         let total = events.len() as u32;
         let high_risk = events.iter().filter(|e| e.risk_score >= 75).count() as u32;
         let medium_risk = events
@@ -1319,7 +1321,7 @@ impl ForensicAnalysisEngine {
             });
         }
 
-        self.timeline.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        self.timeline.sort_by_key(|a| a.timestamp);
     }
 
     pub fn analyze(
@@ -1594,12 +1596,12 @@ impl RetentionPolicy {
 
     pub fn should_archive(&self, event_age_days: u32) -> bool {
         self.archive_after_days
-            .map_or(false, |days| event_age_days >= days)
+            .is_some_and(|days| event_age_days >= days)
     }
 
     pub fn should_delete(&self, event_age_days: u32) -> bool {
         self.delete_after_days
-            .map_or(false, |days| event_age_days >= days)
+            .is_some_and(|days| event_age_days >= days)
     }
 
     pub fn is_expired(&self, event_age_days: u32) -> bool {
@@ -1651,7 +1653,7 @@ impl ForensicTimeline {
     }
 
     fn recalculate(&mut self) {
-        self.entries.sort_by(|a, b| a.timestamp.cmp(&b.timestamp));
+        self.entries.sort_by_key(|a| a.timestamp);
         self.total_events = self.entries.len() as u32;
         self.time_span_start = self.entries.first().map(|e| e.timestamp);
         self.time_span_end = self.entries.last().map(|e| e.timestamp);
@@ -1930,12 +1932,12 @@ impl RetentionPolicyManager {
 
     pub fn events_to_archive(&self, category: &str, event_age_days: u32) -> bool {
         self.get_policy_for_category(category)
-            .map_or(false, |p| p.should_archive(event_age_days))
+            .is_some_and(|p| p.should_archive(event_age_days))
     }
 
     pub fn events_to_delete(&self, category: &str, event_age_days: u32) -> bool {
         self.get_policy_for_category(category)
-            .map_or(false, |p| p.should_delete(event_age_days))
+            .is_some_and(|p| p.should_delete(event_age_days))
     }
 }
 

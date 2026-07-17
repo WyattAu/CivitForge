@@ -173,7 +173,7 @@ impl PoolHealthChecker {
 
         let health = if leaks.len() > 3 {
             PoolHealth::Critical
-        } else if leaks.len() > 0 || stats.active_connections > stats.config.max_connections {
+        } else if !leaks.is_empty() || stats.active_connections > stats.config.max_connections {
             PoolHealth::Degraded
         } else {
             PoolHealth::Healthy

@@ -129,7 +129,7 @@ impl DeliveryQueueService {
                 .filter(|(_, e)| {
                     e.status == DeliveryStatus::Pending
                         || e.status == DeliveryStatus::Retrying
-                            && e.next_retry_at.map_or(true, |t| t <= now)
+                            && e.next_retry_at.is_none_or(|t| t <= now)
                 })
                 .map(|(i, _)| i)
                 .take(self.config.batch_size)
@@ -348,7 +348,7 @@ fn uuid() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    format!("{:032x}", t as u128)
+    format!("{:032x}", { t })
 }
 
 fn compute_digest(data: &[u8]) -> String {

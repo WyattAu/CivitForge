@@ -192,7 +192,7 @@ fn glob_segment(pattern: &str, value: &str) -> bool {
     let mut vi = value.chars().peekable();
 
     while pi.peek().is_some() {
-        let pc = pi.next().unwrap();
+        let pc = pi.next().expect("iterator has next");
         match pc {
             '*' => {
                 // Consume all remaining characters in value segment
@@ -244,7 +244,7 @@ fn glob_double_star(pattern: &str, value: &str) -> bool {
         rest.contains(search)
     } else {
         // Multiple ** — recursive approach
-        let first_star = pattern.find("**").unwrap();
+        let first_star = pattern.find("**").expect("element found");
         let prefix = &pattern[..first_star];
         let rest = &pattern[first_star + 2..];
 

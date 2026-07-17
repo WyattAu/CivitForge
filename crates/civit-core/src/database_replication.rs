@@ -971,6 +971,7 @@ impl DatabaseReplicationService {
             .collect())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn record_failover(
         &self,
         source_node: &str,

@@ -192,7 +192,7 @@ impl WikiGitBackend {
             Ok(None) | Err(_) => {
                 let full_name: gix::refs::FullName =
                     "refs/heads/main".try_into().unwrap_or_else(|_| {
-                        gix::refs::FullName::try_from("refs/heads/master").unwrap()
+                        gix::refs::FullName::try_from("refs/heads/master").expect("operation should succeed")
                     });
                 full_name
             }

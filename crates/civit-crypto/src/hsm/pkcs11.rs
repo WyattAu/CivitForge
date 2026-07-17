@@ -7,7 +7,7 @@ use ring::{
 };
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::RwLock;
+use parking_lot::RwLock;
 use std::time::Duration;
 use tracing::warn;
 
@@ -187,7 +187,7 @@ impl HsmClient {
 
                 let public_der = key_pair.public_key().as_ref().to_vec();
 
-                let mut keys = self.software_keys.write().unwrap();
+                let mut keys = self.software_keys.write();
                 keys.insert(
                     sk_id.clone(),
                     SoftwareKeyEntry {
@@ -247,7 +247,7 @@ impl HsmClient {
                         .map_err(|e| anyhow::anyhow!("AES key creation failed: {e:?}"))?,
                 );
 
-                let mut keys = self.software_keys.write().unwrap();
+                let mut keys = self.software_keys.write();
                 keys.insert(
                     key_id.clone(),
                     SoftwareKeyEntry {
@@ -266,7 +266,7 @@ impl HsmClient {
                     .map_err(|e| anyhow::anyhow!("random generation failed: {e:?}"))?;
                 let hmac_key = hmac::Key::new(hmac::HMAC_SHA256, &hmac_raw);
 
-                let mut keys = self.software_keys.write().unwrap();
+                let mut keys = self.software_keys.write();
                 keys.insert(
                     key_id.clone(),
                     SoftwareKeyEntry {
@@ -297,7 +297,7 @@ impl HsmClient {
             "signing with software fallback (keys in memory)"
         );
 
-        let keys = self.software_keys.read().unwrap();
+        let keys = self.software_keys.read();
         let entry = keys
             .get(&key.id)
             .ok_or_else(|| anyhow::anyhow!("key {} not found in software key store", key.id))?;
@@ -326,7 +326,7 @@ impl HsmClient {
         data: &[u8],
         signature_bytes: &[u8],
     ) -> anyhow::Result<bool> {
-        let keys = self.software_keys.read().unwrap();
+        let keys = self.software_keys.read();
         let entry = keys
             .get(&key.id)
             .ok_or_else(|| anyhow::anyhow!("key {} not found in software key store", key.id))?;
@@ -350,7 +350,7 @@ impl HsmClient {
 
     /// Encrypt data with AES-GCM. Returns nonce || ciphertext || tag.
     pub fn encrypt(&self, key: &HsmKeyHandle, plaintext: &[u8]) -> anyhow::Result<Vec<u8>> {
-        let keys = self.software_keys.read().unwrap();
+        let keys = self.software_keys.read();
         let entry = keys
             .get(&key.id)
             .ok_or_else(|| anyhow::anyhow!("key {} not found in software key store", key.id))?;
@@ -396,7 +396,7 @@ impl HsmClient {
             );
         }
 
-        let keys = self.software_keys.read().unwrap();
+        let keys = self.software_keys.read();
         let entry = keys
             .get(&key.id)
             .ok_or_else(|| anyhow::anyhow!("key {} not found in software key store", key.id))?;
@@ -421,7 +421,7 @@ impl HsmClient {
     }
 
     pub fn list_keys(&self) -> anyhow::Result<Vec<HsmKeyHandle>> {
-        let keys = self.software_keys.read().unwrap();
+        let keys = self.software_keys.read();
         Ok(keys
             .iter()
             .map(|(id, entry)| HsmKeyHandle {
@@ -435,7 +435,7 @@ impl HsmClient {
     }
 
     pub fn delete_key(&self, key: &HsmKeyHandle) -> anyhow::Result<()> {
-        let mut keys = self.software_keys.write().unwrap();
+        let mut keys = self.software_keys.write();
         keys.remove(&key.id);
         Ok(())
     }

@@ -234,8 +234,8 @@ pub async fn trigger_pipeline(
     };
 
     // Resolve includes for v2 pipelines
-    if pl.version == "2" {
-        if let Some(includes) = &pl.include {
+    if pl.version == "2"
+        && let Some(includes) = &pl.include {
             let mut included_files = Vec::new();
             for inc in includes {
                 let ref_name = inc.ref_name.as_deref().unwrap_or(&req.ref_name);
@@ -274,7 +274,6 @@ pub async fn trigger_pipeline(
                     .into_response();
             }
         }
-    }
 
     if let Err(e) = validate_pipeline(&pl) {
         return (
@@ -499,8 +498,8 @@ pub async fn trigger_pipelines_on_push(state: &AppState, owner: &str, repo_name:
     };
 
     // Resolve includes for v2 pipelines
-    if pl.version == "2" {
-        if let Some(includes) = &pl.include {
+    if pl.version == "2"
+        && let Some(includes) = &pl.include {
             let mut included_files = Vec::new();
             for inc in includes {
                 let ref_name = inc.ref_name.as_deref().unwrap_or(&ref_name);
@@ -514,13 +513,12 @@ pub async fn trigger_pipelines_on_push(state: &AppState, owner: &str, repo_name:
                 }
             }
 
-            if let Err(_) = resolve_includes(&mut pl, &included_files) {
+            if resolve_includes(&mut pl, &included_files).is_err() {
                 return;
             }
         }
-    }
 
-    if let Err(_) = validate_pipeline(&pl) {
+    if validate_pipeline(&pl).is_err() {
         return;
     }
 

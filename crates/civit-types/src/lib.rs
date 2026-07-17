@@ -46,7 +46,7 @@ impl std::str::FromStr for RunStatus {
 
 impl From<&str> for RunStatus {
     fn from(s: &str) -> Self {
-        s.parse().unwrap_or_else(|_| RunStatus::Pending)
+        s.parse().unwrap_or(RunStatus::Pending)
     }
 }
 
@@ -92,7 +92,7 @@ impl std::str::FromStr for ExecutionResult {
 
 impl From<&str> for ExecutionResult {
     fn from(s: &str) -> Self {
-        s.parse().unwrap_or_else(|_| ExecutionResult::Error)
+        s.parse().unwrap_or(ExecutionResult::Error)
     }
 }
 

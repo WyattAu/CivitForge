@@ -99,7 +99,7 @@ fn pem_encode(der_bytes: &[u8], label: &str) -> String {
     let mut pem = format!("-----BEGIN {label}-----\n");
     // Wrap at 64 characters
     for chunk in b64.as_bytes().chunks(64) {
-        pem.push_str(std::str::from_utf8(chunk).unwrap());
+        pem.push_str(std::str::from_utf8(chunk).expect("operation should succeed"));
         pem.push('\n');
     }
     pem.push_str(&format!("-----END {label}-----\n"));

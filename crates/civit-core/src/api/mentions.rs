@@ -3,11 +3,11 @@
 use regex::Regex;
 
 fn mention_regex() -> Regex {
-    Regex::new(r"(?m)@([A-Za-z0-9_]{1,39})").unwrap()
+    Regex::new(r"(?m)@([A-Za-z0-9_]{1,39})").expect("valid regex pattern")
 }
 
 fn cross_ref_regex() -> Regex {
-    Regex::new(r"(?m)#(\d{1,10})\b").unwrap()
+    Regex::new(r"(?m)#(\d{1,10})\b").expect("valid regex pattern")
 }
 
 /// Parse @username mentions from a comment body.

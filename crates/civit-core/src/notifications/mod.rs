@@ -6,6 +6,7 @@ use lettre::{
     transport::smtp::authentication::Credentials,
 };
 use serde::{Deserialize, Serialize};
+use parking_lot::Mutex;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NotificationChannel {
@@ -83,9 +84,9 @@ pub struct DispatchResult {
 }
 
 pub struct NotificationService {
-    notifications: std::sync::Mutex<Vec<Notification>>,
-    preferences: std::sync::Mutex<Vec<NotificationPreferences>>,
-    config: std::sync::Mutex<NotificationChannelConfig>,
+    notifications: Mutex<Vec<Notification>>,
+    preferences: Mutex<Vec<NotificationPreferences>>,
+    config: Mutex<NotificationChannelConfig>,
 }
 
 impl NotificationService {
@@ -95,20 +96,20 @@ impl NotificationService {
 
     pub fn with_config(config: NotificationChannelConfig) -> Self {
         Self {
-            notifications: std::sync::Mutex::new(Vec::new()),
-            preferences: std::sync::Mutex::new(Vec::new()),
-            config: std::sync::Mutex::new(config),
+            notifications: Mutex::new(Vec::new()),
+            preferences: Mutex::new(Vec::new()),
+            config: Mutex::new(config),
         }
     }
 
     pub fn send(&self, notification: Notification) -> String {
         let id = notification.id.clone();
-        self.notifications.lock().unwrap().push(notification);
+        self.notifications.lock().push(notification);
         id
     }
 
     pub fn get_for_user(&self, user_id: &str, limit: usize) -> Vec<Notification> {
-        let notifications = self.notifications.lock().unwrap();
+        let notifications = self.notifications.lock();
         notifications
             .iter()
             .filter(|n| n.recipient == user_id)
@@ -119,7 +120,7 @@ impl NotificationService {
     }
 
     pub fn mark_read(&self, id: &str) -> bool {
-        let mut notifications = self.notifications.lock().unwrap();
+        let mut notifications = self.notifications.lock();
         if let Some(n) = notifications.iter_mut().find(|n| n.id == id) {
             n.read = true;
             n.read_at = Some(Utc::now());
@@ -129,7 +130,7 @@ impl NotificationService {
     }
 
     pub fn unread_count(&self, user_id: &str) -> usize {
-        let notifications = self.notifications.lock().unwrap();
+        let notifications = self.notifications.lock();
         notifications
             .iter()
             .filter(|n| n.recipient == user_id && !n.read)
@@ -137,7 +138,7 @@ impl NotificationService {
     }
 
     pub fn set_preferences(&self, prefs: NotificationPreferences) {
-        let mut preferences = self.preferences.lock().unwrap();
+        let mut preferences = self.preferences.lock();
         preferences.retain(|p| p.user_id != prefs.user_id);
         preferences.push(prefs);
     }
@@ -145,35 +146,35 @@ impl NotificationService {
     pub fn get_preferences(&self, user_id: &str) -> Option<NotificationPreferences> {
         self.preferences
             .lock()
-            .unwrap()
+            
             .iter()
             .find(|p| p.user_id == user_id)
             .cloned()
     }
 
     pub fn count(&self) -> usize {
-        self.notifications.lock().unwrap().len()
+        self.notifications.lock().len()
     }
 
     pub fn delete(&self, id: &str) -> bool {
-        let mut notifications = self.notifications.lock().unwrap();
+        let mut notifications = self.notifications.lock();
         let before = notifications.len();
         notifications.retain(|n| n.id != id);
         notifications.len() < before
     }
 
     pub fn set_config(&self, config: NotificationChannelConfig) {
-        *self.config.lock().unwrap() = config;
+        *self.config.lock() = config;
     }
 
     pub fn get_config(&self) -> NotificationChannelConfig {
-        self.config.lock().unwrap().clone()
+        self.config.lock().clone()
     }
 
     pub fn pending_count(&self) -> usize {
         self.notifications
             .lock()
-            .unwrap()
+            
             .iter()
             .filter(|n| !n.dispatched)
             .count()
@@ -183,7 +184,7 @@ impl NotificationService {
         if let Some(n) = self
             .notifications
             .lock()
-            .unwrap()
+            
             .iter_mut()
             .find(|n| n.id == id)
         {
@@ -225,14 +226,16 @@ impl NotificationService {
             .parse::<lettre::Address>()
             .ok()
             .unwrap_or_else(|| {
-                lettre::Address::new(String::from("noreply"), String::from("localhost")).unwrap()
+                lettre::Address::new(String::from("noreply"), String::from("localhost"))
+                    .expect("valid fallback address")
             });
         let to_addr = notification
             .recipient
             .parse::<lettre::Address>()
             .ok()
             .unwrap_or_else(|| {
-                lettre::Address::new(String::from("unknown"), String::from("localhost")).unwrap()
+                lettre::Address::new(String::from("unknown"), String::from("localhost"))
+                    .expect("valid fallback address")
             });
 
         let email = match Message::builder()
@@ -359,7 +362,7 @@ impl NotificationService {
 
     pub async fn dispatch_single(&self, id: &str, client: &reqwest::Client) -> DispatchResult {
         let notification = {
-            let notifications = self.notifications.lock().unwrap();
+            let notifications = self.notifications.lock();
             notifications.iter().find(|n| n.id == id).cloned()
         };
 
@@ -383,7 +386,7 @@ impl NotificationService {
 
         // Resolve all config before any async work to avoid MutexGuard across await
         let (smtp_config, slack_config, slack_webhook_url, mattermost_url, webhook_url) = {
-            let config = self.config.lock().unwrap();
+            let config = self.config.lock();
             let slack = Self::resolve_webhook_url(
                 &notification,
                 config.slack_webhook_url.as_ref(),
@@ -458,7 +461,7 @@ impl NotificationService {
 
     pub async fn dispatch_pending(&self, client: &reqwest::Client) -> Vec<DispatchResult> {
         let ids: Vec<String> = {
-            let notifications = self.notifications.lock().unwrap();
+            let notifications = self.notifications.lock();
             notifications
                 .iter()
                 .filter(|n| !n.dispatched)

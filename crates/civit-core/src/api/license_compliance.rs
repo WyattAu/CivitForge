@@ -164,6 +164,7 @@ pub async fn get_license_report(
         }
     };
 
+    #[allow(clippy::type_complexity)]
     let row: Option<(Uuid, Uuid, String, String, i32, bool, serde_json::Value, DateTime<Utc>)> =
         sqlx::query_as(
             r#"SELECT id, repo_id, license, spdx_id, file_count, compliant, issues, scanned_at

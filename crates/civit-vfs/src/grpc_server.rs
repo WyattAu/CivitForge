@@ -255,10 +255,10 @@ impl VfsGrpcClient {
         let addr: std::net::SocketAddr = endpoint
             .strip_prefix("http://")
             .and_then(|s| s.parse().ok())
-            .unwrap_or_else(|| "[::1]:50051".parse().unwrap());
+            .unwrap_or_else(|| "[::1]:50051".parse().expect("invalid value"));
 
         let channel = tonic::transport::Endpoint::from_shared(format!("http://{addr}"))
-            .unwrap()
+            .expect("operation should succeed")
             .connect()
             .await?;
 

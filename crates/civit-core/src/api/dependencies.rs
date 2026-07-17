@@ -145,13 +145,11 @@ fn scan_repo_dependencies(repo_path: &std::path::Path) -> Result<Vec<(String, St
                             if let Some(name) = line.split('=').nth(1).map(|s| s.trim().trim_matches('"')) {
                                 deps.push((name.to_string(), "unknown".to_string(), ecosystem.to_string()));
                             }
-                        } else if ecosystem == "npm" && line.contains("\"name\"") {
-                            if let Some(name) = line.split(':').nth(1).map(|s| s.trim().trim_matches('"').trim_matches(',')) {
-                                if !name.starts_with('@') && name != "name" {
+                        } else if ecosystem == "npm" && line.contains("\"name\"")
+                            && let Some(name) = line.split(':').nth(1).map(|s| s.trim().trim_matches('"').trim_matches(','))
+                                && !name.starts_with('@') && name != "name" {
                                     deps.push((name.to_string(), "unknown".to_string(), ecosystem.to_string()));
                                 }
-                            }
-                        }
                     }
                 }
             }

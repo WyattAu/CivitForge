@@ -376,10 +376,7 @@ pub async fn list_incidents(
     _auth: AuthUser,
     Query(params): Query<ListIncidentsParams>,
 ) -> impl IntoResponse {
-    let repo_id = match resolve_repo_id(&state, &owner, &name).await {
-        Ok(id) => Some(id),
-        Err(_) => None,
-    };
+    let repo_id = resolve_repo_id(&state, &owner, &name).await.ok();
 
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
 

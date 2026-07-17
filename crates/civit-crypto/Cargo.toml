@@ -11,6 +11,7 @@ default = []
 mtls-axum = ["dep:axum", "dep:tower", "dep:rustls", "dep:rustls-pemfile"]
 
 [dependencies]
+parking_lot = { workspace = true }
 sha2 = { workspace = true }
 hmac = { workspace = true }
 ring = { workspace = true }

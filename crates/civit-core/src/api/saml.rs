@@ -91,6 +91,7 @@ pub async fn saml_metadata(
         }
     };
 
+    let acs_url = format!("/api/v1/saml/{}/acs", provider.name);
     let metadata_xml = format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <EntityDescriptor xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
@@ -107,7 +108,6 @@ pub async fn saml_metadata(
   </SPSSODescriptor>
 </EntityDescriptor>"#,
         entity_id = provider.entity_id,
-        acs_url = format!("/api/v1/saml/{}/acs", provider.name),
     );
 
     let mut headers = HeaderMap::new();

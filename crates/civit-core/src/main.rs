@@ -95,8 +95,8 @@ async fn main() -> Result<()> {
         })?;
 
     if config.tls_enabled() {
-        let cert_path = config.tls_cert_path.as_ref().unwrap();
-        let key_path = config.tls_key_path.as_ref().unwrap();
+        let cert_path = config.tls_cert_path.as_ref().expect("operation should succeed");
+        let key_path = config.tls_key_path.as_ref().expect("operation should succeed");
 
         let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
             .await

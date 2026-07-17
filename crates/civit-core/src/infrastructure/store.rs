@@ -372,11 +372,10 @@ impl InfrastructureStore {
         let mut resolved = Vec::new();
         
         for dep in deps {
-            if let Some(module) = self.get_module(dep.dependency_id).await? {
-                if self.version_matches(&module.version, &dep.version_constraint) {
+            if let Some(module) = self.get_module(dep.dependency_id).await?
+                && self.version_matches(&module.version, &dep.version_constraint) {
                     resolved.push(module);
                 }
-            }
         }
         
         Ok(resolved)
@@ -449,17 +448,15 @@ impl InfrastructureStore {
             return true;
         }
         
-        if constraint.starts_with(">=") {
-            if let Some(min_version) = constraint.strip_prefix(">=") {
+        if constraint.starts_with(">=")
+            && let Some(min_version) = constraint.strip_prefix(">=") {
                 return version >= min_version;
             }
-        }
         
-        if constraint.starts_with("^") {
-            if let Some(min_version) = constraint.strip_prefix("^") {
+        if constraint.starts_with("^")
+            && let Some(min_version) = constraint.strip_prefix("^") {
                 return version.starts_with(min_version);
             }
-        }
         
         version == constraint
     }

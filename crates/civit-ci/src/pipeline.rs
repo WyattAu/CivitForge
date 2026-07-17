@@ -404,6 +404,7 @@ impl From<EnvironmentDeploymentRow> for EnvironmentDeploymentResponse {
 // ---------------------------------------------------------------------------
 
 /// Create a new artifact record.
+#[allow(clippy::too_many_arguments)]
 pub async fn create_artifact(
     pool: &sqlx::PgPool,
     pipeline_run_id: Uuid,

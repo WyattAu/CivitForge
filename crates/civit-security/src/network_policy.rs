@@ -216,14 +216,13 @@ impl NetworkPolicyService {
     ) -> bool {
         if let Some(arr) = rules.as_array() {
             for rule_val in arr {
-                if let Ok(rule) = serde_json::from_value::<NetworkRule>(rule_val.clone()) {
-                    if rule.protocol == protocol
+                if let Ok(rule) = serde_json::from_value::<NetworkRule>(rule_val.clone())
+                    && rule.protocol == protocol
                         && rule.ports.contains(&port)
                         && (rule.sources.is_empty() || rule.sources.iter().any(|s| s == ip || s == "*"))
                     {
                         return true;
                     }
-                }
             }
         }
         false

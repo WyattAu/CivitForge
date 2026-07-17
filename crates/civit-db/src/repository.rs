@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![allow(clippy::too_many_arguments)]
 
 use crate::error::{DbError, Result};
 use crate::models::{
@@ -2231,7 +2232,7 @@ impl DbRepository {
         actor_id: Uuid,
     ) -> Result<Vec<i32>> {
         let text = format!("{pr_title}\n{pr_body}");
-        let re = regex::Regex::new(r"(?i)(?:fix(?:es|ed)?|closes?|resolves?)\s+#(\d+)").unwrap();
+        let re = regex::Regex::new(r"(?i)(?:fix(?:es|ed)?|closes?|resolves?)\s+#(\d+)").expect("valid regex pattern");
         let issue_numbers: Vec<i32> = re
             .captures_iter(&text)
             .filter_map(|c| c.get(1)?.as_str().parse::<i32>().ok())

@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use parking_lot::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
@@ -77,7 +77,7 @@ impl SpanRecorder {
     }
 
     pub fn record(&self, span: Span) {
-        let mut spans = self.spans.lock().unwrap();
+        let mut spans = self.spans.lock();
         if spans.len() >= self.max_spans {
             spans.remove(0);
         }
@@ -85,7 +85,7 @@ impl SpanRecorder {
     }
 
     pub fn get_trace(&self, trace_id: u64) -> Vec<Span> {
-        let spans = self.spans.lock().unwrap();
+        let spans = self.spans.lock();
         spans
             .iter()
             .filter(|s| s.trace_id == trace_id)
@@ -94,15 +94,15 @@ impl SpanRecorder {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.spans.lock().unwrap().is_empty()
+        self.spans.lock().is_empty()
     }
 
     pub fn len(&self) -> usize {
-        self.spans.lock().unwrap().len()
+        self.spans.lock().len()
     }
 
     pub fn clear(&self) {
-        self.spans.lock().unwrap().clear();
+        self.spans.lock().clear();
     }
 }
 

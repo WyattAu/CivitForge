@@ -623,7 +623,7 @@ impl AppState {
             Err(e) => {
                 tracing::warn!("failed to init wiki git backend: {e}");
                 Arc::new(
-                    WikiGitBackend::new(tempfile::tempdir().unwrap().path().to_path_buf()).unwrap(),
+                    WikiGitBackend::new(tempfile::tempdir().expect("operation should succeed").path().to_path_buf()).expect("operation should succeed"),
                 )
             }
         };

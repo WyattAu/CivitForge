@@ -1313,15 +1313,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
@@ -1580,15 +1579,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
@@ -1827,15 +1825,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
 
@@ -2117,15 +2114,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -2414,15 +2410,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -2724,15 +2719,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -3034,15 +3028,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -3344,15 +3337,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -3691,15 +3683,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -4031,15 +4022,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -4371,15 +4361,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -4711,15 +4700,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -5168,25 +5156,23 @@ impl AutomationRuleService {
         let analytics = self.get_repo_v14_analytics(repo_id).await?;
         let mut recommendations = Vec::new();
 
-        if let Some(total_rules) = analytics.get("total_rules").and_then(|v| v.as_i64()) {
-            if total_rules == 0 {
+        if let Some(total_rules) = analytics.get("total_rules").and_then(|v| v.as_i64())
+            && total_rules == 0 {
                 recommendations.push(serde_json::json!({
                     "type": "no_rules",
                     "description": "No automation rules configured. Consider adding rules for common workflows.",
                     "confidence": 0.95
                 }));
             }
-        }
 
-        if let Some(avg_success) = analytics.get("avg_success_rate").and_then(|v| v.as_f64()) {
-            if avg_success < 80.0 && avg_success > 0.0 {
+        if let Some(avg_success) = analytics.get("avg_success_rate").and_then(|v| v.as_f64())
+            && avg_success < 80.0 && avg_success > 0.0 {
                 recommendations.push(serde_json::json!({
                     "type": "low_success_rate",
                     "description": format!("Average success rate is {:.1}%. Review failing rules.", avg_success),
                     "confidence": 0.85
                 }));
             }
-        }
 
         Ok(serde_json::json!({
             "repo_id": repo_id,
@@ -5389,15 +5375,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -5759,15 +5744,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let execution_time_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -6162,15 +6146,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let execution_time_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -6689,15 +6672,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -7191,15 +7173,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -7532,15 +7513,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -7849,15 +7829,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -8166,15 +8145,14 @@ impl AutomationRuleService {
         let all_matched = failed_conditions.is_empty();
 
         let mut actions_executed = Vec::new();
-        if all_matched {
-            if let Some(action_list) = rule.actions.as_array() {
+        if all_matched
+            && let Some(action_list) = rule.actions.as_array() {
                 for action in action_list {
                     if let Some(action_type) = action.get("type").and_then(|v| v.as_str()) {
                         actions_executed.push(action_type.to_string());
                     }
                 }
             }
-        }
 
         let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let status = if all_matched { ExecutionResult::Matched } else { ExecutionResult::NotMatched };
@@ -8369,7 +8347,7 @@ impl AutomationRuleService {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     pub async fn get_rule_template(
@@ -8384,7 +8362,7 @@ impl AutomationRuleService {
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(|r| r.into()))
+        Ok(row)
     }
 
     pub async fn list_rule_templates(
@@ -8397,7 +8375,7 @@ impl AutomationRuleService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn list_rule_templates_by_category(
@@ -8413,7 +8391,7 @@ impl AutomationRuleService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn update_rule_template(
@@ -8441,7 +8419,7 @@ impl AutomationRuleService {
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     pub async fn delete_rule_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -8469,7 +8447,7 @@ impl AutomationRuleService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn rate_rule_template(
@@ -8494,7 +8472,7 @@ impl AutomationRuleService {
 
         self.recalculate_rule_template_rating(template_id).await?;
 
-        Ok(row.into())
+        Ok(row)
     }
 
     async fn recalculate_rule_template_rating(
@@ -8537,7 +8515,7 @@ impl AutomationRuleService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn record_rule_template_usage(
@@ -8607,7 +8585,7 @@ impl AutomationRuleService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| r.into()).collect())
+        Ok(rows)
     }
 
     pub async fn create_rule_from_template(

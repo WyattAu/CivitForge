@@ -331,11 +331,10 @@ impl EnvironmentVariablesService {
         }
 
         // Must start with letter or underscore
-        if let Some(first) = name.chars().next() {
-            if !first.is_alphabetic() && first != '_' {
+        if let Some(first) = name.chars().next()
+            && !first.is_alphabetic() && first != '_' {
                 return Err("Variable name must start with a letter or underscore".to_string());
             }
-        }
 
         Ok(())
     }
