@@ -1,0 +1,24 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1"
+  ],
+  "type": "Person",
+  "id": "https://forge.example.com/users/alice",
+  "preferredUsername": "alice",
+  "name": "Alice Developer",
+  "summary": "Open source enthusiast and maintainer",
+  "inbox": "https://forge.example.com/users/alice/inbox",
+  "outbox": "https://forge.example.com/users/alice/outbox",
+  "followers": "https://forge.example.com/users/alice/followers",
+  "following": "https://forge.example.com/users/alice/following",
+  "publicKey": {
+    "id": "https://forge.example.com/users/alice#main-key",
+    "owner": "https://forge.example.com/users/alice",
+    "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0Z3VS5JJcds3xfn/ygWe\nGnHJzr0K9CmGWEkKlR1jNK4F4VrHnB2T7gMfh7MZ8Y7h9cJ3l8r5p6q7r8s9t0u\nv1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8n9o0p1q2r3s4t5u6v7w8x9y0z\n-----END PUBLIC KEY-----"
+  },
+  "endpoints": {
+    "sharedInbox": "https://forge.example.com/inbox"
+  },
+  "published": "2024-06-01T00:00:00Z"
+}

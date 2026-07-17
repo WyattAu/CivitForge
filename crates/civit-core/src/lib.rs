@@ -28,6 +28,7 @@ pub mod merge_queue;
 pub mod middleware;
 pub mod mirror;
 pub mod notifications;
+pub mod project_boards;
 pub mod performance;
 pub mod policy;
 pub mod protection;
@@ -41,6 +42,7 @@ pub mod scaling;
 pub mod scheduler;
 pub mod search;
 // secrets — moved to civit-security (re-exported via security::)
+pub mod search_index_sync;
 pub mod shutdown;
 pub mod ssh;
 pub mod storage;
@@ -67,10 +69,13 @@ pub mod review_automation;
 pub mod quality_gates;
 // firewall, intrusion_detection, ddos_protection — moved to civit-security
 pub mod object_storage;
+pub mod plugins;
+pub mod marketplace;
 // backup_encryption — moved to civit-security
 pub mod data_retention;
 pub mod database_replication;
 pub mod data_residency;
+pub mod tenant_isolation;
 
 pub use telemetry::apm::{ApmConfig, ApmRecorder, ApmTransaction, ApmSpan, ApmDashboard, TransactionStats};
 pub use telemetry::distributed_tracing::{

@@ -1024,6 +1024,20 @@ pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_UP: &str = include_str
 pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_DOWN: &str = include_str!("down/620_add_environment_drift_detection_snapshots_v20_down.sql");
 pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_UP: &str = include_str!("621_add_cache_prediction_model_warming_strategies_v20.sql");
 pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_DOWN: &str = include_str!("down/621_add_cache_prediction_model_warming_strategies_v20_down.sql");
+pub const M_631_MERGE_QUEUE_STATUS_CHECKS_UP: &str = include_str!("631_add_merge_queue_status_checks.sql");
+pub const M_631_MERGE_QUEUE_STATUS_CHECKS_DOWN: &str = "DROP TABLE IF EXISTS merge_queue_checks_v1; DROP TABLE IF EXISTS merge_queue_entries_v1;";
+pub const M_632_SEARCH_INDEX_SYNC_UP: &str = include_str!("632_add_search_index_sync.sql");
+pub const M_632_SEARCH_INDEX_SYNC_DOWN: &str = "DROP TABLE IF EXISTS search_index_queue_v1; DROP TABLE IF EXISTS search_index_sync_log_v1;";
+pub const M_633_FEDERATION_DELIVERY_UP: &str = include_str!("633_add_federation_delivery.sql");
+pub const M_633_FEDERATION_DELIVERY_DOWN: &str = "DROP TABLE IF EXISTS federation_peer_state_v1; DROP TABLE IF EXISTS federation_delivery_queue_v1;";
+pub const M_634_PROJECT_BOARD_ENHANCEMENTS_UP: &str = include_str!("634_add_project_board_enhancements.sql");
+pub const M_634_PROJECT_BOARD_ENHANCEMENTS_DOWN: &str = "DROP TABLE IF EXISTS project_board_card_movements_v1; DROP TABLE IF EXISTS project_board_cards_v1; DROP TABLE IF EXISTS project_board_columns_v1; DROP TABLE IF EXISTS project_boards;";
+pub const M_635_ADD_PLUGIN_SYSTEM_UP: &str = include_str!("635_add_plugin_system.sql");
+pub const M_635_ADD_PLUGIN_SYSTEM_DOWN: &str = "DROP TABLE IF EXISTS plugin_logs_v1; DROP TABLE IF EXISTS plugin_hooks_v1; DROP TABLE IF EXISTS plugins_v1;";
+pub const M_636_ADD_MARKETPLACE_UP: &str = include_str!("636_add_marketplace.sql");
+pub const M_636_ADD_MARKETPLACE_DOWN: &str = "DROP TABLE IF EXISTS marketplace_downloads_v1; DROP TABLE IF EXISTS marketplace_reviews_v1; DROP TABLE IF EXISTS marketplace_listings_v1;";
+pub const M_637_ADD_TENANT_ISOLATION_UP: &str = include_str!("637_add_tenant_isolation.sql");
+pub const M_637_ADD_TENANT_ISOLATION_DOWN: &str = "DROP TABLE IF EXISTS tenant_billing_v1; DROP TABLE IF EXISTS tenant_isolation_policies_v1; DROP TABLE IF EXISTS tenant_resource_quotas_v1;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3412,6 +3426,48 @@ impl MigrationManager {
             up_sql: M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_UP.into(),
             down_sql: M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 631,
+            name: "add_merge_queue_status_checks".into(),
+            up_sql: M_631_MERGE_QUEUE_STATUS_CHECKS_UP.into(),
+            down_sql: M_631_MERGE_QUEUE_STATUS_CHECKS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 632,
+            name: "add_search_index_sync".into(),
+            up_sql: M_632_SEARCH_INDEX_SYNC_UP.into(),
+            down_sql: M_632_SEARCH_INDEX_SYNC_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 633,
+            name: "add_federation_delivery".into(),
+            up_sql: M_633_FEDERATION_DELIVERY_UP.into(),
+            down_sql: M_633_FEDERATION_DELIVERY_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 634,
+            name: "add_project_board_enhancements".into(),
+            up_sql: M_634_PROJECT_BOARD_ENHANCEMENTS_UP.into(),
+            down_sql: M_634_PROJECT_BOARD_ENHANCEMENTS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 635,
+            name: "add_plugin_system".into(),
+            up_sql: M_635_ADD_PLUGIN_SYSTEM_UP.into(),
+            down_sql: M_635_ADD_PLUGIN_SYSTEM_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 636,
+            name: "add_marketplace".into(),
+            up_sql: M_636_ADD_MARKETPLACE_UP.into(),
+            down_sql: M_636_ADD_MARKETPLACE_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 637,
+            name: "add_tenant_isolation".into(),
+            up_sql: M_637_ADD_TENANT_ISOLATION_UP.into(),
+            down_sql: M_637_ADD_TENANT_ISOLATION_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3453,7 +3509,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 307);
+        assert_eq!(mgr.all().len(), 311);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -4458,5 +4514,21 @@ mod tests {
         assert_ne!(M_597_PERFORMANCE_TESTING_V22_DOWN, "");
         assert!(M_597_PERFORMANCE_TESTING_V22_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v19"));
         assert!(M_597_PERFORMANCE_TESTING_V22_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v19"));
+    }
+
+    #[test]
+    fn test_tenant_isolation_up_sql_not_empty() {
+        assert_ne!(M_637_ADD_TENANT_ISOLATION_UP, "");
+        assert!(M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_resource_quotas_v1"));
+        assert!(M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_isolation_policies_v1"));
+        assert!(M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_billing_v1"));
+    }
+
+    #[test]
+    fn test_tenant_isolation_down_sql_not_empty() {
+        assert_ne!(M_637_ADD_TENANT_ISOLATION_DOWN, "");
+        assert!(M_637_ADD_TENANT_ISOLATION_DOWN.contains("DROP TABLE IF EXISTS tenant_billing_v1"));
+        assert!(M_637_ADD_TENANT_ISOLATION_DOWN.contains("DROP TABLE IF EXISTS tenant_isolation_policies_v1"));
+        assert!(M_637_ADD_TENANT_ISOLATION_DOWN.contains("DROP TABLE IF EXISTS tenant_resource_quotas_v1"));
     }
 }

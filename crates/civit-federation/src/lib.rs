@@ -5,6 +5,7 @@ pub mod error;
 pub mod activitypub;
 pub mod crdt;
 pub mod delivery;
+pub mod delivery_queue;
 pub mod forgefed;
 pub mod http_signatures;
 pub mod inbox_outbox;
@@ -18,6 +19,9 @@ pub use activitypub::{Activity, Actor, InboxHandler};
 pub use delivery::{
     DeliveryResult, FederationDelivery, FederationDeliveryConfig, FederationDeliveryService,
     compute_signature,
+};
+pub use delivery_queue::{
+    DeliveryEntry, DeliveryQueueService, DeliveryStatus, PeerState, QueueStatus,
 };
 pub use forgefed::{
     CrossInstanceIdentityResolver, FederatedFork, FederatedIssue, FederatedPR, FederatedPRReview,

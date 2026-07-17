@@ -1026,6 +1026,7 @@ dependencies = [
  "civit-telemetry",
  "civit-types",
  "civit-workflow",
+ "criterion",
  "dashmap",
  "flate2",
  "futures",

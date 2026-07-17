@@ -41,6 +41,14 @@ jobs:
       - name: Run benchmarks
         run: cargo bench --workspace --locked -- --output-format bencher | tee bench-results.txt
 
+      - name: Check performance regressions
+        if: inputs.update_baseline != true
+        run: bash scripts/check_perf_regression.sh
+
+      - name: Update baselines
+        if: inputs.update_baseline
+        run: bash scripts/check_perf_regression.sh --update
+
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:

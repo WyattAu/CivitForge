@@ -1,0 +1,23 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://forgefed.org/ns"
+  ],
+  "type": "Update",
+  "id": "https://forge.example.com/activities/update-1",
+  "actor": "https://forge.example.com/users/alice",
+  "object": {
+    "type": "Repository",
+    "id": "https://forge.example.com/repos/alice/test-repo",
+    "name": "test-repo",
+    "attributedTo": "https://forge.example.com/users/alice",
+    "content": "Updated description for federation testing",
+    "visibility": "public",
+    "updated": "2025-01-16T14:00:00Z"
+  },
+  "published": "2025-01-16T14:00:00Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": []
+}

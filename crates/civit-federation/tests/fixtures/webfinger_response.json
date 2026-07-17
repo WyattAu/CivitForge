@@ -1,0 +1,18 @@
+{
+  "subject": "acct:alice@forge.example.com",
+  "aliases": [
+    "https://forge.example.com/users/alice"
+  ],
+  "links": [
+    {
+      "rel": "self",
+      "type": "application/activity+json",
+      "href": "https://forge.example.com/users/alice"
+    },
+    {
+      "rel": "http://webfinger.net/rel/profile-page",
+      "type": "text/html",
+      "href": "https://forge.example.com/alice"
+    }
+  ]
+}

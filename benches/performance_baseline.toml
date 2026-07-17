@@ -1,0 +1,95 @@
+[metadata]
+version = "1.0.0"
+created_at = "2026-07-17T00:00:00Z"
+toolchain = "1.96"
+description = "Performance baselines for CivitForge core benchmarks"
+
+[benchmarks.git_init_bare]
+baseline_us = 5000
+threshold_percent = 15
+description = "Initialize a new bare Git repository"
+
+[benchmarks.git_open_repo]
+baseline_us = 500
+threshold_percent = 10
+description = "Open an existing bare Git repository via gix"
+
+[benchmarks.git_list_commits_20]
+baseline_us = 5000
+threshold_percent = 20
+description = "List 20 commits from a repository"
+
+[benchmarks.git_list_commits_100]
+baseline_us = 20000
+threshold_percent = 20
+description = "List 100 commits from a repository"
+
+[benchmarks.git_read_tree_root]
+baseline_us = 3000
+threshold_percent = 15
+description = "Read the root tree of a repository at HEAD"
+
+[benchmarks.git_diff_5_files]
+baseline_us = 10000
+threshold_percent = 20
+description = "Diff 5 modified files between two revisions"
+
+[benchmarks.jwt_generate_token]
+baseline_us = 100
+threshold_percent = 20
+description = "Generate a JWT token with HMAC-SHA256"
+
+[benchmarks.jwt_validate_token]
+baseline_us = 100
+threshold_percent = 20
+description = "Validate and decode a JWT token"
+
+[benchmarks.jwt_extract_bearer]
+baseline_us = 1
+threshold_percent = 50
+description = "Extract bearer token from Authorization header"
+
+[benchmarks.password_hash]
+baseline_us = 200000
+threshold_percent = 15
+description = "Hash a password with bcrypt (cost=12)"
+
+[benchmarks.password_verify_correct]
+baseline_us = 200000
+threshold_percent = 15
+description = "Verify a correct password against bcrypt hash"
+
+[benchmarks.password_verify_wrong]
+baseline_us = 200000
+threshold_percent = 15
+description = "Verify an incorrect password against bcrypt hash"
+
+[benchmarks.password_policy_check]
+baseline_us = 1
+threshold_percent = 50
+description = "Validate password against security policy rules"
+
+[benchmarks.storage_chunk_chunk_write_65536_bytes]
+baseline_us = 500
+threshold_percent = 20
+description = "Chunk 64KB data with content-defined chunking"
+
+[benchmarks.storage_chunk_chunk_write_262144_bytes]
+baseline_us = 2000
+threshold_percent = 20
+description = "Chunk 256KB data with content-defined chunking"
+
+[benchmarks.storage_chunk_chunk_write_1048576_bytes]
+baseline_us = 8000
+threshold_percent = 20
+description = "Chunk 1MB data with content-defined chunking"
+
+[benchmarks.storage_chunk_assemble]
+baseline_us = 500
+threshold_percent = 15
+description = "Reassemble 256KB of data from chunks"
+
+[benchmarks.event_bus_publish]
+baseline_us = 10
+threshold_percent = 30
+description = "Publish an event to the in-memory event bus"

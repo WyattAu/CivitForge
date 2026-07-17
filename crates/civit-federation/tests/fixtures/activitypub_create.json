@@ -1,0 +1,23 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://forgefed.org/ns"
+  ],
+  "type": "Create",
+  "id": "https://forge.example.com/activities/create-1",
+  "actor": "https://forge.example.com/users/alice",
+  "object": {
+    "type": "Repository",
+    "id": "https://forge.example.com/repos/alice/test-repo",
+    "name": "test-repo",
+    "attributedTo": "https://forge.example.com/users/alice",
+    "content": "A test repository for federation testing",
+    "visibility": "public",
+    "published": "2025-01-15T10:30:00Z"
+  },
+  "published": "2025-01-15T10:30:00Z",
+  "to": [
+    "https://www.w3.org/ns/activitystreams#Public"
+  ],
+  "cc": []
+}

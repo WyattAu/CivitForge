@@ -2,7 +2,9 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::collections::VecDeque;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergeQueueEntry {
@@ -18,6 +20,38 @@ pub struct MergeQueueEntry {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DbQueueEntry {
+    pub id: Uuid,
+    pub repository_id: Uuid,
+    pub pull_request_id: Uuid,
+    pub position: i32,
+    pub status: String,
+    pub merge_sha: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct DbQueueCheck {
+    pub id: Uuid,
+    pub queue_entry_id: Uuid,
+    pub check_name: String,
+    pub status: String,
+    pub output: serde_json::Value,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct QueueStatusSummary {
+    pub total_entries: i64,
+    pub waiting: i64,
+    pub running: i64,
+    pub passed: i64,
+    pub failed: i64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MergeStatus {
     Queued,
@@ -26,6 +60,149 @@ pub enum MergeStatus {
     Completed,
     Failed,
     Cancelled,
+}
+
+pub struct MergeQueueStore {
+    pool: PgPool,
+}
+
+impl MergeQueueStore {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    pub async fn enqueue_pr(
+        &self,
+        repository_id: Uuid,
+        pull_request_id: Uuid,
+    ) -> Result<DbQueueEntry, sqlx::Error> {
+        let max_pos: Option<i32> = sqlx::query_scalar(
+            "SELECT MAX(position) FROM merge_queue_entries_v1 WHERE repository_id = $1",
+        )
+        .bind(repository_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        let next_pos = max_pos.map(|p| p + 1).unwrap_or(0);
+
+        let entry = sqlx::query_as::<_, DbQueueEntry>(
+            r#"
+            INSERT INTO merge_queue_entries_v1 (repository_id, pull_request_id, position, status)
+            VALUES ($1, $2, $3, 'waiting')
+            ON CONFLICT (repository_id, pull_request_id) DO UPDATE
+                SET position = EXCLUDED.position, status = 'waiting', updated_at = NOW()
+            RETURNING id, repository_id, pull_request_id, position, status, merge_sha, created_at, updated_at
+            "#,
+        )
+        .bind(repository_id)
+        .bind(pull_request_id)
+        .bind(next_pos)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(entry)
+    }
+
+    pub async fn dequeue_pr(
+        &self,
+        repository_id: Uuid,
+    ) -> Result<Option<DbQueueEntry>, sqlx::Error> {
+        let entry = sqlx::query_as::<_, DbQueueEntry>(
+            r#"
+            UPDATE merge_queue_entries_v1
+            SET status = 'running', updated_at = NOW()
+            WHERE id = (
+                SELECT id FROM merge_queue_entries_v1
+                WHERE repository_id = $1 AND status = 'waiting'
+                ORDER BY position ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING id, repository_id, pull_request_id, position, status, merge_sha, created_at, updated_at
+            "#,
+        )
+        .bind(repository_id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(entry)
+    }
+
+    pub async fn get_queue(
+        &self,
+        repository_id: Uuid,
+    ) -> Result<Vec<DbQueueEntry>, sqlx::Error> {
+        let entries = sqlx::query_as::<_, DbQueueEntry>(
+            r#"
+            SELECT id, repository_id, pull_request_id, position, status, merge_sha, created_at, updated_at
+            FROM merge_queue_entries_v1
+            WHERE repository_id = $1 AND status IN ('waiting', 'running')
+            ORDER BY position ASC
+            "#,
+        )
+        .bind(repository_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(entries)
+    }
+
+    pub async fn update_check_status(
+        &self,
+        queue_entry_id: Uuid,
+        check_name: &str,
+        status: &str,
+        output: serde_json::Value,
+    ) -> Result<DbQueueCheck, sqlx::Error> {
+        let check = sqlx::query_as::<_, DbQueueCheck>(
+            r#"
+            INSERT INTO merge_queue_checks_v1 (queue_entry_id, check_name, status, output, completed_at)
+            VALUES ($1, $2, $3, $4, CASE WHEN $3 IN ('passed', 'failed') THEN NOW() ELSE NULL END)
+            ON CONFLICT (queue_entry_id, check_name) DO UPDATE
+                SET status = EXCLUDED.status, output = EXCLUDED.output,
+                    completed_at = EXCLUDED.completed_at
+            RETURNING id, queue_entry_id, check_name, status, output, completed_at, created_at
+            "#,
+        )
+        .bind(queue_entry_id)
+        .bind(check_name)
+        .bind(status)
+        .bind(output)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(check)
+    }
+
+    pub async fn process_queue(
+        &self,
+        repository_id: Uuid,
+    ) -> Result<Option<DbQueueEntry>, sqlx::Error> {
+        self.dequeue_pr(repository_id).await
+    }
+
+    pub async fn get_queue_status(
+        &self,
+        repository_id: Uuid,
+    ) -> Result<QueueStatusSummary, sqlx::Error> {
+        let summary = sqlx::query_as::<_, QueueStatusSummary>(
+            r#"
+            SELECT
+                COUNT(*)::bigint AS total_entries,
+                COUNT(*) FILTER (WHERE status = 'waiting')::bigint AS waiting,
+                COUNT(*) FILTER (WHERE status = 'running')::bigint AS running,
+                COUNT(*) FILTER (WHERE status = 'passed')::bigint AS passed,
+                COUNT(*) FILTER (WHERE status = 'failed')::bigint AS failed
+            FROM merge_queue_entries_v1
+            WHERE repository_id = $1
+            "#,
+        )
+        .bind(repository_id)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(summary)
+    }
 }
 
 pub struct MergeQueue {
