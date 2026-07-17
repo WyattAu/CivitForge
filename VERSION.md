@@ -1,6 +1,6 @@
 # CivitForge Version Tracker
 
-Version: 3.0.1
+Version: 3.2.0
 Last Updated: 2026-07-17
 Tests: 4,830 #[test] annotations (76 gated on `integration` feature)
 Clippy: 0 warnings
@@ -13,15 +13,15 @@ Format: 0 violations
   civit-brain, civit-vfs, civit-crypto, civit-auth, civit-shard, civit-types,
   civit-ui, civit-telemetry, civit-security)
 - Standalone crates: 1 (civit-desktop, buildable separately)
-- Total .rs files: 613
-- Total lines of Rust: 347,247
+- Total .rs files: 632
+- Total lines of Rust: 358,150
 - Unit + integration tests: 4,830 #[test] annotations
 - Tests ignored (require PostgreSQL): 118 (76 now gated on `integration` feature)
 - Clippy warnings: 0
 - Format violations: 0
 - `#![forbid(unsafe_code)]`: Enforced across all crates
 - API endpoints: ~85 routes (debug gated by --debug flag)
-- Migrations: 612 SQL migration files in civit-db
+- Migrations: 613 SQL migration files in civit-db
 - Versioned module files: 6 (_v*.rs)
 - OpenAPI: v3.1 spec at /api/v1/openapi.json
 - WASM: Leptos CSR build via trunk
@@ -36,6 +36,101 @@ Format: 0 violations
 - Wiki: Git-backed via gix (bare repos with commit history)
 - Pre-commit hook: `.githooks/pre-commit` (emoji + conflict + large file + secret scan + fmt + clippy + test)
 - Formal verification scaffolding: `.specs/02_architecture/proofs/` (Lean4 proof sketches for hash, pipeline expr, CDC)
+
+## v3.2.0 — Enterprise Features
+
+### SSO Hardening
+- OIDC provider integration with PKCE flow
+- SAML 2.0 SP configuration with metadata exchange
+- MFA enforcement per-role (TOTP, WebAuthn, backup codes)
+- JIT user provisioning from identity provider claims
+- Session affinity for SSO callbacks
+
+### Audit Log Compliance
+- GDPR right-to-erasure with cascade deletion
+- SOC2 Type II audit log schema (immutable append-only)
+- HIPAA access log tagging with user/resource scopes
+- Log retention policies with automated rotation
+- Tamper-evident log chaining (hash-linked entries)
+
+### Data Export/Import
+- JSON full-dump export with schema versioning
+- CSV export for projects, users, and audit logs
+- Git archive export (bare repo with metadata sidecar)
+- Import validation with dry-run mode
+- Conflict resolution for overlapping imports
+
+### Multi-Region Deployment
+- Region-aware routing (US, EU, APAC edge selection)
+- Data residency controls per-region
+- Cross-region replication with conflict-free CRDTs
+- Region health checks and failover
+- Latency-based routing with weighted regions
+
+### SLA Monitoring and Reporting
+- Uptime tracking per-endpoint (p50, p95, p99 latency)
+- Error rate budgets with burn-rate alerts
+- Availability SLA dashboards (99.9%, 99.95%, 99.99%)
+- Incident response timeline tracking
+- Automated SLA breach notifications
+
+### Compliance Reporting
+- SOC2 Type II evidence collection and report generation
+- GDPR data processing records (Article 30)
+- ISO 27001 control mapping (Annex A)
+- Automated compliance gap analysis
+- Export to PDF/CSV compliance reports
+
+## v3.1.0 — Performance Sprint
+
+### Scale Benchmarks
+- 18 benchmark groups covering 1K to 100K scale
+- Database query performance at scale (connection, search, pagination)
+- API endpoint latency benchmarks (CRUD, bulk, aggregation)
+- Memory usage profiling at scale
+- Concurrency stress tests (100, 500, 1000 concurrent connections)
+
+### Performance Baselines
+- 22 scale-specific baselines across all endpoint categories
+- Regression detection with CI threshold gates
+- Historical comparison with version-over-version tracking
+- Per-crate performance budgets
+
+### Performance Indexes
+- Migration 638: composite indexes for hot query paths
+- Partial indexes for active/inactive resource filtering
+- Covering indexes for list endpoints (avoid table lookups)
+- Index usage monitoring and unused index detection
+
+### Query Cache
+- LRU eviction cache for frequently accessed queries
+- Cache invalidation on write (per-table invalidation)
+- Cache hit/miss metrics with Prometheus counters
+- Configurable TTL and max-size per cache instance
+
+### Connection Pool Tuning
+- Per-crate pool sizing recommendations
+- Connection timeout and idle recycling
+- Pool exhaustion monitoring with alerting
+- Read replica routing with pool separation
+
+### Static Asset Fingerprinting
+- Content-hash fingerprinting for CSS/JS/images
+- Cache-Control headers with immutable directive
+- Asset manifest generation for Leptos CSR builds
+- Fallback to unfingerprinted assets in dev mode
+
+### Gzip Compression Middleware
+- Configurable compression levels per content type
+- Minimum size threshold for compression
+- Brotli/zstd negotiation with Accept-Encoding
+- Compression ratio metrics
+
+### CDN Setup Guide
+- Cloudflare/CloudFront configuration templates
+- Cache purge API integration
+- Origin shield configuration
+- TLS certificate management guide
 
 ## v3.0.1 Changes
 
@@ -193,3 +288,6 @@ Format: 0 violations
 - v2.1.2
 - v2.2.0
 - v3.0.0
+- v3.0.1
+- v3.1.0
+- v3.2.0

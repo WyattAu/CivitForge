@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "civit-auth"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "base64 0.22.1",
  "bcrypt",
@@ -948,7 +948,7 @@ dependencies = [
 
 [[package]]
 name = "civit-brain"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -992,7 +992,7 @@ dependencies = [
 
 [[package]]
 name = "civit-ci"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "axum 0.8.9",
  "chrono",
@@ -1013,7 +1013,7 @@ dependencies = [
 
 [[package]]
 name = "civit-core"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "anyhow",
@@ -1077,7 +1077,7 @@ dependencies = [
 
 [[package]]
 name = "civit-crypto"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "axum 0.8.9",
@@ -1108,7 +1108,7 @@ dependencies = [
 
 [[package]]
 name = "civit-db"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -1126,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "civit-federation"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1148,7 +1148,7 @@ dependencies = [
 
 [[package]]
 name = "civit-git"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1170,7 +1170,7 @@ dependencies = [
 
 [[package]]
 name = "civit-pipeline"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "chrono",
  "criterion",
@@ -1183,7 +1183,7 @@ dependencies = [
 
 [[package]]
 name = "civit-runner"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1211,7 +1211,7 @@ dependencies = [
 
 [[package]]
 name = "civit-security"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "chrono",
@@ -1231,7 +1231,7 @@ dependencies = [
 
 [[package]]
 name = "civit-shard"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "chrono",
  "rand 0.10.2",
@@ -1245,7 +1245,7 @@ dependencies = [
 
 [[package]]
 name = "civit-shared"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "chrono",
  "hex",
@@ -1258,7 +1258,7 @@ dependencies = [
 
 [[package]]
 name = "civit-storage"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "axum 0.8.9",
  "chrono",
@@ -1279,7 +1279,7 @@ dependencies = [
 
 [[package]]
 name = "civit-telemetry"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "chrono",
  "dashmap",
@@ -1306,7 +1306,7 @@ dependencies = [
 
 [[package]]
 name = "civit-ui"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -1332,7 +1332,7 @@ dependencies = [
 
 [[package]]
 name = "civit-vfs"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1358,7 +1358,7 @@ dependencies = [
 
 [[package]]
 name = "civit-workflow"
-version = "3.0.0"
+version = "3.2.0"
 dependencies = [
  "chrono",
  "civit-db",

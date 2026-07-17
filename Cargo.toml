@@ -27,7 +27,7 @@ members = [
 exclude = ["crates/civit-desktop"]
 
 [workspace.package]
-version = "3.0.0"
+version = "3.2.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/civitforge/civitforge"
