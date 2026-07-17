@@ -44,6 +44,7 @@ web-sys = { version = "0.3", optional = true, features = [
   "DragEvent",
   "DataTransfer",
   "Blob",
+  "BlobPropertyBag",
   "Url",
 ] }
 js-sys = { version = "0.3", optional = true }

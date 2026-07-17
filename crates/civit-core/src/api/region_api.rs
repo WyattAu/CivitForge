@@ -299,6 +299,7 @@ pub async fn get_replication_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
 
     #[test]
     fn test_region_config_response_serialization() {

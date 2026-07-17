@@ -89,6 +89,7 @@ impl TotpService {
 }
 
 fn compute_totp(secret: &str, counter: u64, digits: usize) -> Option<String> {
+    let digits = digits.min(8).max(4); // Clamp to 4-8
     let key = base32_decode(secret).ok()?;
     let mut mac = HmacSha1::new_from_slice(&key).ok()?;
     mac.update(&counter.to_be_bytes());

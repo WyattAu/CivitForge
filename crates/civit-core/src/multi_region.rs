@@ -590,7 +590,7 @@ mod tests {
             status: "healthy".into(),
             failover_strategy: "automatic".into(),
             data_residency_required: true,
-            compliance_frameworks: vec!["SOC2".into(), "GDPR".into()],
+            compliance_frameworks: serde_json::json!(["SOC2", "GDPR"]),
             max_latency_ms: 100,
             capacity_weight: 1.0,
             created_at: Utc::now(),

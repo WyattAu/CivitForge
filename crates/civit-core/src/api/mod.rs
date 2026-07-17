@@ -119,7 +119,7 @@ use crate::wiki::WikiGitBackend;
 use axum::Router;
 use axum::extract::{Request, State};
 use axum::extract::ws::WebSocketUpgrade;
-use axum::http::{HeaderName, HeaderValue};
+use axum::http::{HeaderName, HeaderValue, Method};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
@@ -127,7 +127,7 @@ use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
@@ -135,8 +135,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
     let state = AppState::new(config, db);
 
     let cors = if state.config.cors_allowed_origins.is_empty()
-        || state.config.cors_allowed_origins.iter().any(|o| o == "*")
+        || state.config.cors_allowed_origins.contains(&"*".to_string())
     {
+        tracing::warn!("CORS configured with permissive defaults — restrict in production");
         CorsLayer::permissive()
     } else {
         let origins = state
@@ -147,8 +148,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             .collect::<Vec<_>>();
         CorsLayer::new()
             .allow_origin(AllowOrigin::list(origins))
-            .allow_methods(AllowMethods::any())
-            .allow_headers(AllowHeaders::any())
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::PATCH])
+            .allow_headers(Any)
     };
 
     let mut api = Router::new()

@@ -293,9 +293,13 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
     let ip = extract_client_ip(&req);
     let (tier, user_key) = extract_tier_info(&req, &ip, &jwt_service);
 
-    // Admin bypass check
+    // Admin bypass check — never bypass for auth endpoints (login, register, etc.)
     if tier == RateLimitTier::Admin && limiter.is_admin_bypass_enabled() {
-        return next.run(req).await;
+        let path = req.uri().path();
+        let is_auth_endpoint = path.contains("/auth/");
+        if !is_auth_endpoint {
+            return next.run(req).await;
+        }
     }
 
     let (allowed, retry_after, remaining, limit, reset_seconds) =

@@ -232,7 +232,7 @@ pub fn AdminDashboardPage() -> impl IntoView {
                                     <Card>
                                         <div class="space-y-2">
                                             <div class="flex items-center justify-between">
-                                                <h3 class="font-semibold">{widget_name}</h3>
+                                                <h3 class="font-semibold">{move || widget_name.clone()}</h3>
                                                 <Badge
                                                     color=if widget_enabled { BadgeColor::Success } else { BadgeColor::Neutral }
                                                     text=status_text

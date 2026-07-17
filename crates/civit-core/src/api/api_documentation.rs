@@ -230,7 +230,19 @@ pub async fn get_api_playground() -> impl IntoResponse {
                         if (['get','post','put','delete','patch'].includes(method)) {
                             const div = document.createElement('div');
                             div.className = 'endpoint';
-                            div.innerHTML = `<span class="method method-${method.toUpperCase()}">${method.toUpperCase()}</span><span class="path">${path}</span><div class="summary">${op.summary || ''}</div>`;
+                            div.textContent = '';
+                            const methodSpan = document.createElement('span');
+                            methodSpan.className = `method method-${method.toUpperCase()}`;
+                            methodSpan.textContent = method.toUpperCase();
+                            const pathSpan = document.createElement('span');
+                            pathSpan.className = 'path';
+                            pathSpan.textContent = path;
+                            const summaryDiv = document.createElement('div');
+                            summaryDiv.className = 'summary';
+                            summaryDiv.textContent = op.summary || '';
+                            div.appendChild(methodSpan);
+                            div.appendChild(pathSpan);
+                            div.appendChild(summaryDiv);
                             div.onclick = () => {
                                 document.getElementById('requestUrl').value = path;
                                 document.getElementById('requestMethod').value = method.toUpperCase();
