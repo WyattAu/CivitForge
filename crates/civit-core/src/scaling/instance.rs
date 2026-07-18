@@ -288,7 +288,7 @@ mod tests {
     fn test_sticky_session_lifecycle() {
         let mgr = make_manager();
         let user_id = Uuid::new_v4();
-        let instance_id = Uuid::new_v4();
+        let instance_id = mgr.instance_id();
         let session = mgr.create_sticky_session(user_id, instance_id, Duration::from_secs(3600));
         assert_eq!(session.user_id, user_id);
         assert_eq!(session.instance_id, instance_id);

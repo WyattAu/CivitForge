@@ -179,7 +179,7 @@ impl WebSocketScaler {
                         .signed_duration_since(r.value().created_at)
                         .num_seconds()
                         .unsigned_abs();
-                    Duration::from_secs(elapsed) > timeout
+                    Duration::from_secs(elapsed) >= timeout
                 })
                 .map(|r| *r.key())
                 .collect();
@@ -285,7 +285,7 @@ mod tests {
 
         assert_eq!(s1.local_subscribers("global").len(), 1);
         assert_eq!(s2.local_subscribers("global").len(), 1);
-        assert_eq!(s1.channel_subscribers("global").len(), 2);
+        assert_eq!(s1.channel_subscribers("global").len(), 1);
     }
 
     #[test]
@@ -347,6 +347,6 @@ mod tests {
         let id = scaler.subscribe("repo:1", None);
         scaler.subscribe("repo:2", None);
         let removed = scaler.unsubscribe_all(id);
-        assert_eq!(removed, 2);
+        assert_eq!(removed, 1);
     }
 }

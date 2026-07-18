@@ -6,7 +6,6 @@ use crate::models::{
     MultiProjectPipeline, MultiProjectPipelineRun, Pipeline, PipelineAnalytics, PipelineTemplate,
 };
 use chrono::{DateTime, Utc};
-use sqlx::postgres::PgPool;
 use serde_json;
 use uuid::Uuid;
 

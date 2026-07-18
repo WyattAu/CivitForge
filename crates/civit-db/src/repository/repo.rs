@@ -3,7 +3,7 @@
 
 use crate::error::{DbError, Result};
 use crate::models::{BranchProtectionRule, Release, ReleaseAsset, Repository};
-use sqlx::postgres::PgPool;
+use super::OrgUsage;
 use uuid::Uuid;
 
 impl super::DbRepository {

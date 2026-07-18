@@ -399,7 +399,7 @@ mod tests {
 
     #[test]
     fn test_gzip_compress_decompress_roundtrip() {
-        let data = b"The quick brown fox jumps over the lazy dog. This is test data for compression.";
+        let data = b"The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.";
         let compressed = compress_gzip(data, 6).unwrap();
         assert!(compressed.len() < data.len());
         let decompressed = decompress_gzip(&compressed).unwrap();

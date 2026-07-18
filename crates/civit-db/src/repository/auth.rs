@@ -4,7 +4,6 @@
 use crate::error::{DbError, Result};
 use crate::models::EmailVerificationCode;
 use chrono::{DateTime, Utc};
-use sqlx::postgres::PgPool;
 use serde_json;
 use uuid::Uuid;
 

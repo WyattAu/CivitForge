@@ -3,7 +3,6 @@
 
 use crate::error::{DbError, Result};
 use crate::models::Issue;
-use sqlx::postgres::PgPool;
 use regex;
 use uuid::Uuid;
 

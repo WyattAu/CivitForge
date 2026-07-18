@@ -4,7 +4,6 @@
 use crate::error::{DbError, Result};
 use crate::models::{Org, Team, TeamMember, User};
 use chrono::{DateTime, Utc};
-use sqlx::postgres::PgPool;
 use uuid::Uuid;
 
 impl super::DbRepository {

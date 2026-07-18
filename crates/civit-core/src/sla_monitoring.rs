@@ -284,7 +284,7 @@ pub fn compute_sla_status(target: f64, actual: f64, metric_type: SlaMetricType) 
         SlaMetricType::Uptime | SlaMetricType::Availability => {
             if actual >= target {
                 SlaStatus::Met
-            } else if actual >= target * 0.99 {
+            } else if actual >= target * 0.999 {
                 SlaStatus::AtRisk
             } else {
                 SlaStatus::Breached
@@ -345,7 +345,7 @@ pub fn detect_breach(sla: &SlaDefinition, measurement: &SlaMeasurement) -> Optio
                 SlaBreachSeverity::Critical
             } else if measurement.actual_value < sla.target_value * 0.8 {
                 SlaBreachSeverity::High
-            } else if measurement.actual_value < sla.target_value * 0.95 {
+            } else if measurement.actual_value < sla.target_value * 0.998 {
                 SlaBreachSeverity::Medium
             } else {
                 SlaBreachSeverity::Low

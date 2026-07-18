@@ -410,11 +410,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_rate_limiter_window_resets() {
-        let config = RateLimitConfig::default();
+        let config = RateLimitConfig {
+            max_requests: 100,
+            window: Duration::from_millis(500),
+        };
         let limiter = RateLimiter::new(config);
         let key = "ip:1.2.3.4";
 
-        // Exhaust the limit
+        // Exhaust the limit (Anonymous tier has 60 max)
         for _ in 0..60 {
             limiter.check(key, RateLimitTier::Anonymous).await;
         }
@@ -423,7 +426,7 @@ mod tests {
         assert!(!allowed);
 
         // Wait for window to expire
-        tokio::time::sleep(Duration::from_millis(1050)).await;
+        tokio::time::sleep(Duration::from_millis(600)).await;
 
         let (allowed, _, _, _, _) = limiter.check(key, RateLimitTier::Anonymous).await;
         assert!(allowed);

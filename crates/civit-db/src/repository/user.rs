@@ -3,7 +3,6 @@
 
 use crate::error::{DbError, Result};
 use crate::models::{SshKey, User};
-use sqlx::postgres::PgPool;
 use uuid::Uuid;
 
 impl super::DbRepository {

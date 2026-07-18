@@ -100,7 +100,7 @@ impl ConnectionPool {
     }
 
     pub fn stats(&self) -> PoolStats {
-        let config = self.config.blocking_read().clone();
+        let config = self.config.try_read().unwrap().clone();
         PoolStats {
             active_connections: self.active_count.load(Ordering::Relaxed),
             idle_connections: self.idle_count.load(Ordering::Relaxed),

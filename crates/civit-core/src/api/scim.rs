@@ -22,6 +22,7 @@ pub struct ScimUser {
     pub schemas: Vec<String>,
     pub id: Option<String>,
     pub external_id: Option<String>,
+    #[serde(rename = "userName")]
     pub user_name: String,
     pub display_name: Option<String>,
     pub emails: Option<Vec<ScimEmail>>,
