@@ -98,7 +98,7 @@ jobs:
       - name: Install protobuf compiler
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Run integration tests
-        run: cargo test --features integration -- --test-threads=1
+        run: cargo test --locked -p civit-core --features integration -- --test-threads=1
         env:
           DATABASE_URL: postgres://civit:test@localhost:5432/civit_test
 

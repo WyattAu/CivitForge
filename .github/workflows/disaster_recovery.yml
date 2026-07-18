@@ -1,0 +1,13 @@
+name: Disaster Recovery Test
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'  # Weekly Sunday 3AM UTC
+
+jobs:
+  dr-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run DR test
+        run: ./scripts/disaster_recovery_test.sh

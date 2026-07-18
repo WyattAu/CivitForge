@@ -218,31 +218,25 @@ pub fn AdminDashboardPage() -> impl IntoView {
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <For each=move || widgets.get() key=|w| w.id.clone() let:widget>
                             {
-                                let widget_name = widget.widget_name.clone();
-                                let widget_enabled = widget.enabled;
-                                let widget_position = widget.position;
-                                let config_text = if widget.widget_config == serde_json::json!({}) {
-                                    "No configuration".to_string()
-                                } else {
-                                    serde_json::to_string_pretty(&widget.widget_config).unwrap_or_default()
-                                };
-                                let status_text = if widget_enabled { "Active".to_string() } else { "Disabled".to_string() };
-                                let pos_text = widget_position.to_string();
                                 view! {
                                     <Card>
                                         <div class="space-y-2">
                                             <div class="flex items-center justify-between">
-                                                <h3 class="font-semibold">{move || widget_name.clone()}</h3>
+                                                <h3 class="font-semibold">{widget.widget_name.clone()}</h3>
                                                 <Badge
-                                                    color=if widget_enabled { BadgeColor::Success } else { BadgeColor::Neutral }
-                                                    text=status_text
+                                                    color=if widget.enabled { BadgeColor::Success } else { BadgeColor::Neutral }
+                                                    text=if widget.enabled { "Active".to_string() } else { "Disabled".to_string() }
                                                 />
                                             </div>
                                             <div class="text-xs text-gray-400">
-                                                "Position: " {pos_text}
+                                                "Position: " {widget.position.to_string()}
                                             </div>
                                             <div class="text-sm text-gray-600">
-                                                {config_text}
+                                                {if widget.widget_config == serde_json::json!({}) {
+                                                    "No configuration".to_string()
+                                                } else {
+                                                    serde_json::to_string_pretty(&widget.widget_config).unwrap_or_default()
+                                                }}
                                             </div>
                                         </div>
                                     </Card>

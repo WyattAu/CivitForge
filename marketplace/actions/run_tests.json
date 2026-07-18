@@ -1,0 +1,61 @@
+{
+  "name": "run_tests",
+  "version": "1.0.0",
+  "description": "Execute test suites with coverage reporting",
+  "author": "civitforge",
+  "tags": ["testing", "ci", "coverage"],
+  "steps": [
+    {
+      "name": "rust-tests",
+      "image": "civitforge/runner:latest",
+      "if": "exists('Cargo.toml')",
+      "commands": [
+        "cargo test --workspace --locked -- --nocapture"
+      ]
+    },
+    {
+      "name": "rust-coverage",
+      "image": "civitforge/runner:latest",
+      "if": "exists('Cargo.toml')",
+      "commands": [
+        "cargo install cargo-tarpaulin || true",
+        "cargo tarpaulin --workspace --out xml --output-dir coverage/"
+      ],
+      "allow_failure": true
+    },
+    {
+      "name": "node-tests",
+      "image": "civitforge/runner:latest",
+      "if": "exists('package.json')",
+      "commands": [
+        "npm ci",
+        "npm test -- --coverage"
+      ]
+    },
+    {
+      "name": "python-tests",
+      "image": "civitforge/runner:latest",
+      "if": "exists('pyproject.toml') || exists('setup.py')",
+      "commands": [
+        "pip install -e '.[test]'",
+        "pytest --cov=. --cov-report=xml"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "postgres",
+      "image": "postgres:17",
+      "env": {
+        "POSTGRES_DB": "test",
+        "POSTGRES_USER": "test",
+        "POSTGRES_PASSWORD": "test"
+      },
+      "ports": [5432]
+    }
+  ],
+  "cache": {
+    "paths": ["~/.cargo/registry", "node_modules"],
+    "key": "test-${{ hashFiles('Cargo.lock', 'package-lock.json') }}"
+  }
+}

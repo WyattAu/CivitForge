@@ -1,0 +1,44 @@
+{
+  "name": "lint_code",
+  "version": "1.0.0",
+  "description": "Multi-language code linting with auto-fix support",
+  "author": "civitforge",
+  "tags": ["linting", "code-quality"],
+  "steps": [
+    {
+      "name": "detect-languages",
+      "image": "civitforge/runner:latest",
+      "commands": ["civitforge lint detect --output languages.json"]
+    },
+    {
+      "name": "rust-clippy",
+      "image": "civitforge/runner:latest",
+      "if": "contains(languages.json.languages, 'rust')",
+      "commands": [
+        "cargo clippy --workspace --all-targets -- -D warnings"
+      ]
+    },
+    {
+      "name": "typescript-eslint",
+      "image": "civitforge/runner:latest",
+      "if": "contains(languages.json.languages, 'typescript')",
+      "commands": [
+        "npx eslint . --ext .ts,.tsx"
+      ]
+    },
+    {
+      "name": "python-ruff",
+      "image": "civitforge/runner:latest",
+      "if": "contains(languages.json.languages, 'python')",
+      "commands": [
+        "ruff check .",
+        "ruff format --check ."
+      ]
+    }
+  ],
+  "services": [],
+  "cache": {
+    "paths": ["~/.cargo/registry", "node_modules", ".ruff_cache"],
+    "key": "lint-${{ hashFiles('Cargo.lock', 'package-lock.json', 'requirements.txt') }}"
+  }
+}

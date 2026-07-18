@@ -1,7 +1,7 @@
 # CivitForge Version Tracker
 
-Version: 3.2.0
-Last Updated: 2026-07-17
+Version: 3.3.0
+Last Updated: 2026-07-18
 Tests: 4,830 #[test] annotations (76 gated on `integration` feature)
 Clippy: 0 warnings
 Format: 0 violations
@@ -36,6 +36,25 @@ Format: 0 violations
 - Wiki: Git-backed via gix (bare repos with commit history)
 - Pre-commit hook: `.githooks/pre-commit` (emoji + conflict + large file + secret scan + fmt + clippy + test)
 - Formal verification scaffolding: `.specs/02_architecture/proofs/` (Lean4 proof sketches for hash, pipeline expr, CDC)
+
+## v3.3.0 — Production Hardening
+
+### Integration Test CI
+- PostgreSQL-backed integration tests run in CI with `--locked -p civit-core --features integration`
+- Service container health checks ensure DB readiness before test execution
+
+### Load Testing CI
+- Weekly k6 load test workflow (Monday 2AM UTC)
+- Automated API load testing with `scripts/loadtest/k6_api_loadtest.js`
+- Manual trigger via `workflow_dispatch`
+
+### Disaster Recovery Testing CI
+- Weekly DR test workflow (Sunday 3AM UTC)
+- Automated recovery validation with `scripts/disaster_recovery_test.sh`
+- Manual trigger via `workflow_dispatch`
+
+### WASM Fixes
+- Resolved build issues in WASM pipeline
 
 ## v3.2.0 — Enterprise Features
 
@@ -291,3 +310,4 @@ Format: 0 violations
 - v3.0.1
 - v3.1.0
 - v3.2.0
+- v3.3.0

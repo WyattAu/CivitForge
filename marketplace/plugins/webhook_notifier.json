@@ -1,0 +1,27 @@
+{
+  "name": "webhook_notifier",
+  "version": "0.1.0",
+  "description": "Send HTTP webhooks to external services on issue and pull request events.",
+  "author": "civitforge",
+  "license": "AGPL-3.0-or-later",
+  "repository": "https://github.com/WyattAu/CivitForge/tree/main/examples/plugins/webhook_notifier",
+  "hooks": {
+    "issue.created": "normal",
+    "issue.updated": "normal",
+    "pull_request.opened": "normal",
+    "pull_request.merged": "normal"
+  },
+  "config": {
+    "webhook_url": {
+      "type": "string",
+      "required": true,
+      "description": "URL to send webhook POST requests to"
+    }
+  },
+  "permissions": ["logging", "http_outbound"],
+  "tags": ["webhook", "notifications", "integration"],
+  "min_version": "3.2.0",
+  "wasm_size_bytes": 8192,
+  "downloads": 0,
+  "verified": true
+}

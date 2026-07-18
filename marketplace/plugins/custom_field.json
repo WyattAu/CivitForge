@@ -1,0 +1,46 @@
+{
+  "name": "custom_field",
+  "version": "0.1.0",
+  "description": "Add custom fields to issues with type validation and persistent storage.",
+  "author": "civitforge",
+  "license": "AGPL-3.0-or-later",
+  "repository": "https://github.com/WyattAu/CivitForge/tree/main/examples/plugins/custom_field",
+  "hooks": {
+    "issue.created": "normal",
+    "issue.updated": "normal"
+  },
+  "config": {
+    "field_name": {
+      "type": "string",
+      "required": true,
+      "description": "Name of the custom field"
+    },
+    "field_type": {
+      "type": "string",
+      "required": true,
+      "description": "Field type: text, number, boolean, select",
+      "allowed_values": ["text", "number", "boolean", "select"]
+    },
+    "required": {
+      "type": "boolean",
+      "required": true,
+      "description": "Whether the field must be present"
+    },
+    "default_value": {
+      "type": "string",
+      "required": false,
+      "description": "Default value if not provided"
+    },
+    "allowed_values": {
+      "type": "array",
+      "required": false,
+      "description": "Allowed values for select type"
+    }
+  },
+  "permissions": ["logging", "storage"],
+  "tags": ["custom-fields", "metadata", "issues"],
+  "min_version": "3.2.0",
+  "wasm_size_bytes": 12288,
+  "downloads": 0,
+  "verified": true
+}

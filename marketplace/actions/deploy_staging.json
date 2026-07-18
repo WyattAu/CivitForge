@@ -1,0 +1,62 @@
+{
+  "name": "deploy_staging",
+  "version": "1.0.0",
+  "description": "Deploy to staging environment with health checks",
+  "author": "civitforge",
+  "tags": ["deploy", "staging", "kubernetes"],
+  "steps": [
+    {
+      "name": "build",
+      "image": "civitforge/runner:latest",
+      "commands": [
+        "cargo build --release --locked",
+        "docker build -t civitforge:${{ github.sha }} ."
+      ]
+    },
+    {
+      "name": "push-image",
+      "image": "civitforge/runner:latest",
+      "commands": [
+        "docker tag civitforge:${{ github.sha }} ghcr.io/civitforge/civitforge:staging-${{ github.sha }}",
+        "docker push ghcr.io/civitforge/civitforge:staging-${{ github.sha }}"
+      ]
+    },
+    {
+      "name": "deploy",
+      "image": "civitforge/runner:latest",
+      "commands": [
+        "helm upgrade --install civitforge-staging deploy/helm/civitforge/ \\",
+        "  --namespace staging \\",
+        "  --set image.repository=ghcr.io/civitforge/civitforge \\",
+        "  --set image.tag=staging-${{ github.sha }} \\",
+        "  --set replicaCount=1 \\",
+        "  --wait --timeout 300s"
+      ]
+    },
+    {
+      "name": "health-check",
+      "image": "civitforge/runner:latest",
+      "commands": [
+        "for i in $(seq 1 30); do",
+        "  if curl -sf https://staging.example.com/health; then",
+        "    echo 'Health check passed'",
+        "    exit 0",
+        "  fi",
+        "  echo \"Attempt $i/30 - waiting...\"",
+        "  sleep 10",
+        "done",
+        "echo 'Health check failed after 300s'",
+        "exit 1"
+      ]
+    }
+  ],
+  "services": [],
+  "cache": {
+    "paths": ["~/.cargo/registry", "target/"],
+    "key": "deploy-${{ hashFiles('Cargo.lock') }}"
+  },
+  "concurrency": {
+    "group": "staging-deploy",
+    "cancel_in_progress": true
+  }
+}

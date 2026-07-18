@@ -5,6 +5,7 @@ pub mod migrations;
 pub mod models;
 pub mod pool;
 pub mod pool_config;
+pub mod replica_config;
 pub mod repository;
 pub mod session;
 

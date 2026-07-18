@@ -2099,37 +2099,32 @@ pub fn AdminPage() -> impl IntoView {
                     <Show when=move || !license_loading.get() && license_report.get().is_some() fallback=|| view! { <div class="hidden"></div> }>
                         {move || {
                             let report = license_report.get().expect("key present");
-                            let compliant = report.compliant;
-                            let spdx_id = report.spdx_id.clone();
-                            let file_count = report.file_count;
-                            let issues = report.issues.clone();
-                            let scanned_at = report.scanned_at.clone();
                             view! {
                                 <Card>
                                     <div class="space-y-4">
                                         <div class="flex items-center justify-between">
                                             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">"License Report"</h3>
                                             <Badge
-                                                color=if compliant { BadgeColor::Success } else { BadgeColor::Danger }
-                                                text=if compliant { "Compliant".into() } else { "Issues Found".into() }
+                                                color=if report.compliant { BadgeColor::Success } else { BadgeColor::Danger }
+                                                text=if report.compliant { "Compliant".into() } else { "Issues Found".into() }
                                             />
                                         </div>
                                         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">"License"</div>
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{spdx_id}</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{report.spdx_id.clone()}</div>
                                             </div>
                                             <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">"Files Scanned"</div>
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{file_count.to_string()}</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{report.file_count.to_string()}</div>
                                             </div>
                                             <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">"Issues"</div>
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{issues.len().to_string()}</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{report.issues.len().to_string()}</div>
                                             </div>
                                             <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">"Scanned At"</div>
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{scanned_at}</div>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{report.scanned_at.clone()}</div>
                                             </div>
                                         </div>
                                     </div>

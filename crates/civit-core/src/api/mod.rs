@@ -106,6 +106,7 @@ pub mod data_residency_api;
 pub mod encryption_api;
 pub mod audit_api;
 pub mod sla_api;
+pub mod sla_dashboard;
 pub mod compliance_report_api;
 
 use crate::config::AppConfig;
@@ -347,6 +348,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(performance_testing_api::performance_testing_routes())
         .merge(audit_api::audit_api_routes())
         .merge(sla_api::sla_api_routes())
+        .merge(sla_dashboard::sla_dashboard_routes())
         .merge(compliance_report_api::compliance_report_api_routes())
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
