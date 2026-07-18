@@ -70,6 +70,18 @@ impl ReplicaEndpoint {
     }
 }
 
+impl std::fmt::Display for ReadRoutingStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReadRoutingStrategy::RoundRobin => write!(f, "RoundRobin"),
+            ReadRoutingStrategy::LeastLag => write!(f, "LeastLag"),
+            ReadRoutingStrategy::NearestReplica => write!(f, "NearestReplica"),
+            ReadRoutingStrategy::PrimaryOnly => write!(f, "PrimaryOnly"),
+            ReadRoutingStrategy::WeightedRoundRobin => write!(f, "WeightedRoundRobin"),
+        }
+    }
+}
+
 /// Routing strategy for read queries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReadRoutingStrategy {

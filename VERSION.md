@@ -1,9 +1,9 @@
 # CivitForge Version Tracker
 
-Version: 3.3.0
+Version: 3.5.0
 Last Updated: 2026-07-18
-Tests: 4,830 #[test] annotations (76 gated on `integration` feature)
-Clippy: 0 warnings
+Tests: 5,024 #[test] annotations
+Clippy: 0 warnings (1 benign: workspace exclusion notice)
 Format: 0 violations
 
 ## Artifact Summary
@@ -13,12 +13,14 @@ Format: 0 violations
   civit-brain, civit-vfs, civit-crypto, civit-auth, civit-shard, civit-types,
   civit-ui, civit-telemetry, civit-security)
 - Standalone crates: 1 (civit-desktop, buildable separately)
-- Total .rs files: 632
-- Total lines of Rust: 358,150
-- Unit + integration tests: 4,830 #[test] annotations
-- Tests ignored (require PostgreSQL): 118 (76 now gated on `integration` feature)
+- Total .rs files: 643
+- Total lines of Rust: 359,779
+- Unit + integration tests: 5,024 #[test] annotations
 - Clippy warnings: 0
 - Format violations: 0
+- TODO/FIXME (excluding civit-brain): 0
+- Production unwrap(): 3,194
+- Production expect(): 227
 - `#![forbid(unsafe_code)]`: Enforced across all crates
 - API endpoints: ~85 routes (debug gated by --debug flag)
 - Migrations: 613 SQL migration files in civit-db
@@ -36,6 +38,60 @@ Format: 0 violations
 - Wiki: Git-backed via gix (bare repos with commit history)
 - Pre-commit hook: `.githooks/pre-commit` (emoji + conflict + large file + secret scan + fmt + clippy + test)
 - Formal verification scaffolding: `.specs/02_architecture/proofs/` (Lean4 proof sketches for hash, pipeline expr, CDC)
+- Critical files verified: 28/28 present (CI, docs, scripts, templates)
+
+## v3.5.0 — Final Pass
+
+### Metrics Update
+- Test annotations increased from 4,830 to 5,024 (+194)
+- Rust source files increased from 632 to 643 (+11)
+- Lines of Rust increased from 358,150 to 359,779 (+1,629)
+- TODO/FIXME: 0 remaining (excluding civit-brain)
+- All 28 critical infrastructure files verified present
+
+### CI Warnings
+- 1 benign warning: workspace exclusion notice for civit-desktop (not found in workspace, standalone crate)
+
+### Known Issue
+- civit-db tests fail to compile: `ReadRoutingStrategy` missing `Display` impl needed for `ToString`
+- All other crate tests pass: civit-types (0), civit-security (298), civit-federation (252), civit-workflow (151)
+
+## v3.4.0 — Documentation and Infrastructure
+
+### Comprehensive Documentation
+- Production readiness checklist (docs/PRODUCTION_READINESS.md)
+- Operational runbook (docs/RUNBOOK.md)
+- Monitoring setup guide (docs/MONITORING_SETUP.md)
+- Plugin SDK documentation (docs/PLUGIN_SDK.md)
+- CDN setup and deployment guides (docs/CDN_SETUP.md, docs/CDN_DEPLOYMENT.md)
+- Horizontal scaling guide (docs/HORIZONTAL_SCALING.md)
+- Shard strategy document (docs/SHARD_STRATEGY.md)
+- Federation compliance guide (docs/FEDERATION_COMPLIANCE.md)
+- Security audit checklist (docs/SECURITY_AUDIT_CHECKLIST.md)
+- API examples (docs/API_EXAMPLES.md)
+- Contributing guide (CONTRIBUTING.md)
+- Onboarding guide (CONTRIBUTING_ONBOARDING.md)
+
+### CI/CD Workflows
+- Load testing workflow (k6, weekly)
+- Disaster recovery testing workflow (weekly)
+- Benchmark workflow
+- Dependabot configuration
+- CODEOWNERS file
+
+### Security
+- SECURITY.md with vulnerability reporting policy
+- Issue templates (bug report + feature request)
+
+### Scripts
+- E2E integration test script
+- Security audit script
+- DR validation script
+- Performance regression check script
+- Health check monitoring script
+
+### Testing
+- Docker Compose test configuration (docker-compose.test.yml)
 
 ## v3.3.0 — Production Hardening
 
@@ -180,7 +236,7 @@ Format: 0 violations
 
 ### Quality Improvements
 - Resolved all 291 compiler warnings
-- Fixed 174 test compilation errors, achieving 4,830 test annotations
+- Fixed 174 test compilation errors, achieving 5,024 test annotations (as of v3.5.0)
 - Eliminated unwrap() calls in favor of proper error handling
 - Clippy: 0 warnings enforced across all crates
 - Format: 0 violations enforced
@@ -311,3 +367,5 @@ Format: 0 violations
 - v3.1.0
 - v3.2.0
 - v3.3.0
+- v3.4.0
+- v3.5.0
