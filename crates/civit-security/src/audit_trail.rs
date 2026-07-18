@@ -2134,7 +2134,8 @@ mod tests {
     #[test]
     fn test_scoring_engine_score_event() {
         let mut engine = EventRiskScoringEngine::new();
-        let score = engine.score_event(&make_event("push", "repo", "r1", "push"), Vec::new());
+        let event = make_event("push", "repo", "r1", "push").with_risk_score(10);
+        let score = engine.score_event(&event, Vec::new());
         assert!(score.risk_score > 0.0);
         assert_eq!(engine.total_scored(), 1);
     }

@@ -280,11 +280,11 @@ pub enum ScanStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FindingSeverity {
-    Critical,
-    High,
-    Medium,
-    Low,
     Informational,
+    Low,
+    Medium,
+    High,
+    Critical,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1360,7 +1360,7 @@ impl ScanSchedule {
             interval_minutes,
             enabled: true,
             last_run: None,
-            next_run: Some(now + chrono::Duration::minutes(interval_minutes as i64)),
+            next_run: Some(now),
             created_at: now,
         }
     }

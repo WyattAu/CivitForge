@@ -971,7 +971,7 @@ pub const M_575_CODE_QUALITY_RULES_V20_DOWN: &str =
     "DROP TABLE IF EXISTS code_quality_thresholds_v17; DROP TABLE IF EXISTS code_quality_metrics_v18;";
 pub const M_576_PERFORMANCE_TESTING_V21_UP: &str = include_str!("576_add_performance_testing_v21.sql");
 pub const M_576_PERFORMANCE_TESTING_V21_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alerts_v18; DROP TABLE IF EXISTS performance_test_baselines_v19;";
+    "DROP TABLE IF EXISTS performance_test_alert_history_v18; DROP TABLE IF EXISTS performance_test_alerts_v18; DROP TABLE IF EXISTS performance_test_baselines_v19;";
 pub const M_577_API_DOCS_V22_UP: &str = include_str!("577_add_api_docs_v22.sql");
 pub const M_577_API_DOCS_V22_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v22;";
 pub const M_578_RATE_LIMIT_TIERS_V20_UP: &str = include_str!("578_add_rate_limit_tiers_v20.sql");
@@ -2691,42 +2691,6 @@ impl MigrationManager {
             down_sql: M_357_SCHEDULED_TASK_TEMPLATES_V8_DOWN.into(),
         });
         self.add_migration(Migration {
-            version: 376,
-            name: "add_workflow_templates_v9".into(),
-            up_sql: M_376_WORKFLOW_TEMPLATES_V9_UP.into(),
-            down_sql: M_376_WORKFLOW_TEMPLATES_V9_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 377,
-            name: "add_automation_rules_v12".into(),
-            up_sql: M_377_AUTOMATION_RULES_V12_UP.into(),
-            down_sql: M_377_AUTOMATION_RULES_V12_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 378,
-            name: "add_scheduled_task_templates_v9".into(),
-            up_sql: M_378_SCHEDULED_TASK_TEMPLATES_V9_UP.into(),
-            down_sql: M_378_SCHEDULED_TASK_TEMPLATES_V9_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 388,
-            name: "add_api_docs_v13".into(),
-            up_sql: M_388_API_DOCS_V13_UP.into(),
-            down_sql: M_388_API_DOCS_V13_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 389,
-            name: "add_rate_limit_tiers_v11".into(),
-            up_sql: M_389_RATE_LIMIT_TIERS_V11_UP.into(),
-            down_sql: M_389_RATE_LIMIT_TIERS_V11_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 390,
-            name: "add_api_analytics_v14".into(),
-            up_sql: M_390_API_ANALYTICS_V14_UP.into(),
-            down_sql: M_390_API_ANALYTICS_V14_DOWN.into(),
-        });
-        self.add_migration(Migration {
             version: 361,
             name: "add_pipeline_action_reviews_v8".into(),
             up_sql: M_361_PIPELINE_ACTION_REVIEWS_V8_UP.into(),
@@ -2779,6 +2743,42 @@ impl MigrationManager {
             name: "add_data_residency_v10".into(),
             up_sql: M_372_DATA_RESIDENCY_V10_UP.into(),
             down_sql: M_372_DATA_RESIDENCY_V10_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 376,
+            name: "add_workflow_templates_v9".into(),
+            up_sql: M_376_WORKFLOW_TEMPLATES_V9_UP.into(),
+            down_sql: M_376_WORKFLOW_TEMPLATES_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 377,
+            name: "add_automation_rules_v12".into(),
+            up_sql: M_377_AUTOMATION_RULES_V12_UP.into(),
+            down_sql: M_377_AUTOMATION_RULES_V12_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 378,
+            name: "add_scheduled_task_templates_v9".into(),
+            up_sql: M_378_SCHEDULED_TASK_TEMPLATES_V9_UP.into(),
+            down_sql: M_378_SCHEDULED_TASK_TEMPLATES_V9_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 388,
+            name: "add_api_docs_v13".into(),
+            up_sql: M_388_API_DOCS_V13_UP.into(),
+            down_sql: M_388_API_DOCS_V13_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 389,
+            name: "add_rate_limit_tiers_v11".into(),
+            up_sql: M_389_RATE_LIMIT_TIERS_V11_UP.into(),
+            down_sql: M_389_RATE_LIMIT_TIERS_V11_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 390,
+            name: "add_api_analytics_v14".into(),
+            up_sql: M_390_API_ANALYTICS_V14_UP.into(),
+            down_sql: M_390_API_ANALYTICS_V14_DOWN.into(),
         });
         self.add_migration(Migration {
             version: 400,
@@ -2997,24 +2997,6 @@ impl MigrationManager {
             down_sql: M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN.into(),
         });
         self.add_migration(Migration {
-            version: 481,
-            name: "add_workflow_templates_v14".into(),
-            up_sql: M_481_WORKFLOW_TEMPLATES_V14_UP.into(),
-            down_sql: M_481_WORKFLOW_TEMPLATES_V14_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 482,
-            name: "add_automation_rules_v17".into(),
-            up_sql: M_482_AUTOMATION_RULES_V17_UP.into(),
-            down_sql: M_482_AUTOMATION_RULES_V17_DOWN.into(),
-        });
-        self.add_migration(Migration {
-            version: 483,
-            name: "add_scheduled_task_templates_v14".into(),
-            up_sql: M_483_SCHEDULED_TASK_TEMPLATES_V14_UP.into(),
-            down_sql: M_483_SCHEDULED_TASK_TEMPLATES_V14_DOWN.into(),
-        });
-        self.add_migration(Migration {
             version: 469,
             name: "add_test_suite_management_v15".into(),
             up_sql: M_469_TEST_SUITE_MANAGEMENT_V15_UP.into(),
@@ -3031,6 +3013,24 @@ impl MigrationManager {
             name: "add_performance_testing_v16".into(),
             up_sql: M_471_PERFORMANCE_TESTING_V16_UP.into(),
             down_sql: M_471_PERFORMANCE_TESTING_V16_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 481,
+            name: "add_workflow_templates_v14".into(),
+            up_sql: M_481_WORKFLOW_TEMPLATES_V14_UP.into(),
+            down_sql: M_481_WORKFLOW_TEMPLATES_V14_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 482,
+            name: "add_automation_rules_v17".into(),
+            up_sql: M_482_AUTOMATION_RULES_V17_UP.into(),
+            down_sql: M_482_AUTOMATION_RULES_V17_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 483,
+            name: "add_scheduled_task_templates_v14".into(),
+            up_sql: M_483_SCHEDULED_TASK_TEMPLATES_V14_UP.into(),
+            down_sql: M_483_SCHEDULED_TASK_TEMPLATES_V14_DOWN.into(),
         });
         self.add_migration(Migration {
             version: 487,
@@ -3517,7 +3517,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 311);
+        assert_eq!(mgr.all().len(), 402);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -3758,13 +3758,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 403,
+            version: 639,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 281);
-        assert_eq!(mgr.all()[272].version, 403);
+        assert_eq!(mgr.all().len(), 403);
+        assert_eq!(mgr.all()[402].version, 639);
     }
 
     #[test]
@@ -3783,21 +3783,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 271);
+        assert_eq!(pending.len(), 402);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 102);
+        assert_eq!(pending.len(), 245);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 261);
+        assert_eq!(pending.len(), 401);
     }
 
     #[test]

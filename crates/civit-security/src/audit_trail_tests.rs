@@ -325,7 +325,7 @@ fn test_scoring_engine_empty() {
 #[test]
 fn test_scoring_engine_score_event() {
     let mut engine = EventRiskScoringEngine::new();
-    let score = engine.score_event(&test_event(), vec![]);
+    let score = engine.score_event(&test_event_with_risk(40), vec![]);
     assert!(score.risk_score > 30.0);
     assert_eq!(engine.total_scored(), 1);
     assert!(engine.get_score_for_event(&score.event_id).is_some());
