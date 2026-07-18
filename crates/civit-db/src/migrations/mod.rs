@@ -57,10 +57,12 @@ pub const M_053_ADD_OIDC_UP: &str = include_str!("053_add_oidc.sql");
 pub const M_055_ADD_SITE_SETTINGS_UP: &str = include_str!("055_add_site_settings.sql");
 pub const M_056_ADD_OIDC_ADMIN_UP: &str = include_str!("056_add_oidc_admin.sql");
 pub const M_058_WEBAUTHN_UP: &str = include_str!("058_webauthn.sql");
+pub const M_059_STAR_WATCH_JUNCTION_TABLES_UP: &str = include_str!("059_add_star_watch_junction_tables.sql");
 pub const M_060_OAUTH2_UP: &str = include_str!("060_add_oauth2.sql");
 pub const M_061_ISSUE_TEMPLATES_UP: &str = include_str!("061_add_issue_templates.sql");
 pub const M_062_PR_TEMPLATES_UP: &str = include_str!("062_add_pr_templates.sql");
 pub const M_063_DISCUSSIONS_UP: &str = include_str!("063_add_discussions.sql");
+pub const M_065_PIPELINE_ENVIRONMENTS_UP: &str = include_str!("065_add_pipeline_environments.sql");
 pub const M_066_BOARDS_V2_UP: &str = include_str!("066_add_boards_v2.sql");
 pub const M_051_ENVIRONMENTS_DEPLOYMENTS_UP: &str =
     include_str!("051_add_environments_deployments.sql");
@@ -251,6 +253,7 @@ pub const M_149_PIPELINE_RUNNERS_V2_UP: &str = include_str!("149_add_pipeline_ru
 pub const M_149_PIPELINE_RUNNERS_V2_DOWN: &str = "DROP TABLE IF EXISTS runner_metrics; DROP TABLE IF EXISTS pipeline_runners_v2;";
 pub const M_150_ENVIRONMENT_VARIABLES_UP: &str = include_str!("150_add_environment_variables.sql");
 pub const M_150_ENVIRONMENT_VARIABLES_DOWN: &str = "DROP TABLE IF EXISTS environment_variable_inheritance; DROP TABLE IF EXISTS environment_variables;";
+pub const M_151_TEST_SUITES_UP: &str = include_str!("151_add_test_suites.sql");
 pub const M_154_API_DOCS_V2_UP: &str = include_str!("154_add_api_docs_v2.sql");
 pub const M_154_API_DOCS_V2_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v2;";
 pub const M_155_RATE_LIMIT_TIERS_UP: &str = include_str!("155_add_rate_limit_tiers.sql");
@@ -273,6 +276,7 @@ pub const M_161_COMPLIANCE_REQUIREMENTS_DOWN: &str =
     "DROP TABLE IF EXISTS compliance_check_results; DROP TABLE IF EXISTS compliance_evidence; DROP TABLE IF EXISTS compliance_requirements;";
 pub const M_162_AUDIT_TRAIL_V2_UP: &str = include_str!("162_add_audit_trail_v2.sql");
 pub const M_162_AUDIT_TRAIL_V2_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v2;";
+pub const M_163_WORKFLOW_TRIGGERS_ACTIONS_UP: &str = include_str!("163_add_workflow_triggers_actions.sql");
 pub const M_166_FIREWALL_RULES_UP: &str = include_str!("166_add_firewall_rules.sql");
 pub const M_166_FIREWALL_RULES_DOWN: &str =
     "DROP TABLE IF EXISTS firewall_rule_logs; DROP TABLE IF EXISTS firewall_rules;";
@@ -309,6 +313,7 @@ pub const M_179_CODE_QUALITY_RULES_UP: &str = include_str!("179_add_code_quality
 pub const M_179_CODE_QUALITY_RULES_DOWN: &str = "DROP TABLE IF EXISTS code_quality_rules;";
 pub const M_180_PERF_TEST_CONFIGS_RESULTS_UP: &str = include_str!("180_add_performance_test_configs_results.sql");
 pub const M_180_PERF_TEST_CONFIGS_RESULTS_DOWN: &str = "DROP TABLE IF EXISTS performance_test_results; DROP TABLE IF EXISTS performance_test_configs;";
+pub const M_185_COMPLIANCE_FRAMEWORKS_V2_UP: &str = include_str!("185_add_compliance_frameworks_v2_assessments.sql");
 pub const M_187_WORKFLOW_TEMPLATES_UP: &str = include_str!("187_add_workflow_templates.sql");
 pub const M_187_WORKFLOW_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_usage; DROP TABLE IF EXISTS workflow_templates;";
 pub const M_188_AUTOMATION_RULES_V3_UP: &str = include_str!("188_add_automation_rules_v3.sql");
@@ -1308,7 +1313,13 @@ impl MigrationManager {
             version: 58,
             name: "webauthn".into(),
             up_sql: M_058_WEBAUTHN_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS webauthn_credentials;".into(),
+            down_sql: String::new(),
+        });
+        self.add_migration(Migration {
+            version: 59,
+            name: "add_star_watch_junction_tables".into(),
+            up_sql: M_059_STAR_WATCH_JUNCTION_TABLES_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS repo_watchers; DROP TABLE IF EXISTS repo_stars;".into(),
         });
         self.add_migration(Migration {
             version: 60,
@@ -1327,6 +1338,12 @@ impl MigrationManager {
             name: "add_discussions".into(),
             up_sql: M_063_DISCUSSIONS_UP.into(),
             down_sql: "DROP TABLE IF EXISTS discussion_comments; DROP TABLE IF EXISTS discussions;".into(),
+        });
+        self.add_migration(Migration {
+            version: 65,
+            name: "add_pipeline_environments".into(),
+            up_sql: M_065_PIPELINE_ENVIRONMENTS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS environment_deployments; DROP TABLE IF EXISTS deployment_protections; DROP TABLE IF EXISTS pipeline_environments;".into(),
         });
         self.add_migration(Migration {
             version: 66,
@@ -1827,6 +1844,12 @@ impl MigrationManager {
             down_sql: M_150_ENVIRONMENT_VARIABLES_DOWN.into(),
         });
         self.add_migration(Migration {
+            version: 151,
+            name: "add_test_suites".into(),
+            up_sql: M_151_TEST_SUITES_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS test_runs; DROP TABLE IF EXISTS test_suites;".into(),
+        });
+        self.add_migration(Migration {
             version: 154,
             name: "add_api_docs_v2".into(),
             up_sql: M_154_API_DOCS_V2_UP.into(),
@@ -1879,6 +1902,12 @@ impl MigrationManager {
             name: "add_audit_trail_v2".into(),
             up_sql: M_162_AUDIT_TRAIL_V2_UP.into(),
             down_sql: M_162_AUDIT_TRAIL_V2_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 163,
+            name: "add_workflow_triggers_actions".into(),
+            up_sql: M_163_WORKFLOW_TRIGGERS_ACTIONS_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS workflow_actions; DROP TABLE IF EXISTS workflow_triggers;".into(),
         });
         self.add_migration(Migration {
             version: 166,
@@ -1969,6 +1998,12 @@ impl MigrationManager {
             name: "add_performance_test_configs_results".into(),
             up_sql: M_180_PERF_TEST_CONFIGS_RESULTS_UP.into(),
             down_sql: M_180_PERF_TEST_CONFIGS_RESULTS_DOWN.into(),
+        });
+        self.add_migration(Migration {
+            version: 185,
+            name: "add_compliance_frameworks_v2_assessments".into(),
+            up_sql: M_185_COMPLIANCE_FRAMEWORKS_V2_UP.into(),
+            down_sql: "DROP TABLE IF EXISTS compliance_assessments_v2; DROP TABLE IF EXISTS compliance_frameworks_v2;".into(),
         });
         self.add_migration(Migration {
             version: 187,
@@ -3517,7 +3552,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 402);
+        assert_eq!(mgr.all().len(), 407);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -3600,158 +3635,170 @@ mod tests {
         assert_eq!(mgr.all()[39].name, "add_codeowners_reviews");
         assert_eq!(mgr.all()[40].version, 58);
         assert_eq!(mgr.all()[40].name, "webauthn");
-        assert_eq!(mgr.all()[41].version, 60);
-        assert_eq!(mgr.all()[41].name, "add_oauth2");
-        assert_eq!(mgr.all()[42].version, 62);
-        assert_eq!(mgr.all()[42].name, "add_pr_templates");
-        assert_eq!(mgr.all()[43].version, 63);
-        assert_eq!(mgr.all()[43].name, "add_discussions");
-        assert_eq!(mgr.all()[44].version, 66);
-        assert_eq!(mgr.all()[44].name, "add_boards_v2");
-        assert_eq!(mgr.all()[45].version, 67);
-        assert_eq!(mgr.all()[45].name, "add_review_threads");
-        assert_eq!(mgr.all()[47].version, 69);
-        assert_eq!(mgr.all()[47].name, "add_npm_packages");
-        assert_eq!(mgr.all()[48].version, 70);
-        assert_eq!(mgr.all()[48].name, "add_maven_packages");
-        assert_eq!(mgr.all()[49].version, 71);
-        assert_eq!(mgr.all()[49].name, "add_pages_sites");
-        assert_eq!(mgr.all()[50].version, 72);
-        assert_eq!(mgr.all()[50].name, "add_discussion_labels_reactions");
-        assert_eq!(mgr.all()[51].version, 73);
-        assert_eq!(mgr.all()[51].name, "add_search_history");
-        assert_eq!(mgr.all()[52].version, 74);
-        assert_eq!(mgr.all()[52].name, "add_code_suggestions");
-        assert_eq!(mgr.all()[53].version, 75);
-        assert_eq!(mgr.all()[53].name, "add_license_reports");
-        assert_eq!(mgr.all()[54].version, 76);
-        assert_eq!(mgr.all()[54].name, "enhance_audit_log");
-        assert_eq!(mgr.all()[55].version, 77);
-        assert_eq!(mgr.all()[55].name, "enhance_pages_sites");
-        assert_eq!(mgr.all()[56].version, 80);
-        assert_eq!(mgr.all()[56].name, "add_saml_providers");
-        assert_eq!(mgr.all()[57].version, 81);
-        assert_eq!(mgr.all()[57].name, "add_scim_tokens");
-        assert_eq!(mgr.all()[58].version, 82);
-        assert_eq!(mgr.all()[58].name, "add_sso_groups_sessions_login_history");
-        assert_eq!(mgr.all()[59].version, 83);
-        assert_eq!(mgr.all()[59].name, "add_container_repository_policies");
-        assert_eq!(mgr.all()[60].version, 84);
-        assert_eq!(mgr.all()[60].name, "add_observability_tables");
-        assert_eq!(mgr.all()[61].version, 85);
-        assert_eq!(mgr.all()[61].name, "add_performance_indexes");
-        assert_eq!(mgr.all()[62].version, 86);
-        assert_eq!(mgr.all()[62].name, "add_cache_entries");
-        assert_eq!(mgr.all()[63].version, 87);
-        assert_eq!(mgr.all()[63].name, "add_cdn_config");
-        assert_eq!(mgr.all()[64].version, 88);
-        assert_eq!(mgr.all()[64].name, "add_server_instances");
-        assert_eq!(mgr.all()[65].version, 89);
-        assert_eq!(mgr.all()[65].name, "add_websocket_connections");
-        assert_eq!(mgr.all()[66].version, 90);
-        assert_eq!(mgr.all()[66].name, "add_pool_config");
-        assert_eq!(mgr.all()[67].version, 91);
-        assert_eq!(mgr.all()[67].name, "add_feature_flags");
-        assert_eq!(mgr.all()[68].version, 92);
-        assert_eq!(mgr.all()[68].name, "add_admin_dashboard_config");
-        assert_eq!(mgr.all()[69].version, 93);
-        assert_eq!(mgr.all()[69].name, "add_api_analytics");
-        assert_eq!(mgr.all()[70].version, 94);
-        assert_eq!(mgr.all()[70].name, "add_usage_quotas");
-        assert_eq!(mgr.all()[71].version, 95);
-        assert_eq!(mgr.all()[71].name, "add_export_jobs");
-        assert_eq!(mgr.all()[72].version, 96);
-        assert_eq!(mgr.all()[72].name, "add_compliance_reports");
-        assert_eq!(mgr.all()[73].version, 97);
-        assert_eq!(mgr.all()[73].name, "add_deployment_history");
-        assert_eq!(mgr.all()[74].version, 98);
-        assert_eq!(mgr.all()[74].name, "add_monitoring_alerts");
-        assert_eq!(mgr.all()[75].version, 99);
-        assert_eq!(mgr.all()[75].name, "add_performance_metrics");
-        assert_eq!(mgr.all()[76].version, 100);
-        assert_eq!(mgr.all()[76].name, "add_webhook_deliveries_v2");
-        assert_eq!(mgr.all()[77].version, 101);
-        assert_eq!(mgr.all()[77].name, "add_events_and_subscriptions");
-        assert_eq!(mgr.all()[78].version, 102);
-        assert_eq!(mgr.all()[78].name, "add_event_queues");
-        assert_eq!(mgr.all()[85].version, 109);
-        assert_eq!(mgr.all()[85].name, "add_api_gateway");
-        assert_eq!(mgr.all()[86].version, 110);
-        assert_eq!(mgr.all()[86].name, "add_rate_limit_policies");
-        assert_eq!(mgr.all()[87].version, 111);
-        assert_eq!(mgr.all()[87].name, "add_api_transforms");
-        assert_eq!(mgr.all()[88].version, 112);
-        assert_eq!(mgr.all()[88].name, "add_graphql_subscriptions");
-        assert_eq!(mgr.all()[89].version, 113);
-        assert_eq!(mgr.all()[89].name, "add_realtime_channels");
-        assert_eq!(mgr.all()[90].version, 114);
-        assert_eq!(mgr.all()[90].name, "add_live_collaboration");
-        assert_eq!(mgr.all()[115].version, 139);
-        assert_eq!(mgr.all()[115].name, "add_network_policies");
-        assert_eq!(mgr.all()[116].version, 140);
-        assert_eq!(mgr.all()[116].name, "add_encryption_at_rest");
-        assert_eq!(mgr.all()[117].version, 141);
-        assert_eq!(mgr.all()[117].name, "add_access_control_lists");
-        assert_eq!(mgr.all()[118].version, 142);
-        assert_eq!(mgr.all()[118].name, "add_workflows");
-        assert_eq!(mgr.all()[119].version, 143);
-        assert_eq!(mgr.all()[119].name, "add_automation_rules");
-        assert_eq!(mgr.all()[120].version, 144);
-        assert_eq!(mgr.all()[120].name, "add_scheduled_tasks");
-        assert_eq!(mgr.all()[121].version, 145);
-        assert_eq!(mgr.all()[121].name, "add_log_aggregation");
-        assert_eq!(mgr.all()[122].version, 146);
-        assert_eq!(mgr.all()[122].name, "add_trace_sampling_rules");
-        assert_eq!(mgr.all()[123].version, 147);
-        assert_eq!(mgr.all()[123].name, "add_dashboard_reporting");
-        assert_eq!(mgr.all()[124].version, 148);
-        assert_eq!(mgr.all()[124].name, "add_pipeline_secrets_v2");
-        assert_eq!(mgr.all()[125].version, 149);
-        assert_eq!(mgr.all()[125].name, "add_pipeline_runners_v2");
-        assert_eq!(mgr.all()[126].version, 150);
-        assert_eq!(mgr.all()[126].name, "add_environment_variables");
-        assert_eq!(mgr.all()[127].version, 154);
-        assert_eq!(mgr.all()[127].name, "add_api_docs_v2");
-        assert_eq!(mgr.all()[128].version, 155);
-        assert_eq!(mgr.all()[128].name, "add_rate_limit_tiers");
-        assert_eq!(mgr.all()[129].version, 156);
-        assert_eq!(mgr.all()[129].name, "add_api_analytics_v3");
-        assert_eq!(mgr.all()[130].version, 157);
-        assert_eq!(mgr.all()[130].name, "add_database_replication");
-        assert_eq!(mgr.all()[131].version, 158);
-        assert_eq!(mgr.all()[131].name, "add_encryption_policies");
-        assert_eq!(mgr.all()[132].version, 159);
-        assert_eq!(mgr.all()[132].name, "add_data_residency");
-        assert_eq!(mgr.all()[133].version, 160);
-        assert_eq!(mgr.all()[133].name, "add_security_scan_rules");
-        assert_eq!(mgr.all()[134].version, 161);
-        assert_eq!(mgr.all()[134].name, "add_compliance_requirements");
-        assert_eq!(mgr.all()[135].version, 162);
-        assert_eq!(mgr.all()[135].name, "add_audit_trail_v2");
-        assert_eq!(mgr.all()[136].version, 166);
-        assert_eq!(mgr.all()[136].name, "add_firewall_rules");
-        assert_eq!(mgr.all()[137].version, 167);
-        assert_eq!(mgr.all()[137].name, "add_intrusion_detections");
-        assert_eq!(mgr.all()[138].version, 168);
-        assert_eq!(mgr.all()[138].name, "add_ddos_protection");
-        assert_eq!(mgr.all()[139].version, 169);
-        assert_eq!(mgr.all()[139].name, "add_object_storage");
-        assert_eq!(mgr.all()[140].version, 170);
-        assert_eq!(mgr.all()[140].name, "add_backup_encryption");
-        assert_eq!(mgr.all()[141].version, 171);
-        assert_eq!(mgr.all()[141].name, "add_data_retention");
-        assert_eq!(mgr.all()[142].version, 172);
-        assert_eq!(mgr.all()[142].name, "add_api_docs_v3");
-        assert_eq!(mgr.all()[143].version, 173);
-        assert_eq!(mgr.all()[143].name, "add_api_webhooks_v2");
-        assert_eq!(mgr.all()[144].version, 174);
-        assert_eq!(mgr.all()[144].name, "add_api_analytics_v4");
-        assert_eq!(mgr.all()[148].version, 178);
-        assert_eq!(mgr.all()[148].name, "add_test_coverage_v2");
-        assert_eq!(mgr.all()[149].version, 179);
-        assert_eq!(mgr.all()[149].name, "add_code_quality_rules");
-        assert_eq!(mgr.all()[150].version, 180);
-        assert_eq!(mgr.all()[150].name, "add_performance_test_configs_results");
+        assert_eq!(mgr.all()[41].version, 59);
+        assert_eq!(mgr.all()[41].name, "add_star_watch_junction_tables");
+        assert_eq!(mgr.all()[42].version, 60);
+        assert_eq!(mgr.all()[42].name, "add_oauth2");
+        assert_eq!(mgr.all()[43].version, 62);
+        assert_eq!(mgr.all()[43].name, "add_pr_templates");
+        assert_eq!(mgr.all()[44].version, 63);
+        assert_eq!(mgr.all()[44].name, "add_discussions");
+        assert_eq!(mgr.all()[45].version, 65);
+        assert_eq!(mgr.all()[45].name, "add_pipeline_environments");
+        assert_eq!(mgr.all()[46].version, 66);
+        assert_eq!(mgr.all()[46].name, "add_boards_v2");
+        assert_eq!(mgr.all()[47].version, 67);
+        assert_eq!(mgr.all()[47].name, "add_review_threads");
+        assert_eq!(mgr.all()[49].version, 69);
+        assert_eq!(mgr.all()[49].name, "add_npm_packages");
+        assert_eq!(mgr.all()[50].version, 70);
+        assert_eq!(mgr.all()[50].name, "add_maven_packages");
+        assert_eq!(mgr.all()[51].version, 71);
+        assert_eq!(mgr.all()[51].name, "add_pages_sites");
+        assert_eq!(mgr.all()[52].version, 72);
+        assert_eq!(mgr.all()[52].name, "add_discussion_labels_reactions");
+        assert_eq!(mgr.all()[53].version, 73);
+        assert_eq!(mgr.all()[53].name, "add_search_history");
+        assert_eq!(mgr.all()[54].version, 74);
+        assert_eq!(mgr.all()[54].name, "add_code_suggestions");
+        assert_eq!(mgr.all()[55].version, 75);
+        assert_eq!(mgr.all()[55].name, "add_license_reports");
+        assert_eq!(mgr.all()[56].version, 76);
+        assert_eq!(mgr.all()[56].name, "enhance_audit_log");
+        assert_eq!(mgr.all()[57].version, 77);
+        assert_eq!(mgr.all()[57].name, "enhance_pages_sites");
+        assert_eq!(mgr.all()[58].version, 80);
+        assert_eq!(mgr.all()[58].name, "add_saml_providers");
+        assert_eq!(mgr.all()[59].version, 81);
+        assert_eq!(mgr.all()[59].name, "add_scim_tokens");
+        assert_eq!(mgr.all()[60].version, 82);
+        assert_eq!(mgr.all()[60].name, "add_sso_groups_sessions_login_history");
+        assert_eq!(mgr.all()[61].version, 83);
+        assert_eq!(mgr.all()[61].name, "add_container_repository_policies");
+        assert_eq!(mgr.all()[62].version, 84);
+        assert_eq!(mgr.all()[62].name, "add_observability_tables");
+        assert_eq!(mgr.all()[63].version, 85);
+        assert_eq!(mgr.all()[63].name, "add_performance_indexes");
+        assert_eq!(mgr.all()[64].version, 86);
+        assert_eq!(mgr.all()[64].name, "add_cache_entries");
+        assert_eq!(mgr.all()[65].version, 87);
+        assert_eq!(mgr.all()[65].name, "add_cdn_config");
+        assert_eq!(mgr.all()[66].version, 88);
+        assert_eq!(mgr.all()[66].name, "add_server_instances");
+        assert_eq!(mgr.all()[67].version, 89);
+        assert_eq!(mgr.all()[67].name, "add_websocket_connections");
+        assert_eq!(mgr.all()[68].version, 90);
+        assert_eq!(mgr.all()[68].name, "add_pool_config");
+        assert_eq!(mgr.all()[69].version, 91);
+        assert_eq!(mgr.all()[69].name, "add_feature_flags");
+        assert_eq!(mgr.all()[70].version, 92);
+        assert_eq!(mgr.all()[70].name, "add_admin_dashboard_config");
+        assert_eq!(mgr.all()[71].version, 93);
+        assert_eq!(mgr.all()[71].name, "add_api_analytics");
+        assert_eq!(mgr.all()[72].version, 94);
+        assert_eq!(mgr.all()[72].name, "add_usage_quotas");
+        assert_eq!(mgr.all()[73].version, 95);
+        assert_eq!(mgr.all()[73].name, "add_export_jobs");
+        assert_eq!(mgr.all()[74].version, 96);
+        assert_eq!(mgr.all()[74].name, "add_compliance_reports");
+        assert_eq!(mgr.all()[75].version, 97);
+        assert_eq!(mgr.all()[75].name, "add_deployment_history");
+        assert_eq!(mgr.all()[76].version, 98);
+        assert_eq!(mgr.all()[76].name, "add_monitoring_alerts");
+        assert_eq!(mgr.all()[77].version, 99);
+        assert_eq!(mgr.all()[77].name, "add_performance_metrics");
+        assert_eq!(mgr.all()[78].version, 100);
+        assert_eq!(mgr.all()[78].name, "add_webhook_deliveries_v2");
+        assert_eq!(mgr.all()[79].version, 101);
+        assert_eq!(mgr.all()[79].name, "add_events_and_subscriptions");
+        assert_eq!(mgr.all()[80].version, 102);
+        assert_eq!(mgr.all()[80].name, "add_event_queues");
+        assert_eq!(mgr.all()[87].version, 109);
+        assert_eq!(mgr.all()[87].name, "add_api_gateway");
+        assert_eq!(mgr.all()[88].version, 110);
+        assert_eq!(mgr.all()[88].name, "add_rate_limit_policies");
+        assert_eq!(mgr.all()[89].version, 111);
+        assert_eq!(mgr.all()[89].name, "add_api_transforms");
+        assert_eq!(mgr.all()[90].version, 112);
+        assert_eq!(mgr.all()[90].name, "add_graphql_subscriptions");
+        assert_eq!(mgr.all()[91].version, 113);
+        assert_eq!(mgr.all()[91].name, "add_realtime_channels");
+        assert_eq!(mgr.all()[92].version, 114);
+        assert_eq!(mgr.all()[92].name, "add_live_collaboration");
+        assert_eq!(mgr.all()[117].version, 139);
+        assert_eq!(mgr.all()[117].name, "add_network_policies");
+        assert_eq!(mgr.all()[118].version, 140);
+        assert_eq!(mgr.all()[118].name, "add_encryption_at_rest");
+        assert_eq!(mgr.all()[119].version, 141);
+        assert_eq!(mgr.all()[119].name, "add_access_control_lists");
+        assert_eq!(mgr.all()[120].version, 142);
+        assert_eq!(mgr.all()[120].name, "add_workflows");
+        assert_eq!(mgr.all()[121].version, 143);
+        assert_eq!(mgr.all()[121].name, "add_automation_rules");
+        assert_eq!(mgr.all()[122].version, 144);
+        assert_eq!(mgr.all()[122].name, "add_scheduled_tasks");
+        assert_eq!(mgr.all()[123].version, 145);
+        assert_eq!(mgr.all()[123].name, "add_log_aggregation");
+        assert_eq!(mgr.all()[124].version, 146);
+        assert_eq!(mgr.all()[124].name, "add_trace_sampling_rules");
+        assert_eq!(mgr.all()[125].version, 147);
+        assert_eq!(mgr.all()[125].name, "add_dashboard_reporting");
+        assert_eq!(mgr.all()[126].version, 148);
+        assert_eq!(mgr.all()[126].name, "add_pipeline_secrets_v2");
+        assert_eq!(mgr.all()[127].version, 149);
+        assert_eq!(mgr.all()[127].name, "add_pipeline_runners_v2");
+        assert_eq!(mgr.all()[128].version, 150);
+        assert_eq!(mgr.all()[128].name, "add_environment_variables");
+        assert_eq!(mgr.all()[129].version, 151);
+        assert_eq!(mgr.all()[129].name, "add_test_suites");
+        assert_eq!(mgr.all()[130].version, 154);
+        assert_eq!(mgr.all()[130].name, "add_api_docs_v2");
+        assert_eq!(mgr.all()[131].version, 155);
+        assert_eq!(mgr.all()[131].name, "add_rate_limit_tiers");
+        assert_eq!(mgr.all()[132].version, 156);
+        assert_eq!(mgr.all()[132].name, "add_api_analytics_v3");
+        assert_eq!(mgr.all()[133].version, 157);
+        assert_eq!(mgr.all()[133].name, "add_database_replication");
+        assert_eq!(mgr.all()[134].version, 158);
+        assert_eq!(mgr.all()[134].name, "add_encryption_policies");
+        assert_eq!(mgr.all()[135].version, 159);
+        assert_eq!(mgr.all()[135].name, "add_data_residency");
+        assert_eq!(mgr.all()[136].version, 160);
+        assert_eq!(mgr.all()[136].name, "add_security_scan_rules");
+        assert_eq!(mgr.all()[137].version, 161);
+        assert_eq!(mgr.all()[137].name, "add_compliance_requirements");
+        assert_eq!(mgr.all()[138].version, 162);
+        assert_eq!(mgr.all()[138].name, "add_audit_trail_v2");
+        assert_eq!(mgr.all()[139].version, 163);
+        assert_eq!(mgr.all()[139].name, "add_workflow_triggers_actions");
+        assert_eq!(mgr.all()[140].version, 166);
+        assert_eq!(mgr.all()[140].name, "add_firewall_rules");
+        assert_eq!(mgr.all()[141].version, 167);
+        assert_eq!(mgr.all()[141].name, "add_intrusion_detections");
+        assert_eq!(mgr.all()[142].version, 168);
+        assert_eq!(mgr.all()[142].name, "add_ddos_protection");
+        assert_eq!(mgr.all()[143].version, 169);
+        assert_eq!(mgr.all()[143].name, "add_object_storage");
+        assert_eq!(mgr.all()[144].version, 170);
+        assert_eq!(mgr.all()[144].name, "add_backup_encryption");
+        assert_eq!(mgr.all()[145].version, 171);
+        assert_eq!(mgr.all()[145].name, "add_data_retention");
+        assert_eq!(mgr.all()[146].version, 172);
+        assert_eq!(mgr.all()[146].name, "add_api_docs_v3");
+        assert_eq!(mgr.all()[147].version, 173);
+        assert_eq!(mgr.all()[147].name, "add_api_webhooks_v2");
+        assert_eq!(mgr.all()[148].version, 174);
+        assert_eq!(mgr.all()[148].name, "add_api_analytics_v4");
+        assert_eq!(mgr.all()[152].version, 178);
+        assert_eq!(mgr.all()[152].name, "add_test_coverage_v2");
+        assert_eq!(mgr.all()[153].version, 179);
+        assert_eq!(mgr.all()[153].name, "add_code_quality_rules");
+        assert_eq!(mgr.all()[154].version, 180);
+        assert_eq!(mgr.all()[154].name, "add_performance_test_configs_results");
+        assert_eq!(mgr.all()[155].version, 185);
+        assert_eq!(mgr.all()[155].name, "add_compliance_frameworks_v2_assessments");
+        assert_eq!(mgr.all()[156].version, 187);
+        assert_eq!(mgr.all()[156].name, "add_workflow_templates");
     }
 
     #[test]
@@ -3763,8 +3810,8 @@ mod tests {
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 403);
-        assert_eq!(mgr.all()[402].version, 639);
+        assert_eq!(mgr.all().len(), 408);
+        assert_eq!(mgr.all()[407].version, 639);
     }
 
     #[test]
@@ -3783,7 +3830,7 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 402);
+        assert_eq!(pending.len(), 407);
     }
 
     #[test]
@@ -3797,7 +3844,7 @@ mod tests {
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 401);
+        assert_eq!(pending.len(), 406);
     }
 
     #[test]

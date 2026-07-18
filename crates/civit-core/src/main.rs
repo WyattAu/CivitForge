@@ -7,6 +7,44 @@ use tokio::signal;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
+fn split_sql_statements(sql: &str) -> Vec<&str> {
+    let mut statements = Vec::new();
+    let mut in_dollar_quote = false;
+    let mut start = 0;
+    let mut chars = sql.char_indices().peekable();
+
+    while let Some((i, c)) = chars.next() {
+        if c == '$' {
+            let mut tag = String::new();
+            tag.push(c);
+            while let Some(&(_, next_c)) = chars.peek() {
+                if next_c == '$' {
+                    tag.push(next_c);
+                    chars.next();
+                    break;
+                } else if next_c.is_alphanumeric() || next_c == '_' {
+                    tag.push(next_c);
+                    chars.next();
+                } else {
+                    tag.clear();
+                    tag.push(c);
+                    break;
+                }
+            }
+            if tag.starts_with("$$") && tag.ends_with("$$") {
+                in_dollar_quote = !in_dollar_quote;
+            }
+        } else if c == ';' && !in_dollar_quote {
+            statements.push(&sql[start..i]);
+            start = i + 1;
+        }
+    }
+    if start < sql.len() {
+        statements.push(&sql[start..]);
+    }
+    statements
+}
+
 async fn shutdown_signal() {
     if let Err(e) = signal::ctrl_c().await {
         tracing::error!("failed to listen for ctrl+c: {e}");
@@ -60,7 +98,7 @@ async fn main() -> Result<()> {
                 name = %migration.name,
                 "applying migration"
             );
-            for stmt in migration.up_sql.split(';') {
+            for stmt in split_sql_statements(&migration.up_sql) {
                 let s = stmt.trim();
                 if !s.is_empty() {
                     sqlx::query(sqlx::AssertSqlSafe(s.to_string()))

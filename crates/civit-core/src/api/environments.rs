@@ -358,11 +358,8 @@ pub async fn delete_environment(
 }
 
 pub fn environment_routes() -> axum::Router<AppState> {
-    use axum::routing::delete;
-    axum::Router::new().route(
-        "/api/v1/repos/{owner}/{name}/environments/{env_id}",
-        delete(delete_environment),
-    )
+    // Routes consolidated in pipeline_environments.rs
+    axum::Router::new()
 }
 
 #[cfg(test)]

@@ -253,7 +253,7 @@ pub fn usage_quota_routes() -> Router<AppState> {
             post(increment_usage_quota),
         )
         .route(
-            "/api/v1/admin/quotas/{id}",
+            "/api/v1/admin/quotas/{user_id}",
             delete(delete_usage_quota),
         )
 }

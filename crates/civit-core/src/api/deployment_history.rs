@@ -600,28 +600,24 @@ pub async fn get_deployment_analytics(
 pub fn deployment_history_routes() -> Router<AppState> {
     Router::new()
         .route(
-            "/api/v1/repos/{owner}/{name}/environments/{env}/deployments",
-            get(list_deployments),
-        )
-        .route(
-            "/api/v1/repos/{owner}/{name}/environments/{env}/rollback/{id}",
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/rollback/{id}",
             post(rollback_deployment),
         )
         .route(
-            "/api/v1/repos/{owner}/{name}/environments/{env}/rollback-status",
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/rollback-status",
             get(get_rollback_status),
         )
         // V2 endpoints
         .route(
-            "/api/v1/repos/{owner}/{name}/environments/{env}/deployments/v2",
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployments/v2",
             get(list_deployments_v2).post(create_deployment_v2),
         )
         .route(
-            "/api/v1/repos/{owner}/{name}/environments/{env}/deployments/compare",
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployments/compare",
             post(compare_deployments),
         )
         .route(
-            "/api/v1/repos/{owner}/{name}/environments/{env}/deployments/analytics",
+            "/api/v1/repos/{owner}/{name}/environments/{env_id}/deployments/analytics",
             get(get_deployment_analytics),
         )
 }
