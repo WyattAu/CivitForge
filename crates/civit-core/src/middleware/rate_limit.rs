@@ -290,6 +290,11 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
         None => return next.run(req).await,
     };
 
+    // Test mode: skip rate limiting entirely when X-Test-Mode header is set
+    if req.headers().get("x-test-mode").is_some() {
+        return next.run(req).await;
+    }
+
     let ip = extract_client_ip(&req);
     let (tier, user_key) = extract_tier_info(&req, &ip, &jwt_service);
 

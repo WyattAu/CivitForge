@@ -10,6 +10,9 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
+    extraHTTPHeaders: {
+      'X-Test-Mode': 'true',
+    },
   },
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },

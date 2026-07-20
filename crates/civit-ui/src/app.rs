@@ -61,6 +61,7 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("/profile") view=ProfilePage />
                             <Route path=path!("/profile/:username") view=ProfilePage />
                             <Route path=path!("/explore") view=ExplorePage />
+                            <Route path=path!("/search") view=SearchPage />
                             <Route path=path!("*") view=NotFoundPage />
                         </Routes>
                     </div>
