@@ -1,14 +1,14 @@
 #!/bin/bash
-# Detect Wayland and force X11 backend for WebKitGTK compatibility
-if [ -n "$WAYLAND_DISPLAY" ]; then
-    export GDK_BACKEND=x11
-fi
+# CivitForge Desktop — Native Wayland support with NVIDIA GPU detection
 
-# Only disable DMABUF and force software GL on NVIDIA+Wayland
+# NVIDIA: disable DMABUF renderer (fixes GBM allocation failures on NVIDIA+Wayland)
 if grep -q nvidia /proc/modules 2>/dev/null; then
     export WEBKIT_DISABLE_DMABUF_RENDERER=1
+
+    # On Wayland: force NVIDIA GBM backend and GLX vendor
     if [ -n "$WAYLAND_DISPLAY" ]; then
-        export LIBGL_ALWAYS_SOFTWARE=1
+        export GBM_BACKEND=nvidia-drm
+        export __GLX_VENDOR_LIBRARY_NAME=nvidia
     fi
 fi
 

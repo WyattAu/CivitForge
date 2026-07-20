@@ -391,9 +391,26 @@ pub fn run() {
                     // (avoid tauri:// cross-origin issues with reqwest)
                     let dist_dir = std::env::current_exe()
                         .ok()
-                        .and_then(|p| p.parent().map(|d| d.join("dist")))
+                        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+                        .and_then(|dir| {
+                            // 1. Check next to the binary (release/bundled)
+                            let candidate = dir.join("dist");
+                            if candidate.join("index.html").exists() {
+                                return Some(candidate);
+                            }
+                            // 2. Walk up from binary location to find workspace root
+                            let mut cursor = dir;
+                            for _ in 0..10 {
+                                let candidate = cursor.join("crates/civit-ui/dist");
+                                if candidate.join("index.html").exists() {
+                                    return Some(candidate);
+                                }
+                                cursor = cursor.parent()?.to_path_buf();
+                            }
+                            None
+                        })
                         .or_else(|| {
-                            // Dev fallback: look for dist next to workspace Cargo.toml
+                            // 3. Dev fallback: CARGO_MANIFEST_DIR
                             std::env::var("CARGO_MANIFEST_DIR")
                                 .ok()
                                 .map(|d| std::path::PathBuf::from(d).join("../civit-ui/dist"))
@@ -681,12 +698,7 @@ fn spawn_embedded_server(app: &tauri::AppHandle, auto_login_json: &str) {
 
 #[allow(unsafe_code)]
 fn main() {
-    // Tachyon-style Wayland/X11 fix for WebKitGTK compatibility.
     let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
-    if is_wayland {
-        // SAFETY: called at process start before any threads are spawned.
-        unsafe { std::env::set_var("GDK_BACKEND", "x11"); }
-    }
 
     let is_nvidia = std::fs::read_to_string("/proc/modules")
         .map(|m| m.contains("nvidia_drm") || m.contains("nvidia"))
@@ -694,10 +706,16 @@ fn main() {
 
     if is_nvidia {
         // SAFETY: called at process start before any threads are spawned.
+        // Required for WebKitGTK on NVIDIA+Wayland: disables DMABUF buffer allocation
+        // which triggers GBM allocation failures on NVIDIA drivers.
         unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1"); }
-        // Force software GL rendering to avoid GBM/dri crashes on Wayland+NVIDIA
+
         if is_wayland {
-            unsafe { std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1"); }
+            // Force NVIDIA's GBM backend and GLX vendor for correct rendering
+            unsafe {
+                std::env::set_var("GBM_BACKEND", "nvidia-drm");
+                std::env::set_var("__GLX_VENDOR_LIBRARY_NAME", "nvidia");
+            }
         }
     }
 
