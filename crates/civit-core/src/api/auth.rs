@@ -60,11 +60,36 @@ pub async fn authenticate_with_token(state: &AppState, token: &str) -> Result<Au
 }
 
 fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreError> {
-    let auth_header = parts
-        .headers
-        .get(AUTHORIZATION)
-        .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| CoreError::Auth("missing authorization header".into()))?;
+    // 1) Try Authorization header first (standard)
+    if let Some(auth_header) = parts.headers.get(AUTHORIZATION).and_then(|v| v.to_str().ok()) {
+        return extract_from_auth_header(auth_header, state);
+    }
+
+    // 2) Fallback: try `token` query parameter (needed for EventSource/SSE which cannot send custom headers)
+    let uri_str = parts.uri.to_string();
+    if let Some(query_start) = uri_str.find('?') {
+        let query = &uri_str[query_start + 1..];
+        for param in query.split('&') {
+            if let Some((key, value)) = param.split_once('=') {
+                if key == "token" && !value.is_empty() {
+                    let decoded = urlencoding::decode(value)
+                        .map_err(|_| CoreError::Auth("invalid token encoding".into()))?;
+                    let token = decoded.into_owned();
+                    return tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current()
+                            .block_on(async { authenticate_with_token(state, &token).await })
+                    });
+                }
+            }
+        }
+    }
+
+    Err(CoreError::Auth(
+        "missing authorization header or token query parameter".into(),
+    ))
+}
+
+fn extract_from_auth_header(auth_header: &str, state: &AppState) -> Result<AuthUser, CoreError> {
 
     // Support Bearer token (JWT or PAT)
     if let Some(token) = auth_header.strip_prefix("Bearer ") {

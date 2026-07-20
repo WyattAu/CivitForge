@@ -59,7 +59,7 @@ pub fn NotificationBell() -> impl IntoView {
 
             let base_url = get_base_url();
             let token = window_local_storage()
-                .and_then(|s| s.get_item("auth_token").ok())
+                .and_then(|s| s.get_item("civitforge_token").ok())
                 .flatten();
 
             let Some(token) = token else { return };

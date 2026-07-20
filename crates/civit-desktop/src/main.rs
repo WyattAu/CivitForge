@@ -681,11 +681,24 @@ fn spawn_embedded_server(app: &tauri::AppHandle, auto_login_json: &str) {
 
 #[allow(unsafe_code)]
 fn main() {
-    // Fix Wayland/WebKitGTK GBM buffer allocation failure.
-    // SAFETY: called at process start before any threads are spawned.
-    unsafe {
-        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-        std::env::set_var("GDK_RENDERING", "image");
+    // Tachyon-style Wayland/X11 fix for WebKitGTK compatibility.
+    let is_wayland = std::env::var("WAYLAND_DISPLAY").is_ok();
+    if is_wayland {
+        // SAFETY: called at process start before any threads are spawned.
+        unsafe { std::env::set_var("GDK_BACKEND", "x11"); }
+    }
+
+    let is_nvidia = std::fs::read_to_string("/proc/modules")
+        .map(|m| m.contains("nvidia_drm") || m.contains("nvidia"))
+        .unwrap_or(false);
+
+    if is_nvidia {
+        // SAFETY: called at process start before any threads are spawned.
+        unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1"); }
+        // Force software GL rendering to avoid GBM/dri crashes on Wayland+NVIDIA
+        if is_wayland {
+            unsafe { std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1"); }
+        }
     }
 
     run();

@@ -42,16 +42,30 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(token: Option<String>) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .expect("failed to build reqwest client");
+        #[cfg(target_arch = "wasm32")]
+        let client = Client::new();
         Self {
-            client: Client::new(),
+            client,
             base_url: get_base_url(),
             token,
         }
     }
 
     pub fn with_base_url(token: Option<String>, base_url: String) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .expect("failed to build reqwest client");
+        #[cfg(target_arch = "wasm32")]
+        let client = Client::new();
         Self {
-            client: Client::new(),
+            client,
             base_url,
             token,
         }
