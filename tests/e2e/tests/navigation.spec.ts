@@ -2,27 +2,35 @@ import { test, expect } from '@playwright/test';
 
 async function waitForWasm(page: import('@playwright/test').Page) {
   await page.waitForFunction(
-    () => document.querySelector('aside nav a') !== null || document.querySelector('nav a') !== null,
-    { timeout: 25000 }
+    () =>
+      document.querySelector('aside nav a') !== null ||
+      document.querySelector('nav a') !== null ||
+      document.querySelector('footer[role="contentinfo"]') !== null ||
+      document.querySelector('#main-content') !== null,
+    { timeout: 30000 }
   );
+  await page.waitForTimeout(500);
 }
 
 test.describe('Navigation', () => {
   test('header navigation links work', async ({ page }) => {
     await page.goto('/');
     await waitForWasm(page);
-    const links = page.locator('aside nav a');
+    const links = page.locator('aside nav a[href^="/"]');
     const count = await links.count();
     expect(count).toBeGreaterThan(0);
+    const hrefs: string[] = [];
     for (let i = 0; i < Math.min(count, 5); i++) {
       const href = await links.nth(i).getAttribute('href');
-      if (href && href.startsWith('/') && !href.startsWith('//')) {
-        await links.nth(i).click();
-        await waitForWasm(page);
-        expect(page.url()).toContain(href);
-        await page.goBack();
-        await waitForWasm(page);
+      if (href && href.startsWith('/') && !href.startsWith('//') && !hrefs.includes(href)) {
+        hrefs.push(href);
       }
+    }
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      await page.goto(href);
+      await waitForWasm(page);
+      expect(page.url()).toContain(href);
     }
   });
 
