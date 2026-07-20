@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+use gloo_timers::future::TimeoutFuture;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 
@@ -42,57 +43,82 @@ pub fn NotificationBell() -> impl IntoView {
     let (unread_count, set_unread_count) = signal(0u32);
     let (dropdown_open, set_dropdown_open) = signal(false);
     let (connected, set_connected) = signal(false);
+    let (es_resource, set_es) = signal(None::<web_sys::EventSource>);
+    let (reconnecting, set_reconnecting) = signal(false);
 
-    let connect_sse = move || {
-        let base_url = get_base_url();
-        let token = window_local_storage()
-            .and_then(|s| s.get_item("auth_token").ok())
-            .flatten();
+    let connect_sse = {
+        let set_connected = set_connected.clone();
+        let set_unread_count = set_unread_count.clone();
+        let set_notifications = set_notifications.clone();
+        let set_es = set_es.clone();
+        move || {
+            if let Some(old_es) = es_resource.get_untracked() {
+                let _ = old_es.close();
+            }
+            set_es.set(None);
 
-        let Some(token) = token else { return };
+            let base_url = get_base_url();
+            let token = window_local_storage()
+                .and_then(|s| s.get_item("auth_token").ok())
+                .flatten();
 
-        let url = format!("{base_url}/api/v1/notifications/stream?token={token}");
+            let Some(token) = token else { return };
 
-        leptos::task::spawn_local(async move {
-            let Ok(event_source) = web_sys::EventSource::new(&url) else {
-                return;
-            };
+            let url = format!("{base_url}/api/v1/notifications/stream?token={token}");
 
-            set_connected.set(true);
+            leptos::task::spawn_local(async move {
+                let Ok(event_source) = web_sys::EventSource::new(&url) else {
+                    set_reconnecting.set(true);
+                    TimeoutFuture::new(5000).await;
+                    set_reconnecting.set(false);
+                    return;
+                };
 
-            let on_message = Closure::wrap(Box::new(move |ev: web_sys::MessageEvent| {
-                if let Some(data) = ev.data().as_string() {
-                    if let Ok(event) = serde_json::from_str::<NotificationEvent>(&data) {
-                        set_unread_count.update(|c| *c += 1);
-                        set_notifications.update(|n| {
-                            n.insert(0, event);
-                            n.truncate(50);
-                        });
+                set_es.set(Some(event_source.clone()));
+                set_connected.set(true);
+
+                let on_message = Closure::wrap(Box::new(move |ev: web_sys::MessageEvent| {
+                    if let Some(data) = ev.data().as_string() {
+                        if let Ok(event) = serde_json::from_str::<NotificationEvent>(&data) {
+                            set_unread_count.update(|c| *c += 1);
+                            set_notifications.update(|n| {
+                                n.insert(0, event);
+                                n.truncate(50);
+                            });
+                        }
                     }
-                }
-            }) as Box<dyn FnMut(_)>);
+                }) as Box<dyn FnMut(_)>);
 
-            let on_error = Closure::wrap(Box::new(move |_: web_sys::Event| {
-                set_connected.set(false);
-            }) as Box<dyn FnMut(_)>);
+                let on_error = Closure::wrap(Box::new(move |_: web_sys::Event| {
+                    set_reconnecting.set(true);
+                    set_connected.set(false);
+                    leptos::task::spawn_local(async move {
+                        TimeoutFuture::new(5000).await;
+                        set_reconnecting.set(false);
+                    });
+                }) as Box<dyn FnMut(_)>);
 
-            let _ = event_source.add_event_listener_with_callback(
-                "message",
-                on_message.as_ref().unchecked_ref(),
-            );
-            let _ = event_source.add_event_listener_with_callback(
-                "error",
-                on_error.as_ref().unchecked_ref(),
-            );
+                let _ = event_source.add_event_listener_with_callback(
+                    "message",
+                    on_message.as_ref().unchecked_ref(),
+                );
+                let _ = event_source.add_event_listener_with_callback(
+                    "error",
+                    on_error.as_ref().unchecked_ref(),
+                );
 
-            on_message.forget();
-            on_error.forget();
-        });
+                let _ = on_message.into_js_value();
+                let _ = on_error.into_js_value();
+            });
+        }
     };
 
     Effect::new(move |_| {
-        let _ = connected.get();
-        connect_sse();
+        let is_connected = connected.get();
+        let is_reconnecting = reconnecting.get();
+        if !is_connected && !is_reconnecting {
+            connect_sse();
+        }
     });
 
     let mark_all_read = move |_| {
