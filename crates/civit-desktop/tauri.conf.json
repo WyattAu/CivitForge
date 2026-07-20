@@ -1,12 +1,20 @@
 {
   "productName": "CivitForge",
   "version": "1.5.0",
-  "identifier": "dev.civitforge.desktop",
+  "identifier": "com.civitforge.app",
   "build": {
     "frontendDist": "../civit-ui/dist",
     "devUrl": "http://127.0.0.1:9092",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 24
+    },
+    "iOS": {
+      "minimumSystemVersion": "15.0"
+    }
   },
   "app": {
     "windows": [

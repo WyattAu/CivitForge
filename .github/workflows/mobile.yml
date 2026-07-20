@@ -1,0 +1,43 @@
+name: Mobile Build
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+      - name: Build Android
+        run: |
+          cd crates/civit-desktop
+          cargo tauri android init
+          cargo tauri android build --target aarch64
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: civitforge-android
+          path: crates/civit-desktop/gen/android/app/build/outputs/apk/**/*.apk
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build iOS
+        run: |
+          cd crates/civit-desktop
+          cargo tauri ios init
+          cargo tauri ios build
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: civitforge-ios
+          path: crates/civit-desktop/gen/apple/build/**/*.ipa

@@ -11,14 +11,23 @@ description = "CivitForge desktop application (Tauri shell)"
 tauri = { version = "2", features = ["wry", "tray-icon", "devtools"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-fs = "2"
+tauri-plugin-shell = { version = "2", optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
+tauri-plugin-fs = { version = "2", optional = true }
 open = "5"
 base64 = "0.22"
 chrono = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 dirs = "6"
 
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-deep-link = { version = "2", optional = true }
+tauri-plugin-notification = { version = "2", optional = true }
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+
+[features]
+default = ["desktop"]
+mobile = ["tauri-plugin-deep-link", "tauri-plugin-notification"]
+desktop = ["tauri-plugin-shell", "tauri-plugin-dialog", "tauri-plugin-fs"]

@@ -34,6 +34,8 @@ Plus `civit-ui` (Leptos CSR WASM frontend with Tailwind CSS v4) and `civit-deskt
 |----------|--------|--------|
 | Desktop Web | ✅ | Docker / Native |
 | Mobile Web | ✅ | Responsive SPA |
+| Android | ✅ | Tauri Mobile |
+| iOS | ✅ | Tauri Mobile |
 | Linux | ✅ | Docker (amd64/arm64) / Tauri |
 | Windows | ✅ | Tauri Desktop / Native build |
 | macOS | ✅ | Tauri Desktop |
@@ -64,6 +66,20 @@ curl http://localhost:9091/healthz
 
 ```bash
 cargo build --release --workspace
+```
+
+### Mobile Build
+
+```bash
+# Android
+cd crates/civit-desktop
+cargo tauri android init
+cargo tauri android build --target aarch64
+
+# iOS (macOS only)
+cd crates/civit-desktop
+cargo tauri ios init
+cargo tauri ios build
 ```
 
 ### Helm (Kubernetes)
