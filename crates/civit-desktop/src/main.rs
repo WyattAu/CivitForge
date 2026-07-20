@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
 use std::fs;
 use std::io::Write;
@@ -679,7 +679,15 @@ fn spawn_embedded_server(app: &tauri::AppHandle, auto_login_json: &str) {
     eprintln!("[civit-desktop] Warning: server may not be ready");
 }
 
+#[allow(unsafe_code)]
 fn main() {
+    // Fix Wayland/WebKitGTK GBM buffer allocation failure.
+    // SAFETY: called at process start before any threads are spawned.
+    unsafe {
+        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+        std::env::set_var("GDK_RENDERING", "image");
+    }
+
     run();
 }
 
