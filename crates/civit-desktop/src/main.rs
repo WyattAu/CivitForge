@@ -7,6 +7,25 @@ use tauri::Manager;
 mod sync_benchmark;
 mod tray;
 
+/// Return a platform-appropriate temporary directory for CivitForge captures.
+fn civit_tmp_dir() -> std::path::PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        std::env::temp_dir().join("civitforge")
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::path::PathBuf::from("/tmp")
+    }
+}
+
+/// Ensure the CivitForge temp directory exists.
+fn ensure_civit_tmp() -> std::path::PathBuf {
+    let dir = civit_tmp_dir();
+    let _ = fs::create_dir_all(&dir);
+    dir
+}
+
 /// CLI args for auto-login: --username X --email X --display-name X
 /// --server-url URL  Connect to a remote backend (skip local spawn)
 struct CliArgs {
@@ -67,77 +86,154 @@ fn open_external_url(url: String) -> Result<(), String> {
     open::that(url).map_err(|e| e.to_string())
 }
 
-/// Capture the current page HTML and save it to /tmp/civit-capture.html.
+/// Capture the current page HTML and save it to <tmpdir>/civit-capture.html.
 /// Triggered by Ctrl+Shift+H from the injected JS keydown listener.
 #[tauri::command]
 fn save_page_html(html: String) -> Result<String, String> {
-    let path = "/tmp/civit-capture.html";
+    let dir = ensure_civit_tmp();
+    let path = dir.join("civit-capture.html");
+    let path_str = path.to_string_lossy().to_string();
     let mut file =
-        fs::File::create(path).map_err(|e| format!("Failed to create {path}: {e}"))?;
+        fs::File::create(&path).map_err(|e| format!("Failed to create {path_str}: {e}"))?;
     file.write_all(html.as_bytes())
-        .map_err(|e| format!("Failed to write {path}: {e}"))?;
-    eprintln!("[civit-desktop] Page HTML captured to {path} ({} bytes)", html.len());
-    Ok(format!("Saved to {path} ({} bytes)", html.len()))
+        .map_err(|e| format!("Failed to write {path_str}: {e}"))?;
+    eprintln!("[civit-desktop] Page HTML captured to {path_str} ({} bytes)", html.len());
+    Ok(format!("Saved to {path_str} ({} bytes)", html.len()))
 }
 
-/// Take a screenshot of the entire display and save to /tmp/civit-screenshot-<timestamp>.png.
+/// Take a screenshot of the entire display and save to <tmpdir>/civit-screenshot-<timestamp>.png.
 /// Triggered by Ctrl+Shift+S from the injected JS keydown listener.
-/// Also saves a copy to /tmp/civit-screenshot-latest.png for easy reference.
+/// Also saves a copy to <tmpdir>/civit-screenshot-latest.png for easy reference.
 /// Falls back gracefully on each platform when no screenshot tool is available.
 #[tauri::command]
 fn take_screenshot() -> Result<String, String> {
+    let dir = ensure_civit_tmp();
     let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-    let filename = format!("/tmp/civit-screenshot-{ts}.png");
-    let latest = "/tmp/civit-screenshot-latest.png";
+    let filename = dir.join(format!("civit-screenshot-{ts}.png"));
+    let latest = dir.join("civit-screenshot-latest.png");
+    let filename_str = filename.to_string_lossy().to_string();
 
     // Try platform-specific screenshot tools in order of preference
-    // Wayland: grim → X11: maim/scrot/import → macOS: screencapture → Windows: SnippingTool/PowerShell
+    // Wayland: grim → X11: maim/scrot/import → Windows: nircmd/Powershell → macOS: screencapture
+    #[cfg(not(target_os = "windows"))]
     let commands: &[(&str, &[&str])] = &[
         // Wayland native
-        ("grim", &[filename.as_str()]),
+        ("grim", &[filename_str.as_str()]),
         // X11 tools
-        ("maim", &[filename.as_str()]),
-        ("scrot", &[filename.as_str()]),
-        ("import", &["-window", "root", filename.as_str()]),
+        ("maim", &[filename_str.as_str()]),
+        ("scrot", &[filename_str.as_str()]),
+        ("import", &["-window", "root", filename_str.as_str()]),
+    ];
+
+    #[cfg(target_os = "windows")]
+    let commands: &[(&str, &[&str])] = &[
+        // nircmd: lightweight Windows CLI utility for screenshots
+        ("nircmd", &["screenshot", "full", filename_str.as_str()]),
     ];
 
     for (cmd, args) in commands {
         if let Ok(output) = std::process::Command::new(cmd).args(*args).output() {
             if output.status.success() {
-                // Copy to latest symlink
-                let _ = std::fs::copy(&filename, latest);
+                let _ = std::fs::copy(&filename, &latest);
                 let size = std::fs::metadata(&filename)
                     .map(|m| m.len())
                     .unwrap_or(0);
                 eprintln!(
-                    "[civit-desktop] Screenshot captured to {filename} ({size} bytes) via {cmd}"
+                    "[civit-desktop] Screenshot captured to {filename_str} ({size} bytes) via {cmd}"
                 );
                 return Ok(format!(
-                    "Screenshot saved to {filename} ({size} bytes) via {cmd}"
+                    "Screenshot saved to {filename_str} ({size} bytes) via {cmd}"
+                ));
+            }
+        }
+    }
+
+    // Windows fallback: use PowerShell to capture via .NET
+    #[cfg(target_os = "windows")]
+    {
+        let ps_script = format!(
+            r#"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+$graphics = [System.Drawing.Graphics]::FromImage($bmp)
+$graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+$bmp.Save('{filename_str}')
+$graphics.Dispose()
+$bmp.Dispose()
+Write-Output 'ok'
+"#,
+            filename_str = filename_str.replace('\'', "''")
+        );
+        if let Ok(output) = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps_script])
+            .output()
+        {
+            if output.status.success() {
+                let _ = std::fs::copy(&filename, &latest);
+                let size = std::fs::metadata(&filename)
+                    .map(|m| m.len())
+                    .unwrap_or(0);
+                eprintln!(
+                    "[civit-desktop] Screenshot captured to {filename_str} ({size} bytes) via PowerShell"
+                );
+                return Ok(format!(
+                    "Screenshot saved to {filename_str} ({size} bytes) via PowerShell"
                 ));
             }
         }
     }
 
     // No tool found — provide helpful install instructions
+    #[cfg(target_os = "windows")]
+    eprintln!(
+        "[civit-desktop] No screenshot tool found. Install nircmd or ensure PowerShell is available."
+    );
+    #[cfg(not(target_os = "windows"))]
     eprintln!(
         "[civit-desktop] No screenshot tool found. Install grim (Wayland) or maim/scrot (X11)."
     );
-    Err(format!(
-        "No screenshot tool found. Install one of: grim (Wayland), maim, scrot (X11), import (ImageMagick). \
-         Screenshot file would be: {filename}"
-    ))
+
+    #[cfg(target_os = "windows")]
+    {
+        Err(format!(
+            "No screenshot tool found. Install nircmd, or ensure PowerShell has System.Windows.Forms available. \
+             Screenshot file would be: {filename_str}"
+        ))
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Err(format!(
+            "No screenshot tool found. Install one of: grim (Wayland), maim, scrot (X11), import (ImageMagick). \
+             Screenshot file would be: {filename_str}"
+        ))
+    }
 }
 
 /// Check if a screenshot tool is available and return its name.
 #[tauri::command]
 fn screenshot_tool_available() -> String {
-    for cmd in &["grim", "maim", "scrot", "import"] {
+    #[cfg(target_os = "windows")]
+    let tools = ["nircmd"];
+    #[cfg(not(target_os = "windows"))]
+    let tools = ["grim", "maim", "scrot", "import"];
+
+    for cmd in &tools {
         if which_tool(cmd) {
             return cmd.to_string();
         }
     }
-    String::new()
+
+    // On Windows, PowerShell is always available as a fallback
+    #[cfg(target_os = "windows")]
+    {
+        return "powershell".to_string();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        String::new()
+    }
 }
 
 /// Check if a command-line tool exists on PATH.
@@ -151,13 +247,14 @@ fn which_tool(name: &str) -> bool {
 }
 
 /// Read the navigation trigger file and return the URL to navigate to.
-/// The test script writes /tmp/civit-navigate.txt with a URL path.
+/// The test script writes <tmpdir>/civit-navigate.txt with a URL path.
 #[tauri::command]
 fn read_navigate_trigger() -> Result<String, String> {
-    let path = "/tmp/civit-navigate.txt";
-    let url = fs::read_to_string(path).unwrap_or_default();
+    let dir = civit_tmp_dir();
+    let path = dir.join("civit-navigate.txt");
+    let url = fs::read_to_string(&path).unwrap_or_default();
     // Clear the file after reading (consume the trigger)
-    let _ = fs::write(path, "");
+    let _ = fs::write(&path, "");
     Ok(url)
 }
 
@@ -315,8 +412,9 @@ pub fn run() {
                                         html.push_str(&String::from_utf8_lossy(&remaining[..total_read]));
                                     }
                                     
-                                    let _ = std::fs::write("/tmp/civit-capture.html", &html);
-                                    eprintln!("[capture] Saved {} bytes to /tmp/civit-capture.html", html.len());
+                                    let capture_path = civit_tmp_dir().join("civit-capture.html");
+                                    let _ = std::fs::write(&capture_path, &html);
+                                    eprintln!("[capture] Saved {} bytes to {}", html.len(), capture_path.display());
                                     let resp = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nAccess-Control-Allow-Origin: *\r\n\r\nOK";
                                     let _ = stream.write_all(resp.as_bytes());
                                     let _ = stream.flush();
@@ -331,17 +429,17 @@ pub fn run() {
                                  // GET endpoints
                                  let (body, content_type, status, redirect) = match &path[..] {
                                     "/__navigate__" => {
+                                        let nav_path = civit_tmp_dir().join("civit-navigate.txt");
                                         let url =
-                                            std::fs::read_to_string("/tmp/civit-navigate.txt")
+                                            std::fs::read_to_string(&nav_path)
                                                 .unwrap_or_default();
-                                        let _ = std::fs::write("/tmp/civit-navigate.txt", "");
+                                        let _ = std::fs::write(&nav_path, "");
                                         (url.into_bytes(), "text/plain", 200, None)
                                     }
                                     "/__capture__" => {
-                                        let html = std::fs::read_to_string(
-                                            "/tmp/civit-capture.html",
-                                        )
-                                        .unwrap_or_default();
+                                        let cap_path = civit_tmp_dir().join("civit-capture.html");
+                                        let html = std::fs::read_to_string(&cap_path)
+                                            .unwrap_or_default();
                                         (html.into_bytes(), "text/html", 200, None)
                                     }
                                     "/__logout__" => {
@@ -488,10 +586,10 @@ fn spawn_embedded_server(app: &tauri::AppHandle, auto_login_json: &str) {
         .env(
             "CIVIT_STORAGE_PATH",
             std::env::var("CIVIT_STORAGE_PATH").unwrap_or_else(|_| {
-                format!(
-                    "{}/.local/share/civitforge/data",
-                    dirs::home_dir().unwrap_or_default().display()
-                )
+                let home = dirs::home_dir().unwrap_or_default();
+                home.join(".local/share/civitforge/data")
+                    .to_string_lossy()
+                    .to_string()
             }),
         )
         .stdout(std::process::Stdio::piped())

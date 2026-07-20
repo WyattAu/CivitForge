@@ -1,0 +1,39 @@
+# Dockerfile.windows — Windows container support for CivitForge
+#
+# Windows containers are supported via Tauri desktop app distribution,
+# not as a server deployment target. This file documents the Windows build
+# environment for CI/CD and local development.
+#
+# For server deployment, use the Linux-based Dockerfiles in container/.
+# For desktop usage, build the Tauri app:
+#   cd crates/civit-desktop && cargo tauri build
+#
+# Windows Docker is only useful for building the Tauri desktop app in CI
+# or for running the server natively on Windows (without containers).
+
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Install Rust via rustup
+RUN Invoke-WebRequest -Uri "https://win.rustup.rs/x86_64" -OutFile "$env:TEMP\rustup-init.exe"; \
+    Start-Process -Wait -FilePath "$env:TEMP\rustup-init.exe" -ArgumentList '-y', '--default-toolchain', '1.96', '--default-host', 'x86_64-pc-windows-msvc'; \
+    Remove-Item "$env:TEMP\rustup-init.exe"
+
+ENV PATH="${USERPROFILE}\\.cargo\\bin;${PATH}"
+
+# Install protobuf compiler
+RUN Invoke-WebRequest -Uri "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-win64.zip" -OutFile "$env:TEMP\protoc.zip"; \
+    Expand-Archive -Path "$env:TEMP\protoc.zip" -DestinationPath "C:\\protoc"; \
+    Remove-Item "$env:TEMP\protoc.zip"
+
+ENV PATH="C:\\protoc\\bin;${PATH}"
+
+WORKDIR /app
+COPY . .
+
+RUN cargo build --release --locked
+
+EXPOSE 8080 2222 9090
+
+CMD ["target\\release\\civit-core.exe"]

@@ -56,17 +56,27 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.RUST_VERSION }}
       - uses: Swatinem/rust-cache@v2
-      - name: Install protobuf compiler
+      - name: Install protobuf compiler (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install protobuf compiler (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install protoc -y --no-progress
+          echo "C:\ProgramData\chocolatey\lib\protoc\tools\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       # Tests requiring PostgreSQL are #[ignore]-gated; they are skipped here.
       # CI without a DB validates that all other tests compile and pass.
       - run: cargo test --workspace --locked

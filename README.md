@@ -28,6 +28,16 @@ Plus `civit-ui` (Leptos CSR WASM frontend with Tailwind CSS v4) and `civit-deskt
 
 ## Quick Start
 
+### Platform Support
+
+| Platform | Status | Method |
+|----------|--------|--------|
+| Desktop Web | ✅ | Docker / Native |
+| Mobile Web | ✅ | Responsive SPA |
+| Linux | ✅ | Docker (amd64/arm64) / Tauri |
+| Windows | ✅ | Tauri Desktop / Native build |
+| macOS | ✅ | Tauri Desktop |
+
 ### Docker Compose
 
 ```bash
