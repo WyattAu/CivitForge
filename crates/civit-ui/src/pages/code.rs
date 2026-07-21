@@ -11,7 +11,9 @@ use crate::utils::*;
 
 #[derive(Clone, serde::Deserialize)]
 pub struct TreeEntry {
+    #[serde(default)]
     pub path: String,
+    #[serde(alias = "name", alias = "type", default)]
     pub entry_type: String,
     #[serde(default)]
     pub size: u64,
@@ -44,11 +46,20 @@ struct BranchInfo {
 #[derive(Clone, serde::Deserialize)]
 #[allow(dead_code)]
 struct PaginatedTreeResponse {
+    #[serde(default, alias = "data")]
     entries: Vec<TreeEntry>,
+    #[serde(default)]
     total: usize,
+    #[serde(default)]
     page: usize,
+    #[serde(default = "default_per_page")]
     per_page: usize,
+    #[serde(default)]
     total_pages: usize,
+}
+
+fn default_per_page() -> usize {
+    50
 }
 
 #[derive(Clone, serde::Deserialize)]

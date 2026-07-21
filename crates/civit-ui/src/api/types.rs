@@ -154,23 +154,41 @@ pub struct SshKeyResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PullRequestResponse {
+    #[serde(default)]
     pub id: String,
+    #[serde(default)]
     pub number: i32,
+    #[serde(default)]
     pub title: String,
+    #[serde(default)]
     pub body: String,
+    #[serde(default, alias = "state")]
     pub status: String,
+    #[serde(default)]
     pub draft: bool,
+    #[serde(default, alias = "head", alias = "source")]
     pub source_branch: String,
+    #[serde(default, alias = "base", alias = "target")]
     pub target_branch: String,
+    #[serde(default)]
     pub merge_commit_id: Option<String>,
+    #[serde(default)]
     pub head_commit_sha: Option<String>,
+    #[serde(default)]
     pub base_commit_sha: Option<String>,
+    #[serde(default)]
     pub merge_strategy: String,
+    #[serde(default, alias = "user")]
     pub author_id: String,
+    #[serde(default)]
     pub repo_id: String,
+    #[serde(default)]
     pub created_at: String,
+    #[serde(default)]
     pub updated_at: String,
+    #[serde(default)]
     pub merged_at: Option<String>,
+    #[serde(default)]
     pub closed_at: Option<String>,
     #[serde(default)]
     pub mergeable: Option<bool>,
@@ -192,27 +210,43 @@ pub struct PullRequestResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PullRequestLabel {
+    #[serde(default)]
     pub id: String,
+    #[serde(default)]
     pub repo_id: String,
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub color: Option<String>,
+    #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
     pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PullRequestReviewer {
+    #[serde(default)]
     pub user_id: String,
+    #[serde(default)]
     pub review_status: String,
     pub submitted_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PullRequestListResponse {
+    #[serde(default, alias = "data")]
     pub items: Vec<PullRequestResponse>,
+    #[serde(default)]
     pub total: i64,
+    #[serde(default)]
     pub page: i32,
+    #[serde(default = "default_per_page")]
     pub per_page: i32,
+}
+
+fn default_per_page() -> i32 {
+    20
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
