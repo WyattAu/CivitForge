@@ -1163,7 +1163,7 @@ pub fn CodePage() -> impl IntoView {
                         </svg>
                         <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">"No files found"</h3>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            "Push a commit to see the repository file tree."
+                            "This repository may not have any commits yet, or the file tree is not available."
                         </p>
                     </div>
                 </Card>
