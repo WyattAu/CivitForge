@@ -418,20 +418,35 @@ pub fn run() {
                         .filter(|d| d.exists());
 
                     if let Some(dist) = dist_dir {
-                        let serve_port: u16 = 9092;
                         let dist_clone = dist.clone();
+                        let actual_port = std::sync::Arc::new(std::sync::atomic::AtomicU16::new(0));
+                        let actual_port_clone = actual_port.clone();
                         std::thread::spawn(move || {
                             // Wait for window to be ready
                             std::thread::sleep(std::time::Duration::from_millis(500));
-                            let addr = std::net::SocketAddr::from((
-                                [127, 0, 0, 1], serve_port,
-                            ));
-                            let listener = std::net::TcpListener::bind(addr)
-                                .expect("Failed to bind local file server");
-                            eprintln!(
-                                "[civit-desktop] Serving WASM dist on http://127.0.0.1:{serve_port} from {}",
-                                dist.display()
-                            );
+                            // Try ports 9092-9100 to avoid crash on port conflict
+                            let mut listener = None;
+                            for port in 9092u16..9100 {
+                                let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+                                match std::net::TcpListener::bind(addr) {
+                                    Ok(l) => {
+                                        listener = Some(l);
+                                        actual_port_clone.store(port, std::sync::atomic::Ordering::Relaxed);
+                                        eprintln!(
+                                            "[civit-desktop] Serving WASM dist on http://127.0.0.1:{port} from {}",
+                                            dist.display()
+                                        );
+                                        break;
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[civit-desktop] Port {port} busy: {e}");
+                                    }
+                                }
+                            }
+                            let Some(listener) = listener else {
+                                eprintln!("[civit-desktop] ERROR: No free port for file server (9092-9100). App may not render.");
+                                return;
+                            };
                             for stream in listener.incoming().flatten() {
                                 let dist_inner = dist_clone.clone();
                                 std::thread::spawn(move || {
@@ -490,73 +505,82 @@ pub fn run() {
                                     if handled {
                                         // POST handled, skip GET processing
                                     } else {
-                                     // GET endpoints
-                                     let (body, content_type, status, redirect) = match &path[..] {
-                                        "/__navigate__" => {
-                                            let nav_path = civit_tmp_dir().join("civit-navigate.txt");
-                                            let url =
-                                                std::fs::read_to_string(&nav_path)
-                                                    .unwrap_or_default();
-                                            let _ = std::fs::write(&nav_path, "");
-                                            (url.into_bytes(), "text/plain", 200, None)
+                                     // GET/POST endpoints
+                                     let (body, content_type, status, redirect) = if path.starts_with("/api/") {
+                                        // Proxy API requests to the backend server
+                                        let api_backend = "http://127.0.0.1:9091";
+                                        let proxy_url = format!("{api_backend}{path}");
+                                        match reqwest::blocking::get(&proxy_url) {
+                                            Ok(resp) => {
+                                                let ct = resp.headers().get("content-type")
+                                                    .and_then(|v| v.to_str().ok())
+                                                    .unwrap_or("application/json")
+                                                    .to_string();
+                                                let status_code = resp.status().as_u16();
+                                                let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
+                                                (body, ct, status_code, None)
+                                            }
+                                            Err(e) => {
+                                                eprintln!("[civit-desktop] API proxy error: {e}");
+                                                (b"{}".to_vec(), "application/json".to_string(), 502, None)
+                                            }
                                         }
-                                        "/__capture__" => {
-                                            let cap_path = civit_tmp_dir().join("civit-capture.html");
-                                            let html = std::fs::read_to_string(&cap_path)
-                                                .unwrap_or_default();
-                                            (html.into_bytes(), "text/html", 200, None)
-                                        }
-                                        "/__logout__" => {
-                                            // Redirect to login page after logout
-                                            (Vec::new(), "text/html", 302, Some("/login".to_string()))
-                                        }
-                                        _ => {
-                                            // SPA fallback: serve index.html for all non-file paths
-                                            let file_path = if path == "/" {
-                                                dist_inner.join("index.html")
-                                            } else {
-                                                let candidate = dist_inner.join(path.trim_start_matches('/'));
-                                                if candidate.is_file() {
-                                                    candidate
-                                                } else {
+                                     } else {
+                                        match &path[..] {
+                                            "/__navigate__" => {
+                                                let nav_path = civit_tmp_dir().join("civit-navigate.txt");
+                                                let url = std::fs::read_to_string(&nav_path).unwrap_or_default();
+                                                let _ = std::fs::write(&nav_path, "");
+                                                (url.into_bytes(), "text/plain".to_string(), 200u16, None)
+                                            }
+                                            "/__capture__" => {
+                                                let cap_path = civit_tmp_dir().join("civit-capture.html");
+                                                let html = std::fs::read_to_string(&cap_path).unwrap_or_default();
+                                                (html.into_bytes(), "text/html".to_string(), 200u16, None)
+                                            }
+                                            "/__logout__" => {
+                                                (Vec::new(), "text/html".to_string(), 302u16, Some("/login".to_string()))
+                                            }
+                                            _ => {
+                                                // SPA fallback: serve index.html for all non-file paths
+                                                let file_path = if path == "/" {
                                                     dist_inner.join("index.html")
-                                                }
-                                            };
-                                            let body =
-                                                std::fs::read(&file_path).unwrap_or_default();
-                                            let ext = file_path
-                                                .extension()
-                                                .and_then(|e| e.to_str())
-                                                .unwrap_or("");
-                                            let content_type = match ext {
-                                                "html" => "text/html",
-                                                "js" => "application/javascript",
-                                                "wasm" => "application/wasm",
-                                                "css" => "text/css",
-                                                "json" => "application/json",
-                                                "svg" => "image/svg+xml",
-                                                "ico" => "image/x-icon",
-                                                _ => "application/octet-stream",
-                                            };
-                                              (body, content_type, 200, None)
-                                          }
-                                      };
-                                      let status_line = if status == 302 {
-                                          format!("HTTP/1.1 302 Found\r\nLocation: {}\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: 0\r\n\r\n", redirect.as_deref().unwrap_or("/"))
-                                      } else {
-                                          format!(
-                                             "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
-                                              Content-Length: {}\r\nAccess-Control-Allow-Origin: *\r\n\
-                                              Access-Control-Allow-Headers: *\r\n\r\n",
-                                             body.len()
-                                         )
-                                      };
-                                      let _ = stream.write_all(status_line.as_bytes());
-                                      if status != 302 {
-                                          let _ = stream.write_all(&body);
-                                      }
-                                      let _ = stream.flush();
-                                     } // end else (GET processing)
+                                                } else {
+                                                    let candidate = dist_inner.join(path.trim_start_matches('/'));
+                                                    if candidate.is_file() { candidate } else { dist_inner.join("index.html") }
+                                                };
+                                                let body = std::fs::read(&file_path).unwrap_or_default();
+                                                let ext = file_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+                                                let content_type = match ext {
+                                                    "html" => "text/html",
+                                                    "js" => "application/javascript",
+                                                    "wasm" => "application/wasm",
+                                                    "css" => "text/css",
+                                                    "json" => "application/json",
+                                                    "svg" => "image/svg+xml",
+                                                    "ico" => "image/x-icon",
+                                                    _ => "application/octet-stream",
+                                                };
+                                                (body, content_type.to_string(), 200u16, None)
+                                            }
+                                        }
+                                     };
+                                     let status_line = if status == 302 {
+                                         format!("HTTP/1.1 302 Found\r\nLocation: {}\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: 0\r\n\r\n", redirect.as_deref().unwrap_or("/"))
+                                     } else {
+                                         format!(
+                                            "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\n\
+                                             Content-Length: {}\r\nAccess-Control-Allow-Origin: *\r\n\
+                                             Access-Control-Allow-Headers: *\r\n\r\n",
+                                            body.len()
+                                        )
+                                     };
+                                     let _ = stream.write_all(status_line.as_bytes());
+                                     if status != 302 {
+                                         let _ = stream.write_all(&body);
+                                     }
+                                     let _ = stream.flush();
+                                    } // end else (GET processing)
                                  });
                             }
                         });
@@ -575,12 +599,18 @@ pub fn run() {
 
                     // Navigate to local WASM server in background
                     let nav_window = window.clone();
+                    let nav_port = actual_port.clone();
                     std::thread::spawn(move || {
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                        let _ = nav_window.eval(
-                            "window.location.href = 'http://127.0.0.1:9092/';"
-                        );
-                        eprintln!("[civit-desktop] Navigated to local WASM server");
+                        // Wait for the file server to bind
+                        let port = loop {
+                            let p = nav_port.load(std::sync::atomic::Ordering::Relaxed);
+                            if p > 0 { break p; }
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                        };
+                        let _ = nav_window.eval(&format!(
+                            "window.location.href = 'http://127.0.0.1:{port}/';"
+                        ));
+                        eprintln!("[civit-desktop] Navigated to local WASM server on port {port}");
                     });
                 }
                     if !auto_login.is_empty() {

@@ -210,23 +210,33 @@ pub fn Sidebar() -> impl IntoView {
                         tabindex="0"
                         aria-label="Toggle dark mode"
                         on:click=move |_| {
-                            let doc = web_sys::window().unwrap().document().unwrap();
-                            let html = doc.document_element().unwrap();
-                            let is_dark = html.class_list().contains("dark");
-                            if is_dark {
-                                let _ = html.class_list().remove_1("dark");
-                                let _ = web_sys::window().unwrap().local_storage().unwrap().unwrap().set_item("theme", "light");
-                            } else {
-                                let _ = html.class_list().add_1("dark");
-                                let _ = web_sys::window().unwrap().local_storage().unwrap().unwrap().set_item("theme", "dark");
-                            }
+                            let toggle = || -> Option<()> {
+                                let window = web_sys::window()?;
+                                let doc = window.document()?;
+                                let html = doc.document_element()?;
+                                let is_dark = html.class_list().contains("dark");
+                                if is_dark {
+                                    let _ = html.class_list().remove_1("dark");
+                                    let storage = window.local_storage().ok().flatten()?;
+                                    let _ = storage.set_item("theme", "light");
+                                } else {
+                                    let _ = html.class_list().add_1("dark");
+                                    let storage = window.local_storage().ok().flatten()?;
+                                    let _ = storage.set_item("theme", "dark");
+                                }
+                                Some(())
+                            };
+                            toggle();
                         }
                     >
                         <span class="font-mono text-xs">{
                             move || {
-                                let doc = web_sys::window().unwrap().document().unwrap();
-                                let html = doc.document_element().unwrap();
-                                if html.class_list().contains("dark") { "Dark" } else { "Light" }
+                                let is_dark = web_sys::window()
+                                    .and_then(|w| w.document())
+                                    .and_then(|d| d.document_element())
+                                    .map(|h| h.class_list().contains("dark"))
+                                    .unwrap_or(true);
+                                if is_dark { "Dark" } else { "Light" }
                             }
                         }</span>
                         " Toggle Theme"
