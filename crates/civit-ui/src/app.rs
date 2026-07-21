@@ -6,12 +6,28 @@ use leptos_router::path;
 
 use crate::pages::*;
 use crate::state::auth::provide_auth_context;
+use crate::theme::Theme;
 
 #[component]
 pub fn App() -> impl IntoView {
-    // Initialize locale from localStorage before rendering
-    crate::i18n::init_locale_from_storage();
+    // ── Layer 0: Synchronous init (before Leptos mounts) ──
+    // Theme: already applied by inline JS in index.html
+    // Locale: already set by inline JS in index.html
+
+    // ── Layer 1: Reactive providers ──
     provide_auth_context();
+    let _i18n = crate::i18n::provide_i18n();
+
+    // Initialize theme reactive state from DOM (already applied by inline JS)
+    let initial_theme = Theme::from_storage_value(get_theme_from_storage().as_deref());
+    let (theme_sig, set_theme) = signal(initial_theme);
+
+    // Provide theme context for child components
+    provide_context(ThemeContext {
+        theme: theme_sig,
+        set_theme,
+    });
+
     view! {
         <Router>
             <div class="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
@@ -73,5 +89,35 @@ pub fn App() -> impl IntoView {
                 </main>
             </div>
         </Router>
+    }
+}
+
+/// Theme context provided to all child components.
+#[derive(Clone, Copy)]
+pub struct ThemeContext {
+    pub theme: ReadSignal<Theme>,
+    pub set_theme: WriteSignal<Theme>,
+}
+
+impl ThemeContext {
+    /// Toggle theme: update signal, persist, apply DOM.
+    pub fn toggle(&self) {
+        let new = Theme::toggle_and_persist(self.theme.get_untracked());
+        self.set_theme.set(new);
+    }
+}
+
+fn get_theme_from_storage() -> Option<String> {
+    #[cfg(feature = "csr")]
+    {
+        web_sys::window()
+            .and_then(|w| w.local_storage().ok())
+            .flatten()
+            .and_then(|s| s.get_item("civit-theme").ok())
+            .flatten()
+    }
+    #[cfg(not(feature = "csr"))]
+    {
+        None
     }
 }

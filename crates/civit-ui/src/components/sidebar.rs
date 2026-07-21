@@ -5,15 +5,16 @@ use leptos_router::components::A;
 use leptos_router::hooks::use_location;
 
 use crate::api::client::ApiClient;
+use crate::app::ThemeContext;
 use crate::components::Avatar;
 use crate::components::notification_stream::NotificationBell;
-use crate::i18n::{self, LOCALES, t};
+use crate::i18n::{self, Key, Locale};
 use crate::state::auth::use_auth;
 
 #[derive(Clone)]
 struct NavItem {
     href: String,
-    label: String,
+    label: Key,
     icon: &'static str,
 }
 
@@ -29,7 +30,8 @@ pub fn Sidebar() -> impl IntoView {
     let (mobile_open, set_mobile_open) = signal(false);
     let auth = use_auth();
     let location = use_location();
-    let (current_locale, set_current_locale) = signal(i18n::get_locale());
+    let i18n = crate::i18n::use_i18n();
+    let theme_ctx = expect_context::<ThemeContext>();
     let (site_settings, set_site_settings) = signal(None::<SiteSettingsCache>);
 
     // Fetch site settings for sidebar display
@@ -44,36 +46,12 @@ pub fn Sidebar() -> impl IntoView {
     });
 
     let main_nav_items = vec![
-        NavItem {
-            href: "/".into(),
-            label: "nav.home".to_string(),
-            icon: "[H]",
-        },
-        NavItem {
-            href: "/repos".into(),
-            label: "nav.repos".to_string(),
-            icon: "[R]",
-        },
-        NavItem {
-            href: "/activity".into(),
-            label: "nav.activity".to_string(),
-            icon: "activity",
-        },
-        NavItem {
-            href: "/explore".into(),
-            label: "nav.explore".to_string(),
-            icon: "[Q]",
-        },
-        NavItem {
-            href: "/orgs".into(),
-            label: "nav.orgs".to_string(),
-            icon: "[O]",
-        },
-        NavItem {
-            href: "/search".into(),
-            label: "nav.search".to_string(),
-            icon: "svg",
-        },
+        NavItem { href: "/".into(), label: Key::NavHome, icon: "[H]" },
+        NavItem { href: "/repos".into(), label: Key::NavRepos, icon: "[R]" },
+        NavItem { href: "/activity".into(), label: Key::NavActivity, icon: "activity" },
+        NavItem { href: "/explore".into(), label: Key::NavExplore, icon: "[Q]" },
+        NavItem { href: "/orgs".into(), label: Key::NavOrgs, icon: "[O]" },
+        NavItem { href: "/search".into(), label: Key::NavSearch, icon: "svg" },
     ];
 
     let (main_nav_sig, _) = signal(main_nav_items);
@@ -83,6 +61,9 @@ pub fn Sidebar() -> impl IntoView {
                       dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white";
 
     let username = move || auth.0.with(|a| a.username.clone().unwrap_or_default());
+
+    // Pre-extract locale for reactive use in closures
+    let locale_for_nav = i18n.locale();
 
     view! {
         <aside
@@ -116,7 +97,7 @@ pub fn Sidebar() -> impl IntoView {
             <nav class="px-3 py-4 space-y-1 flex-1 overflow-y-auto">
                 <For each=move || main_nav_sig.get() key=|item| item.href.clone() let:item>
                     {
-                        let label_key = item.label.clone();
+                        let label_key = item.label;
                         let href = item.href.clone();
                         let href_for_current = item.href.clone();
                         let is_current = move || {
@@ -142,10 +123,7 @@ pub fn Sidebar() -> impl IntoView {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                     </svg>
                                 </Show>
-                                {move || {
-                                    let _locale = current_locale.get(); // subscribe to locale changes
-                                    t(&label_key)
-                                }}
+                                {move || i18n.tr(label_key)}
                             </A>
                         }
                     }
@@ -154,11 +132,11 @@ pub fn Sidebar() -> impl IntoView {
                 <Show when=move || auth.0.with(|a| a.is_authenticated && a.username.as_deref() != Some("")) fallback=|| view! { <div class="hidden"></div> }>
                     <div class="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            {move || { let _l = current_locale.get(); t("nav.create") }}
+                            {move || i18n.tr(Key::NavCreate)}
                         </div>
                         <A href="/new-repo" attr:class=link_class>
                             <span class="mr-2 font-mono text-xs">"[+]"</span>
-                            {move || { let _l = current_locale.get(); t("nav.new_repo") }}
+                            {move || i18n.tr(Key::NavNewRepo)}
                         </A>
                     </div>
                 </Show>
@@ -191,49 +169,34 @@ pub fn Sidebar() -> impl IntoView {
                                border border-gray-200 dark:border-gray-600"
                         on:change=move |ev| {
                             let val = event_target_value(&ev);
-                            i18n::save_locale_to_storage(&val);
-                            set_current_locale.set(val);
+                            if let Some(locale) = Locale::ALL.iter().find(|l| l.as_str() == val).copied() {
+                                i18n.set_locale(locale);
+                            }
                         }
                     >
-                        {LOCALES.iter().map(|(code, name)| {
-                            let code = *code;
-                            let name = *name;
+                        {Locale::ALL.iter().map(|locale| {
+                            let loc = *locale;
+                            let name = loc.native_name();
+                            let current = i18n.locale();
                             view! {
-                                <option value=code selected=move || current_locale.get() == code>{name}</option>
+                                <option value=loc.as_str() selected=move || i18n.locale() == loc>{name}</option>
                             }
                         }).collect_view()}
                     </select>
                 </div>
                 <div class="flex items-center gap-2 mb-2">
                     <NotificationBell />
-                    // Theme toggle — use <button> for WebKitGTK compatibility
+                    // Theme toggle — use <button> for WebKitGTK, ThemeContext for reactivity
                     <button
                         class="flex-1 block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
                         type="button"
                         aria-label="Toggle dark mode"
                         on:click=move |_| {
-                            let window = web_sys::window().unwrap();
-                            let doc = window.document().unwrap();
-                            let html = doc.document_element().unwrap();
-                            let is_dark = html.class_list().contains("dark");
-                            if is_dark {
-                                let _ = html.class_list().remove_1("dark");
-                                let _ = window.local_storage().unwrap().unwrap().set_item("civit-theme", "light");
-                            } else {
-                                let _ = html.class_list().add_1("dark");
-                                let _ = window.local_storage().unwrap().unwrap().set_item("civit-theme", "dark");
-                            }
+                            theme_ctx.toggle();
                         }
                     >
                         <span class="font-mono text-xs">{
-                            move || {
-                                let is_dark = web_sys::window()
-                                    .and_then(|w| w.document())
-                                    .and_then(|d| d.document_element())
-                                    .map(|h| h.class_list().contains("dark"))
-                                    .unwrap_or(true);
-                                if is_dark { "Dark" } else { "Light" }
-                            }
+                            move || if theme_ctx.theme.get() == crate::theme::Theme::Dark { "Dark" } else { "Light" }
                         }</span>
                         " Toggle Theme"
                     </button>
@@ -241,7 +204,7 @@ pub fn Sidebar() -> impl IntoView {
                 <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=move || view! {
                     <A href="/login">
                         <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">
-                            {move || { let _l = current_locale.get(); t("auth.sign_in") }}
+                            {move || i18n.tr(Key::AuthSignIn)}
                         </div>
                     </A>
                 }>
@@ -258,10 +221,8 @@ pub fn Sidebar() -> impl IntoView {
                         </A>
                         <A href="/settings" attr:class=link_class>
                             <span class="mr-2 font-mono text-xs">"[*]"</span>
-                            {move || { let _l = current_locale.get(); t("settings.title") }}
+                            {move || i18n.tr(Key::SettingsTitle)}
                         </A>
-                        // Sign out uses <a href> instead of <button on:click> to
-                        // avoid WebKit auto-fire bug. Link triggers JS logout function.
                         <a
                             href="javascript:void(0)"
                             data-action-logout=""
@@ -271,7 +232,7 @@ pub fn Sidebar() -> impl IntoView {
                         >
                             <span class="font-mono text-xs">"[X]"</span>
                             " "
-                            {move || { let _l = current_locale.get(); t("auth.sign_out") }}
+                            {move || i18n.tr(Key::AuthSignOut)}
                         </a>
                     </div>
                 </Show>
