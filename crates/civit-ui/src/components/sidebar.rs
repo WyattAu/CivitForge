@@ -203,16 +203,32 @@ pub fn Sidebar() -> impl IntoView {
                 </div>
                 <div class="flex items-center gap-2 mb-2">
                     <NotificationBell />
-                    // Theme toggle — uses data-theme-toggle attribute with JS-attached
-                    // click handler to avoid Leptos on:click WebKit auto-fire bug
+                    // Theme toggle
                     <div
-                        data-theme-toggle=""
                         class="flex-1 block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
                         role="button"
                         tabindex="0"
                         aria-label="Toggle dark mode"
+                        on:click=move |_| {
+                            let doc = web_sys::window().unwrap().document().unwrap();
+                            let html = doc.document_element().unwrap();
+                            let is_dark = html.class_list().contains("dark");
+                            if is_dark {
+                                let _ = html.class_list().remove_1("dark");
+                                let _ = web_sys::window().unwrap().local_storage().unwrap().unwrap().set_item("theme", "light");
+                            } else {
+                                let _ = html.class_list().add_1("dark");
+                                let _ = web_sys::window().unwrap().local_storage().unwrap().unwrap().set_item("theme", "dark");
+                            }
+                        }
                     >
-                        <span data-theme-toggle-icon="" class="font-mono text-xs">"Dark"</span>
+                        <span class="font-mono text-xs">{
+                            move || {
+                                let doc = web_sys::window().unwrap().document().unwrap();
+                                let html = doc.document_element().unwrap();
+                                if html.class_list().contains("dark") { "Dark" } else { "Light" }
+                            }
+                        }</span>
                         " Toggle Theme"
                     </div>
                 </div>

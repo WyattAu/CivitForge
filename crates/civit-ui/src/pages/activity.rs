@@ -11,7 +11,7 @@ use crate::utils::*;
 
 #[derive(Clone, serde::Deserialize)]
 pub struct ActivityItem {
-    pub id: String,
+    pub id: i64,
     pub actor_id: String,
     pub action: String,
     pub resource_type: String,
@@ -78,7 +78,7 @@ pub fn ActivityPage() -> impl IntoView {
     leptos::task::spawn_local(async move {
         let token = auth.0.with(|a| a.token.clone());
         let client = ApiClient::new(token);
-        match client.get("/activity?limit=50").await {
+        match client.get("/activity?per_page=50").await {
             Ok(resp) if resp.status().is_success() => {
                 match resp.json::<ListResponse<ActivityItem>>().await {
                     Ok(data) => set_activities.set(data.data),

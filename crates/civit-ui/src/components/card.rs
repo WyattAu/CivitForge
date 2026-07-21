@@ -7,7 +7,7 @@ pub fn Card(
     #[prop(optional)] title: String,
     #[prop(optional)] description: String,
     #[prop(optional)] class: String,
-    children: ChildrenFn,
+    children: Children,
 ) -> impl IntoView {
     let base = "bg-white dark:bg-gray-800 rounded-none shadow-sm \
                 border-2 border-gray-200 dark:border-gray-700";

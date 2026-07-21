@@ -11,8 +11,83 @@ use crate::components::{
 };
 use crate::state::auth::use_auth;
 use crate::utils::*;
-use civit_shared::org::OrgResponse;
-use civit_shared::visibility::Visibility;
+
+/// Local type matching the API's OrgResponse (civit-core/src/api/orgs.rs)
+/// which differs from civit_shared::org::OrgResponse.
+#[derive(Clone, serde::Deserialize)]
+struct OrgResponse {
+    id: String,
+    name: String,
+    display_name: String,
+    description: String,
+    visibility: String,
+    owner_id: String,
+    #[serde(default)]
+    member_count: u32,
+    #[serde(default)]
+    repo_count: u32,
+    created_at: String,
+    updated_at: String,
+}
+
+impl OrgResponse {
+    fn badge_color(&self) -> BadgeColor {
+        match self.visibility.as_str() {
+            "public" => BadgeColor::Success,
+            "internal" => BadgeColor::Info,
+            _ => BadgeColor::Neutral,
+        }
+    }
+}
+
+#[component]
+fn OrgCard(org: OrgResponse) -> impl IntoView {
+    let display = if org.display_name.is_empty() { org.name.clone() } else { org.display_name.clone() };
+    let initial: String = org.name.chars().next().unwrap_or_default().to_uppercase().collect();
+    let badge_color = org.badge_color();
+    let badge_text = org.visibility.clone();
+    let href = format!("/orgs/{}", org.id);
+    let org_name = org.name.clone();
+    let org_desc = org.description.clone();
+    let member_count = org.member_count;
+    let repo_count = org.repo_count;
+
+    view! {
+        <A href=href>
+            <Card>
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white font-bold text-lg select-none">
+                        {initial}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                {display}
+                            </span>
+                            <Badge color=badge_color text=badge_text />
+                        </div>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            {org_name}
+                        </p>
+                    </div>
+                </div>
+
+                {if !org_desc.is_empty() {
+                    view! {
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">{org_desc}</p>
+                    }.into_any()
+                } else {
+                    view! { <div class="hidden"></div> }.into_any()
+                }}
+
+                <div class="mt-4 flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+                    <span>{format!("{} members", member_count)}</span>
+                    <span>{format!("{} repos", repo_count)}</span>
+                </div>
+            </Card>
+        </A>
+    }
+}
 
 #[derive(Debug, Clone, serde::Serialize)]
 struct CreateOrgBody {
@@ -21,7 +96,7 @@ struct CreateOrgBody {
     display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     description: Option<String>,
-    visibility: Visibility,
+    visibility: String,
 }
 
 #[component]
@@ -79,11 +154,11 @@ pub fn OrgsPage() -> impl IntoView {
         }
 
         let vis = if !vis_public.is_empty() && vis_public == "on" {
-            Visibility::Public
+            "public".to_string()
         } else if !vis_private.is_empty() && vis_private == "on" {
-            Visibility::Private
+            "private".to_string()
         } else {
-            Visibility::Public
+            "public".to_string()
         };
 
         let body = CreateOrgBody {
@@ -157,51 +232,10 @@ pub fn OrgsPage() -> impl IntoView {
 
             <Show when=move || !loading.get() && !orgs_sig.with(|o| o.is_empty()) fallback=|| view! { <div></div> }>
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <For each=move || orgs_sig.get() key=|o| o.id let:org>
+                    <For each=move || orgs_sig.get() key=|o| o.id.clone() let:org>
                         {
-                            let org = org.clone();
-                            let card_class = "hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer".to_string();
                             view! {
-                                <A href=format!("/orgs/{}", org.id)>
-                                    <Card class=card_class>
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-12 h-12 rounded-full bg-blue-600 dark:bg-blue-500 flex items-center justify-center text-white font-bold text-lg select-none">
-                                                {org.name.chars().next().unwrap_or_default().to_uppercase().collect::<String>()}
-                                            </div>
-                                            <div class="min-w-0">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                                        {org.display_name.clone().unwrap_or(org.name.clone())}
-                                                    </span>
-                                                    <Badge
-                                                        color=match org.visibility {
-                                                            Visibility::Public => BadgeColor::Success,
-                                                            Visibility::Internal => BadgeColor::Info,
-                                                            Visibility::Private => BadgeColor::Neutral,
-                                                        }
-                                                        text=org.visibility.to_string()
-                                                    />
-                                                </div>
-                                                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                                    {org.name.clone()}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {org.description.as_ref().map(|desc| {
-                                            view! {
-                                                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
-                                                    {desc.clone()}
-                                                </p>
-                                            }
-                                        })}
-
-                                        <div class="mt-4 flex gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                            <span>{format!("{} members", org.member_count)}</span>
-                                            <span>{format!("{} repos", org.repo_count)}</span>
-                                        </div>
-                                    </Card>
-                                </A>
+                                <OrgCard org=org />
                             }
                         }
                     </For>
@@ -320,7 +354,7 @@ pub fn OrgDetailPage() -> impl IntoView {
                 <div>
                     <Show when=move || org_sig.get().is_some() fallback=|| view! { <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">"Organization"</h1> }>
                         <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                            {move || org_sig.get().map(|o| o.display_name.clone().unwrap_or(o.name.clone())).unwrap_or_default()}
+                            {move || org_sig.get().map(|o| if o.display_name.is_empty() { o.name.clone() } else { o.display_name.clone() }).unwrap_or_default()}
                         </h1>
                     </Show>
                     <p class="mt-1 text-gray-600 dark:text-gray-400">
@@ -344,10 +378,8 @@ pub fn OrgDetailPage() -> impl IntoView {
                     let org = org_sig.get().expect("key present");
                     let member_count = org.member_count;
                     let repo_count = org.repo_count;
-                    let vis = org.visibility;
-                    let desc_text = org.description.clone().unwrap_or_default();
-                    let has_desc = org.description.is_some();
-                    let (desc_sig, _) = signal(desc_text);
+                    let vis = org.visibility.clone();
+                    let desc = org.description.clone();
                     view! {
                         <div class="grid gap-4 sm:grid-cols-3">
                             <Card>
@@ -365,22 +397,20 @@ pub fn OrgDetailPage() -> impl IntoView {
                             <Card>
                                 <div class="text-center flex items-center justify-center gap-2">
                                     <Badge
-                                        color=match vis {
-                                            Visibility::Public => BadgeColor::Success,
-                                            Visibility::Internal => BadgeColor::Info,
-                                            Visibility::Private => BadgeColor::Neutral,
+                                        color=match vis.as_str() {
+                                            "public" => BadgeColor::Success,
+                                            "internal" => BadgeColor::Info,
+                                            _ => BadgeColor::Neutral,
                                         }
-                                        text=vis.to_string()
+                                        text=vis
                                     />
                                 </div>
                             </Card>
                         </div>
 
-                        <Show when=move || has_desc fallback=|| view! { <div class="hidden"></div> }>
-                            <Card title="Description".to_string()>
-                                <p class="text-sm text-gray-700 dark:text-gray-300">{move || desc_sig.get()}</p>
-                            </Card>
-                        </Show>
+                        <Card title="Description".to_string()>
+                            <p class="text-sm text-gray-700 dark:text-gray-300">{desc}</p>
+                        </Card>
 
                         <Card title="Repositories".to_string()>
                             <div class="py-8 text-center text-gray-400 dark:text-gray-500">
