@@ -1,1 +1,5 @@
 @import "tailwindcss";
+
+/* Dark mode: use .dark class on <html> instead of prefers-color-scheme media query.
+ * This allows runtime theme toggling via JavaScript. */
+@custom-variant dark (&:is(.dark *));
