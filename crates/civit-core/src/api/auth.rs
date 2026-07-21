@@ -75,10 +75,25 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
                     let decoded = urlencoding::decode(value)
                         .map_err(|_| CoreError::Auth("invalid token encoding".into()))?;
                     let token = decoded.into_owned();
-                    return tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current()
-                            .block_on(async { authenticate_with_token(state, &token).await })
-                    });
+                    // Try JWT first (synchronous, no DB call needed)
+                    if let Ok(claims) = state.jwt_service.validate_token(&token) {
+                        let role = Role::from_str(&claims.role)
+                            .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
+                        return Ok(AuthUser {
+                            user_id: claims.sub,
+                            username: claims.username,
+                            role,
+                            org_id: claims.org_id,
+                        });
+                    }
+                    // Try PAT (requires async DB call)
+                    if token.starts_with("cf_pat_") {
+                        return tokio::task::block_in_place(|| {
+                            tokio::runtime::Handle::current()
+                                .block_on(async { authenticate_with_token(state, &token).await })
+                        });
+                    }
+                    return Err(CoreError::Auth("invalid token in query parameter".into()));
                 }
             }
         }
