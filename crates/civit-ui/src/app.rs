@@ -9,6 +9,8 @@ use crate::state::auth::provide_auth_context;
 
 #[component]
 pub fn App() -> impl IntoView {
+    // Initialize locale from localStorage before rendering
+    crate::i18n::init_locale_from_storage();
     provide_auth_context();
     view! {
         <Router>

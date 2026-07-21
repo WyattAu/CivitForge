@@ -218,10 +218,10 @@ pub fn Sidebar() -> impl IntoView {
                             let is_dark = html.class_list().contains("dark");
                             if is_dark {
                                 let _ = html.class_list().remove_1("dark");
-                                let _ = window.local_storage().unwrap().unwrap().set_item("theme", "light");
+                                let _ = window.local_storage().unwrap().unwrap().set_item("civit-theme", "light");
                             } else {
                                 let _ = html.class_list().add_1("dark");
-                                let _ = window.local_storage().unwrap().unwrap().set_item("theme", "dark");
+                                let _ = window.local_storage().unwrap().unwrap().set_item("civit-theme", "dark");
                             }
                         }
                     >
