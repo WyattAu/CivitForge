@@ -59,7 +59,11 @@ impl Theme {
         {
             if let Some(window) = web_sys::window() {
                 if let Ok(Some(storage)) = window.local_storage() {
-                    let _ = storage.set_item("civit-theme", self.class_name());
+                    let value = match self {
+                        Self::Dark => "dark",
+                        Self::Light => "light",
+                    };
+                    let _ = storage.set_item("civit-theme", value);
                 }
             }
         }

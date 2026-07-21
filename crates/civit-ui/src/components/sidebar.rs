@@ -186,17 +186,22 @@ pub fn Sidebar() -> impl IntoView {
                 </div>
                 <div class="flex items-center gap-2 mb-2">
                     <NotificationBell />
-                    // Theme toggle — use <button> for WebKitGTK, ThemeContext for reactivity
+                    // Theme toggle — use onclick attribute (plain JS) for WebKitGTK
                     <button
                         class="flex-1 block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
                         type="button"
                         aria-label="Toggle dark mode"
-                        on:click=move |_| {
-                            theme_ctx.toggle();
-                        }
+                        data-theme-toggle=""
                     >
-                        <span class="font-mono text-xs">{
-                            move || if theme_ctx.theme.get() == crate::theme::Theme::Dark { "Dark" } else { "Light" }
+                        <span data-theme-toggle-icon="" class="font-mono text-xs">{
+                            move || {
+                                let is_dark = web_sys::window()
+                                    .and_then(|w| w.document())
+                                    .and_then(|d| d.document_element())
+                                    .map(|h| h.class_list().contains("dark"))
+                                    .unwrap_or(true);
+                                if is_dark { "Dark" } else { "Light" }
+                            }
                         }</span>
                         " Toggle Theme"
                     </button>

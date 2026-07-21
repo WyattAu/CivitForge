@@ -149,6 +149,25 @@ h1, h2, h3, h4, h5, h6 {
                 el.textContent = isDark ? 'Light' : 'Dark';
             });
         };
+        // Attach theme toggle to all [data-theme-toggle] elements
+        // Must use attribute-based handler for WebKitGTK compatibility
+        function attachThemeToggles() {
+            document.querySelectorAll('[data-theme-toggle]').forEach(function(el) {
+                if (!el.dataset.themeHandler) {
+                    el.addEventListener('click', function() { window.toggleTheme(); });
+                    el.dataset.themeHandler = '1';
+                }
+            });
+        }
+        // Attach on DOMContentLoaded and after Leptos renders
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', attachThemeToggles);
+        } else {
+            attachThemeToggles();
+        }
+        // Re-attach after Leptos renders (MutationObserver)
+        new MutationObserver(function() { attachThemeToggles(); })
+            .observe(document.body, { childList: true, subtree: true });
         // Syntax highlighting: call after Leptos renders content
         window.highlightCode = function() {
             document.querySelectorAll('pre code[data-lang]').forEach(function(block) {

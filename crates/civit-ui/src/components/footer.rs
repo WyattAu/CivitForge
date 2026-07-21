@@ -72,10 +72,17 @@ pub fn Footer() -> impl IntoView {
                                    border border-gray-200 dark:border-gray-600 \
                                    hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                             aria-label="Toggle dark mode"
-                            on:click=move |_| { theme_ctx.toggle(); }
+                            data-theme-toggle=""
                         >
-                            <span class="font-mono">{
-                                move || if theme_ctx.theme.get() == crate::theme::Theme::Dark { "Dark" } else { "Light" }
+                            <span data-theme-toggle-icon="" class="font-mono">{
+                                move || {
+                                    let is_dark = web_sys::window()
+                                        .and_then(|w| w.document())
+                                        .and_then(|d| d.document_element())
+                                        .map(|h| h.class_list().contains("dark"))
+                                        .unwrap_or(true);
+                                    if is_dark { "Dark" } else { "Light" }
+                                }
                             }</span>
                         </button>
                     </div>
