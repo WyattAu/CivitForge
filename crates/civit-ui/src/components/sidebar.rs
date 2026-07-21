@@ -186,12 +186,12 @@ pub fn Sidebar() -> impl IntoView {
                 </div>
                 <div class="flex items-center gap-2 mb-2">
                     <NotificationBell />
-                    // Theme toggle — use onclick attribute (plain JS) for WebKitGTK
+                    // Theme toggle — attr:onclick bypasses Leptos event system entirely
                     <button
                         class="flex-1 block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
                         type="button"
                         aria-label="Toggle dark mode"
-                        data-theme-toggle=""
+                        on:click=move |_| { let _ = js_sys::eval("window.toggleTheme()"); }
                     >
                         <span data-theme-toggle-icon="" class="font-mono text-xs">{
                             move || {

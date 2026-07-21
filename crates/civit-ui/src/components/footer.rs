@@ -72,7 +72,7 @@ pub fn Footer() -> impl IntoView {
                                    border border-gray-200 dark:border-gray-600 \
                                    hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                             aria-label="Toggle dark mode"
-                            data-theme-toggle=""
+                            on:click=move |_| { let _ = js_sys::eval("window.toggleTheme()"); }
                         >
                             <span data-theme-toggle-icon="" class="font-mono">{
                                 move || {
