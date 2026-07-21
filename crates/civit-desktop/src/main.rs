@@ -419,6 +419,7 @@ pub fn run() {
 
                     if let Some(dist) = dist_dir {
                         let dist_clone = dist.clone();
+                        let proxy_server_url = std::sync::Arc::new(server_url.clone());
                         let actual_port = std::sync::Arc::new(std::sync::atomic::AtomicU16::new(0));
                         let actual_port_clone = actual_port.clone();
                         std::thread::spawn(move || {
@@ -449,6 +450,7 @@ pub fn run() {
                             };
                             for stream in listener.incoming().flatten() {
                                 let dist_inner = dist_clone.clone();
+                                let proxy_url = proxy_server_url.clone();
                                 std::thread::spawn(move || {
                                     use std::io::{Read, Write};
                                     let mut stream = stream;
@@ -508,8 +510,7 @@ pub fn run() {
                                      // GET/POST endpoints
                                      let (body, content_type, status, redirect) = if path.starts_with("/api/") {
                                         // Proxy API requests to the backend server
-                                        let api_backend = "http://127.0.0.1:9091";
-                                        let proxy_url = format!("{api_backend}{path}");
+                                        let proxy_url = format!("{}{path}", proxy_url);
                                         match reqwest::blocking::get(&proxy_url) {
                                             Ok(resp) => {
                                                 let ct = resp.headers().get("content-type")
