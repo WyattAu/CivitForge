@@ -3,10 +3,15 @@ pub mod ja;
 pub mod ko;
 pub mod zh;
 
-use std::cell::RefCell;
+use leptos::prelude::*;
 
 thread_local! {
-    static CURRENT_LOCALE: RefCell<String> = RefCell::new(String::from("en"));
+    static CURRENT_LOCALE: std::cell::RefCell<String> = std::cell::RefCell::new(String::from("en"));
+}
+
+/// Reactive locale signal — components must use this to trigger re-renders.
+pub fn locale_signal() -> (ReadSignal<String>, WriteSignal<String>) {
+    signal(get_locale())
 }
 
 pub fn set_locale(locale: &str) {
@@ -17,6 +22,7 @@ pub fn get_locale() -> String {
     CURRENT_LOCALE.with(|c| c.borrow().clone())
 }
 
+/// Non-reactive translation — use only in static contexts.
 pub fn t(key: &str) -> String {
     let locale = get_locale();
     match locale.as_str() {
@@ -24,6 +30,19 @@ pub fn t(key: &str) -> String {
         "ja" => ja::get(key),
         "ko" => ko::get(key),
         _ => en::get(key),
+    }
+}
+
+/// Reactive translation — returns a closure that re-renders when locale changes.
+pub fn tr(key: &'static str, locale_sig: ReadSignal<String>) -> impl Fn() -> String {
+    move || {
+        let locale = locale_sig.get();
+        match locale.as_str() {
+            "zh" => zh::get(key),
+            "ja" => ja::get(key),
+            "ko" => ko::get(key),
+            _ => en::get(key),
+        }
     }
 }
 

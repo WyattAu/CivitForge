@@ -142,7 +142,10 @@ pub fn Sidebar() -> impl IntoView {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                     </svg>
                                 </Show>
-                                {move || t(&label_key)}
+                                {move || {
+                                    let _locale = current_locale.get(); // subscribe to locale changes
+                                    t(&label_key)
+                                }}
                             </A>
                         }
                     }
@@ -151,11 +154,11 @@ pub fn Sidebar() -> impl IntoView {
                 <Show when=move || auth.0.with(|a| a.is_authenticated && a.username.as_deref() != Some("")) fallback=|| view! { <div class="hidden"></div> }>
                     <div class="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
                         <div class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            {move || t("nav.create")}
+                            {move || { let _l = current_locale.get(); t("nav.create") }}
                         </div>
                         <A href="/new-repo" attr:class=link_class>
                             <span class="mr-2 font-mono text-xs">"[+]"</span>
-                            {move || t("nav.new_repo")}
+                            {move || { let _l = current_locale.get(); t("nav.new_repo") }}
                         </A>
                     </div>
                 </Show>
@@ -203,30 +206,23 @@ pub fn Sidebar() -> impl IntoView {
                 </div>
                 <div class="flex items-center gap-2 mb-2">
                     <NotificationBell />
-                    // Theme toggle
-                    <div
+                    // Theme toggle — use <button> for WebKitGTK compatibility
+                    <button
                         class="flex-1 block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white cursor-pointer select-none"
-                        role="button"
-                        tabindex="0"
+                        type="button"
                         aria-label="Toggle dark mode"
                         on:click=move |_| {
-                            let toggle = || -> Option<()> {
-                                let window = web_sys::window()?;
-                                let doc = window.document()?;
-                                let html = doc.document_element()?;
-                                let is_dark = html.class_list().contains("dark");
-                                if is_dark {
-                                    let _ = html.class_list().remove_1("dark");
-                                    let storage = window.local_storage().ok().flatten()?;
-                                    let _ = storage.set_item("theme", "light");
-                                } else {
-                                    let _ = html.class_list().add_1("dark");
-                                    let storage = window.local_storage().ok().flatten()?;
-                                    let _ = storage.set_item("theme", "dark");
-                                }
-                                Some(())
-                            };
-                            toggle();
+                            let window = web_sys::window().unwrap();
+                            let doc = window.document().unwrap();
+                            let html = doc.document_element().unwrap();
+                            let is_dark = html.class_list().contains("dark");
+                            if is_dark {
+                                let _ = html.class_list().remove_1("dark");
+                                let _ = window.local_storage().unwrap().unwrap().set_item("theme", "light");
+                            } else {
+                                let _ = html.class_list().add_1("dark");
+                                let _ = window.local_storage().unwrap().unwrap().set_item("theme", "dark");
+                            }
                         }
                     >
                         <span class="font-mono text-xs">{
@@ -240,12 +236,12 @@ pub fn Sidebar() -> impl IntoView {
                             }
                         }</span>
                         " Toggle Theme"
-                    </div>
+                    </button>
                 </div>
-                <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=|| view! {
+                <Show when=move || auth.0.with(|a| a.is_authenticated) fallback=move || view! {
                     <A href="/login">
                         <div class="block px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white">
-                            {move || t("auth.sign_in")}
+                            {move || { let _l = current_locale.get(); t("auth.sign_in") }}
                         </div>
                     </A>
                 }>
@@ -262,7 +258,7 @@ pub fn Sidebar() -> impl IntoView {
                         </A>
                         <A href="/settings" attr:class=link_class>
                             <span class="mr-2 font-mono text-xs">"[*]"</span>
-                            {move || t("settings.title")}
+                            {move || { let _l = current_locale.get(); t("settings.title") }}
                         </A>
                         // Sign out uses <a href> instead of <button on:click> to
                         // avoid WebKit auto-fire bug. Link triggers JS logout function.
@@ -275,7 +271,7 @@ pub fn Sidebar() -> impl IntoView {
                         >
                             <span class="font-mono text-xs">"[X]"</span>
                             " "
-                            {move || t("auth.sign_out")}
+                            {move || { let _l = current_locale.get(); t("auth.sign_out") }}
                         </a>
                     </div>
                 </Show>
