@@ -27,6 +27,13 @@ pub struct GitLabImportRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct ForgejoImportRequest {
+    pub forgejo_url: String,
+    pub token: Option<String>,
+    pub owner_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct UrlImportRequest {
     pub url: String,
     pub token: Option<String>,
@@ -641,6 +648,216 @@ fn parse_git_url(url: &str) -> Option<String> {
         }
     }
     None
+}
+
+// ── Forgejo / Gitea ──────────────────────────────────────────────────
+// Forgejo and Gitea share the same API: /api/v1/repos/{owner}/{repo}
+
+fn parse_forgejo_url(url: &str) -> Option<(&str, &str, &str)> {
+    let url = url.trim_end_matches('/');
+    let url = url.trim_end_matches(".git");
+    // https://host/owner/repo or git@host:owner/repo.git
+    if url.starts_with("https://") || url.starts_with("http://") {
+        let without_proto = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
+        let parts: Vec<&str> = without_proto.split('/').collect();
+        if parts.len() >= 3 && !parts[0].is_empty() && !parts[1].is_empty() && !parts[2].is_empty() {
+            return Some((parts[0], parts[1], parts[2]));
+        }
+    }
+    if let Some(rest) = url.strip_prefix("git@")
+        && let Some(colon_pos) = rest.find(':')
+    {
+        let host = &rest[..colon_pos];
+        let path_part = &rest[colon_pos + 1..];
+        let parts: Vec<&str> = path_part.split('/').collect();
+        if parts.len() >= 2 {
+            return Some((host, parts[0], parts[1]));
+        }
+    }
+    None
+}
+
+#[derive(Debug, Serialize)]
+struct ForgejoRepoMeta {
+    name: String,
+    description: String,
+    default_branch: String,
+    visibility: String,
+}
+
+async fn fetch_forgejo_metadata(
+    host: &str,
+    owner: &str,
+    repo: &str,
+    token: Option<&str>,
+) -> Result<ForgejoRepoMeta, CoreError> {
+    let client = reqwest::Client::new();
+    let url = format!("http://{host}/api/v1/repos/{owner}/{repo}");
+    let mut req = client.get(&url);
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| CoreError::Internal(format!("Forgejo API request failed: {e}")))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_else(|_| "unknown error".into());
+        return Err(CoreError::Internal(format!(
+            "Forgejo API returned {status}: {body}"
+        )));
+    }
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| CoreError::Internal(format!("failed to parse Forgejo response: {e}")))?;
+    let name = json["name"].as_str().unwrap_or(repo).to_string();
+    let description = json["description"].as_str().unwrap_or("").to_string();
+    let default_branch = json["default_branch"]
+        .as_str()
+        .unwrap_or("main")
+        .to_string();
+    let visibility = json["visibility"]
+        .as_str()
+        .unwrap_or("public")
+        .to_string();
+    Ok(ForgejoRepoMeta {
+        name,
+        description,
+        default_branch,
+        visibility,
+    })
+}
+
+pub async fn import_forgejo(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<ForgejoImportRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Create,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
+    let (host, fg_owner, fg_repo) = match parse_forgejo_url(&req.forgejo_url) {
+        Some(parts) => parts,
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    CoreError::BadRequest(
+                        "invalid Forgejo/Gitea URL, expected https://host/owner/repo".into(),
+                    )
+                    .error_response(),
+                ),
+            )
+                .into_response();
+        }
+    };
+    let host = host.to_string();
+    let fg_owner = fg_owner.to_string();
+    let fg_repo = fg_repo.to_string();
+
+    let meta = match fetch_forgejo_metadata(&host, &fg_owner, &fg_repo, req.token.as_deref()).await {
+        Ok(m) => m,
+        Err(e) => {
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(CoreError::Internal(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    };
+
+    let owner_uuid = match req.owner_id {
+        Some(ref id_str) => match Uuid::parse_str(id_str) {
+            Ok(id) => id,
+            Err(_) => Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil()),
+        },
+        None => Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil()),
+    };
+
+    match state
+        .db
+        .create_repo(
+            &meta.name,
+            &meta.description,
+            owner_uuid,
+            None,
+            &meta.visibility,
+            &meta.default_branch,
+        )
+        .await
+    {
+        Ok(repo) => {
+            let storage_path = state.config.storage_path.clone();
+            let owner_name = state
+                .db
+                .get_user_by_id(owner_uuid)
+                .await
+                .map(|u| u.username)
+                .unwrap_or_else(|_| owner_uuid.to_string());
+            let repo_name = meta.name.clone();
+            let repo_path = std::path::Path::new(&storage_path)
+                .join(&owner_name)
+                .join(&repo_name);
+
+            let fg_owner_clone = fg_owner.clone();
+            let fg_repo_clone = fg_repo.clone();
+
+            let clone_url = if let Some(ref token) = req.token {
+                format!("https://{token}@{host}/{fg_owner}/{fg_repo}.git")
+            } else {
+                format!("http://{host}/{fg_owner}/{fg_repo}.git")
+            };
+
+            tokio::spawn(async move {
+                if let Err(e) = tokio::fs::create_dir_all(&repo_path).await {
+                    eprintln!("[import_forgejo] failed to create dir: {e}");
+                    return;
+                }
+                if let Err(e) = tokio::process::Command::new("git")
+                    .args(["clone", "--bare", &clone_url, &repo_path.to_string_lossy()])
+                    .output()
+                    .await
+                {
+                    eprintln!("[import_forgejo] git clone failed: {e}");
+                    return;
+                }
+                eprintln!(
+                    "[import_forgejo] cloned {fg_owner_clone}/{fg_repo_clone} -> {}",
+                    repo_path.display()
+                );
+            });
+
+            (
+                StatusCode::OK,
+                Json(ImportResponse {
+                    status: "importing".into(),
+                    message: format!(
+                        "Importing {fg_owner}/{fg_repo} from {host}. Git clone started in background."
+                    ),
+                    repo_id: Some(repo.id.to_string()),
+                }),
+            )
+                .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Internal(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
 }
 
 pub async fn import_url(

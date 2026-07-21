@@ -353,6 +353,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/api/v1/orgs/{id}/profile", get(orgs::get_org_profile))
         .route("/api/v1/import/github", post(import::import_github))
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
+        .route("/api/v1/import/forgejo", post(import::import_forgejo))
         .route("/api/v1/import/url", post(import::import_url))
         .route(
             "/api/v1/users/{user_id}/ssh-keys",
