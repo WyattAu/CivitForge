@@ -204,6 +204,11 @@ impl ShardHealth {
             self.status = ShardHealthStatus::Unhealthy;
         } else if pct > 80.0 {
             self.status = ShardHealthStatus::Degraded;
+        } else {
+            // Value is healthy — restore status if currently degraded by disk
+            if self.status != ShardHealthStatus::Unhealthy {
+                self.status = ShardHealthStatus::Healthy;
+            }
         }
         self.updated_at = Utc::now();
     }
@@ -224,6 +229,11 @@ impl ShardHealth {
             self.status = ShardHealthStatus::Unhealthy;
         } else if rate > 0.1 {
             self.status = ShardHealthStatus::Degraded;
+        } else {
+            // Value is healthy — restore status if currently degraded by error rate
+            if self.status != ShardHealthStatus::Unhealthy {
+                self.status = ShardHealthStatus::Healthy;
+            }
         }
         self.updated_at = Utc::now();
     }
@@ -378,6 +388,11 @@ impl ReshardOperation {
     /// Returns true if the operation is complete.
     pub fn is_complete(&self) -> bool {
         self.completed_at.is_some()
+    }
+
+    /// Number of repositories that have been migrated so far.
+    pub fn migrated_count(&self) -> u64 {
+        self.migration_state.migrated_count
     }
 
     /// Mark the operation as complete.

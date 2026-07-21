@@ -481,6 +481,10 @@ fn repo_response_roundtrip() {
         parent_repo_id: None,
         ssh_clone_url: None,
         http_clone_url: Some("https://example.com/repo.git".into()),
+        starred: None,
+        watched: None,
+        stars_count: None,
+        watchers_count: None,
         created_at: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
         updated_at: Utc.with_ymd_and_hms(2024, 6, 1, 0, 0, 0).unwrap(),
     };
