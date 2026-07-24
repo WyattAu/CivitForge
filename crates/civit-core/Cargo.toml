@@ -36,7 +36,7 @@ sha2 = { workspace = true, features = ["oid"] }
 hmac = { workspace = true }
 sha1 = { workspace = true }
 ring = { workspace = true }
-pkcs8 = { version = "0.10", features = ["alloc"] }
+pkcs8 = { version = "0.11", features = ["alloc"] }
 zstd = { workspace = true }
 russh = { workspace = true, optional = true }
 rand = "0.10"
