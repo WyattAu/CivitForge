@@ -1,10 +1,6 @@
 #![forbid(unsafe_code)]
 
-use hmac::{Hmac, Mac};
-use sha2::Sha256;
 use tracing::debug;
-
-type HmacSha256 = Hmac<Sha256>;
 
 pub struct HmacService;
 
@@ -20,11 +16,8 @@ impl HmacService {
     }
 
     pub fn sign(key: &[u8], data: &[u8]) -> String {
-        let mut mac = HmacSha256::new_from_slice(key).expect("HMAC key length error");
-        mac.update(data);
-        let result = mac.finalize();
-        let bytes = result.into_bytes();
-        let hex = hex::encode(bytes);
+        let tag = cryptkit::hmac::hmac_sign(key, data);
+        let hex = hex::encode(tag);
         debug!(data_len = data.len(), "generated HMAC signature");
         hex
     }
@@ -38,13 +31,12 @@ impl HmacService {
             Ok(b) => b,
             Err(_) => return false,
         };
-
-        let mut mac = match HmacSha256::new_from_slice(key) {
-            Ok(m) => m,
-            Err(_) => return false,
-        };
-        mac.update(data);
-        mac.verify_slice(&expected_bytes).is_ok()
+        if expected_bytes.len() != 32 {
+            return false;
+        }
+        let mut tag = [0u8; 32];
+        tag.copy_from_slice(&expected_bytes);
+        cryptkit::hmac::hmac_verify(key, data, &tag)
     }
 
     pub fn verify_string(key: &str, message: &str, expected_hex: &str) -> bool {
@@ -52,11 +44,8 @@ impl HmacService {
     }
 
     pub fn sign_base64(key: &[u8], data: &[u8]) -> String {
-        let mut mac = HmacSha256::new_from_slice(key).expect("HMAC key length error");
-        mac.update(data);
-        let result = mac.finalize();
-        let bytes = result.into_bytes();
-        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes)
+        let tag = cryptkit::hmac::hmac_sign(key, data);
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, tag)
     }
 
     pub fn timed_sign(key: &[u8], data: &[u8], timestamp: u64) -> String {

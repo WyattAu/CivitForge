@@ -14,9 +14,6 @@ pub enum AuthError {
     #[error("database error: {0}")]
     Database(String),
 
-    #[error("jwt error: {0}")]
-    Jwt(#[from] jsonwebtoken::errors::Error),
-
     #[error("ldap error: {0}")]
     Ldap(String),
 

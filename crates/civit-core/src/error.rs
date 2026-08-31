@@ -55,7 +55,6 @@ impl From<civit_auth::error::AuthError> for CoreError {
             civit_auth::error::AuthError::Forbidden(msg) => CoreError::Forbidden(msg),
             civit_auth::error::AuthError::Config(msg) => CoreError::Config(msg),
             civit_auth::error::AuthError::Database(msg) => CoreError::Database(msg),
-            civit_auth::error::AuthError::Jwt(e) => CoreError::Jwt(e),
             civit_auth::error::AuthError::Ldap(msg) => CoreError::Auth(msg),
             civit_auth::error::AuthError::Internal(msg) => CoreError::Internal(msg),
             civit_auth::error::AuthError::NotFound(msg) => CoreError::NotFound(msg),

@@ -300,8 +300,7 @@ impl EncryptionService {
         .await?
         .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
-        let iv = generate_iv();
-        let encrypted = encrypt_aes_gcm(plaintext, &key_row.key_material, &iv);
+        let (iv, encrypted) = encrypt_aes_gcm(plaintext, &key_row.key_material);
 
         let row = sqlx::query_as::<_, EncryptedPayloadRow>(
             r#"INSERT INTO encrypted_data (key_id, data_type, data_id, encrypted_data, iv)
@@ -1379,27 +1378,24 @@ impl From<EncryptedPayloadRow> for EncryptedPayload {
 
 // ─── Crypto helpers ───────────────────────────────────────────────────────────
 
-fn generate_iv() -> Vec<u8> {
-    use rand::RngExt;
-    let mut iv = vec![0u8; 12];
-    rand::rng().fill(&mut iv[..]);
-    iv
+/// Encrypt plaintext using AES-256-GCM via cryptkit.
+/// Returns (nonce, ciphertext) where nonce is 12 bytes.
+fn encrypt_aes_gcm(plaintext: &[u8], key: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let key_arr: [u8; 32] = key.try_into().expect("key must be 32 bytes");
+    let enc = cryptkit::aes::AesGcmEncryptor::new(key_arr).expect("invalid key");
+    let nonce_ciphertext = enc.encrypt(plaintext).expect("encryption failed");
+    let (nonce, ciphertext) = nonce_ciphertext.split_at(12);
+    (nonce.to_vec(), ciphertext.to_vec())
 }
 
-fn encrypt_aes_gcm(plaintext: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
-    use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit, Nonce};
-
-    let cipher = Aes256Gcm::new_from_slice(key).expect("invalid key length");
-    let nonce = Nonce::from_slice(iv);
-    cipher.encrypt(nonce, plaintext).expect("encryption failed")
-}
-
-fn decrypt_aes_gcm(ciphertext: &[u8], key: &[u8], iv: &[u8]) -> Vec<u8> {
-    use aes_gcm::{aead::Aead, Aes256Gcm, KeyInit, Nonce};
-
-    let cipher = Aes256Gcm::new_from_slice(key).expect("invalid key length");
-    let nonce = Nonce::from_slice(iv);
-    cipher.decrypt(nonce, ciphertext).expect("decryption failed")
+/// Decrypt ciphertext using AES-256-GCM via cryptkit.
+fn decrypt_aes_gcm(ciphertext: &[u8], key: &[u8], nonce: &[u8]) -> Vec<u8> {
+    let key_arr: [u8; 32] = key.try_into().expect("key must be 32 bytes");
+    let enc = cryptkit::aes::AesGcmEncryptor::new(key_arr).expect("invalid key");
+    let mut data = Vec::with_capacity(nonce.len() + ciphertext.len());
+    data.extend_from_slice(nonce);
+    data.extend_from_slice(ciphertext);
+    enc.decrypt(&data).expect("decryption failed")
 }
 
 #[cfg(test)]
@@ -1407,9 +1403,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_iv_generation() {
-        let iv1 = generate_iv();
-        let iv2 = generate_iv();
+    fn test_encrypt_generates_unique_nonces() {
+        let key = vec![0x42u8; 32];
+        let plaintext = b"test data";
+        let (iv1, _) = encrypt_aes_gcm(plaintext, &key);
+        let (iv2, _) = encrypt_aes_gcm(plaintext, &key);
         assert_eq!(iv1.len(), 12);
         assert_ne!(iv1, iv2);
     }
@@ -1417,9 +1415,8 @@ mod tests {
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
         let key = vec![0u8; 32];
-        let iv = generate_iv();
         let plaintext = b"hello world";
-        let encrypted = encrypt_aes_gcm(plaintext, &key, &iv);
+        let (iv, encrypted) = encrypt_aes_gcm(plaintext, &key);
         let decrypted = decrypt_aes_gcm(&encrypted, &key, &iv);
         assert_eq!(plaintext.to_vec(), decrypted);
     }

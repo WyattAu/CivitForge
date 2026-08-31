@@ -66,15 +66,13 @@ pub fn validate_password_policy(password: &str, policy: &PasswordPolicy) -> Vec<
     violations
 }
 
-const BCRYPT_COST: u32 = 12;
-
 pub fn hash_password(password: &str) -> Result<String> {
-    bcrypt::hash(password, BCRYPT_COST)
+    salting::hash_password(password)
         .map_err(|e| AuthError::Internal(format!("Failed to hash password: {e}")))
 }
 
 pub fn verify_password(password: &str, hash: &str) -> bool {
-    bcrypt::verify(password, hash).unwrap_or(false)
+    salting::verify_password(password, hash).unwrap_or(false)
 }
 
 #[cfg(test)]
@@ -197,8 +195,7 @@ mod tests {
     #[test]
     fn test_password_hash_valid_format() {
         let hash = hash_password("test123").unwrap();
-        assert!(hash.starts_with("$2b$"));
-        assert_eq!(hash.len(), 60);
+        assert!(hash.starts_with("$argon2"));
     }
 
     #[test]
@@ -352,7 +349,7 @@ mod tests {
     #[test]
     fn test_hash_password_empty_string() {
         let hash = hash_password("").unwrap();
-        assert!(hash.starts_with("$2b$"));
+        assert!(hash.starts_with("$argon2"));
         assert!(verify_password("", &hash));
     }
 

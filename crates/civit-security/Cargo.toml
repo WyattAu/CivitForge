@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Security, compliance, and audit modules for CivitForge"
 
 [dependencies]
+cryptkit = { workspace = true }
 sha2 = { workspace = true, features = ["oid"] }
 parking_lot = { workspace = true }
 serde = { workspace = true }
@@ -16,7 +17,6 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 sqlx = { workspace = true }
 regex = { workspace = true }
-aes-gcm = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
 tokio = { workspace = true }

@@ -7,8 +7,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-jsonwebtoken = { workspace = true }
-bcrypt = "0.17"
+salting = { workspace = true }
+tokenkit = { workspace = true }
+zeroize = { version = "1", features = ["derive"] }
 sha2 = { workspace = true, features = ["oid"] }
 ldap3 = { version = "0.11", default-features = false, features = ["tls", "sync"] }
 civit-db = { path = "../civit-db" }

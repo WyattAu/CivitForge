@@ -1,7 +1,8 @@
-use crate::error::Result;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use crate::error::{AuthError, Result};
 use serde::{Deserialize, Serialize};
+use tokenkit::service::{JwtAlgorithm, JwtConfig, JwtService as TokenKitService};
 use tracing::info;
+use zeroize::Zeroizing;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
@@ -9,13 +10,14 @@ pub struct Claims {
     pub username: String,
     pub role: String,
     pub org_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iss: Option<String>,
     pub iat: u64,
     pub exp: u64,
 }
 
 pub struct JwtService {
-    encoding_key: EncodingKey,
-    decoding_key: DecodingKey,
+    inner: TokenKitService,
     expiry_hours: u64,
 }
 
@@ -30,13 +32,21 @@ impl std::fmt::Debug for JwtService {
 impl JwtService {
     pub fn new(secret: &str, expiry_hours: u64) -> Result<Self> {
         if secret.len() < 32 {
-            return Err(crate::error::AuthError::Config(
+            return Err(AuthError::Config(
                 "JWT secret must be at least 32 bytes".into(),
             ));
         }
+        let issuer = "civitforge".to_string();
+        let config = JwtConfig {
+            algorithm: JwtAlgorithm::HS256,
+            secret: Zeroizing::new(secret.to_string()),
+            issuer: Some(issuer),
+            audience: None,
+            access_token_ttl: expiry_hours as i64 * 3600,
+            refresh_token_ttl: 604800,
+        };
         Ok(Self {
-            encoding_key: EncodingKey::from_secret(secret.as_bytes()),
-            decoding_key: DecodingKey::from_secret(secret.as_bytes()),
+            inner: TokenKitService::new(config),
             expiry_hours,
         })
     }
@@ -54,19 +64,23 @@ impl JwtService {
             username: username.to_string(),
             role: role.to_string(),
             org_id: org_id.map(String::from),
+            iss: Some("civitforge".to_string()),
             iat: now,
             exp: now + (self.expiry_hours * 3600),
         };
-        let token = encode(&Header::default(), &claims, &self.encoding_key)?;
+        let token = self.inner.encode(&claims).map_err(|e| {
+            AuthError::Internal(format!("Failed to encode JWT: {e}"))
+        })?;
         info!(user = %username, "generated JWT token");
         Ok(token)
     }
 
     pub fn validate_token(&self, token: &str) -> Result<Claims> {
-        let validation = Validation::default();
-        let data = decode::<Claims>(token, &self.decoding_key, &validation)?;
-        info!(sub = %data.claims.sub, "validated JWT token");
-        Ok(data.claims)
+        let claims: Claims = self.inner.decode(token).map_err(|e| {
+            AuthError::Internal(format!("Failed to decode JWT: {e}"))
+        })?;
+        info!(sub = %claims.sub, "validated JWT token");
+        Ok(claims)
     }
 
     pub fn extract_bearer(header: &str) -> Option<&str> {
@@ -144,9 +158,9 @@ mod tests {
         let svc = JwtService::new("test-secret-key-32bytes-minimums", 1).unwrap();
         let token = svc.generate_token("u1", "charlie", "guest", None).unwrap();
         let claims = svc.validate_token(&token).unwrap();
-        let now = chrono::Utc::now().timestamp() as u64;
         // exp should be iat + 1 hour = iat + 3600
         assert_eq!(claims.exp, claims.iat + 3600);
+        let now = chrono::Utc::now().timestamp() as u64;
         assert!(claims.exp > now);
     }
 
