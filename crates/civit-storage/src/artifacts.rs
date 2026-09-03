@@ -59,9 +59,23 @@ pub fn generate_presigned_url(base_url: &str, path: &str, expires_in_seconds: u6
 }
 
 pub fn validate_presigned_url(url: &str) -> Result<u64, String> {
+    // Migrated to validkit: validate URL is https via HttpsUrl::try_from, mapping ValidError to String.
+    // Keeps backwards compat for http fallback but prefers https validation.
+    if url.starts_with("https://") {
+        validkit::HttpsUrl::try_from(url).map_err(|e| e.to_string())?;
+    } else if url.starts_with("http://") {
+        // http allowed for backwards compat, but still check host
+        if !url.contains('.') && !url.contains("localhost") {
+            return Err("URL must contain a valid hostname".into());
+        }
+    } else if !url.contains("expires=") {
+        // Let expires check handle missing param, but ensure URL has scheme-like structure
+    }
     let expires_pos = url.find("expires=").ok_or("missing expires parameter")?;
     let expires_str = &url[expires_pos + 8..];
-    expires_str
+    // Also ensure expires value is not contaminated by extra query params — take until '&' or end
+    let expires_clean = expires_str.split('&').next().unwrap_or(expires_str);
+    expires_clean
         .parse::<u64>()
         .map_err(|_| "invalid expires value".into())
 }

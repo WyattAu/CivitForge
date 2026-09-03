@@ -91,16 +91,30 @@ pub fn validate_mirror_url(url: &str) -> Result<(), String> {
     if url.is_empty() {
         return Err("URL must not be empty".into());
     }
-    if !url.starts_with("http://") && !url.starts_with("https://") && !url.starts_with("git@") {
-        return Err("URL must start with http://, https://, or git@".into());
+    // git@ URLs are SSH-style, not HTTP — allow directly
+    if url.starts_with("git@") {
+        return Ok(());
     }
-    if (url.starts_with("http://") || url.starts_with("https://"))
-        && !url.contains('.')
-        && !url.contains("localhost")
-    {
-        return Err("URL must contain a valid hostname".into());
+    // Migrated to validkit: HttpsUrl::try_from validates https URL with ValidError, mapping to String.
+    // For http URLs, fallback to permissive check to keep backwards compat (but prefer https).
+    if url.starts_with("https://") {
+        validkit::HttpsUrl::try_from(url)
+            .map(|_| ())
+            .map_err(|e| e.to_string())?;
+        if !url.contains('.') && !url.contains("localhost") {
+            return Err("URL must contain a valid hostname".into());
+        }
+        return Ok(());
     }
-    Ok(())
+    if url.starts_with("http://") {
+        // Keep http allowance via legacy check, but also ensure validkit-like host check
+        if !url.contains('.') && !url.contains("localhost") {
+            return Err("URL must contain a valid hostname".into());
+        }
+        // Optionally validate via url::Url if available, but for now accept http as valid
+        return Ok(());
+    }
+    Err("URL must start with http://, https://, or git@".into())
 }
 
 pub fn compute_next_sync(
