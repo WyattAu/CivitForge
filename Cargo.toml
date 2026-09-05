@@ -83,9 +83,9 @@ lettre = { version = "0.11", default-features = false, features = ["tokio1-rustl
 axum-server = { version = "0.7", features = ["tls-rustls"] }
 open = "5"
 criterion = { version = "0.5", features = ["html_reports"] }
-salting = { path = "../salting" }
-tokenkit = { path = "../tokenkit" }
-cryptkit = { path = "../cryptkit" }
+salting = { version = "1" }
+tokenkit = { version = "0.1" }
+cryptkit = { version = "0.1" }
 
 # ── WASM-friendly release profile ──────────────────────────────────────────────
 # Apply to the entire workspace; trunk --release picks these up automatically.
