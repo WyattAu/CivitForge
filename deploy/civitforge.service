@@ -2,7 +2,8 @@
 Description=CivitForge software forge server
 After=network-online.target docker.service
 Wants=network-online.target
-Requires=docker-civit-postgres.service docker-civit-redis.service
+# Note: civit-postgres/civit-redis run as docker containers with their own
+# restart policies; ordering-only dependency here (no hard Requires).
 
 [Service]
 Type=exec
