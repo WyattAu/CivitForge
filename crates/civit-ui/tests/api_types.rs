@@ -332,16 +332,16 @@ fn typed_id_type_safety() {
     let uid = UserId::nil();
     let rid = RepoId::nil();
     let _iid = IssueId::nil();
-    assert_eq!(uid.get(), rid.get());
+    assert_eq!(uid.as_uuid(), rid.as_uuid());
     assert!(std::any::TypeId::of::<UserId>() != std::any::TypeId::of::<RepoId>());
     assert!(std::any::TypeId::of::<RepoId>() != std::any::TypeId::of::<IssueId>());
 }
 
 #[test]
 fn typed_id_nil() {
-    let nil_uuid = UserId::nil().get();
+    let nil_uuid = UserId::nil().as_uuid();
     assert_eq!(nil_uuid.to_string(), "00000000-0000-0000-0000-000000000000");
-    assert_eq!(RepoId::nil().get(), nil_uuid);
+    assert_eq!(RepoId::nil().as_uuid(), nil_uuid);
 }
 
 #[test]

@@ -1252,6 +1252,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "typed-id-new",
  "uuid",
 ]
 
@@ -8561,6 +8562,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "typed-id-derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1977f15560f9c296514fb778f78134053fc538753dd4a2dc39fef920ff2de3df"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "typed-id-new"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0794412c360d347542dfa520161e8f5f2dd53ac9a9b3c068a0d23ade89e0a9dc"
+dependencies = [
+ "serde",
+ "typed-id-derive",
+ "uuid",
 ]
 
 [[package]]

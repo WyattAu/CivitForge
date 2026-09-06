@@ -1,0 +1,59 @@
+# WyattAu engineering-standards gate matrix for the CivitForge workspace.
+#
+# Non-blocking until lint debt is cleared, then flip continue-on-error to false
+# per crate. Tier promotion path: c -> b -> a (see engineering-standards README).
+#
+# Debt ledger (as of ADR-0006):
+#   - ~139 unwrap/expect sites (Tier A requires unwrap_used denied)
+#   - clippy pedantic not yet clean on core crates
+# Promotion: when a crate passes with continue-on-error removed, delete the flag
+# and bump the tier.
+
+name: standards
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standards-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Pure data types — the contract surface. Highest standards.
+  shared-types:
+    continue-on-error: true
+    uses: WyattAu/engineering-standards/.github/workflows/rust-kit.yml@main
+    with:
+      tier: a
+      package: civit-shared
+
+  # Server core — Tier B until unwrap debt is cleared.
+  core:
+    continue-on-error: true
+    uses: WyattAu/engineering-standards/.github/workflows/rust-kit.yml@main
+    with:
+      tier: b
+      package: civit-core
+
+  # Auth boundary.
+  auth:
+    continue-on-error: true
+    uses: WyattAu/engineering-standards/.github/workflows/rust-kit.yml@main
+    with:
+      tier: b
+      package: civit-auth
+
+  # WASM UI.
+  ui:
+    continue-on-error: true
+    uses: WyattAu/engineering-standards/.github/workflows/rust-kit.yml@main
+    with:
+      tier: c
+      package: civit-ui
+      wasm: true

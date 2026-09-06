@@ -15,6 +15,8 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 ring = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
+# ADR-0006 Phase 1: kit adoption (behavior single-source for typed IDs)
+typed-id-new = "0.1"
 
 [features]
 default = []
