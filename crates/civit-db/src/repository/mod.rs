@@ -5,11 +5,14 @@ use sqlx::postgres::PgPool;
 
 mod api;
 mod auth;
+mod import_job;
 mod issue;
 mod org;
 mod pipeline;
 mod repo;
 mod user;
+
+pub use import_job::ImportJob;
 
 #[derive(Debug, Clone)]
 pub struct DbRepository {

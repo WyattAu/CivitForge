@@ -46,6 +46,69 @@ pub struct ImportResponse {
     pub status: String,
     pub message: String,
     pub repo_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub job_id: Option<String>,
+}
+
+/// Post-clone verification: transition job cloning → verifying → completed/failed.
+/// Verifies the bare repo has a HEAD and counts commits via `git rev-list --all --count`.
+async fn verify_and_complete_clone(
+    db: &civit_db::DbRepository,
+    job_id: Uuid,
+    repo_path: &std::path::Path,
+) {
+    let _ = db.update_import_job_status(job_id, "verifying").await;
+
+    if !repo_path.join("HEAD").exists() {
+        let _ = db
+            .fail_import_job(job_id, "clone produced no HEAD (not a bare git repository)")
+            .await;
+        return;
+    }
+
+    let count = tokio::process::Command::new("git")
+        .args(["rev-list", "--all", "--count"])
+        .current_dir(repo_path)
+        .output()
+        .await;
+
+    match count {
+        Ok(o) if o.status.success() => {
+            let n: i64 = String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .parse()
+                .unwrap_or(0);
+            let _ = db.complete_import_job(job_id, n).await;
+        }
+        Ok(o) => {
+            let _ = db
+                .fail_import_job(
+                    job_id,
+                    &format!(
+                        "verification failed: {}",
+                        String::from_utf8_lossy(&o.stderr).trim()
+                    ),
+                )
+                .await;
+        }
+        Err(e) => {
+            let _ = db
+                .fail_import_job(job_id, &format!("verification exec failed: {e}"))
+                .await;
+        }
+    }
+}
+
+/// Record clone failure on the job with stderr context.
+async fn fail_job_clone(
+    db: &civit_db::DbRepository,
+    job_id: Uuid,
+    context: &str,
+    detail: &str,
+) {
+    let _ = db
+        .fail_import_job(job_id, &format!("{context}: {detail}"))
+        .await;
 }
 
 fn parse_github_url(url: &str) -> Option<(&str, &str)> {
@@ -273,7 +336,6 @@ pub async fn import_github(
         .await
     {
         Ok(repo) => {
-            let storage_path = state.config.storage_path.clone();
             let owner_name = state
                 .db
                 .get_user_by_id(owner_uuid)
@@ -290,6 +352,20 @@ pub async fn import_github(
                 format!("https://github.com/{gh_owner}/{gh_repo}.git")
             };
 
+            // Track the migration job (Migration API v1)
+            let job = state
+                .db
+                .create_import_job(
+                    owner_uuid,
+                    "github",
+                    &req.github_url,
+                    &owner_name,
+                    &repo_name,
+                )
+                .await;
+            let job_id = job.as_ref().map(|j| j.id).ok();
+            let job_id_str = job_id.map(|id| id.to_string());
+
             let token_clone = req.token.clone();
             let db_clone = state.db.clone();
             let repo_id = repo.id;
@@ -297,8 +373,14 @@ pub async fn import_github(
             let gh_repo_clone = gh_repo.clone();
 
             tokio::spawn(async move {
+                if let Some(id) = job_id {
+                    let _ = db_clone.update_import_job_status(id, "cloning").await;
+                }
                 if let Err(e) = tokio::fs::create_dir_all(&repo_path).await {
                     eprintln!("[import_github] failed to create dir: {e}");
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_clone, id, "create_dir", &e.to_string()).await;
+                    }
                     return;
                 }
                 if let Err(e) = tokio::process::Command::new("git")
@@ -307,7 +389,15 @@ pub async fn import_github(
                     .await
                 {
                     eprintln!("[import_github] git clone failed: {e}");
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_clone, id, "git clone", &e.to_string()).await;
+                    }
                     return;
+                }
+
+                // Post-clone verification (Migration API v1)
+                if let Some(id) = job_id {
+                    verify_and_complete_clone(&db_clone, id, &repo_path).await;
                 }
 
                 // Fetch issues
@@ -402,6 +492,7 @@ pub async fn import_github(
                         "Import started for {gh_owner_clone}/{gh_repo_clone}. Git clone and data import running in background."
                     ),
                     repo_id: Some(repo.id.to_string()),
+                    job_id: job_id_str,
                 }),
             )
                 .into_response()
@@ -483,7 +574,6 @@ pub async fn import_gitlab(
         .await
     {
         Ok(repo) => {
-            let storage_path = state.config.storage_path.clone();
             let owner_name = state
                 .db
                 .get_user_by_id(owner_uuid)
@@ -499,6 +589,20 @@ pub async fn import_gitlab(
             } else {
                 format!("https://gitlab.com/{gl_owner}/{gl_repo}.git")
             };
+
+            // Track the migration job (Migration API v1)
+            let job = state
+                .db
+                .create_import_job(
+                    owner_uuid,
+                    "gitlab",
+                    &req.gitlab_url,
+                    &owner_name,
+                    &repo_name,
+                )
+                .await;
+            let job_id = job.as_ref().map(|j| j.id).ok();
+            let job_id_str = job_id.map(|id| id.to_string());
 
             let token_clone = req.token.clone();
             let db_clone = state.db.clone();
@@ -517,7 +621,15 @@ pub async fn import_gitlab(
                     .await
                 {
                     eprintln!("[import_gitlab] git clone failed: {e}");
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_clone, id, "git clone", &e.to_string()).await;
+                    }
                     return;
+                }
+
+                // Post-clone verification (Migration API v1)
+                if let Some(id) = job_id {
+                    verify_and_complete_clone(&db_clone, id, &repo_path).await;
                 }
 
                 // Fetch issues from GitLab API
@@ -605,6 +717,7 @@ pub async fn import_gitlab(
                         "Import started for {gl_owner_clone}/{gl_repo_clone}. Git clone and data import running in background."
                     ),
                     repo_id: Some(repo.id.to_string()),
+                    job_id: job_id_str,
                 }),
             )
                 .into_response()
@@ -798,7 +911,6 @@ pub async fn import_forgejo(
         .await
     {
         Ok(repo) => {
-            let storage_path = state.config.storage_path.clone();
             let owner_name = state
                 .db
                 .get_user_by_id(owner_uuid)
@@ -812,6 +924,21 @@ pub async fn import_forgejo(
             let fg_owner_clone = fg_owner.clone();
             let fg_repo_clone = fg_repo.clone();
 
+            // Track the migration job (Migration API v1)
+            let job = state
+                .db
+                .create_import_job(
+                    owner_uuid,
+                    "forgejo",
+                    &req.forgejo_url,
+                    &owner_name,
+                    &repo_name,
+                )
+                .await;
+            let job_id = job.as_ref().map(|j| j.id).ok();
+            let job_id_str = job_id.map(|id| id.to_string());
+
+            let db_job = state.db.clone();
             let clone_url = if let Some(ref token) = req.token {
                 format!("https://{token}@{host}/{fg_owner}/{fg_repo}.git")
             } else {
@@ -819,8 +946,14 @@ pub async fn import_forgejo(
             };
 
             tokio::spawn(async move {
+                if let Some(id) = job_id {
+                    let _ = db_job.update_import_job_status(id, "cloning").await;
+                }
                 if let Err(e) = tokio::fs::create_dir_all(&repo_path).await {
                     eprintln!("[import_forgejo] failed to create dir: {e}");
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_job, id, "create_dir", &e.to_string()).await;
+                    }
                     return;
                 }
                 if let Err(e) = tokio::process::Command::new("git")
@@ -829,12 +962,20 @@ pub async fn import_forgejo(
                     .await
                 {
                     eprintln!("[import_forgejo] git clone failed: {e}");
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_job, id, "git clone", &e.to_string()).await;
+                    }
                     return;
                 }
                 eprintln!(
                     "[import_forgejo] cloned {fg_owner_clone}/{fg_repo_clone} -> {}",
                     repo_path.display()
                 );
+
+                // Post-clone verification (Migration API v1)
+                if let Some(id) = job_id {
+                    verify_and_complete_clone(&db_job, id, &repo_path).await;
+                }
             });
 
             (
@@ -845,6 +986,7 @@ pub async fn import_forgejo(
                         "Importing {fg_owner}/{fg_repo} from {host}. Git clone started in background."
                     ),
                     repo_id: Some(repo.id.to_string()),
+                    job_id: job_id_str,
                 }),
             )
                 .into_response()
@@ -932,7 +1074,6 @@ pub async fn import_url(
         .await
     {
         Ok(repo) => {
-            let storage_path = state.config.storage_path.clone();
             let owner_name = state
                 .db
                 .get_user_by_id(owner_uuid)
@@ -953,13 +1094,27 @@ pub async fn import_url(
                 req.url.clone()
             };
 
+            // Track the migration job (Migration API v1)
+            let job = state
+                .db
+                .create_import_job(owner_uuid, "url", &req.url, &owner_name, &repo_name)
+                .await;
+            let job_id = job.as_ref().map(|j| j.id).ok();
+            let job_id_str = job_id.map(|id| id.to_string());
+
             let db_clone = state.db.clone();
             let repo_id = repo.id;
             let url_for_log = req.url.clone();
 
             tokio::spawn(async move {
+                if let Some(id) = job_id {
+                    let _ = db_clone.update_import_job_status(id, "cloning").await;
+                }
                 if let Err(e) = tokio::fs::create_dir_all(&repo_path).await {
                     eprintln!("[import_url] failed to create dir: {e}");
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_clone, id, "create_dir", &e.to_string()).await;
+                    }
                     return;
                 }
                 let output = tokio::process::Command::new("git")
@@ -975,15 +1130,26 @@ pub async fn import_url(
                     Ok(o) if !o.status.success() => {
                         let stderr = String::from_utf8_lossy(&o.stderr);
                         eprintln!("[import_url] git clone failed: {stderr}");
+                        if let Some(id) = job_id {
+                            fail_job_clone(&db_clone, id, "git clone", &stderr).await;
+                        }
                         let _ = tokio::fs::remove_dir_all(&repo_path).await;
                         let _ = db_clone.delete_repo(repo_id).await;
                     }
                     Err(e) => {
                         eprintln!("[import_url] git clone failed: {e}");
+                        if let Some(id) = job_id {
+                            fail_job_clone(&db_clone, id, "git clone", &e.to_string()).await;
+                        }
                         let _ = tokio::fs::remove_dir_all(&repo_path).await;
                         let _ = db_clone.delete_repo(repo_id).await;
                     }
-                    _ => {}
+                    _ => {
+                        // Post-clone verification (Migration API v1)
+                        if let Some(id) = job_id {
+                            verify_and_complete_clone(&db_clone, id, &repo_path).await;
+                        }
+                    }
                 }
                 eprintln!("[import_url] clone of {url_for_log} completed for repo {repo_id}");
             });
@@ -998,6 +1164,7 @@ pub async fn import_url(
                     status: "importing".into(),
                     message,
                     repo_id: Some(repo.id.to_string()),
+                    job_id: job_id_str,
                 }),
             )
                 .into_response()
@@ -1008,6 +1175,293 @@ pub async fn import_url(
         )
             .into_response(),
     }
+}
+
+// ── Migration API v1: job status + bulk import ───────────────────────
+
+fn job_to_json(job: &civit_db::repository::ImportJob) -> serde_json::Value {
+    serde_json::json!({
+        "id": job.id,
+        "forge": job.forge,
+        "source_url": job.source_url,
+        "dest_owner": job.dest_owner,
+        "dest_name": job.dest_name,
+        "status": job.status,
+        "error": job.error,
+        "commit_count": job.commit_count,
+        "verified_at": job.verified_at,
+        "created_at": job.created_at,
+        "updated_at": job.updated_at,
+    })
+}
+
+/// List the caller's import jobs (newest first).
+pub async fn list_jobs(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    let user_uuid = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
+    match state.db.list_import_jobs(user_uuid, 100).await {
+        Ok(jobs) => {
+            let items: Vec<serde_json::Value> = jobs.iter().map(job_to_json).collect();
+            (StatusCode::OK, Json(serde_json::json!({ "jobs": items }))).into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(CoreError::Database(e.to_string()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+/// Get one import job by id. Owner or admin only.
+pub async fn get_job(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> impl IntoResponse {
+    let job_uuid = match Uuid::parse_str(&id) {
+        Ok(v) => v,
+        Err(_) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(CoreError::BadRequest("invalid job id".into()).error_response()),
+            )
+                .into_response()
+        }
+    };
+
+    match state.db.get_import_job(job_uuid).await {
+        Ok(job) => {
+            let user_uuid = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
+            if job.user_id != user_uuid && auth.role != crate::auth::rbac::Role::Admin {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(CoreError::Forbidden("not your job".into()).error_response()),
+                )
+                    .into_response();
+            }
+            (StatusCode::OK, Json(job_to_json(&job))).into_response()
+        }
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            Json(CoreError::NotFound("job".into()).error_response()),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ForgejoBulkImportRequest {
+    /// Base URL of the Forgejo/Gitea instance, e.g. https://forgejo.example.com
+    pub host_url: String,
+    /// Org or user whose repos to import.
+    pub owner: String,
+    pub token: Option<String>,
+    /// Local CivitForge owner id (defaults to the caller).
+    pub owner_id: Option<String>,
+    /// Import only non-empty repos (default true — empty repos have no git data).
+    #[serde(default = "crate::api::import::default_skip_empty")]
+    pub skip_empty: bool,
+}
+
+fn default_skip_empty() -> bool {
+    true
+}
+
+/// Bulk import all repos of a Forgejo/Gitea user or org.
+/// Creates one job per repo; clones run concurrently in the background.
+pub async fn import_forgejo_bulk(
+    State(state): State<AppState>,
+    auth: AuthUser,
+    Json(req): Json<ForgejoBulkImportRequest>,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_permission(
+        &state,
+        &auth,
+        Resource::Repository,
+        Action::Create,
+        None,
+        None,
+        None,
+    )
+    .await
+    {
+        return rejection.into_response();
+    }
+
+    let host = req
+        .host_url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+        .trim_end_matches('/')
+        .to_string();
+    let scheme = if req.host_url.starts_with("http://") {
+        "http"
+    } else {
+        "https"
+    };
+
+    let owner_uuid = match req.owner_id {
+        Some(ref id_str) => match Uuid::parse_str(id_str) {
+            Ok(id) => id,
+            Err(_) => Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil()),
+        },
+        None => Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil()),
+    };
+
+    let owner_name = state
+        .db
+        .get_user_by_id(owner_uuid)
+        .await
+        .map(|u| u.username)
+        .unwrap_or_else(|_| owner_uuid.to_string());
+
+    // Page through the upstream repos
+    let client = reqwest::Client::new();
+    let mut created: Vec<serde_json::Value> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
+    let mut page = 1u32;
+
+    loop {
+        let url = format!("{scheme}://{host}/api/v1/users/{}/repos?limit=50&page={page}", req.owner);
+        let mut rb = client.get(&url).header("User-Agent", "CivitForge/1.0");
+        if let Some(ref t) = req.token {
+            rb = rb.bearer_auth(t);
+        }
+        let repos: Vec<serde_json::Value> = match rb.send().await {
+            Ok(r) if r.status().is_success() => match r.json().await {
+                Ok(v) => v,
+                Err(e) => {
+                    return (
+                        StatusCode::BAD_GATEWAY,
+                        Json(CoreError::Internal(format!("upstream decode: {e}")).error_response()),
+                    )
+                        .into_response()
+                }
+            },
+            Ok(r) => {
+                let status = r.status();
+                let body = r.text().await.unwrap_or_default();
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(
+                        CoreError::Internal(format!("upstream {status}: {body}")).error_response(),
+                    ),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                return (
+                    StatusCode::BAD_GATEWAY,
+                    Json(CoreError::Internal(format!("upstream unreachable: {e}")).error_response()),
+                )
+                    .into_response()
+            }
+        };
+
+        if repos.is_empty() {
+            break;
+        }
+
+        for r in &repos {
+            let name = r["name"].as_str().unwrap_or("").to_string();
+            if name.is_empty() {
+                continue;
+            }
+            let empty = r["empty"].as_bool().unwrap_or(false);
+            if req.skip_empty && empty {
+                skipped.push(name);
+                continue;
+            }
+            let description = r["description"].as_str().unwrap_or("").to_string();
+            let default_branch = r["default_branch"].as_str().unwrap_or("main").to_string();
+            let visibility = r["visibility"].as_str().unwrap_or("public").to_string();
+
+            // Create local repo record
+            let repo = match state
+                .db
+                .create_repo(&name, &description, owner_uuid, None, &visibility, &default_branch)
+                .await
+            {
+                Ok(v) => v,
+                Err(_) => {
+                    skipped.push(format!("{name} (already exists or db error)"));
+                    continue;
+                }
+            };
+
+            let repo_path = state.git_service.repo_path(&owner_name, &name);
+            let clone_url = match req.token.as_deref() {
+                Some(t) => format!("https://{t}@{host}/{}/{name}.git", req.owner),
+                None => format!("{scheme}://{host}/{}/{name}.git", req.owner),
+            };
+
+            let job = state
+                .db
+                .create_import_job(owner_uuid, "forgejo", &format!("{scheme}://{host}/{}/{}", req.owner, name), &owner_name, &name)
+                .await;
+            let job_id = job.as_ref().ok().map(|j| j.id);
+            let job_id_str = job_id.map(|id| id.to_string());
+
+            let db_clone = state.db.clone();
+            tokio::spawn(async move {
+                if let Some(id) = job_id {
+                    let _ = db_clone.update_import_job_status(id, "cloning").await;
+                }
+                if tokio::fs::create_dir_all(&repo_path).await.is_err() {
+                    if let Some(id) = job_id {
+                        fail_job_clone(&db_clone, id, "create_dir", "mkdir failed").await;
+                    }
+                    return;
+                }
+                let out = tokio::process::Command::new("git")
+                    .args(["clone", "--bare", &clone_url, &repo_path.to_string_lossy()])
+                    .output()
+                    .await;
+                match out {
+                    Ok(o) if o.status.success() => {
+                        if let Some(id) = job_id {
+                            verify_and_complete_clone(&db_clone, id, &repo_path).await;
+                        }
+                    }
+                    Ok(o) => {
+                        let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
+                        if let Some(id) = job_id {
+                            fail_job_clone(&db_clone, id, "git clone", &stderr).await;
+                        }
+                    }
+                    Err(e) => {
+                        if let Some(id) = job_id {
+                            fail_job_clone(&db_clone, id, "git clone", &e.to_string()).await;
+                        }
+                    }
+                }
+            });
+
+            created.push(serde_json::json!({
+                "name": name,
+                "repo_id": repo.id,
+                "job_id": job_id_str,
+            }));
+        }
+
+        if repos.len() < 50 {
+            break;
+        }
+        page += 1;
+    }
+
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "importing",
+            "created": created,
+            "skipped": skipped,
+            "count": created.len(),
+        })),
+    )
+        .into_response()
 }
 
 #[cfg(test)]
@@ -1096,6 +1550,7 @@ mod tests {
             status: "importing".into(),
             message: "Started".into(),
             repo_id: Some(Uuid::nil().to_string()),
+            job_id: None,
         };
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("\"status\":\"importing\""));

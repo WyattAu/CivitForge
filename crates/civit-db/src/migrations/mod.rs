@@ -1045,6 +1045,8 @@ pub const M_637_ADD_TENANT_ISOLATION_UP: &str = include_str!("637_add_tenant_iso
 pub const M_637_ADD_TENANT_ISOLATION_DOWN: &str = "DROP TABLE IF EXISTS tenant_billing_v1; DROP TABLE IF EXISTS tenant_isolation_policies_v1; DROP TABLE IF EXISTS tenant_resource_quotas_v1;";
 pub const M_638_PERFORMANCE_INDEXES_V2_UP: &str = include_str!("638_add_performance_indexes_v2.sql");
 pub const M_638_PERFORMANCE_INDEXES_V2_DOWN: &str = "DROP INDEX IF EXISTS idx_repositories_name; DROP INDEX IF EXISTS idx_repositories_owner_name; DROP INDEX IF EXISTS idx_issues_repo_status; DROP INDEX IF EXISTS idx_issues_created_at; DROP INDEX IF EXISTS idx_pull_requests_repo_status; DROP INDEX IF EXISTS idx_pipeline_runs_repo_status; DROP INDEX IF EXISTS idx_commits_repo_date; DROP INDEX IF EXISTS idx_events_type_created; DROP INDEX IF EXISTS idx_audit_events_user_created; DROP INDEX IF EXISTS idx_access_tokens_hash; DROP INDEX IF EXISTS idx_sessions_user_id;";
+pub const M_639_ADD_IMPORT_JOBS_UP: &str = include_str!("639_add_import_jobs.sql");
+pub const M_639_ADD_IMPORT_JOBS_DOWN: &str = "DROP TABLE IF EXISTS import_jobs;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -3511,6 +3513,12 @@ impl MigrationManager {
             up_sql: M_638_PERFORMANCE_INDEXES_V2_UP.into(),
             down_sql: M_638_PERFORMANCE_INDEXES_V2_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 639,
+            name: "add_import_jobs".into(),
+            up_sql: M_639_ADD_IMPORT_JOBS_UP.into(),
+            down_sql: M_639_ADD_IMPORT_JOBS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3552,7 +3560,7 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 407);
+        assert_eq!(mgr.all().len(), 408);
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -3805,13 +3813,13 @@ mod tests {
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
         mgr.add_migration(Migration {
-            version: 639,
+            version: 640,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 408);
-        assert_eq!(mgr.all()[407].version, 639);
+        assert_eq!(mgr.all().len(), 409);
+        assert_eq!(mgr.all()[408].version, 640);
     }
 
     #[test]
@@ -3830,21 +3838,21 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 407);
+        assert_eq!(pending.len(), 408);
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 245);
+        assert_eq!(pending.len(), 246);
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 406);
+        assert_eq!(pending.len(), 407);
     }
 
     #[test]
