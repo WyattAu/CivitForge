@@ -20,7 +20,7 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 flate2 = { workspace = true }
 tar = "0.4"
-zip = { version = "2", default-features = false, features = ["deflate"] }
+zip = { version = "8", default-features = false, features = ["deflate"] }
 base64 = { workspace = true }
 civit-db = { path = "../civit-db" }
 
