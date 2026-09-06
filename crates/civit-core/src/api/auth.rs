@@ -209,7 +209,7 @@ pub async fn require_permission(
     org_id: Option<uuid::Uuid>,
     branch_name: Option<&str>,
 ) -> Result<PermissionCheck, (StatusCode, Json<ErrorResponse>)> {
-    let repo_id_val = repo_id.map(|r| r.get());
+    let repo_id_val = repo_id.map(|r| r.as_uuid());
     let user_id = uuid::Uuid::parse_str(&user.user_id).unwrap_or(uuid::Uuid::nil());
     PermissionEngine::check(
         state.db.pool(),

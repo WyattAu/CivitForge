@@ -281,9 +281,8 @@ pub async fn import_github(
                 .map(|u| u.username)
                 .unwrap_or_else(|_| owner_uuid.to_string());
             let repo_name = meta.name.clone();
-            let repo_path = std::path::Path::new(&storage_path)
-                .join(&owner_name)
-                .join(&repo_name);
+            // ADR-0006: single source of truth for repo path layout
+            let repo_path = state.git_service.repo_path(&owner_name, &repo_name);
 
             let clone_url = if let Some(ref token) = req.token {
                 format!("https://{token}@github.com/{gh_owner}/{gh_repo}.git")
@@ -492,9 +491,8 @@ pub async fn import_gitlab(
                 .map(|u| u.username)
                 .unwrap_or_else(|_| owner_uuid.to_string());
             let repo_name = meta.name.clone();
-            let repo_path = std::path::Path::new(&storage_path)
-                .join(&owner_name)
-                .join(&repo_name);
+            // ADR-0006: single source of truth for repo path layout
+            let repo_path = state.git_service.repo_path(&owner_name, &repo_name);
 
             let clone_url = if let Some(ref token) = req.token {
                 format!("https://oauth2:{token}@gitlab.com/{gl_owner}/{gl_repo}.git")
@@ -808,9 +806,8 @@ pub async fn import_forgejo(
                 .map(|u| u.username)
                 .unwrap_or_else(|_| owner_uuid.to_string());
             let repo_name = meta.name.clone();
-            let repo_path = std::path::Path::new(&storage_path)
-                .join(&owner_name)
-                .join(&repo_name);
+            // ADR-0006: single source of truth for repo path layout
+            let repo_path = state.git_service.repo_path(&owner_name, &repo_name);
 
             let fg_owner_clone = fg_owner.clone();
             let fg_repo_clone = fg_repo.clone();
@@ -942,9 +939,8 @@ pub async fn import_url(
                 .await
                 .map(|u| u.username)
                 .unwrap_or_else(|_| owner_uuid.to_string());
-            let repo_path = std::path::Path::new(&storage_path)
-                .join(&owner_name)
-                .join(&repo_name);
+            // ADR-0006: single source of truth for repo path layout
+            let repo_path = state.git_service.repo_path(&owner_name, &repo_name);
 
             let clone_url = if let Some(ref token) = req.token {
                 if req.url.starts_with("https://") {

@@ -186,7 +186,7 @@ impl PermissionEngine {
         org_id: Option<uuid::Uuid>,
         branch_name: Option<&str>,
     ) -> Result<PermissionCheck, CoreError> {
-        let user_uuid = user_id.get();
+        let user_uuid = user_id.as_uuid();
 
         // System-level admins bypass all checks
         if Self::is_system_admin(pool, user_uuid).await? {
@@ -196,7 +196,7 @@ impl PermissionEngine {
         // 1. Check explicit repo-level denies
         if let Some(rid) = repo_id
             && let Some(deny) =
-                Self::check_repo_deny(pool, rid.get(), &resource, &action, user_uuid).await?
+                Self::check_repo_deny(pool, rid.as_uuid(), &resource, &action, user_uuid).await?
         {
             return Ok(PermissionCheck::denied(resource, action, deny));
         }
@@ -204,7 +204,7 @@ impl PermissionEngine {
         // 2. Check explicit repo-level grants
         if let Some(rid) = repo_id
             && let Some(_grant) =
-                Self::check_repo_grant(pool, rid.get(), &resource, &action, user_uuid).await?
+                Self::check_repo_grant(pool, rid.as_uuid(), &resource, &action, user_uuid).await?
         {
             return Ok(PermissionCheck::allowed(resource, action));
         }
@@ -214,7 +214,7 @@ impl PermissionEngine {
             && action == Action::Push
             && let Some((rid, branch)) = repo_id.zip(branch_name)
             && let Some(deny) =
-                Self::check_branch_protection(pool, rid.get(), branch, user_uuid).await?
+                Self::check_branch_protection(pool, rid.as_uuid(), branch, user_uuid).await?
         {
             return Ok(PermissionCheck::denied(
                 Resource::Branch,
@@ -234,7 +234,7 @@ impl PermissionEngine {
         // 5. Fallback: check repo role (from member_roles if user is a direct member)
         if let Some(rid) = repo_id
             && let Some(_grant) =
-                Self::check_repo_role(pool, rid.get(), &resource, &action, user_uuid).await?
+                Self::check_repo_role(pool, rid.as_uuid(), &resource, &action, user_uuid).await?
         {
             return Ok(PermissionCheck::allowed(resource, action));
         }
