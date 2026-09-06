@@ -122,7 +122,7 @@ use axum::extract::{Request, State};
 use axum::extract::ws::WebSocketUpgrade;
 use axum::http::{HeaderName, HeaderValue, Method};
 use axum::middleware::{self, Next};
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, Json, Response};
 use axum::routing::{delete, get, patch, post};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;

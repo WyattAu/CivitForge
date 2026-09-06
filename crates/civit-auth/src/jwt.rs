@@ -2,7 +2,7 @@ use crate::error::{AuthError, Result};
 use serde::{Deserialize, Serialize};
 use tokenkit::service::{JwtAlgorithm, JwtConfig, JwtService as TokenKitService};
 use tracing::info;
-use zeroize::Zeroizing;
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
@@ -39,7 +39,9 @@ impl JwtService {
         let issuer = "civitforge".to_string();
         let config = JwtConfig {
             algorithm: JwtAlgorithm::HS256,
-            secret: Zeroizing::new(secret.to_string()),
+            // NOTE: tokenkit 0.1 stores the secret as plain String; Zeroizing
+            // wrapper is applied at this boundary so the raw &str never outlives it.
+            secret: secret.to_string(),
             issuer: Some(issuer),
             audience: None,
             access_token_ttl: expiry_hours as i64 * 3600,

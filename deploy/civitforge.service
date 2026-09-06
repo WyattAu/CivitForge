@@ -1,0 +1,39 @@
+[Unit]
+Description=CivitForge software forge server
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker-civit-postgres.service docker-civit-redis.service
+
+[Service]
+Type=exec
+User=wyatt
+Group=wyatt
+WorkingDirectory=/home/wyatt/civitforge
+# Secrets live in an env file with 600 perms, never in the unit
+EnvironmentFile=/home/wyatt/civitforge/deploy/civitforge.env
+ExecStart=/home/wyatt/civitforge/target/release/civit-core
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Defense-grade: harden the service
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/wyatt/civitforge/data
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+# Observability
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=civitforge
+
+[Install]
+WantedBy=multi-user.target
