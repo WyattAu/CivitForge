@@ -134,6 +134,123 @@ impl CoreError {
 
 pub type Result<T> = std::result::Result<T, CoreError>;
 
+// ── Kit bridge (ADR-0006 Phase 1): error-codes + error-classify ──
+// Wire shapes unchanged; adds standardized codes + recovery classification
+// for retry logic (pipelines, webhooks) and future RFC 7807 output.
+
+impl error_classify::AppError for CoreError {
+    // NOTE: use the kit's re-export (error_classify::ErrorCode) — the published
+    // error-classify 0.2 binds error-codes 0.1, so a direct error-codes 1.0 dep
+    // would create two distinct ErrorCode types.
+    fn code(&self) -> error_classify::ErrorCode {
+        match self {
+            Self::NotFound(_) => error_classify::ErrorCode::NotFound,
+            Self::Auth(_) | Self::Jwt(_) => error_classify::ErrorCode::Auth,
+            Self::Forbidden(_) => error_classify::ErrorCode::Auth,
+            Self::BadRequest(_) | Self::Json(_) => error_classify::ErrorCode::BadRequest,
+            Self::TooManyRequests(_) => error_classify::ErrorCode::RateLimited,
+            Self::Federation(_) => error_classify::ErrorCode::Unavailable,
+            Self::Config(_)
+            | Self::Database(_)
+            | Self::Git(_)
+            | Self::Internal(_)
+            | Self::Io(_)
+            | Self::Search(_) => error_classify::ErrorCode::Internal,
+        }
+    }
+
+    fn recovery_class(&self) -> error_classify::RecoveryClass {
+        match self {
+            // Transient — retry with backoff may succeed
+            Self::Database(_) | Self::Git(_) | Self::Io(_) | Self::Search(_)
+            | Self::TooManyRequests(_) | Self::Federation(_) => {
+                error_classify::RecoveryClass::Retryable
+            }
+            // User must act
+            Self::Auth(_) | Self::Forbidden(_) | Self::Jwt(_) | Self::BadRequest(_)
+            | Self::Json(_) => error_classify::RecoveryClass::UserAction,
+            // Permanent
+            Self::NotFound(_) => error_classify::RecoveryClass::Permanent,
+            // Bugs / config faults
+            Self::Config(_) | Self::Internal(_) => error_classify::RecoveryClass::Bug,
+        }
+    }
+
+    fn user_message(&self) -> String {
+        self.error_response().error
+    }
+
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Config(_) => "config",
+            Self::Database(_) => "database",
+            Self::Auth(_) => "auth",
+            Self::Forbidden(_) => "forbidden",
+            Self::NotFound(_) => "not_found",
+            Self::Git(_) => "git",
+            Self::Federation(_) => "federation",
+            Self::Internal(_) => "internal",
+            Self::Json(_) => "json",
+            Self::Jwt(_) => "jwt",
+            Self::Io(_) => "io",
+            Self::Search(_) => "search",
+            Self::BadRequest(_) => "bad_request",
+            Self::TooManyRequests(_) => "too_many_requests",
+        }
+    }
+}
+
+#[cfg(test)]
+mod kit_bridge_tests {
+    use super::*;
+    use error_classify::{AppError, RecoveryClass};
+
+    #[test]
+    fn kit_codes_match_status_mapping() {
+        // Kit ErrorCode.status() must agree with hand-rolled status_code()
+        // for every variant the kit can express distinctly.
+        // KNOWN GAP (upstream error-codes 0.1): no distinct Forbidden variant —
+        // ErrorCode::Auth.status() is 401 only, so Forbidden (legacy 403)
+        // collapses to 401 at the kit layer. Wire responses are unaffected
+        // (status_code() remains authoritative); revisit when the kit ships
+        // a Forbidden variant.
+        for (err, expected_status) in [
+            (CoreError::NotFound("x".into()), 404u16),
+            (CoreError::Auth("x".into()), 401),
+            (CoreError::BadRequest("x".into()), 400),
+            (CoreError::TooManyRequests("x".into()), 429),
+        ] {
+            assert_eq!(err.code().status(), expected_status, "{err}");
+            assert_eq!(err.code().status(), err.status_code(), "{err}");
+        }
+        // Forbidden: kit collapses to Auth/401; legacy keeps 403.
+        let forbidden = CoreError::Forbidden("x".into());
+        assert_eq!(forbidden.code(), error_classify::ErrorCode::Auth);
+        assert_eq!(forbidden.code().status(), 401);
+        assert_eq!(forbidden.status_code(), StatusCode::FORBIDDEN);
+    }
+
+    #[test]
+    fn kit_recovery_classes() {
+        assert_eq!(
+            CoreError::Database("pool".into()).recovery_class(),
+            RecoveryClass::Retryable
+        );
+        assert_eq!(
+            CoreError::NotFound("repo".into()).recovery_class(),
+            RecoveryClass::Permanent
+        );
+        assert_eq!(
+            CoreError::Auth("bad token".into()).recovery_class(),
+            RecoveryClass::UserAction
+        );
+        assert_eq!(
+            CoreError::Internal("boom".into()).recovery_class(),
+            RecoveryClass::Bug
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

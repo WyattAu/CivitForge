@@ -1035,6 +1035,7 @@ dependencies = [
  "civit-workflow",
  "criterion",
  "dashmap",
+ "error-classify",
  "flate2",
  "futures",
  "gix",
@@ -2284,6 +2285,28 @@ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "error-classify"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ee6236f42e0c1557b9e6c4f08dd6cdf774b80ebcbe5c9ba34cc425d9532c279"
+dependencies = [
+ "error-codes",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "error-codes"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5d3a4b92751c61baf4417023cb001cbb311db0cae041bdfc2c26d3ccf9cd85b"
+dependencies = [
+ "axum 0.8.9",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

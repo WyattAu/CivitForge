@@ -18,6 +18,10 @@ serde_json = { workspace = true }
 sqlx = { workspace = true }
 redis = { workspace = true }
 jsonwebtoken = { workspace = true }
+# ADR-0006 Phase 1: error kit bridge (codes + recovery classification)
+# error_classify re-exports ErrorCode; no direct error-codes dep (avoids
+# dual 0.1/1.0 resolution until error-classify releases the 1.0 bump).
+error-classify = { version = "0.2", features = ["errcode"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 thiserror = { workspace = true }
