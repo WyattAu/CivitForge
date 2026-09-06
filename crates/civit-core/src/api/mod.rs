@@ -157,6 +157,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .route("/healthz", get(health))
         .route("/ready", get(health))
         .route("/api/v1/health", get(health))
+        .route("/api/v1/version", get(version))
         .route("/api/v1/ws", get(ws_handler))
         .merge(pipeline_log_stream::log_stream_routes())
         .route("/api/v1/auth/login", post(auth_routes::login))
@@ -572,6 +573,17 @@ async fn deprecation_header_middleware(req: Request, next: Next) -> Response {
 
 async fn health() -> &'static str {
     "OK"
+}
+
+/// Version endpoint — identifies the exact deployed build.
+/// `CIVIT_GIT_SHA` / `CIVIT_BUILT_AT` may be injected at build time via env vars.
+async fn version() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "name": "CivitForge",
+        "version": env!("CARGO_PKG_VERSION"),
+        "git_sha": option_env!("CIVIT_GIT_SHA").unwrap_or("unknown"),
+        "built_at": option_env!("CIVIT_BUILT_AT").unwrap_or("unknown"),
+    }))
 }
 
 #[derive(Clone)]
