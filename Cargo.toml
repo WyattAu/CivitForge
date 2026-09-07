@@ -97,3 +97,9 @@ strip = "symbols"    # strip debug symbols
 panic = "abort"      # smaller binaries (no unwind tables)
 overflow-checks = false
 incremental = false
+
+# ADR-0006: unreleased kit fixes (Forbidden variant, error-codes 1.0 alignment).
+# Remove once error-codes 1.1.0 and error-classify 0.3.0 are published.
+[patch.crates-io]
+error-codes = { git = "https://github.com/WyattAu/errcode", branch = "main" }
+error-classify = { git = "https://github.com/WyattAu/app-error", branch = "main" }

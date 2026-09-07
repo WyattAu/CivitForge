@@ -146,7 +146,8 @@ impl error_classify::AppError for CoreError {
         match self {
             Self::NotFound(_) => error_classify::ErrorCode::NotFound,
             Self::Auth(_) | Self::Jwt(_) => error_classify::ErrorCode::Auth,
-            Self::Forbidden(_) => error_classify::ErrorCode::Auth,
+            // error-codes 1.1 (patched) adds the distinct Forbidden variant
+            Self::Forbidden(_) => error_classify::ErrorCode::Forbidden,
             Self::BadRequest(_) | Self::Json(_) => error_classify::ErrorCode::BadRequest,
             Self::TooManyRequests(_) => error_classify::ErrorCode::RateLimited,
             Self::Federation(_) => error_classify::ErrorCode::Unavailable,
@@ -208,26 +209,18 @@ mod kit_bridge_tests {
     #[test]
     fn kit_codes_match_status_mapping() {
         // Kit ErrorCode.status() must agree with hand-rolled status_code()
-        // for every variant the kit can express distinctly.
-        // KNOWN GAP (upstream error-codes 0.1): no distinct Forbidden variant —
-        // ErrorCode::Auth.status() is 401 only, so Forbidden (legacy 403)
-        // collapses to 401 at the kit layer. Wire responses are unaffected
-        // (status_code() remains authoritative); revisit when the kit ships
-        // a Forbidden variant.
+        // for every variant (error-codes 1.1 via [patch] restores the
+        // Forbidden/403 distinction — ADR-0006 upstream findings resolved).
         for (err, expected_status) in [
             (CoreError::NotFound("x".into()), 404u16),
             (CoreError::Auth("x".into()), 401),
+            (CoreError::Forbidden("x".into()), 403),
             (CoreError::BadRequest("x".into()), 400),
             (CoreError::TooManyRequests("x".into()), 429),
         ] {
             assert_eq!(err.code().status(), expected_status, "{err}");
             assert_eq!(err.code().status(), err.status_code(), "{err}");
         }
-        // Forbidden: kit collapses to Auth/401; legacy keeps 403.
-        let forbidden = CoreError::Forbidden("x".into());
-        assert_eq!(forbidden.code(), error_classify::ErrorCode::Auth);
-        assert_eq!(forbidden.code().status(), 401);
-        assert_eq!(forbidden.status_code(), StatusCode::FORBIDDEN);
     }
 
     #[test]
