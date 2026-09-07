@@ -18,6 +18,7 @@ pub mod issues;
 pub mod login;
 pub mod new_repo;
 pub mod not_found;
+pub mod import;
 pub mod orgs;
 pub mod pipelines;
 pub mod profile;

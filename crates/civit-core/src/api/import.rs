@@ -111,6 +111,77 @@ async fn fail_job_clone(
         .await;
 }
 
+/// Metadata sync (Migration Phase 2): import issues from a Forgejo/Gitea repo.
+/// PRs are skipped (Forgejo's issues endpoint returns them mixed in).
+/// Original upstream author is preserved in the body header; issues are
+/// attributed to the importing user (no upstream account mapping yet).
+async fn sync_forgejo_issues(
+    db: &civit_db::DbRepository,
+    repo_id: Uuid,
+    host: &str,
+    upstream_owner: &str,
+    upstream_repo: &str,
+    token: Option<&str>,
+    actor_id: Uuid,
+    scheme: &str,
+) -> usize {
+    let client = reqwest::Client::new();
+    let mut imported = 0usize;
+    let mut page = 1u32;
+
+    loop {
+        let url = format!(
+            "{scheme}://{host}/api/v1/repos/{upstream_owner}/{upstream_repo}/issues?state=all&limit=50&page={page}"
+        );
+        let mut rb = client.get(&url).header("User-Agent", "CivitForge/1.0");
+        if let Some(t) = token {
+            rb = rb.bearer_auth(t);
+        }
+        let issues: Vec<serde_json::Value> = match rb.send().await {
+            Ok(r) if r.status().is_success() => match r.json().await {
+                Ok(v) => v,
+                Err(_) => break,
+            },
+            _ => break,
+        };
+        if issues.is_empty() {
+            break;
+        }
+        for issue in &issues {
+            // Skip PRs — Forgejo returns them in the issues endpoint
+            if issue["pull_request"].is_object() {
+                continue;
+            }
+            let number = issue["number"].as_i64().unwrap_or(0);
+            let title = issue["title"].as_str().unwrap_or("Untitled");
+            let body = issue["body"].as_str().unwrap_or("");
+            let author = issue["user"]["login"].as_str().unwrap_or("unknown");
+            let state = issue["state"].as_str().unwrap_or("open");
+            let labels: Vec<String> = issue["labels"]
+                .as_array()
+                .map(|a| a.iter().filter_map(|l| l["name"].as_str()).map(String::from).collect())
+                .unwrap_or_default();
+
+            let mut full_body = format!(
+                "_Imported from Forgejo issue #{number}, authored by @{author}_\n\n{body}"
+            );
+            if !labels.is_empty() {
+                full_body.push_str(&format!("\n\n**Labels:** {}", labels.join(", ")));
+            }
+            let _ = number;
+            let _ = db
+                .create_issue(repo_id, title, &full_body, actor_id)
+                .await;
+            imported += 1;
+        }
+        if issues.len() < 50 {
+            break;
+        }
+        page += 1;
+    }
+    imported
+}
+
 fn parse_github_url(url: &str) -> Option<(&str, &str)> {
     let url = url.trim_end_matches('/');
     let url = url.trim_end_matches(".git");
@@ -1404,6 +1475,13 @@ pub async fn import_forgejo_bulk(
             let job_id = job.as_ref().ok().map(|j| j.id);
             let job_id_str = job_id.map(|id| id.to_string());
 
+            // Owned copies for the spawn (loop reuses `req`, `host`, `name`)
+            let name_for_job = name.clone();
+            let host_for_job = host.clone();
+            let upstream_owner = req.owner.clone();
+            let token_for_job = req.token.clone();
+            let repo_id = repo.id;
+
             let db_clone = state.db.clone();
             tokio::spawn(async move {
                 if let Some(id) = job_id {
@@ -1424,6 +1502,21 @@ pub async fn import_forgejo_bulk(
                         if let Some(id) = job_id {
                             verify_and_complete_clone(&db_clone, id, &repo_path).await;
                         }
+                        // Metadata sync (Migration Phase 2): issues after clone
+                        let imported = sync_forgejo_issues(
+                            &db_clone,
+                            repo_id,
+                            &host_for_job,
+                            &upstream_owner,
+                            &name_for_job,
+                            token_for_job.as_deref(),
+                            owner_uuid,
+                            scheme,
+                        )
+                        .await;
+                        eprintln!(
+                            "[import_forgejo_bulk] {upstream_owner}/{name_for_job}: synced {imported} issues"
+                        );
                     }
                     Ok(o) => {
                         let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();

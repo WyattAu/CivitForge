@@ -49,6 +49,7 @@ pub fn App() -> impl IntoView {
                             <Route path=path!("/activity") view=ActivityPage />
                             <Route path=path!("/orgs") view=OrgsPage />
                             <Route path=path!("/orgs/:id") view=OrgDetailPage />
+                            <Route path=path!("/import") view=crate::pages::import::ImportPage />
                             <Route path=path!("/admin") view=AdminPage />
                             <Route path=path!("/admin/feature-flags") view=AdminFeatureFlagsPage />
                             <Route path=path!("/admin/dashboard") view=AdminDashboardPage />
