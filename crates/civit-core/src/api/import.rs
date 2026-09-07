@@ -111,10 +111,75 @@ async fn fail_job_clone(
         .await;
 }
 
+/// Map an upstream login to a local user — create-if-missing (Phase 2).
+/// Placeholder accounts get a random password (nobody can log in) and a
+/// bio marker; owners can reclaim by registering the same username.
+async fn map_upstream_user(
+    db: &civit_db::DbRepository,
+    login: &str,
+) -> Uuid {
+    if login.is_empty() {
+        return Uuid::nil();
+    }
+    if let Ok(user) = db.get_user_by_username(login).await {
+        return user.id;
+    }
+    // Create placeholder: random 32-char password, derived email
+    let random_pw = uuid::Uuid::new_v4().to_string();
+    let hash = civit_auth::password::hash_password(&random_pw)
+        .unwrap_or_else(|_| uuid::Uuid::new_v4().to_string());
+    match db
+        .create_user(
+            login,
+            &format!("{login}@imported.civitforge.local"),
+            login,
+            "member",
+            &hash,
+        )
+        .await
+    {
+        Ok(u) => {
+            eprintln!("[migration] created placeholder user for upstream '{login}'");
+            u.id
+        }
+        Err(e) => {
+            eprintln!("[migration] placeholder user '{login}' failed: {e}");
+            Uuid::nil()
+        }
+    }
+}
+
+/// Fetch PR refs into the bare clone so upstream PR history survives:
+/// `refs/pull/{n}/head` — before PR records are created.
+async fn fetch_pr_refs(repo_path: &std::path::Path, clone_url: &str) -> Result<(), String> {
+    let out = tokio::process::Command::new("git")
+        .args([
+            "-C",
+            &repo_path.to_string_lossy(),
+            "fetch",
+            "origin",
+            "+refs/pull/*/head:refs/pull/*/head",
+        ])
+        .output()
+        .await
+        .map_err(|e| format!("fetch exec failed: {e}"))?;
+    if !out.status.success() {
+        // Non-fatal: repos without PRs produce "no refspec" errors
+        let stderr = String::from_utf8_lossy(&o_stderr(&out)).trim().to_string();
+        if !stderr.contains("did not match") && !stderr.is_empty() {
+            return Err(format!("PR ref fetch: {stderr}"));
+        }
+    }
+    Ok(())
+}
+
+fn o_stderr(o: &std::process::Output) -> Vec<u8> {
+    o.stderr.clone()
+}
+
 /// Metadata sync (Migration Phase 2): import issues from a Forgejo/Gitea repo.
-/// PRs are skipped (Forgejo's issues endpoint returns them mixed in).
-/// Original upstream author is preserved in the body header; issues are
-/// attributed to the importing user (no upstream account mapping yet).
+/// PRs are skipped here and migrated by `sync_forgejo_prs` instead.
+/// Original upstream author is mapped to a local user (create-if-missing).
 async fn sync_forgejo_issues(
     db: &civit_db::DbRepository,
     repo_id: Uuid,
@@ -169,12 +234,97 @@ async fn sync_forgejo_issues(
                 full_body.push_str(&format!("\n\n**Labels:** {}", labels.join(", ")));
             }
             let _ = number;
+            let author_id = map_upstream_user(db, author).await;
+            let author_id = if author_id == Uuid::nil() { actor_id } else { author_id };
             let _ = db
-                .create_issue(repo_id, title, &full_body, actor_id)
+                .create_issue(repo_id, title, &full_body, author_id)
                 .await;
             imported += 1;
         }
         if issues.len() < 50 {
+            break;
+        }
+        page += 1;
+    }
+    imported
+}
+
+/// Metadata sync (Migration Phase 2): import PR records from Forgejo/Gitea.
+/// Git refs are preserved separately via `fetch_pr_refs`; this creates the
+/// PR records (open PRs only — merged/closed PRs become annotated issues is
+/// deferred to avoid fabricating closed-PR state without merge commits).
+async fn sync_forgejo_prs(
+    db: &civit_db::DbRepository,
+    repo_id: Uuid,
+    host: &str,
+    upstream_owner: &str,
+    upstream_repo: &str,
+    token: Option<&str>,
+    actor_id: Uuid,
+    scheme: &str,
+) -> usize {
+    let client = reqwest::Client::new();
+    let mut imported = 0usize;
+    let mut page = 1u32;
+
+    loop {
+        let url = format!(
+            "{scheme}://{host}/api/v1/repos/{upstream_owner}/{upstream_repo}/pulls?state=all&limit=50&page={page}"
+        );
+        let mut rb = client.get(&url).header("User-Agent", "CivitForge/1.0");
+        if let Some(t) = token {
+            rb = rb.bearer_auth(t);
+        }
+        let pulls: Vec<serde_json::Value> = match rb.send().await {
+            Ok(r) if r.status().is_success() => match r.json().await {
+                Ok(v) => v,
+                Err(_) => break,
+            },
+            _ => break,
+        };
+        if pulls.is_empty() {
+            break;
+        }
+        for pr in &pulls {
+            let title = pr["title"].as_str().unwrap_or("Untitled PR");
+            let body = pr["body"].as_str().unwrap_or("");
+            let author = pr["user"]["login"].as_str().unwrap_or("unknown");
+            let head_ref = pr["head"]["ref"].as_str().unwrap_or("head");
+            let base_ref = pr["base"]["ref"].as_str().unwrap_or("main");
+            let state = pr["state"].as_str().unwrap_or("open");
+            let merged = pr["merged"].as_bool().unwrap_or(false);
+
+            // Only import open PRs as records; merged/closed history lives
+            // in the fetched refs/pull/* git refs.
+            if state != "open" || merged {
+                continue;
+            }
+
+            let number = pr["number"].as_i64().unwrap_or(0);
+            let full_body = format!(
+                "_Imported from Forgejo PR #{number}, authored by @{author}_\n\n{body}"
+            );
+            let author_id = map_upstream_user(db, author).await;
+            let author_id = if author_id == Uuid::nil() { actor_id } else { author_id };
+
+            if db
+                .create_pr(
+                    repo_id,
+                    title,
+                    &full_body,
+                    author_id,
+                    head_ref,
+                    base_ref,
+                    false,
+                    false,
+                )
+                .await
+                .is_ok()
+            {
+                imported += 1;
+            }
+        }
+        if pulls.len() < 50 {
             break;
         }
         page += 1;
@@ -1502,8 +1652,23 @@ pub async fn import_forgejo_bulk(
                         if let Some(id) = job_id {
                             verify_and_complete_clone(&db_clone, id, &repo_path).await;
                         }
-                        // Metadata sync (Migration Phase 2): issues after clone
-                        let imported = sync_forgejo_issues(
+                        // Metadata sync (Migration Phase 2): issues + PRs after clone.
+                        // PR refs are fetched first so upstream PR history survives.
+                        if let Err(e) = fetch_pr_refs(&repo_path, &clone_url).await {
+                            eprintln!("[import_forgejo_bulk] {name_for_job}: PR refs: {e}");
+                        }
+                        let issues_n = sync_forgejo_issues(
+                            &db_clone,
+                            repo_id,
+                            &host_for_job,
+                            &upstream_owner,
+                            &name_for_job,
+                            token_for_job.as_deref(),
+                            owner_uuid,
+                            scheme,
+                        )
+                        .await;
+                        let prs_n = sync_forgejo_prs(
                             &db_clone,
                             repo_id,
                             &host_for_job,
@@ -1515,7 +1680,7 @@ pub async fn import_forgejo_bulk(
                         )
                         .await;
                         eprintln!(
-                            "[import_forgejo_bulk] {upstream_owner}/{name_for_job}: synced {imported} issues"
+                            "[import_forgejo_bulk] {upstream_owner}/{name_for_job}: synced {issues_n} issues, {prs_n} PRs"
                         );
                     }
                     Ok(o) => {

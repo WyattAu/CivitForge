@@ -103,3 +103,6 @@ incremental = false
 [patch.crates-io]
 error-codes = { git = "https://github.com/WyattAu/errcode", branch = "main" }
 error-classify = { git = "https://github.com/WyattAu/app-error", branch = "main" }
+# graceful repo renamed its package to shutdown-kit; git main (0.2.0) adds
+# shutdown_signal() with SIGTERM support (systemd sends TERM on restart).
+shutdown-kit = { git = "https://github.com/WyattAu/graceful", branch = "main" }

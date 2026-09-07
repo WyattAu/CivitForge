@@ -2,8 +2,8 @@
 
 use anyhow::Result;
 use civit_core::{api::create_router, config::AppConfig};
+use shutdown_kit::shutdown_signal;
 use std::net::SocketAddr;
-use tokio::signal;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -43,14 +43,6 @@ fn split_sql_statements(sql: &str) -> Vec<&str> {
         statements.push(&sql[start..]);
     }
     statements
-}
-
-async fn shutdown_signal() {
-    if let Err(e) = signal::ctrl_c().await {
-        tracing::error!("failed to listen for ctrl+c: {e}");
-        return;
-    }
-    info!("received shutdown signal");
 }
 
 #[tokio::main]
