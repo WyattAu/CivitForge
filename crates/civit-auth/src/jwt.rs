@@ -79,7 +79,11 @@ impl JwtService {
 
     pub fn validate_token(&self, token: &str) -> Result<Claims> {
         let claims: Claims = self.inner.decode(token).map_err(|e| {
-            AuthError::Internal(format!("Failed to decode JWT: {e}"))
+            // Invalid/expired tokens are authentication failures (401),
+            // not internal errors (500). Discovered via the kit-patch
+            // full-suite run; regression came in with the tokenkit
+            // adoption which mapped decode errors to Internal.
+            AuthError::Auth(format!("invalid token: {e}"))
         })?;
         info!(sub = %claims.sub, "validated JWT token");
         Ok(claims)
