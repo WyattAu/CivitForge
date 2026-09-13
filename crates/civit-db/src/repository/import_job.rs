@@ -108,8 +108,6 @@ impl super::DbRepository {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // SQL shape guard: statuses stay aligned with the CHECK constraint
     // in 639_add_import_jobs.sql.
     #[test]

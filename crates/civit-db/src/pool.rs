@@ -3,7 +3,6 @@
 use crate::error::{DbError, Result};
 use breaker::CircuitBreaker;
 use sqlx::postgres::PgPool;
-use std::time::Duration;
 
 /// Postgres connection pool guarded by the `breaker` kit circuit breaker
 /// (ADR-0006 Phase 3). Failure-rate + sliding-window state machine replaces

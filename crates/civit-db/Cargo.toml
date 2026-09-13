@@ -11,7 +11,7 @@ parking_lot = { workspace = true }
 sqlx = { workspace = true }
 serde = { workspace = true }
 # ADR-0006 Phase 3: kit circuit breaker (replaces hand-rolled state machine)
-breaker = "1.0"
+breaker = "2.0"
 serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }

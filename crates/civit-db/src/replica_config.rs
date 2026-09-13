@@ -370,7 +370,7 @@ impl ReplicationLagMonitor {
         let measurements = self
             .measurements
             .entry(replica_id.to_string())
-            .or_insert_with(Vec::new);
+            .or_default();
 
         measurements.push(LagMeasurement {
             timestamp: Utc::now(),
