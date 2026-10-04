@@ -23,7 +23,7 @@ jsonwebtoken = { workspace = true }
 # root): error-codes 1.1 (Forbidden variant) via error-classify 0.3.
 error-classify = { version = "0.3", features = ["errcode"] }
 # ADR-0006 Phase 3: graceful shutdown (Ctrl+C + SIGTERM — systemd sends TERM)
-shutdown-kit = { git = "https://github.com/WyattAu/graceful", branch = "main" }
+shutdown-kit = "0.3"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 thiserror = { workspace = true }

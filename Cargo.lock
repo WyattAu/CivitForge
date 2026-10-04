@@ -2302,8 +2302,9 @@ dependencies = [
 
 [[package]]
 name = "error-classify"
-version = "0.3.0"
-source = "git+https://github.com/WyattAu/app-error?branch=main#68bc02aeb526c2aadf25d2ab13b5c3d63d96ae31"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e642d969ffff3fbf38c733c8112100255177060cd38fd72737044097706e21cd"
 dependencies = [
  "error-codes",
  "thiserror 2.0.18",
@@ -2312,7 +2313,8 @@ dependencies = [
 [[package]]
 name = "error-codes"
 version = "1.1.0"
-source = "git+https://github.com/WyattAu/errcode?branch=main#2ffcc6e117fd0371b216b85f0cf9faac20ee8a71"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4bf3340918eaec05cb9264ca0465bace779c5e99ddc00cf7367620351c13bf52"
 dependencies = [
  "axum 0.8.9",
  "serde",
@@ -7012,8 +7014,9 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "shutdown-kit"
-version = "0.2.0"
-source = "git+https://github.com/WyattAu/graceful?branch=main#cb9f627082fda6a42ec7c90cf5ace7a60afc4c27"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5e80c9f1146da06b760526af42a503e999927bbe4db16a065b10e6ac92a70dc"
 dependencies = [
  "thiserror 2.0.18",
  "tokio",
