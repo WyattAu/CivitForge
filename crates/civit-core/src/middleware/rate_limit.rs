@@ -65,38 +65,84 @@ impl Default for RateLimitConfig {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Bucket {
-    count: u32,
-    window_start: Instant,
-}
-
-/// Token bucket state for database-backed rate limiting.
-#[derive(Debug, Clone)]
-struct TokenBucket {
-    tokens: i32,
-    last_refill: Instant,
-    max_tokens: i32,
-    refill_rate: f64, // tokens per second
-}
-
 /// Per-key (IP or user ID) sliding window state. Thread-safe via tokio Mutex.
-#[derive(Debug, Clone)]
 pub struct RateLimiter {
     config: RateLimitConfig,
-    buckets: Arc<Mutex<HashMap<String, Bucket>>>,
-    /// Token buckets for database-backed rate limiting
-    token_buckets: Arc<Mutex<HashMap<String, TokenBucket>>>,
+    /// Kit sliding-window limiters (throttle-kit), one per tier
+    tier_limiters: [throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>; 3],
+    /// Per-key token buckets (dynamic quotas) backed by kit limiters
+    token_limiters: Arc<Mutex<HashMap<String, throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>>>>,
+    /// Ad-hoc policy limiters (dynamic window per call)
+    policy_limiters: Arc<Mutex<HashMap<String, throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>>>>,
     /// Admin bypass flag
     admin_bypass: bool,
 }
 
+impl std::fmt::Debug for RateLimiter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RateLimiter")
+            .field("config", &self.config)
+            .field("admin_bypass", &self.admin_bypass)
+            .finish_non_exhaustive()
+    }
+}
+
+const TIER_INDEX: [RateLimitTier; 3] = [
+    RateLimitTier::Anonymous,
+    RateLimitTier::Authenticated,
+    RateLimitTier::Admin,
+];
+
+fn tier_index(tier: &RateLimitTier) -> usize {
+    match tier {
+        RateLimitTier::Anonymous => 0,
+        RateLimitTier::Authenticated => 1,
+        RateLimitTier::Admin => 2,
+    }
+}
+
+fn map_result(result: &throttle_kit::RateLimitResult) -> (bool, u32, u32, u32, u64) {
+    // remaining_burst() = limit - GCRA-visible budget: token-bucket semantics
+    // for X-RateLimit-Remaining (59 after the first request of a 60 burst).
+    let retry_after_secs = result
+        .retry_after
+        .map(|d| d.as_secs() as u32 + u32::from(d.as_secs() == 0 && !result.allowed))
+        .unwrap_or(0);
+    let reset_seconds = result
+        .reset_at
+        .saturating_duration_since(std::time::Instant::now())
+        .as_secs();
+    (
+        result.allowed,
+        retry_after_secs,
+        result.remaining_burst() as u32,
+        result.limit as u32,
+        reset_seconds,
+    )
+}
+
 impl RateLimiter {
     pub fn new(config: RateLimitConfig) -> Self {
+        // GCRA mapping: N requests per window → interval = window/N, burst = N.
+        let window = config.window;
+        let make = |tier: &RateLimitTier| {
+            let n = tier.max_requests();
+            let interval =
+                std::time::Duration::from_millis((window.as_millis() / n as u128).max(1) as u64);
+            throttle_kit::RateLimiter::new(
+                throttle_kit::Quota::from_parts(interval, n),
+                throttle_kit::InMemoryBackend::new(),
+            )
+        };
         Self {
             config,
-            buckets: Arc::new(Mutex::new(HashMap::new())),
-            token_buckets: Arc::new(Mutex::new(HashMap::new())),
+            tier_limiters: [
+                make(&TIER_INDEX[0]),
+                make(&TIER_INDEX[1]),
+                make(&TIER_INDEX[2]),
+            ],
+            token_limiters: Arc::new(Mutex::new(HashMap::new())),
+            policy_limiters: Arc::new(Mutex::new(HashMap::new())),
             admin_bypass: true,
         }
     }
@@ -107,34 +153,8 @@ impl RateLimiter {
         key: &str,
         tier: RateLimitTier,
     ) -> (bool, u32, u32, u32, u64) {
-        let mut buckets = self.buckets.lock().await;
-        let now = Instant::now();
-        let max_requests = tier.max_requests();
-        let window = self.config.window;
-
-        let bucket = buckets.entry(key.to_string()).or_insert(Bucket {
-            count: 0,
-            window_start: now,
-        });
-
-        // Sliding window: reset if window expired
-        if now.duration_since(bucket.window_start) >= window {
-            bucket.count = 0;
-            bucket.window_start = now;
-        }
-
-        let reset_seconds = window
-            .saturating_sub(now.duration_since(bucket.window_start))
-            .as_secs();
-
-        if bucket.count >= max_requests {
-            let retry_after = reset_seconds as u32 + u32::from(reset_seconds == 0);
-            return (false, retry_after, 0, max_requests, reset_seconds);
-        }
-
-        bucket.count += 1;
-        let remaining = max_requests.saturating_sub(bucket.count);
-        (true, 0, remaining, max_requests, reset_seconds)
+        let result = self.tier_limiters[tier_index(&tier)].check(key).await;
+        map_result(&result)
     }
 
     /// Check token bucket rate limiting. Returns `(allowed, retry_after_ms)`.
@@ -145,40 +165,29 @@ impl RateLimiter {
         refill_rate: f64,
         burst_size: i32,
     ) -> (bool, u64) {
-        let mut token_buckets = self.token_buckets.lock().await;
-        let now = Instant::now();
-
-        let bucket = token_buckets
-            .entry(key.to_string())
-            .or_insert_with(|| TokenBucket {
-                tokens: max_tokens,
-                last_refill: now,
-                max_tokens,
-                refill_rate,
-            });
-
-        // Refill tokens based on elapsed time
-        let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
-        let new_tokens = (elapsed * refill_rate) as i32;
-        if new_tokens > 0 {
-            bucket.tokens = (bucket.tokens + new_tokens).min(bucket.max_tokens);
-            bucket.last_refill = now;
+        // Kit GCRA: interval between requests = 1/refill_rate, burst = max+burst.
+        let burst = (max_tokens.max(0) as u32).saturating_add(burst_size.max(0) as u32);
+        let interval = std::time::Duration::from_secs_f64(if refill_rate > 0.0 {
+            1.0 / refill_rate
+        } else {
+            1.0
+        });
+        let limiter = {
+            let mut map = self.token_limiters.lock().await;
+            map.entry(key.to_string())
+                .or_insert_with(|| {
+                    throttle_kit::RateLimiter::new(
+                        throttle_kit::Quota::from_parts(interval, burst.max(1)),
+                        throttle_kit::InMemoryBackend::new(),
+                    )
+                })
+                .clone()
+        };
+        let result = limiter.check(key).await;
+        match result.retry_after {
+            Some(d) if !result.allowed => (false, d.as_secs().max(1)),
+            _ => (result.allowed, 0),
         }
-
-        // Check if we have enough tokens (accounting for burst)
-        let _effective_max = bucket.max_tokens + burst_size;
-        if bucket.tokens <= 0 {
-            // Calculate retry time until next token
-            let wait_time = if bucket.refill_rate > 0.0 {
-                ((1.0 / bucket.refill_rate) * 1000.0) as u64
-            } else {
-                1000
-            };
-            return (false, wait_time);
-        }
-
-        bucket.tokens -= 1;
-        (true, 0)
     }
 
     /// Check rate limit with policy-based limits. Returns `(allowed, retry_after_seconds, remaining, limit, reset_seconds)`.
@@ -189,36 +198,27 @@ impl RateLimiter {
         window_seconds: i32,
         burst_size: i32,
     ) -> (bool, u32, u32, u32, u64) {
-        let window = Duration::from_secs(window_seconds as u64);
-        let max_requests = rate_limit as u32;
+        let window = Duration::from_secs(window_seconds.max(1) as u64);
+        let max_requests = rate_limit.max(0) as u32;
+        let policy_key = format!("policy:{key}");
+        let check_key = policy_key.clone();
 
-        let mut buckets = self.buckets.lock().await;
-        let now = Instant::now();
-
-        let bucket = buckets.entry(key.to_string()).or_insert(Bucket {
-            count: 0,
-            window_start: now,
-        });
-
-        // Sliding window: reset if window expired
-        if now.duration_since(bucket.window_start) >= window {
-            bucket.count = 0;
-            bucket.window_start = now;
-        }
-
-        let reset_seconds = window
-            .saturating_sub(now.duration_since(bucket.window_start))
-            .as_secs();
-
-        let effective_limit = max_requests + burst_size as u32;
-        if bucket.count >= effective_limit {
-            let retry_after = reset_seconds as u32 + u32::from(reset_seconds == 0);
-            return (false, retry_after, 0, max_requests, reset_seconds);
-        }
-
-        bucket.count += 1;
-        let remaining = effective_limit.saturating_sub(bucket.count);
-        (true, 0, remaining, max_requests, reset_seconds)
+        let limiter = {
+            let mut map = self.policy_limiters.lock().await;
+            map.entry(policy_key)
+                .or_insert_with(|| {
+                    throttle_kit::RateLimiter::new(
+                        throttle_kit::Quota::from_parts(
+                            window,
+                            max_requests.saturating_add(burst_size.max(0) as u32),
+                        ),
+                        throttle_kit::InMemoryBackend::new(),
+                    )
+                })
+                .clone()
+        };
+        let result = limiter.check(&check_key).await;
+        map_result(&result)
     }
 
     /// Check if admin bypass is enabled
