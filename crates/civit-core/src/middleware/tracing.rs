@@ -8,8 +8,8 @@ use axum::{
 use std::sync::Arc;
 use std::time::Instant;
 
-use opentelemetry::propagation::Extractor;
-use opentelemetry::trace::TraceContextExt;
+use otelkit::otel::opentelemetry::propagation::Extractor;
+use otelkit::otel::opentelemetry::trace::TraceContextExt;
 use tracing::Instrument;
 
 /// State passed through request extensions for the tracing middleware.
@@ -32,8 +32,10 @@ impl Extractor for HeaderExtractor<'_> {
 }
 
 /// Extract the inbound `traceparent` into an OTel parent context.
-fn extract_parent(headers: &axum::http::HeaderMap) -> Option<opentelemetry::Context> {
-    let ctx = opentelemetry::global::get_text_map_propagator(|prop| {
+fn extract_parent(
+    headers: &axum::http::HeaderMap,
+) -> Option<otelkit::otel::opentelemetry::Context> {
+    let ctx = otelkit::otel::opentelemetry::global::get_text_map_propagator(|prop| {
         prop.extract(&HeaderExtractor(headers))
     });
     // An empty context means "no valid inbound header"; treat it as root so
@@ -111,7 +113,7 @@ pub async fn tracing_middleware(req: Request, next: Next) -> Response {
         http.server.request.duration_ms = tracing::field::Empty,
     );
     if let Some(ctx) = parent_ctx {
-        use tracing_opentelemetry::OpenTelemetrySpanExt;
+        use otelkit::otel::tracing_opentelemetry::OpenTelemetrySpanExt;
         if let Err(e) = span.set_parent(ctx) {
             // No global tracer provider installed (no OTLP endpoint
             // configured). The request still gets a local span; only
@@ -211,8 +213,8 @@ mod tests {
     /// span must start a fresh root rather than link to nothing).
     #[test]
     fn extracts_w3c_parent_context() {
-        opentelemetry::global::set_text_map_propagator(
-            opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+        otelkit::otel::opentelemetry::global::set_text_map_propagator(
+            otelkit::otel::opentelemetry_sdk::propagation::TraceContextPropagator::new(),
         );
 
         let mut headers = axum::http::HeaderMap::new();
