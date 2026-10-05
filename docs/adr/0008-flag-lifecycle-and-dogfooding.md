@@ -129,8 +129,23 @@ harness on day one instead of rediscovering standards.
   zero-rollout flag would have been reported as unused — a signal that
   always fires is worse than no signal.
 
+- flag-kit 0.6.0: health gates (`Stage`, `HealthGate`, `RolloutController`).
+  Evidence-before-verdict: too-soon and too-few-samples return `Hold`, never
+  `Promote` and never `Rollback`, because canary traffic is a small fraction
+  of total traffic and therefore noisier (Google's SRE canary guidance).
+  Consecutive-failure tolerance follows Argo `failureLimit` / Flagger
+  `threshold`. Two controller bugs caught by its own tests: exposure
+  mirrored the stage before advancing the gate (permanently one step
+  behind), and a rollback that kept the high water mark made every later
+  promotion a "regression" — hence `Rollout::reset_exposure()`, which zeroes
+  the mark and keeps the cohort salt.
+- CivitForge is on flag-kit 0.6.0 but the gate is not wired: it needs
+  Prometheus, and otelkit's `prometheus` feature is still off.
+
 ## Remaining in this ADR
 
+- Enable otelkit's `prometheus` feature, then wire the health gate to real
+  error-rate and latency telemetry with a staged rollout controller.
 - Expose governance and staleness verdicts in the flag admin UI.
 - ~~`ofrep`: OpenFeature-compatible evaluation~~ — DONE: flag-kit 0.5.0
   publishes the wire types (three serialization bugs caught pre-publish:
