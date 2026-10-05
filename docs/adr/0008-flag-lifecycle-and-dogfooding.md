@@ -132,8 +132,13 @@ harness on day one instead of rediscovering standards.
 ## Remaining in this ADR
 
 - Expose governance and staleness verdicts in the flag admin UI.
-- `ofrep`: OpenFeature-compatible evaluation responses, so third-party
-  OpenFeature SDKs can evaluate against CivitForge.
+- ~~`ofrep`: OpenFeature-compatible evaluation~~ — DONE: flag-kit 0.5.0
+  publishes the wire types (three serialization bugs caught pre-publish:
+  `targetingKey` swept into flattened attributes by a missing rename,
+  `errorCode`/`errorDetails` serializing as null, and `#[serde(untagged)]`
+  always writing the first variant so every bulk entry became a success).
+  CivitForge serves both endpoints (14 tests) with a weak ETag that tracks
+  rollout state rather than just flag names.
 - Health-gated rollout controller: promote on green, roll back on red,
   using the OTel metrics that now exist.
 - Wire `kit-conformance` into the remaining kit repos.
