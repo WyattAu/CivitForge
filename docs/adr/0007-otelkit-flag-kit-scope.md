@@ -35,8 +35,13 @@ Defer both to dedicated sessions. On adoption:
 1. otelkit — DONE step 1: `otelkit::init(TelemetryConfig)` replaced the
    main.rs subscriber (`7e20ce3`), with `TelemetryGuard` flushing on drop
    and OTLP export active whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
-   Remaining: middleware W3C context propagation onto the SDK, then
-   delete the hand-rolled OTLP exporter.
+   DONE step 2: middleware emits `http.server.request` through the
+   tracing-opentelemetry layer with the inbound `traceparent` attached as
+   parent (`d7307f4`). Two gaps fixed along the way: the `otlp` feature
+   was never compiled (so the env var exported nothing) and otelkit 2.0
+   installs no global propagator (so extraction was a silent no-op).
+   Remaining: replace the in-process InstrumentationProvider counters with
+   otelkit's Prometheus meter, then delete the hand-rolled OTLP exporter.
 2. flag-kit — DONE step 1: kit `bucket()` rollout + `FlagName`
    validation adopted in `FeatureFlagService` (`dba123b`). DONE step 2:
    `flags_store::DbFlagStore` implements `FlagStore` over the
