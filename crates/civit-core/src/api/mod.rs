@@ -37,6 +37,7 @@ pub mod error_reports;
 pub mod event_queues;
 pub mod events;
 pub mod feature_flags;
+pub mod ofrep;
 pub mod federation_routes;
 pub mod git_http;
 pub mod graphql;
@@ -321,6 +322,8 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(scim::scim_routes())
         .merge(sso::sso_routes())
         .merge(feature_flags::feature_flag_routes())
+        // OFREP: vendor-neutral evaluation (ADR-0008)
+        .merge(ofrep::ofrep_routes())
         .merge(admin_dashboard::admin_dashboard_routes())
         .merge(api_analytics_api::api_analytics_api_routes())
         .merge(api_documentation::api_documentation_routes())
