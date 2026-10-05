@@ -459,6 +459,45 @@ fn signal_detail(signal: flag_kit::StaleSignal) -> civit_db::models::FlagSignalV
     }
 }
 
+/// Derives the policy's inputs from a stored row and returns its verdict.
+///
+/// Pure and separate from the handler so the mapping from a DB row to a
+/// staleness verdict can be tested without a database or a request.
+fn staleness_view(
+    f: &civit_db::models::FeatureFlag,
+    policy: &flag_kit::FlagPolicy,
+) -> civit_db::models::FlagStalenessView {
+    // An unrecognized kind falls back to `Release`: a short deadline, not a
+    // silent exemption.
+    let kind = flag_kit::FlagKind::parse(&f.kind).unwrap_or_default();
+    let last_evaluated_age_days = f.last_evaluated_at.map(days_since);
+    let c = policy.classify(flag_kit::FlagFacts {
+        kind,
+        age_days: days_since(f.created_at) as u32,
+        last_changed_age_days: Some(days_since(f.last_changed_at) as u32),
+        percentage: f.enabled_for_percentage.clamp(0, 100) as u8,
+        last_evaluated_age_days: last_evaluated_age_days.map(|d| d as u32),
+        // This endpoint reads `last_evaluated_at`, which the evaluation path
+        // writes, so absence really does mean "never evaluated" here.
+        evaluation_tracked: true,
+    });
+    civit_db::models::FlagStalenessView {
+        id: f.id,
+        name: f.name.clone(),
+        kind: kind.as_str().to_string(),
+        owner: f.owner.clone(),
+        ticket: f.ticket.clone(),
+        staleness: c.staleness.as_str().to_string(),
+        is_removal_candidate: c.is_stale(),
+        age_days: days_since(f.created_at),
+        last_changed_age_days: Some(days_since(f.last_changed_at)),
+        last_evaluated_age_days,
+        enabled: f.enabled,
+        percentage: f.enabled_for_percentage,
+        signals: c.signals.iter().copied().map(signal_detail).collect(),
+    }
+}
+
 /// Classifies every flag with the kit's policy and returns the evidence.
 ///
 /// This is the "what needs cleanup" endpoint that the research says is
@@ -484,40 +523,8 @@ pub async fn audit_flag_staleness(
     };
 
     let policy = flag_kit::FlagPolicy::default();
-    let views: Vec<civit_db::models::FlagStalenessView> = flags
-        .iter()
-        .map(|f| {
-            let kind = flag_kit::FlagKind::parse(&f.kind).unwrap_or_default();
-            let last_evaluated_age_days = f.last_evaluated_at.map(days_since);
-            let facts = flag_kit::FlagFacts {
-                kind,
-                age_days: days_since(f.created_at) as u32,
-                last_changed_age_days: Some(days_since(f.last_changed_at) as u32),
-                percentage: f.enabled_for_percentage.clamp(0, 100) as u8,
-                last_evaluated_age_days: last_evaluated_age_days.map(|d| d as u32),
-                // This endpoint reads `last_evaluated_at`, which the
-                // evaluation path writes, so absence really does mean
-                // "never evaluated" here.
-                evaluation_tracked: true,
-            };
-            let c = policy.classify(facts);
-            civit_db::models::FlagStalenessView {
-                id: f.id,
-                name: f.name.clone(),
-                kind: kind.as_str().to_string(),
-                owner: f.owner.clone(),
-                ticket: f.ticket.clone(),
-                staleness: c.staleness.as_str().to_string(),
-                is_removal_candidate: c.is_stale(),
-                age_days: days_since(f.created_at),
-                last_changed_age_days: Some(days_since(f.last_changed_at)),
-                last_evaluated_age_days,
-                enabled: f.enabled,
-                percentage: f.enabled_for_percentage,
-                signals: c.signals.iter().copied().map(signal_detail).collect(),
-            }
-        })
-        .collect();
+    let views: Vec<civit_db::models::FlagStalenessView> =
+        flags.iter().map(|f| staleness_view(f, &policy)).collect();
 
     let removal_candidates = views.iter().filter(|v| v.is_removal_candidate).count();
     let aging = views.iter().filter(|v| v.staleness == "aging").count();
@@ -573,6 +580,112 @@ pub fn feature_flag_routes() -> Router<AppState> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use chrono::Duration;
+
+    fn db_flag(
+        name: &str,
+        kind: &str,
+        percentage: i32,
+        age_days: i64,
+        evaluated: bool,
+    ) -> civit_db::models::FeatureFlag {
+        let created = chrono::Utc::now() - Duration::days(age_days);
+        civit_db::models::FeatureFlag {
+            id: Uuid::nil(),
+            name: name.into(),
+            description: "d".into(),
+            enabled: true,
+            enabled_for_users: Vec::new(),
+            enabled_for_percentage: percentage,
+            enabled_for_orgs: Vec::new(),
+            created_at: created,
+            updated_at: created,
+            kind: kind.into(),
+            owner: "team".into(),
+            ticket: "T-1".into(),
+            salt: String::new(),
+            last_evaluated_at: evaluated.then(|| chrono::Utc::now() - Duration::days(1)),
+            last_changed_at: created,
+        }
+    }
+
+    /// The four lifecycle cases, matching the rows verified against a live
+    /// Postgres. A stale verdict with the wrong evidence is worse than no
+    /// verdict, so the signals are asserted too.
+    #[test]
+    fn staleness_view_classifies_the_four_lifecycle_cases() {
+        let policy = flag_kit::FlagPolicy::default();
+
+        let done = staleness_view(
+            &db_flag("fully_rolled_old", "release", 100, 400, true),
+            &policy,
+        );
+        assert_eq!(done.staleness, "stale");
+        assert!(done.is_removal_candidate);
+        assert!(
+            done.signals.iter().any(|s| s.signal == "fully_rolled_out"),
+            "rolled out is the actionable signal here: {:?}",
+            done.signals
+        );
+
+        let halfway = staleness_view(&db_flag("half_way", "release", 10, 16, true), &policy);
+        assert_eq!(halfway.staleness, "aging");
+        assert!(!halfway.is_removal_candidate);
+        assert!(halfway.signals.is_empty(), "aging fires no stale signal");
+
+        let kill = staleness_view(&db_flag("kill_switch", "permission", 0, 900, true), &policy);
+        assert_eq!(kill.staleness, "permanent");
+        assert!(!kill.is_removal_candidate);
+
+        let unused = staleness_view(&db_flag("never_used", "release", 0, 5, false), &policy);
+        assert_eq!(unused.staleness, "stale");
+        assert!(unused.signals.iter().any(|s| s.signal == "never_evaluated"));
+    }
+
+    /// Rollout evidence must be reported even for a young flag: that is the
+    /// difference between "old" and "finished".
+    #[test]
+    fn fully_rolled_out_is_stale_regardless_of_age() {
+        let v = staleness_view(
+            &db_flag("brand_new", "release", 100, 1, true),
+            &flag_kit::FlagPolicy::default(),
+        );
+        assert!(v.is_removal_candidate);
+    }
+
+    /// A flag still being edited has not finished its life.
+    #[test]
+    fn last_change_restarts_the_staleness_clock() {
+        let mut f = db_flag("actively_edited", "release", 10, 400, true);
+        f.last_changed_at = chrono::Utc::now() - Duration::days(2);
+        let v = staleness_view(&f, &flag_kit::FlagPolicy::default());
+        assert_eq!(v.staleness, "fresh");
+        assert!(v.age_days > 300, "age is still reported for visibility");
+        assert_eq!(v.last_changed_age_days, Some(2));
+    }
+
+    /// An unparseable kind must not silently exempt the flag.
+    #[test]
+    fn unknown_kind_falls_back_to_a_short_deadline() {
+        let v = staleness_view(
+            &db_flag("weird_kind", "not_a_kind", 0, 60, true),
+            &flag_kit::FlagPolicy::default(),
+        );
+        assert_eq!(v.kind, "release");
+        assert!(v.is_removal_candidate);
+    }
+
+    /// Out-of-range percentages are clamped, not wrapped.
+    #[test]
+    fn percentage_is_clamped() {
+        let v = staleness_view(
+            &db_flag("over", "release", 250, 1, true),
+            &flag_kit::FlagPolicy::default(),
+        );
+        assert_eq!(v.percentage, 250, "raw value is reported as stored");
+        assert!(v.is_removal_candidate, "250 is certainly fully rolled out");
+    }
 
     #[test]
     fn test_flag_response_serialization() {
