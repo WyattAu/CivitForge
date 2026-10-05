@@ -603,6 +603,8 @@ pub struct AppState {
     pub code_search_index: Arc<RwLock<CodeSearchIndex>>,
     pub wiki_git: Arc<WikiGitBackend>,
     pub notification_broadcaster: Arc<tokio::sync::broadcast::Sender<String>>,
+    /// flag-kit Evaluator over the DB read model (ADR-0007 step 2)
+    pub flag_evaluator: Arc<flag_kit::Evaluator>,
     #[cfg(feature = "webauthn")]
     pub webauthn_service: Option<Arc<civit_auth::webauthn::WebAuthnService>>,
 }
@@ -622,6 +624,11 @@ impl AppState {
             db.clone(),
             std::time::Duration::from_secs(config.jwt_expiry_hours * 3600),
         ));
+        // Thin second repository over the same pool: the flag-kit store is
+        // a read model and does not need to share the AppState instance.
+        let flag_evaluator = Arc::new(flag_kit::Evaluator::new(Arc::new(
+            crate::flags_store::DbFlagStore::new(Arc::new(DbRepository::new(db.clone()))),
+        )));
         let git_service = Arc::new(crate::git::GitService::new(std::path::PathBuf::from(
             &config.storage_path,
         )));
@@ -671,6 +678,7 @@ impl AppState {
             code_search_index,
             wiki_git,
             notification_broadcaster: Arc::new(tokio::sync::broadcast::channel(256).0),
+            flag_evaluator,
             #[cfg(feature = "webauthn")]
             webauthn_service: {
                 let rp_name =

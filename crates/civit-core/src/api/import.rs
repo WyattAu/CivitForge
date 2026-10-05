@@ -151,7 +151,7 @@ async fn map_upstream_user(
 
 /// Fetch PR refs into the bare clone so upstream PR history survives:
 /// `refs/pull/{n}/head` — before PR records are created.
-async fn fetch_pr_refs(repo_path: &std::path::Path, clone_url: &str) -> Result<(), String> {
+async fn fetch_pr_refs(repo_path: &std::path::Path) -> Result<(), String> {
     let out = tokio::process::Command::new("git")
         .args([
             "-C",
@@ -221,7 +221,6 @@ async fn sync_forgejo_issues(
             let title = issue["title"].as_str().unwrap_or("Untitled");
             let body = issue["body"].as_str().unwrap_or("");
             let author = issue["user"]["login"].as_str().unwrap_or("unknown");
-            let state = issue["state"].as_str().unwrap_or("open");
             let labels: Vec<String> = issue["labels"]
                 .as_array()
                 .map(|a| a.iter().filter_map(|l| l["name"].as_str()).map(String::from).collect())
@@ -1654,7 +1653,7 @@ pub async fn import_forgejo_bulk(
                         }
                         // Metadata sync (Migration Phase 2): issues + PRs after clone.
                         // PR refs are fetched first so upstream PR history survives.
-                        if let Err(e) = fetch_pr_refs(&repo_path, &clone_url).await {
+                        if let Err(e) = fetch_pr_refs(&repo_path).await {
                             eprintln!("[import_forgejo_bulk] {name_for_job}: PR refs: {e}");
                         }
                         let issues_n = sync_forgejo_issues(

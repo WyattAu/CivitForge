@@ -1012,6 +1012,7 @@ version = "3.2.0"
 dependencies = [
  "aes-gcm 0.10.3",
  "anyhow",
+ "async-trait",
  "axum 0.8.9",
  "axum-server",
  "base64 0.22.1",
@@ -2512,6 +2513,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de8d551eacb1c2d7c74083273663a9cfb4948e1a2a0be70ecfcff4267b67b22b"
 dependencies = [
  "async-trait",
+ "chrono",
  "dashmap",
  "serde",
  "serde_json",

@@ -18,6 +18,7 @@ pub mod error;
 pub mod event_queues;
 pub mod events;
 pub mod feature_flags;
+pub mod flags_store;
 pub use civit_federation as federation;
 pub mod git;
 pub mod health;

@@ -23,7 +23,7 @@ use std::{
     collections::HashMap,
     net::IpAddr,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tokio::sync::Mutex;
 use tracing::warn;

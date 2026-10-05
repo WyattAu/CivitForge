@@ -276,7 +276,7 @@ mod tests {
     #[test]
     fn test_get_variant_none() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("no_variant", "No Variant", true));
+        svc.set_flag(test_flag("no_variant", "No Variant", true)).unwrap();
         let ctx = EvaluationContext::new("user1");
         assert_eq!(svc.get_variant("no_variant", &ctx), None);
     }
@@ -284,8 +284,8 @@ mod tests {
     #[test]
     fn test_list_flags() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("a", "A", true));
-        svc.set_flag(test_flag("b", "B", false));
+        svc.set_flag(test_flag("a", "A", true)).unwrap();
+        svc.set_flag(test_flag("b", "B", false)).unwrap();
         let flags = svc.list_flags();
         assert_eq!(flags.len(), 2);
     }
@@ -294,9 +294,9 @@ mod tests {
     fn test_flag_count() {
         let svc = FeatureFlagService::new();
         assert_eq!(svc.flag_count(), 0);
-        svc.set_flag(test_flag("x", "X", true));
+        svc.set_flag(test_flag("x", "X", true)).unwrap();
         assert_eq!(svc.flag_count(), 1);
-        svc.set_flag(test_flag("y", "Y", false));
+        svc.set_flag(test_flag("y", "Y", false)).unwrap();
         assert_eq!(svc.flag_count(), 2);
     }
 
@@ -325,9 +325,9 @@ mod tests {
     #[test]
     fn test_update_flag() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("toggle", "Toggle", true));
+        svc.set_flag(test_flag("toggle", "Toggle", true)).unwrap();
         assert!(svc.is_enabled("toggle", &EvaluationContext::new("u")));
-        svc.set_flag(test_flag("toggle", "Toggle", false));
+        svc.set_flag(test_flag("toggle", "Toggle", false)).unwrap();
         assert!(!svc.is_enabled("toggle", &EvaluationContext::new("u")));
     }
 
