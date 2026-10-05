@@ -106,6 +106,38 @@ harness on day one instead of rediscovering standards.
   `remaining_burst` ships; every new kit consumer inherits it, which is
   exactly the coupling `kit-conformance` is meant to make visible.
 
+## Progress
+
+- flag-kit 0.3.0: lifecycle primitives published (FlagKind, Staleness +
+  StaleSignal, FlagPolicy, salted bucketing, Rollout). 38 kit tests.
+- flag-kit 0.4.0: `NeverEvaluated` no longer fires when the source has no
+  evaluation telemetry. Found by dogfooding in flaglab, where a static scan
+  was accusing innocent flags of being unused. Absence of evidence is not
+  evidence of absence of use.
+- `flaglab` (new, public): 23 tests, clippy clean, verified end to end on
+  fixture data. Second consumer of the policy, so CI and production review
+  cannot disagree.
+- `kit-conformance` (new, public): reusable harness; `flaglab`'s own CI
+  calls it, so the harness is exercised rather than trusted.
+- CivitForge migration 640 + `GET /api/v1/admin/feature-flags/stale` +
+  governance on create. 1,891 core tests, 167 db tests.
+- Verified against a live Postgres, which caught what unit tests could not:
+  a validated name-format CHECK aborts the entire migration when any
+  legacy row has a non-conforming name. It is `NOT VALID` now, so legacy
+  rows are grandfathered while new writes are still rejected.
+- The evaluation endpoint now records `last_evaluated_at`. Without it every
+  zero-rollout flag would have been reported as unused — a signal that
+  always fires is worse than no signal.
+
+## Remaining in this ADR
+
+- Expose governance and staleness verdicts in the flag admin UI.
+- `ofrep`: OpenFeature-compatible evaluation responses, so third-party
+  OpenFeature SDKs can evaluate against CivitForge.
+- Health-gated rollout controller: promote on green, roll back on red,
+  using the OTel metrics that now exist.
+- Wire `kit-conformance` into the remaining kit repos.
+
 ## Alternatives rejected
 
 - **Build staleness detection only in CivitForge.** Rejected: it would
