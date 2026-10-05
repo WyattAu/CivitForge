@@ -1,6 +1,7 @@
 # ADR-0007: otelkit & flag-kit adoption scope (deferred)
 
-- Status: accepted (deferred)
+- Status: accepted — step 1 shipped (otelkit subscriber `7e20ce3`;
+  flag-kit bucketing + validation `dba123b`); steps 2-3 deferred
 - Date: 2026-09-07
 - Deciders: Wyatt
 
@@ -30,12 +31,14 @@ Additionally: `tracing_setup.rs` in civit-telemetry is dead code
 
 Defer both to dedicated sessions. On adoption:
 
-1. otelkit: start with `TelemetryConfig::init` replacing main.rs
-   subscriber boilerplate, then migrate middleware onto
-   `opentelemetry` SDK context propagation; delete the hand-rolled
-   OTLP exporter last (otelkit's `otlp` feature covers it).
-2. flag-kit: introduce behind the existing endpoints first
-   (adapter), migrate the admin UI second, drop the old tables last.
+1. otelkit — DONE step 1: `otelkit::init(TelemetryConfig)` replaced the
+   main.rs subscriber (`7e20ce3`), with `TelemetryGuard` flushing on drop
+   and OTLP export active whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+   Remaining: middleware W3C context propagation onto the SDK, then
+   delete the hand-rolled OTLP exporter.
+2. flag-kit — DONE step 1: kit `bucket()` rollout + `FlagName`
+   validation adopted in `FeatureFlagService` (`dba123b`). Remaining:
+   `Evaluator` + `FlagStore` adapter over the DB tables, then admin UI.
 3. Prerequisite for both: the local dev machine's `target/` sweeper
    makes server-side builds mandatory (see deploy/civitforge.sh).
 
