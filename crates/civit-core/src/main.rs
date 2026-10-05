@@ -49,16 +49,21 @@ fn split_sql_statements(sql: &str) -> Vec<&str> {
 async fn main() -> Result<()> {
     let debug_mode = std::env::args().any(|arg| arg == "--debug");
 
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            if debug_mode {
-                EnvFilter::new("civit_core=debug,tower_http=debug")
-            } else {
-                EnvFilter::new("civit_core=info,tower_http=debug")
-            }
-        }))
-        .with_target(false)
-        .init();
+    // ADR-0006 Phase 4: otelkit subscriber (real OTLP export when
+    // OTEL_EXPORTER_OTLP_ENDPOINT is set; compact human logs otherwise).
+    let log_level = if std::env::var("RUST_LOG").is_ok() {
+        std::env::var("RUST_LOG").unwrap()
+    } else if debug_mode {
+        "civit_core=debug,tower_http=debug".into()
+    } else {
+        "civit_core=info,tower_http=debug".into()
+    };
+    let telemetry = otelkit::TelemetryConfig::new("civitforge")
+        .service_version(env!("CARGO_PKG_VERSION"))
+        .log_level(log_level)
+        .log_format(otelkit::LogFormat::Text);
+    // Guard must live for the process lifetime: flushes spans on drop.
+    let _telemetry_guard = otelkit::init(telemetry)?;
 
     let mut config = AppConfig::from_env()?;
     if debug_mode {

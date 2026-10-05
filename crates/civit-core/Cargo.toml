@@ -26,6 +26,8 @@ error-classify = { version = "0.3", features = ["errcode"] }
 shutdown-kit = "0.3"
 # remaining_burst() token-bucket semantics via git main until 2.1.0 publishes
 throttle-kit = { git = "https://github.com/WyattAu/ratelimit", branch = "main" }
+# ADR-0006 Phase 4: otelkit subscriber + OTLP export (step 1 of ADR-0007)
+otelkit = "2.0"
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 thiserror = { workspace = true }
