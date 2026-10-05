@@ -134,6 +134,14 @@ pub async fn list_feature_flags_for_user(
 
     match state.db.list_enabled_feature_flags_for_user(user_id).await {
         Ok(flags) => {
+            // This *is* the evaluation event, so it is where the evidence
+            // for the `never_evaluated` staleness signal comes from.
+            // Without it every flag looks unevaluated and the signal fires
+            // on all of them.
+            let names: Vec<String> = flags.iter().map(|f| f.name.clone()).collect();
+            if let Err(e) = state.db.touch_feature_flags_evaluated(&names).await {
+                tracing::warn!("could not record flag evaluation: {e}");
+            }
             let response = FeatureFlagsListResponse {
                 flags: flags.iter().map(flag_to_response).collect(),
                 total: flags.len(),

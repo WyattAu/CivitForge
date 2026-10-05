@@ -1486,17 +1486,23 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    /// Records that a flag was evaluated, so `None` provably means
+    /// Records that flags were evaluated, so `None` provably means
     /// "never evaluated" rather than "not measured yet".
     ///
-    /// Fire-and-forget on purpose: a failed telemetry write must not fail
-    /// the request being measured.
-    pub async fn touch_feature_flag_evaluation(&self, name: &str) -> Result<()> {
-        sqlx::query("UPDATE feature_flags SET last_evaluated_at = NOW() WHERE name = $1")
-            .bind(name)
+    /// One statement for the whole batch: the evaluation path runs on
+    /// every request, so a per-flag update would multiply write traffic by
+    /// the flag count. Fire-and-forget on purpose — a failed telemetry
+    /// write must not fail the request being measured — and the staleness
+    /// endpoint degrades to "unknown" rather than lying when it is missing.
+    pub async fn touch_feature_flags_evaluated(&self, names: &[String]) -> Result<()> {
+        if names.is_empty() {
+            return Ok(());
+        }
+        sqlx::query("UPDATE feature_flags SET last_evaluated_at = NOW() WHERE name = ANY($1)")
+            .bind(names)
             .execute(&self.pool)
             .await
-            .map_err(|e| DbError::Database(format!("touch_feature_flag_evaluation: {e}")))?;
+            .map_err(|e| DbError::Database(format!("touch_feature_flags_evaluated: {e}")))?;
         Ok(())
     }
 
