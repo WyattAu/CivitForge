@@ -55,9 +55,17 @@ impl FeatureFlagService {
         }
     }
 
-    pub fn set_flag(&self, flag: FeatureFlag) {
+    /// Insert or replace a flag. Keys are validated by the flag-kit
+    /// `FlagName` rules (ADR-0006 Phase 4).
+    ///
+    /// # Errors
+    /// Returns an error string when the key is not a valid flag name.
+    pub fn set_flag(&self, flag: FeatureFlag) -> Result<(), String> {
+        flag_kit::FlagName::new(flag.key.clone())
+            .map_err(|e| format!("invalid flag key: {e}"))?;
         let mut flags = self.flags.lock();
         flags.insert(flag.key.clone(), flag);
+        Ok(())
     }
 
     pub fn remove_flag(&self, key: &str) -> bool {
@@ -84,8 +92,10 @@ impl FeatureFlagService {
             return false;
         }
         if flag.rollout_percentage < 100 {
-            let hash = simple_hash(&context.user_id);
-            if (hash % 100u64) >= flag.rollout_percentage as u64 {
+            // Kit deterministic bucketing (0-99) — consistent distribution
+            // across every CivitForge service using flag-kit.
+            let bucket = flag_kit::bucket(key, &context.user_id);
+            if u16::from(bucket) >= u16::from(flag.rollout_percentage) {
                 return false;
             }
         }
@@ -123,13 +133,7 @@ impl Default for FeatureFlagService {
     }
 }
 
-fn simple_hash(s: &str) -> u64 {
-    let mut hash: u64 = 0;
-    for byte in s.bytes() {
-        hash = hash.wrapping_mul(31).wrapping_add(byte as u64);
-    }
-    hash
-}
+
 
 #[cfg(test)]
 fn test_flag(key: &str, name: &str, enabled: bool) -> FeatureFlag {
@@ -166,17 +170,17 @@ mod tests {
     #[test]
     fn test_set_and_get_flag() {
         let svc = FeatureFlagService::new();
-        let flag = test_flag("dark-mode", "Dark Mode", true);
-        svc.set_flag(flag);
-        let retrieved = svc.get_flag("dark-mode").unwrap();
-        assert_eq!(retrieved.key, "dark-mode");
+        let flag = test_flag("dark_mode", "Dark Mode", true);
+        svc.set_flag(flag).unwrap();
+        let retrieved = svc.get_flag("dark_mode").unwrap();
+        assert_eq!(retrieved.key, "dark_mode");
         assert!(retrieved.enabled);
     }
 
     #[test]
     fn test_remove_flag() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("feat1", "Feature 1", true));
+        svc.set_flag(test_flag("feat1", "Feature 1", true)).unwrap();
         assert!(svc.remove_flag("feat1"));
         assert!(!svc.remove_flag("feat1"));
         assert_eq!(svc.flag_count(), 0);
@@ -185,17 +189,17 @@ mod tests {
     #[test]
     fn test_is_enabled_true() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("on-flag", "On Flag", true));
+        svc.set_flag(test_flag("on_flag", "On Flag", true)).unwrap();
         let ctx = EvaluationContext::new("user1");
-        assert!(svc.is_enabled("on-flag", &ctx));
+        assert!(svc.is_enabled("on_flag", &ctx));
     }
 
     #[test]
     fn test_is_enabled_false() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("off-flag", "Off Flag", false));
+        svc.set_flag(test_flag("off_flag", "Off Flag", false)).unwrap();
         let ctx = EvaluationContext::new("user1");
-        assert!(!svc.is_enabled("off-flag", &ctx));
+        assert!(!svc.is_enabled("off_flag", &ctx));
     }
 
     #[test]
@@ -210,7 +214,7 @@ mod tests {
         let svc = FeatureFlagService::new();
         let mut flag = test_flag("beta", "Beta", true);
         flag.target_users = vec!["user1".into(), "user2".into()];
-        svc.set_flag(flag);
+        svc.set_flag(flag).unwrap();
         let ctx1 = EvaluationContext::new("user1");
         let ctx3 = EvaluationContext::new("user3");
         assert!(svc.is_enabled("beta", &ctx1));
@@ -220,13 +224,13 @@ mod tests {
     #[test]
     fn test_target_org() {
         let svc = FeatureFlagService::new();
-        let mut flag = test_flag("org-feat", "Org Feature", true);
+        let mut flag = test_flag("org_feat", "Org Feature", true);
         flag.target_orgs = vec!["org1".into()];
-        svc.set_flag(flag);
+        svc.set_flag(flag).unwrap();
         let ctx_ok = EvaluationContext::with_org("user1", "org1");
         let ctx_no = EvaluationContext::with_org("user2", "org2");
-        assert!(svc.is_enabled("org-feat", &ctx_ok));
-        assert!(!svc.is_enabled("org-feat", &ctx_no));
+        assert!(svc.is_enabled("org_feat", &ctx_ok));
+        assert!(!svc.is_enabled("org_feat", &ctx_no));
     }
 
     #[test]
@@ -234,7 +238,7 @@ mod tests {
         let svc = FeatureFlagService::new();
         let mut flag = test_flag("rollout", "Rollout", true);
         flag.rollout_percentage = 0;
-        svc.set_flag(flag);
+        svc.set_flag(flag).unwrap();
         let ctx = EvaluationContext::new("user1");
         assert!(!svc.is_enabled("rollout", &ctx));
     }
@@ -242,39 +246,39 @@ mod tests {
     #[test]
     fn test_rollout_100_percent() {
         let svc = FeatureFlagService::new();
-        let mut flag = test_flag("full-rollout", "Full Rollout", true);
+        let mut flag = test_flag("full_rollout", "Full Rollout", true);
         flag.rollout_percentage = 100;
-        svc.set_flag(flag);
-        let ctx = EvaluationContext::new("any-user");
-        assert!(svc.is_enabled("full-rollout", &ctx));
+        svc.set_flag(flag).unwrap();
+        let ctx = EvaluationContext::new("any_user");
+        assert!(svc.is_enabled("full_rollout", &ctx));
     }
 
     #[test]
     fn test_get_variant() {
         let svc = FeatureFlagService::new();
-        let mut flag = test_flag("ab-test", "AB Test", true);
-        flag.variant = Some("variant-a".into());
-        svc.set_flag(flag);
+        let mut flag = test_flag("ab_test", "AB Test", true);
+        flag.variant = Some("variant_a".into());
+        svc.set_flag(flag).unwrap();
         let ctx = EvaluationContext::new("user1");
-        assert_eq!(svc.get_variant("ab-test", &ctx), Some("variant-a".into()));
+        assert_eq!(svc.get_variant("ab_test", &ctx), Some("variant_a".into()));
     }
 
     #[test]
     fn test_get_variant_disabled() {
         let svc = FeatureFlagService::new();
-        let mut flag = test_flag("ab-test-off", "AB Test Off", false);
-        flag.variant = Some("variant-b".into());
-        svc.set_flag(flag);
+        let mut flag = test_flag("ab_test_off", "AB Test Off", false);
+        flag.variant = Some("variant_b".into());
+        svc.set_flag(flag).unwrap();
         let ctx = EvaluationContext::new("user1");
-        assert_eq!(svc.get_variant("ab-test-off", &ctx), None);
+        assert_eq!(svc.get_variant("ab_test_off", &ctx), None);
     }
 
     #[test]
     fn test_get_variant_none() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("no-variant", "No Variant", true));
+        svc.set_flag(test_flag("no_variant", "No Variant", true));
         let ctx = EvaluationContext::new("user1");
-        assert_eq!(svc.get_variant("no-variant", &ctx), None);
+        assert_eq!(svc.get_variant("no_variant", &ctx), None);
     }
 
     #[test]
@@ -311,10 +315,10 @@ mod tests {
 
     #[test]
     fn test_flag_serialization() {
-        let flag = test_flag("test-key", "Test Flag", true);
+        let flag = test_flag("test_key", "Test Flag", true);
         let json = serde_json::to_string(&flag).unwrap();
         let de: FeatureFlag = serde_json::from_str(&json).unwrap();
-        assert_eq!(de.key, "test-key");
+        assert_eq!(de.key, "test_key");
         assert!(de.enabled);
     }
 
@@ -330,10 +334,10 @@ mod tests {
     #[test]
     fn test_no_org_context_passes_org_target() {
         let svc = FeatureFlagService::new();
-        let mut flag = test_flag("org-only", "Org Only", true);
+        let mut flag = test_flag("org_only", "Org Only", true);
         flag.target_orgs = vec!["org1".into()];
-        svc.set_flag(flag);
+        svc.set_flag(flag).unwrap();
         let ctx = EvaluationContext::new("user1");
-        assert!(svc.is_enabled("org-only", &ctx));
+        assert!(svc.is_enabled("org_only", &ctx));
     }
 }

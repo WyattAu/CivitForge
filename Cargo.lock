@@ -1032,6 +1032,7 @@ dependencies = [
  "criterion",
  "dashmap",
  "error-classify",
+ "flag-kit",
  "flate2",
  "futures",
  "gix",
@@ -2503,6 +2504,21 @@ name = "fixedbitset"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
+
+[[package]]
+name = "flag-kit"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de8d551eacb1c2d7c74083273663a9cfb4948e1a2a0be70ecfcff4267b67b22b"
+dependencies = [
+ "async-trait",
+ "dashmap",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "validkit",
+]
 
 [[package]]
 name = "flate2"
