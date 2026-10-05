@@ -142,6 +142,27 @@ harness on day one instead of rediscovering standards.
 - CivitForge is on flag-kit 0.6.0 but the gate is not wired: it needs
   Prometheus, and otelkit's `prometheus` feature is still off.
 
+## Verification debt
+
+Recorded rather than glossed over, on the same principle as the
+`never_evaluated` signal: a claim without evidence is worse than no claim.
+
+| Area | Status |
+| --- | --- |
+| flag-kit unit tests | verified — 67 tests, clippy clean, published |
+| flaglab unit tests | verified — 23 tests, clippy clean, run end to end on fixture data |
+| CivitForge core | verified — 1,905 tests |
+| CivitForge db | verified — 167 tests |
+| migration 640 against live Postgres | verified — applied to a table with legacy rows; bad names and bad kinds rejected on write |
+| OFREP interop against a real SDK | **not verified** — shapes are pinned to spec 0.4.0 and unit tested, but no third-party OFREP provider has evaluated against it |
+| Playwright E2E | **not run since** the otelkit middleware and `main.rs` changes |
+
+The E2E gap is environmental: a debug build of the server binary is being
+OOM-killed because the host's swap is saturated (zram 17.4G/31.3G, 18G of
+31G RAM in use by other work). `cargo check` and `cargo test --lib` complete
+because they never link the binary. Remedy: free memory, then
+`CARGO_PROFILE_DEV_DEBUG=0 cargo build -j 2`, then the suite.
+
 ## Remaining in this ADR
 
 - Enable otelkit's `prometheus` feature, then wire the health gate to real
