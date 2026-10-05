@@ -40,8 +40,13 @@ Defer both to dedicated sessions. On adoption:
    parent (`d7307f4`). Two gaps fixed along the way: the `otlp` feature
    was never compiled (so the env var exported nothing) and otelkit 2.0
    installs no global propagator (so extraction was a silent no-op).
-   Remaining: replace the in-process InstrumentationProvider counters with
-   otelkit's Prometheus meter, then delete the hand-rolled OTLP exporter.
+   DONE step 3 prep: otelkit 2.1.0 installs the W3C propagator itself and
+   re-exports the OTel surface, so CivitForge dropped its hand-pinned
+   `opentelemetry` deps rather than guessing versions that match the kit's
+   (`a40fd63`). Its `prometheus` feature is now enabled, which is what the
+   health gate needs for real telemetry. Remaining: replace the in-process
+   InstrumentationProvider counters with the Prometheus meter, then delete
+   the hand-rolled OTLP exporter.
 2. flag-kit — DONE step 1: kit `bucket()` rollout + `FlagName`
    validation adopted in `FeatureFlagService` (`dba123b`). DONE step 2:
    `flags_store::DbFlagStore` implements `FlagStore` over the
