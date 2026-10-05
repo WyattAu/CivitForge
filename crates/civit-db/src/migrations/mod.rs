@@ -57,7 +57,8 @@ pub const M_053_ADD_OIDC_UP: &str = include_str!("053_add_oidc.sql");
 pub const M_055_ADD_SITE_SETTINGS_UP: &str = include_str!("055_add_site_settings.sql");
 pub const M_056_ADD_OIDC_ADMIN_UP: &str = include_str!("056_add_oidc_admin.sql");
 pub const M_058_WEBAUTHN_UP: &str = include_str!("058_webauthn.sql");
-pub const M_059_STAR_WATCH_JUNCTION_TABLES_UP: &str = include_str!("059_add_star_watch_junction_tables.sql");
+pub const M_059_STAR_WATCH_JUNCTION_TABLES_UP: &str =
+    include_str!("059_add_star_watch_junction_tables.sql");
 pub const M_060_OAUTH2_UP: &str = include_str!("060_add_oauth2.sql");
 pub const M_061_ISSUE_TEMPLATES_UP: &str = include_str!("061_add_issue_templates.sql");
 pub const M_062_PR_TEMPLATES_UP: &str = include_str!("062_add_pr_templates.sql");
@@ -90,25 +91,19 @@ pub const M_081_ADD_SCIM_TOKENS_UP: &str = include_str!("081_add_scim_tokens.sql
 pub const M_081_ADD_SCIM_TOKENS_DOWN: &str = "DROP TABLE IF EXISTS scim_tokens;";
 pub const M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_UP: &str =
     include_str!("082_add_sso_groups_sessions_login_history.sql");
-pub const M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_DOWN: &str =
-    "DROP TABLE IF EXISTS login_history; DROP TABLE IF EXISTS active_sessions; DROP TABLE IF EXISTS sso_group_mappings;";
+pub const M_082_ADD_SSO_GROUPS_SESSIONS_LOGIN_HISTORY_DOWN: &str = "DROP TABLE IF EXISTS login_history; DROP TABLE IF EXISTS active_sessions; DROP TABLE IF EXISTS sso_group_mappings;";
 pub const M_077_ENHANCE_PAGES_SITES_UP: &str = include_str!("077_enhance_pages_sites.sql");
-pub const M_077_ENHANCE_PAGES_SITES_DOWN: &str =
-    "DROP TABLE IF EXISTS pages_deployments; ALTER TABLE pages_sites DROP COLUMN IF EXISTS custom_domain; ALTER TABLE pages_sites DROP COLUMN IF EXISTS https_enabled; ALTER TABLE pages_sites DROP COLUMN IF EXISTS last_built_at;";
+pub const M_077_ENHANCE_PAGES_SITES_DOWN: &str = "DROP TABLE IF EXISTS pages_deployments; ALTER TABLE pages_sites DROP COLUMN IF EXISTS custom_domain; ALTER TABLE pages_sites DROP COLUMN IF EXISTS https_enabled; ALTER TABLE pages_sites DROP COLUMN IF EXISTS last_built_at;";
 pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_UP: &str =
     include_str!("078_enhance_deployment_protections.sql");
-pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_locks; ALTER TABLE deployment_protections DROP COLUMN IF EXISTS allowed_branches;";
+pub const M_078_ENHANCE_DEPLOYMENT_PROTECTIONS_DOWN: &str = "DROP TABLE IF EXISTS deployment_locks; ALTER TABLE deployment_protections DROP COLUMN IF EXISTS allowed_branches;";
 pub const M_083_CONTAINER_REPO_POLICIES_UP: &str =
     include_str!("083_add_container_repository_policies.sql");
-pub const M_083_CONTAINER_REPO_POLICIES_DOWN: &str =
-    "DROP TABLE IF EXISTS container_pull_through_cache; DROP TABLE IF EXISTS container_image_signatures; DROP TABLE IF EXISTS container_vulnerability_scans; DROP TABLE IF EXISTS container_repository_policies;";
-pub const M_084_OBSERVABILITY_TABLES_UP: &str =
-    include_str!("084_add_observability_tables.sql");
+pub const M_083_CONTAINER_REPO_POLICIES_DOWN: &str = "DROP TABLE IF EXISTS container_pull_through_cache; DROP TABLE IF EXISTS container_image_signatures; DROP TABLE IF EXISTS container_vulnerability_scans; DROP TABLE IF EXISTS container_repository_policies;";
+pub const M_084_OBSERVABILITY_TABLES_UP: &str = include_str!("084_add_observability_tables.sql");
 pub const M_084_OBSERVABILITY_TABLES_DOWN: &str =
     "DROP TABLE IF EXISTS metrics; DROP TABLE IF EXISTS trace_spans;";
-pub const M_085_PERFORMANCE_INDEXES_UP: &str =
-    include_str!("085_add_performance_indexes.sql");
+pub const M_085_PERFORMANCE_INDEXES_UP: &str = include_str!("085_add_performance_indexes.sql");
 pub const M_085_PERFORMANCE_INDEXES_DOWN: &str = "DROP INDEX IF EXISTS idx_repositories_owner_id; DROP INDEX IF EXISTS idx_repositories_visibility; DROP INDEX IF EXISTS idx_issues_repo_id_status; DROP INDEX IF EXISTS idx_pull_requests_repo_id_status; DROP INDEX IF EXISTS idx_pipeline_runs_repo_id; DROP INDEX IF EXISTS idx_audit_events_created_at; DROP INDEX IF EXISTS idx_audit_events_user_id; DROP INDEX IF EXISTS idx_stars_user_id; DROP INDEX IF EXISTS idx_watchers_user_id; DROP INDEX IF EXISTS idx_comments_pr_id; DROP INDEX IF EXISTS idx_comments_issue_id;";
 pub const M_086_CACHE_ENTRIES_UP: &str = include_str!("086_add_cache_entries.sql");
 pub const M_086_CACHE_ENTRIES_DOWN: &str = "DROP TABLE IF EXISTS cache_entries;";
@@ -117,19 +112,19 @@ pub const M_087_CDN_CONFIG_DOWN: &str = "DROP TABLE IF EXISTS cdn_config;";
 pub const M_088_SERVER_INSTANCES_UP: &str = include_str!("088_add_server_instances.sql");
 pub const M_088_SERVER_INSTANCES_DOWN: &str =
     "DROP TABLE IF EXISTS sticky_sessions; DROP TABLE IF EXISTS server_instances;";
-pub const M_089_WEBSOCKET_CONNECTIONS_UP: &str =
-    include_str!("089_add_websocket_connections.sql");
+pub const M_089_WEBSOCKET_CONNECTIONS_UP: &str = include_str!("089_add_websocket_connections.sql");
 pub const M_089_WEBSOCKET_CONNECTIONS_DOWN: &str = "DROP TABLE IF EXISTS websocket_connections;";
 pub const M_090_POOL_CONFIG_UP: &str = include_str!("090_add_pool_config.sql");
 pub const M_090_POOL_CONFIG_DOWN: &str = "DROP TABLE IF EXISTS pool_config;";
 pub const M_091_FEATURE_FLAGS_UP: &str = include_str!("091_add_feature_flags.sql");
-pub const M_091_FEATURE_FLAGS_DOWN: &str =
-    include_str!("down/091_feature_flags_down.sql");
-pub const M_092_ADMIN_DASHBOARD_CONFIG_UP: &str = include_str!("092_add_admin_dashboard_config.sql");
+pub const M_091_FEATURE_FLAGS_DOWN: &str = include_str!("down/091_feature_flags_down.sql");
+pub const M_092_ADMIN_DASHBOARD_CONFIG_UP: &str =
+    include_str!("092_add_admin_dashboard_config.sql");
 pub const M_092_ADMIN_DASHBOARD_CONFIG_DOWN: &str =
     include_str!("down/092_admin_dashboard_config_down.sql");
 pub const M_093_API_ANALYTICS_UP: &str = include_str!("093_add_api_analytics.sql");
-pub const M_093_API_ANALYTICS_DOWN: &str = "DROP TABLE IF EXISTS api_usage_summary; DROP TABLE IF EXISTS api_analytics;";
+pub const M_093_API_ANALYTICS_DOWN: &str =
+    "DROP TABLE IF EXISTS api_usage_summary; DROP TABLE IF EXISTS api_analytics;";
 pub const M_094_USAGE_QUOTAS_UP: &str = include_str!("094_add_usage_quotas.sql");
 pub const M_094_USAGE_QUOTAS_DOWN: &str = "DROP TABLE IF EXISTS usage_quotas;";
 pub const M_095_EXPORT_JOBS_UP: &str = include_str!("095_add_export_jobs.sql");
@@ -137,8 +132,7 @@ pub const M_095_EXPORT_JOBS_DOWN: &str = "DROP TABLE IF EXISTS export_jobs;";
 pub const M_096_COMPLIANCE_REPORTS_UP: &str = include_str!("096_add_compliance_reports.sql");
 pub const M_096_COMPLIANCE_REPORTS_DOWN: &str = "DROP TABLE IF EXISTS compliance_reports;";
 pub const M_097_DEPLOYMENT_HISTORY_UP: &str = include_str!("097_add_deployment_history.sql");
-pub const M_097_DEPLOYMENT_HISTORY_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_history;";
+pub const M_097_DEPLOYMENT_HISTORY_DOWN: &str = "DROP TABLE IF EXISTS deployment_history;";
 pub const M_098_MONITORING_ALERTS_UP: &str = include_str!("098_add_monitoring_alerts.sql");
 pub const M_098_MONITORING_ALERTS_DOWN: &str =
     "DROP TABLE IF EXISTS monitoring_incidents; DROP TABLE IF EXISTS monitoring_alerts;";
@@ -146,20 +140,26 @@ pub const M_099_PERFORMANCE_METRICS_UP: &str = include_str!("099_add_performance
 pub const M_099_PERFORMANCE_METRICS_DOWN: &str = "DROP TABLE IF EXISTS performance_metrics;";
 pub const M_100_WEBHOOK_DELIVERIES_V2_UP: &str = include_str!("100_add_webhook_deliveries_v2.sql");
 pub const M_100_WEBHOOK_DELIVERIES_V2_DOWN: &str = "DROP TABLE IF EXISTS webhook_deliveries_v2;";
-pub const M_101_EVENTS_AND_SUBSCRIPTIONS_UP: &str = include_str!("101_add_events_and_subscriptions.sql");
-pub const M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN: &str = "DROP TABLE IF EXISTS event_subscriptions; DROP TABLE IF EXISTS events;";
+pub const M_101_EVENTS_AND_SUBSCRIPTIONS_UP: &str =
+    include_str!("101_add_events_and_subscriptions.sql");
+pub const M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN: &str =
+    "DROP TABLE IF EXISTS event_subscriptions; DROP TABLE IF EXISTS events;";
 pub const M_102_EVENT_QUEUES_UP: &str = include_str!("102_add_event_queues.sql");
-pub const M_102_EVENT_QUEUES_DOWN: &str = "DROP TABLE IF EXISTS event_queue_messages; DROP TABLE IF EXISTS event_queues;";
+pub const M_102_EVENT_QUEUES_DOWN: &str =
+    "DROP TABLE IF EXISTS event_queue_messages; DROP TABLE IF EXISTS event_queues;";
 pub const M_103_CHAOS_ENGINEERING_UP: &str = include_str!("103_add_chaos_engineering.sql");
-pub const M_103_CHAOS_ENGINEERING_DOWN: &str = "DROP TABLE IF EXISTS chaos_results; DROP TABLE IF EXISTS chaos_experiments;";
+pub const M_103_CHAOS_ENGINEERING_DOWN: &str =
+    "DROP TABLE IF EXISTS chaos_results; DROP TABLE IF EXISTS chaos_experiments;";
 pub const M_104_RESILIENCE_TESTS_UP: &str = include_str!("104_add_resilience_tests.sql");
 pub const M_104_RESILIENCE_TESTS_DOWN: &str = "DROP TABLE IF EXISTS resilience_tests;";
 pub const M_105_CIRCUIT_BREAKERS_UP: &str = include_str!("105_add_circuit_breakers.sql");
 pub const M_105_CIRCUIT_BREAKERS_DOWN: &str = "DROP TABLE IF EXISTS circuit_breakers;";
 pub const M_106_DISTRIBUTED_TRACES_UP: &str = include_str!("106_add_distributed_traces.sql");
 pub const M_106_DISTRIBUTED_TRACES_DOWN: &str = "DROP TABLE IF EXISTS distributed_traces;";
-pub const M_107_APM_TRANSACTIONS_SPANS_UP: &str = include_str!("107_add_apm_transactions_spans.sql");
-pub const M_107_APM_TRANSACTIONS_SPANS_DOWN: &str = "DROP TABLE IF EXISTS apm_spans; DROP TABLE IF EXISTS apm_transactions;";
+pub const M_107_APM_TRANSACTIONS_SPANS_UP: &str =
+    include_str!("107_add_apm_transactions_spans.sql");
+pub const M_107_APM_TRANSACTIONS_SPANS_DOWN: &str =
+    "DROP TABLE IF EXISTS apm_spans; DROP TABLE IF EXISTS apm_transactions;";
 pub const M_108_ERROR_TRACKING_UP: &str = include_str!("108_add_error_tracking.sql");
 pub const M_108_ERROR_TRACKING_DOWN: &str = "DROP TABLE IF EXISTS error_tracking;";
 pub const M_109_API_GATEWAY_UP: &str = include_str!("109_add_api_gateway.sql");
@@ -173,12 +173,12 @@ pub const M_111_API_TRANSFORMS_DOWN: &str = "DROP TABLE IF EXISTS api_transforms
 pub const M_112_GRAPHQL_SUBSCRIPTIONS_UP: &str = include_str!("112_add_graphql_subscriptions.sql");
 pub const M_112_GRAPHQL_SUBSCRIPTIONS_DOWN: &str = "DROP TABLE IF EXISTS graphql_subscriptions;";
 pub const M_113_REALTIME_CHANNELS_UP: &str = include_str!("113_add_realtime_channels.sql");
-pub const M_113_REALTIME_CHANNELS_DOWN: &str = "DROP TABLE IF EXISTS realtime_messages; DROP TABLE IF EXISTS realtime_channels;";
+pub const M_113_REALTIME_CHANNELS_DOWN: &str =
+    "DROP TABLE IF EXISTS realtime_messages; DROP TABLE IF EXISTS realtime_channels;";
 pub const M_114_LIVE_COLLABORATION_UP: &str = include_str!("114_add_live_collaboration.sql");
 pub const M_114_LIVE_COLLABORATION_DOWN: &str = "DROP TABLE IF EXISTS live_collaboration_sessions;";
 pub const M_115_CODE_INTELLIGENCE_UP: &str = include_str!("115_add_code_intelligence.sql");
-pub const M_115_CODE_INTELLIGENCE_DOWN: &str =
-    "DROP TABLE IF EXISTS code_intelligence_references; DROP TABLE IF EXISTS code_intelligence_symbols;";
+pub const M_115_CODE_INTELLIGENCE_DOWN: &str = "DROP TABLE IF EXISTS code_intelligence_references; DROP TABLE IF EXISTS code_intelligence_symbols;";
 pub const M_116_CODE_SEARCH_V2_UP: &str = include_str!("116_add_code_search_v2.sql");
 pub const M_116_CODE_SEARCH_V2_DOWN: &str =
     "DROP TABLE IF EXISTS code_search_queries; DROP TABLE IF EXISTS code_search_index_v2;";
@@ -188,12 +188,15 @@ pub const M_118_PIPELINE_TEMPLATES_UP: &str = include_str!("118_add_pipeline_tem
 pub const M_118_PIPELINE_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS pipeline_templates;";
 pub const M_119_PIPELINE_ANALYTICS_UP: &str = include_str!("119_add_pipeline_analytics.sql");
 pub const M_119_PIPELINE_ANALYTICS_DOWN: &str = "DROP TABLE IF EXISTS pipeline_analytics;";
-pub const M_120_MULTI_PROJECT_PIPELINES_UP: &str = include_str!("120_add_multi_project_pipelines.sql");
+pub const M_120_MULTI_PROJECT_PIPELINES_UP: &str =
+    include_str!("120_add_multi_project_pipelines.sql");
 pub const M_120_MULTI_PROJECT_PIPELINES_DOWN: &str = "DROP TABLE IF EXISTS multi_project_pipeline_runs; DROP TABLE IF EXISTS multi_project_pipelines;";
 pub const M_121_SECURITY_SCANS_V2_UP: &str = include_str!("121_add_security_scans_v2.sql");
-pub const M_121_SECURITY_SCANS_V2_DOWN: &str = "DROP TABLE IF EXISTS security_policies; DROP TABLE IF EXISTS security_scans_v2;";
+pub const M_121_SECURITY_SCANS_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS security_policies; DROP TABLE IF EXISTS security_scans_v2;";
 pub const M_122_COMPLIANCE_FRAMEWORKS_UP: &str = include_str!("122_add_compliance_frameworks.sql");
-pub const M_122_COMPLIANCE_FRAMEWORKS_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments; DROP TABLE IF EXISTS compliance_frameworks;";
+pub const M_122_COMPLIANCE_FRAMEWORKS_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_assessments; DROP TABLE IF EXISTS compliance_frameworks;";
 pub const M_123_AUDIT_TRAIL_UP: &str = include_str!("123_add_audit_trail.sql");
 pub const M_123_AUDIT_TRAIL_DOWN: &str = "DROP TABLE IF EXISTS audit_trail;";
 pub const M_124_API_DOCUMENTATION_UP: &str = include_str!("124_add_api_documentation.sql");
@@ -207,7 +210,8 @@ pub const M_127_DEPLOYMENT_STRATEGIES_DOWN: &str = "DROP TABLE IF EXISTS deploym
 pub const M_128_INFRASTRUCTURE_UP: &str = include_str!("128_add_infrastructure.sql");
 pub const M_128_INFRASTRUCTURE_DOWN: &str = "DROP TABLE IF EXISTS infrastructure_deployments; DROP TABLE IF EXISTS infrastructure_templates;";
 pub const M_129_SERVICE_MESH_UP: &str = include_str!("129_add_service_mesh.sql");
-pub const M_129_SERVICE_MESH_DOWN: &str = "DROP TABLE IF EXISTS service_mesh_routes; DROP TABLE IF EXISTS service_mesh_services;";
+pub const M_129_SERVICE_MESH_DOWN: &str =
+    "DROP TABLE IF EXISTS service_mesh_routes; DROP TABLE IF EXISTS service_mesh_services;";
 pub const M_130_TEST_COVERAGE_UP: &str = include_str!("130_add_test_coverage.sql");
 pub const M_130_TEST_COVERAGE_DOWN: &str = "DROP TABLE IF EXISTS test_coverage;";
 pub const M_131_CODE_QUALITY_METRICS_UP: &str = include_str!("131_add_code_quality_metrics.sql");
@@ -216,8 +220,10 @@ pub const M_132_PERFORMANCE_TESTS_UP: &str = include_str!("132_add_performance_t
 pub const M_132_PERFORMANCE_TESTS_DOWN: &str = "DROP TABLE IF EXISTS performance_tests;";
 pub const M_133_PIPELINE_ACTIONS_UP: &str = include_str!("133_add_pipeline_actions.sql");
 pub const M_133_PIPELINE_ACTIONS_DOWN: &str = "DROP TABLE IF EXISTS pipeline_actions;";
-pub const M_134_PIPELINE_ENVIRONMENTS_V2_UP: &str = include_str!("134_add_pipeline_environments_v2.sql");
-pub const M_134_PIPELINE_ENVIRONMENTS_V2_DOWN: &str = "DROP TABLE IF EXISTS pipeline_environments_v2;";
+pub const M_134_PIPELINE_ENVIRONMENTS_V2_UP: &str =
+    include_str!("134_add_pipeline_environments_v2.sql");
+pub const M_134_PIPELINE_ENVIRONMENTS_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS pipeline_environments_v2;";
 pub const M_135_PIPELINE_CACHES_V2_UP: &str = include_str!("135_add_pipeline_caches_v2.sql");
 pub const M_135_PIPELINE_CACHES_V2_DOWN: &str = "DROP TABLE IF EXISTS pipeline_caches_v2;";
 pub const M_136_DATABASE_BACKUP_RECOVERY_UP: &str =
@@ -231,7 +237,8 @@ pub const M_138_DATA_MIGRATIONS_DOWN: &str = "DROP TABLE IF EXISTS data_migratio
 pub const M_139_NETWORK_POLICIES_UP: &str = include_str!("139_add_network_policies.sql");
 pub const M_139_NETWORK_POLICIES_DOWN: &str = "DROP TABLE IF EXISTS network_policies;";
 pub const M_140_ENCRYPTION_AT_REST_UP: &str = include_str!("140_add_encryption_at_rest.sql");
-pub const M_140_ENCRYPTION_AT_REST_DOWN: &str = "DROP TABLE IF EXISTS encrypted_data; DROP TABLE IF EXISTS encryption_keys;";
+pub const M_140_ENCRYPTION_AT_REST_DOWN: &str =
+    "DROP TABLE IF EXISTS encrypted_data; DROP TABLE IF EXISTS encryption_keys;";
 pub const M_141_ACCESS_CONTROL_LISTS_UP: &str = include_str!("141_add_access_control_lists.sql");
 pub const M_141_ACCESS_CONTROL_LISTS_DOWN: &str = "DROP TABLE IF EXISTS access_control_lists;";
 pub const M_142_WORKFLOWS_UP: &str = include_str!("142_add_workflows.sql");
@@ -246,11 +253,13 @@ pub const M_145_LOG_AGGREGATION_DOWN: &str = "DROP TABLE IF EXISTS log_entries;"
 pub const M_146_TRACE_SAMPLING_RULES_UP: &str = include_str!("146_add_trace_sampling_rules.sql");
 pub const M_146_TRACE_SAMPLING_RULES_DOWN: &str = "DROP TABLE IF EXISTS trace_sampling_rules;";
 pub const M_147_DASHBOARD_REPORTING_UP: &str = include_str!("147_add_dashboard_reporting.sql");
-pub const M_147_DASHBOARD_REPORTING_DOWN: &str = "DROP TABLE IF EXISTS reports; DROP TABLE IF EXISTS dashboards;";
+pub const M_147_DASHBOARD_REPORTING_DOWN: &str =
+    "DROP TABLE IF EXISTS reports; DROP TABLE IF EXISTS dashboards;";
 pub const M_148_PIPELINE_SECRETS_V2_UP: &str = include_str!("148_add_pipeline_secrets_v2.sql");
 pub const M_148_PIPELINE_SECRETS_V2_DOWN: &str = "DROP TABLE IF EXISTS secret_access_log; DROP TABLE IF EXISTS secret_rotation_log; DROP TABLE IF EXISTS pipeline_secrets_v2;";
 pub const M_149_PIPELINE_RUNNERS_V2_UP: &str = include_str!("149_add_pipeline_runners_v2.sql");
-pub const M_149_PIPELINE_RUNNERS_V2_DOWN: &str = "DROP TABLE IF EXISTS runner_metrics; DROP TABLE IF EXISTS pipeline_runners_v2;";
+pub const M_149_PIPELINE_RUNNERS_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS runner_metrics; DROP TABLE IF EXISTS pipeline_runners_v2;";
 pub const M_150_ENVIRONMENT_VARIABLES_UP: &str = include_str!("150_add_environment_variables.sql");
 pub const M_150_ENVIRONMENT_VARIABLES_DOWN: &str = "DROP TABLE IF EXISTS environment_variable_inheritance; DROP TABLE IF EXISTS environment_variables;";
 pub const M_151_TEST_SUITES_UP: &str = include_str!("151_add_test_suites.sql");
@@ -261,8 +270,7 @@ pub const M_155_RATE_LIMIT_TIERS_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_t
 pub const M_156_API_ANALYTICS_V3_UP: &str = include_str!("156_add_api_analytics_v3.sql");
 pub const M_156_API_ANALYTICS_V3_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v3;";
 pub const M_157_DATABASE_REPLICATION_UP: &str = include_str!("157_add_database_replication.sql");
-pub const M_157_DATABASE_REPLICATION_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replicas;";
+pub const M_157_DATABASE_REPLICATION_DOWN: &str = "DROP TABLE IF EXISTS database_replicas;";
 pub const M_158_ENCRYPTION_POLICIES_UP: &str = include_str!("158_add_encryption_policies.sql");
 pub const M_158_ENCRYPTION_POLICIES_DOWN: &str = "DROP TABLE IF EXISTS encryption_policies;";
 pub const M_159_DATA_RESIDENCY_UP: &str = include_str!("159_add_data_residency.sql");
@@ -272,17 +280,16 @@ pub const M_160_SECURITY_SCAN_RULES_UP: &str = include_str!("160_add_security_sc
 pub const M_160_SECURITY_SCAN_RULES_DOWN: &str = "DROP TABLE IF EXISTS security_scan_rules;";
 pub const M_161_COMPLIANCE_REQUIREMENTS_UP: &str =
     include_str!("161_add_compliance_requirements.sql");
-pub const M_161_COMPLIANCE_REQUIREMENTS_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_check_results; DROP TABLE IF EXISTS compliance_evidence; DROP TABLE IF EXISTS compliance_requirements;";
+pub const M_161_COMPLIANCE_REQUIREMENTS_DOWN: &str = "DROP TABLE IF EXISTS compliance_check_results; DROP TABLE IF EXISTS compliance_evidence; DROP TABLE IF EXISTS compliance_requirements;";
 pub const M_162_AUDIT_TRAIL_V2_UP: &str = include_str!("162_add_audit_trail_v2.sql");
 pub const M_162_AUDIT_TRAIL_V2_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v2;";
-pub const M_163_WORKFLOW_TRIGGERS_ACTIONS_UP: &str = include_str!("163_add_workflow_triggers_actions.sql");
+pub const M_163_WORKFLOW_TRIGGERS_ACTIONS_UP: &str =
+    include_str!("163_add_workflow_triggers_actions.sql");
 pub const M_166_FIREWALL_RULES_UP: &str = include_str!("166_add_firewall_rules.sql");
 pub const M_166_FIREWALL_RULES_DOWN: &str =
     "DROP TABLE IF EXISTS firewall_rule_logs; DROP TABLE IF EXISTS firewall_rules;";
 pub const M_167_INTRUSION_DETECTIONS_UP: &str = include_str!("167_add_intrusion_detections.sql");
-pub const M_167_INTRUSION_DETECTIONS_DOWN: &str =
-    "DROP TABLE IF EXISTS intrusion_incidents; DROP TABLE IF EXISTS intrusion_detection_rules; DROP TABLE IF EXISTS intrusion_detections;";
+pub const M_167_INTRUSION_DETECTIONS_DOWN: &str = "DROP TABLE IF EXISTS intrusion_incidents; DROP TABLE IF EXISTS intrusion_detection_rules; DROP TABLE IF EXISTS intrusion_detections;";
 pub const M_168_DDOS_PROTECTION_UP: &str = include_str!("168_add_ddos_protection.sql");
 pub const M_168_DDOS_PROTECTION_DOWN: &str =
     "DROP TABLE IF EXISTS ddos_events; DROP TABLE IF EXISTS ddos_protection;";
@@ -301,82 +308,128 @@ pub const M_173_API_WEBHOOKS_V2_DOWN: &str =
     "DROP TABLE IF EXISTS api_webhook_deliveries_v2; DROP TABLE IF EXISTS api_webhooks_v2;";
 pub const M_174_API_ANALYTICS_V4_UP: &str = include_str!("174_add_api_analytics_v4.sql");
 pub const M_174_API_ANALYTICS_V4_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v4;";
-pub const M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_UP: &str = include_str!("175_add_deployment_strategy_configs_logs.sql");
+pub const M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_UP: &str =
+    include_str!("175_add_deployment_strategy_configs_logs.sql");
 pub const M_175_DEPLOYMENT_STRATEGY_CONFIGS_LOGS_DOWN: &str = "DROP TABLE IF EXISTS deployment_strategy_logs; DROP TABLE IF EXISTS deployment_strategy_configs;";
-pub const M_176_INFRASTRUCTURE_MODULES_UP: &str = include_str!("176_add_infrastructure_modules.sql");
-pub const M_176_INFRASTRUCTURE_MODULES_DOWN: &str = "DROP TABLE IF EXISTS infrastructure_module_deps; DROP TABLE IF EXISTS infrastructure_modules;";
-pub const M_177_SERVICE_MESH_POLICIES_METRICS_UP: &str = include_str!("177_add_service_mesh_policies_metrics.sql");
-pub const M_177_SERVICE_MESH_POLICIES_METRICS_DOWN: &str = "DROP TABLE IF EXISTS service_mesh_metrics; DROP TABLE IF EXISTS service_mesh_policies;";
+pub const M_176_INFRASTRUCTURE_MODULES_UP: &str =
+    include_str!("176_add_infrastructure_modules.sql");
+pub const M_176_INFRASTRUCTURE_MODULES_DOWN: &str =
+    "DROP TABLE IF EXISTS infrastructure_module_deps; DROP TABLE IF EXISTS infrastructure_modules;";
+pub const M_177_SERVICE_MESH_POLICIES_METRICS_UP: &str =
+    include_str!("177_add_service_mesh_policies_metrics.sql");
+pub const M_177_SERVICE_MESH_POLICIES_METRICS_DOWN: &str =
+    "DROP TABLE IF EXISTS service_mesh_metrics; DROP TABLE IF EXISTS service_mesh_policies;";
 pub const M_178_TEST_COVERAGE_V2_UP: &str = include_str!("178_add_test_coverage_v2.sql");
 pub const M_178_TEST_COVERAGE_V2_DOWN: &str = "DROP TABLE IF EXISTS test_coverage_v2;";
 pub const M_179_CODE_QUALITY_RULES_UP: &str = include_str!("179_add_code_quality_rules.sql");
 pub const M_179_CODE_QUALITY_RULES_DOWN: &str = "DROP TABLE IF EXISTS code_quality_rules;";
-pub const M_180_PERF_TEST_CONFIGS_RESULTS_UP: &str = include_str!("180_add_performance_test_configs_results.sql");
-pub const M_180_PERF_TEST_CONFIGS_RESULTS_DOWN: &str = "DROP TABLE IF EXISTS performance_test_results; DROP TABLE IF EXISTS performance_test_configs;";
-pub const M_185_COMPLIANCE_FRAMEWORKS_V2_UP: &str = include_str!("185_add_compliance_frameworks_v2_assessments.sql");
+pub const M_180_PERF_TEST_CONFIGS_RESULTS_UP: &str =
+    include_str!("180_add_performance_test_configs_results.sql");
+pub const M_180_PERF_TEST_CONFIGS_RESULTS_DOWN: &str =
+    "DROP TABLE IF EXISTS performance_test_results; DROP TABLE IF EXISTS performance_test_configs;";
+pub const M_185_COMPLIANCE_FRAMEWORKS_V2_UP: &str =
+    include_str!("185_add_compliance_frameworks_v2_assessments.sql");
 pub const M_187_WORKFLOW_TEMPLATES_UP: &str = include_str!("187_add_workflow_templates.sql");
-pub const M_187_WORKFLOW_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_usage; DROP TABLE IF EXISTS workflow_templates;";
+pub const M_187_WORKFLOW_TEMPLATES_DOWN: &str =
+    "DROP TABLE IF EXISTS workflow_template_usage; DROP TABLE IF EXISTS workflow_templates;";
 pub const M_188_AUTOMATION_RULES_V3_UP: &str = include_str!("188_add_automation_rules_v3.sql");
 pub const M_188_AUTOMATION_RULES_V3_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v3;";
-pub const M_189_SCHEDULED_TASK_TEMPLATES_UP: &str = include_str!("189_add_scheduled_task_templates.sql");
-pub const M_189_SCHEDULED_TASK_TEMPLATES_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates;";
+pub const M_189_SCHEDULED_TASK_TEMPLATES_UP: &str =
+    include_str!("189_add_scheduled_task_templates.sql");
+pub const M_189_SCHEDULED_TASK_TEMPLATES_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates;";
 pub const M_190_LOG_AGGREGATION_V2_UP: &str = include_str!("190_add_log_aggregation_v2.sql");
-pub const M_190_LOG_AGGREGATION_V2_DOWN: &str = "DROP TABLE IF EXISTS log_retention_policies; DROP TABLE IF EXISTS log_entries_v2;";
-pub const M_191_DISTRIBUTED_TRACING_V3_UP: &str = include_str!("191_add_distributed_tracing_v3.sql");
-pub const M_191_DISTRIBUTED_TRACING_V3_DOWN: &str = "DROP TABLE IF EXISTS trace_dependencies; DROP TABLE IF EXISTS trace_sampling_rules_v2;";
-pub const M_192_DASHBOARD_REPORTING_V2_UP: &str = include_str!("192_add_dashboard_reporting_v2.sql");
-pub const M_192_DASHBOARD_REPORTING_V2_DOWN: &str = "DROP TABLE IF EXISTS report_schedules; DROP TABLE IF EXISTS dashboard_widgets_v2;";
-pub const M_193_PIPELINE_ACTION_CATEGORIES_UP: &str = include_str!("193_add_pipeline_action_categories.sql");
+pub const M_190_LOG_AGGREGATION_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS log_retention_policies; DROP TABLE IF EXISTS log_entries_v2;";
+pub const M_191_DISTRIBUTED_TRACING_V3_UP: &str =
+    include_str!("191_add_distributed_tracing_v3.sql");
+pub const M_191_DISTRIBUTED_TRACING_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS trace_dependencies; DROP TABLE IF EXISTS trace_sampling_rules_v2;";
+pub const M_192_DASHBOARD_REPORTING_V2_UP: &str =
+    include_str!("192_add_dashboard_reporting_v2.sql");
+pub const M_192_DASHBOARD_REPORTING_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS report_schedules; DROP TABLE IF EXISTS dashboard_widgets_v2;";
+pub const M_193_PIPELINE_ACTION_CATEGORIES_UP: &str =
+    include_str!("193_add_pipeline_action_categories.sql");
 pub const M_193_PIPELINE_ACTION_CATEGORIES_DOWN: &str = "DROP TABLE IF EXISTS pipeline_action_category_members; DROP TABLE IF EXISTS pipeline_action_categories;";
-pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_UP: &str = include_str!("194_add_environment_webhooks_notifications.sql");
+pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_UP: &str =
+    include_str!("194_add_environment_webhooks_notifications.sql");
 pub const M_194_ENVIRONMENT_WEBHOOKS_NOTIFICATIONS_DOWN: &str = "DROP TABLE IF EXISTS environment_webhook_deliveries; DROP TABLE IF EXISTS environment_notifications; DROP TABLE IF EXISTS environment_webhooks;";
 pub const M_195_CACHE_WARMING_RULES_UP: &str = include_str!("195_add_cache_warming_rules.sql");
-pub const M_195_CACHE_WARMING_RULES_DOWN: &str = "DROP TABLE IF EXISTS cache_warming_logs; DROP TABLE IF EXISTS cache_warming_rules;";
-pub const M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP: &str = include_str!("196_add_test_suite_config_notifications.sql");
+pub const M_195_CACHE_WARMING_RULES_DOWN: &str =
+    "DROP TABLE IF EXISTS cache_warming_logs; DROP TABLE IF EXISTS cache_warming_rules;";
+pub const M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP: &str =
+    include_str!("196_add_test_suite_config_notifications.sql");
 pub const M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN: &str = "DROP TABLE IF EXISTS test_suite_notifications; DROP TABLE IF EXISTS test_suite_configurations;";
 pub const M_197_CODE_QUALITY_RULES_V2_UP: &str = include_str!("197_add_code_quality_rules_v2.sql");
 pub const M_197_CODE_QUALITY_RULES_V2_DOWN: &str = "DROP TABLE IF EXISTS code_quality_rule_test_results; DROP TABLE IF EXISTS code_quality_rule_versions; DROP TABLE IF EXISTS code_quality_rules_v2;";
-pub const M_198_PERF_BASELINES_REGRESSIONS_UP: &str = include_str!("198_add_performance_baselines_regressions.sql");
+pub const M_198_PERF_BASELINES_REGRESSIONS_UP: &str =
+    include_str!("198_add_performance_baselines_regressions.sql");
 pub const M_198_PERF_BASELINES_REGRESSIONS_DOWN: &str = "DROP TABLE IF EXISTS performance_trend_data; DROP TABLE IF EXISTS performance_regressions; DROP TABLE IF EXISTS performance_baselines;";
 pub const M_199_API_DOCS_V4_UP: &str = include_str!("199_add_api_docs_v4.sql");
 pub const M_199_API_DOCS_V4_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v4;";
 pub const M_200_RATE_LIMIT_TIERS_V2_UP: &str = include_str!("200_add_rate_limit_tiers_v2.sql");
-pub const M_200_RATE_LIMIT_TIERS_V2_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_usage_v2; DROP TABLE IF EXISTS rate_limit_tiers_v2;";
+pub const M_200_RATE_LIMIT_TIERS_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_usage_v2; DROP TABLE IF EXISTS rate_limit_tiers_v2;";
 pub const M_201_API_ANALYTICS_V5_UP: &str = include_str!("201_add_api_analytics_v5.sql");
 pub const M_201_API_ANALYTICS_V5_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v5;";
-pub const M_202_DATABASE_REPLICATION_V2_UP: &str = include_str!("202_add_database_replication_v2.sql");
+pub const M_202_DATABASE_REPLICATION_V2_UP: &str =
+    include_str!("202_add_database_replication_v2.sql");
 pub const M_202_DATABASE_REPLICATION_V2_DOWN: &str = "DROP TABLE IF EXISTS database_replication_stats; DROP TABLE IF EXISTS database_replication_logs;";
 pub const M_203_ENCRYPTION_V3_UP: &str = include_str!("203_add_encryption_v3.sql");
-pub const M_203_ENCRYPTION_V3_DOWN: &str = "DROP TABLE IF EXISTS encryption_audit_logs; DROP TABLE IF EXISTS encryption_key_rotations;";
+pub const M_203_ENCRYPTION_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS encryption_audit_logs; DROP TABLE IF EXISTS encryption_key_rotations;";
 pub const M_204_DATA_RESIDENCY_V2_UP: &str = include_str!("204_add_data_residency_v2.sql");
-pub const M_204_DATA_RESIDENCY_V2_DOWN: &str = "DROP TABLE IF EXISTS data_residency_migrations; DROP TABLE IF EXISTS data_residency_audits;";
-pub const M_205_SECURITY_SCAN_V3_UP: &str = include_str!("205_add_security_scan_rules_v3_fixes.sql");
-pub const M_205_SECURITY_SCAN_V3_DOWN: &str = "DROP TABLE IF EXISTS security_scan_fixes; DROP TABLE IF EXISTS security_scan_rules_v3;";
-pub const M_206_COMPLIANCE_V3_UP: &str = include_str!("206_add_compliance_frameworks_v3_evidence_v2.sql");
-pub const M_206_COMPLIANCE_V3_DOWN: &str = "DROP TABLE IF EXISTS compliance_evidence_v2; DROP TABLE IF EXISTS compliance_frameworks_v3;";
+pub const M_204_DATA_RESIDENCY_V2_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_migrations; DROP TABLE IF EXISTS data_residency_audits;";
+pub const M_205_SECURITY_SCAN_V3_UP: &str =
+    include_str!("205_add_security_scan_rules_v3_fixes.sql");
+pub const M_205_SECURITY_SCAN_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS security_scan_fixes; DROP TABLE IF EXISTS security_scan_rules_v3;";
+pub const M_206_COMPLIANCE_V3_UP: &str =
+    include_str!("206_add_compliance_frameworks_v3_evidence_v2.sql");
+pub const M_206_COMPLIANCE_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS compliance_evidence_v2; DROP TABLE IF EXISTS compliance_frameworks_v3;";
 pub const M_207_AUDIT_TRAIL_V4_UP: &str = include_str!("207_add_audit_trail_v4.sql");
 pub const M_207_AUDIT_TRAIL_V4_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v4;";
 pub const M_208_WORKFLOW_EXECUTION_V4_UP: &str = include_str!("208_add_workflow_execution_v4.sql");
-pub const M_208_WORKFLOW_EXECUTION_V4_DOWN: &str = "DROP TABLE IF EXISTS workflow_execution_steps; DROP TABLE IF EXISTS workflow_executions;";
+pub const M_208_WORKFLOW_EXECUTION_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS workflow_execution_steps; DROP TABLE IF EXISTS workflow_executions;";
 pub const M_209_AUTOMATION_RULES_V4_UP: &str = include_str!("209_add_automation_rules_v4.sql");
 pub const M_209_AUTOMATION_RULES_V4_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v4;";
-pub const M_210_SCHEDULED_TASK_EXECUTION_V4_UP: &str = include_str!("210_add_scheduled_task_execution_v4.sql");
-pub const M_210_SCHEDULED_TASK_EXECUTION_V4_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_executions;";
+pub const M_210_SCHEDULED_TASK_EXECUTION_V4_UP: &str =
+    include_str!("210_add_scheduled_task_execution_v4.sql");
+pub const M_210_SCHEDULED_TASK_EXECUTION_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_executions;";
 pub const M_211_LOG_AGGREGATION_V3_UP: &str = include_str!("211_add_log_aggregation_v3.sql");
-pub const M_211_LOG_AGGREGATION_V3_DOWN: &str = "DROP TABLE IF EXISTS log_search_index; DROP TABLE IF EXISTS log_entries_v3;";
-pub const M_212_DISTRIBUTED_TRACING_V4_UP: &str = include_str!("212_add_distributed_tracing_v4.sql");
-pub const M_212_DISTRIBUTED_TRACING_V4_DOWN: &str = "DROP TABLE IF EXISTS trace_service_map; DROP TABLE IF EXISTS trace_sampling_rules_v3;";
-pub const M_213_DASHBOARD_REPORTING_V3_UP: &str = include_str!("213_add_dashboard_reporting_v3.sql");
-pub const M_213_DASHBOARD_REPORTING_V3_DOWN: &str = "DROP TABLE IF EXISTS report_templates; DROP TABLE IF EXISTS dashboard_templates;";
-pub const M_214_PIPELINE_ACTION_INSTALLATIONS_UP: &str = include_str!("214_add_pipeline_action_installations.sql");
-pub const M_214_PIPELINE_ACTION_INSTALLATIONS_DOWN: &str = "DROP TABLE IF EXISTS pipeline_action_installations;";
-pub const M_215_ENVIRONMENT_HEALTH_CHECKS_UP: &str = include_str!("215_add_environment_health_checks.sql");
-pub const M_215_ENVIRONMENT_HEALTH_CHECKS_DOWN: &str = "DROP TABLE IF EXISTS environment_health_checks;";
-pub const M_216_CACHE_EVICTION_POLICIES_LOGS_UP: &str = include_str!("216_add_cache_eviction_policies_logs.sql");
-pub const M_216_CACHE_EVICTION_POLICIES_LOGS_DOWN: &str = "DROP TABLE IF EXISTS cache_eviction_logs; DROP TABLE IF EXISTS cache_eviction_policies;";
-pub const M_217_TEST_SUITE_TAGS_DEPS_UP: &str = include_str!("217_add_test_suite_tags_dependencies.sql");
-pub const M_217_TEST_SUITE_TAGS_DEPS_DOWN: &str = "DROP TABLE IF EXISTS test_suite_dependencies; DROP TABLE IF EXISTS test_suite_tags;";
-pub const M_218_CODE_QUALITY_RULES_V3_UP: &str = include_str!("218_add_code_quality_rules_v3_enforcement.sql");
+pub const M_211_LOG_AGGREGATION_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS log_search_index; DROP TABLE IF EXISTS log_entries_v3;";
+pub const M_212_DISTRIBUTED_TRACING_V4_UP: &str =
+    include_str!("212_add_distributed_tracing_v4.sql");
+pub const M_212_DISTRIBUTED_TRACING_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS trace_service_map; DROP TABLE IF EXISTS trace_sampling_rules_v3;";
+pub const M_213_DASHBOARD_REPORTING_V3_UP: &str =
+    include_str!("213_add_dashboard_reporting_v3.sql");
+pub const M_213_DASHBOARD_REPORTING_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS report_templates; DROP TABLE IF EXISTS dashboard_templates;";
+pub const M_214_PIPELINE_ACTION_INSTALLATIONS_UP: &str =
+    include_str!("214_add_pipeline_action_installations.sql");
+pub const M_214_PIPELINE_ACTION_INSTALLATIONS_DOWN: &str =
+    "DROP TABLE IF EXISTS pipeline_action_installations;";
+pub const M_215_ENVIRONMENT_HEALTH_CHECKS_UP: &str =
+    include_str!("215_add_environment_health_checks.sql");
+pub const M_215_ENVIRONMENT_HEALTH_CHECKS_DOWN: &str =
+    "DROP TABLE IF EXISTS environment_health_checks;";
+pub const M_216_CACHE_EVICTION_POLICIES_LOGS_UP: &str =
+    include_str!("216_add_cache_eviction_policies_logs.sql");
+pub const M_216_CACHE_EVICTION_POLICIES_LOGS_DOWN: &str =
+    "DROP TABLE IF EXISTS cache_eviction_logs; DROP TABLE IF EXISTS cache_eviction_policies;";
+pub const M_217_TEST_SUITE_TAGS_DEPS_UP: &str =
+    include_str!("217_add_test_suite_tags_dependencies.sql");
+pub const M_217_TEST_SUITE_TAGS_DEPS_DOWN: &str =
+    "DROP TABLE IF EXISTS test_suite_dependencies; DROP TABLE IF EXISTS test_suite_tags;";
+pub const M_218_CODE_QUALITY_RULES_V3_UP: &str =
+    include_str!("218_add_code_quality_rules_v3_enforcement.sql");
 pub const M_218_CODE_QUALITY_RULES_V3_DOWN: &str = "DROP TABLE IF EXISTS code_quality_enforcement_logs; DROP TABLE IF EXISTS code_quality_rules_v3;";
 pub const M_219_PERF_TEST_ALERTS_UP: &str = include_str!("219_add_performance_test_alerts.sql");
 pub const M_219_PERF_TEST_ALERTS_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alerts;";
@@ -386,19 +439,20 @@ pub const M_221_RATE_LIMIT_TIERS_V3_UP: &str = include_str!("221_add_rate_limit_
 pub const M_221_RATE_LIMIT_TIERS_V3_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts; DROP TABLE IF EXISTS rate_limit_overages; DROP TABLE IF EXISTS rate_limit_tiers_v3;";
 pub const M_222_API_ANALYTICS_V6_UP: &str = include_str!("222_add_api_analytics_v6.sql");
 pub const M_222_API_ANALYTICS_V6_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_capacity_plans; DROP TABLE IF EXISTS api_analytics_correlations; DROP TABLE IF EXISTS api_analytics_v6;";
-pub const M_223_DATABASE_REPLICATION_V3_UP: &str = include_str!("223_add_database_replication_v3.sql");
+pub const M_223_DATABASE_REPLICATION_V3_UP: &str =
+    include_str!("223_add_database_replication_v3.sql");
 pub const M_223_DATABASE_REPLICATION_V3_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts; DROP TABLE IF EXISTS database_replication_config;";
 pub const M_224_ENCRYPTION_V4_UP: &str = include_str!("224_add_encryption_v4.sql");
 pub const M_224_ENCRYPTION_V4_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks; DROP TABLE IF EXISTS encryption_key_versions;";
 pub const M_225_DATA_RESIDENCY_V3_UP: &str = include_str!("225_add_data_residency_v3.sql");
-pub const M_225_DATA_RESIDENCY_V3_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance; DROP TABLE IF EXISTS data_residency_reports;";
+pub const M_225_DATA_RESIDENCY_V3_DOWN: &str =
+    "DROP TABLE IF EXISTS data_residency_compliance; DROP TABLE IF EXISTS data_residency_reports;";
 pub const M_232_LOG_AGGREGATION_V4_UP: &str = include_str!("232_add_log_aggregation_v4.sql");
 pub const M_232_LOG_AGGREGATION_V4_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules; DROP TABLE IF EXISTS log_entries_v4;";
 pub const M_233_DISTRIBUTED_TRACING_V4_UP: &str =
     include_str!("233_add_distributed_tracing_v4.sql");
-pub const M_233_DISTRIBUTED_TRACING_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies; DROP TABLE IF EXISTS trace_sampling_rules_v4;";
+pub const M_233_DISTRIBUTED_TRACING_V4_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies; DROP TABLE IF EXISTS trace_sampling_rules_v4;";
 pub const M_234_DASHBOARD_REPORTING_V4_UP: &str =
     include_str!("234_add_dashboard_reporting_v4.sql");
 pub const M_234_DASHBOARD_REPORTING_V4_DOWN: &str =
@@ -413,104 +467,101 @@ pub const M_239_CODE_QUALITY_METRICS_THRESHOLDS_DOWN: &str =
     "DROP TABLE IF EXISTS code_quality_thresholds; DROP TABLE IF EXISTS code_quality_metrics_v2;";
 pub const M_240_PERF_TEST_ALERTS_V2_UP: &str =
     include_str!("240_add_performance_test_alerts_v2.sql");
-pub const M_240_PERF_TEST_ALERTS_V2_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v2; DROP TABLE IF EXISTS performance_test_alerts_v2;";
+pub const M_240_PERF_TEST_ALERTS_V2_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v2; DROP TABLE IF EXISTS performance_test_alerts_v2;";
 pub const M_244_DATABASE_REPLICATION_V4_UP: &str =
     include_str!("244_add_database_replication_v4.sql");
-pub const M_244_DATABASE_REPLICATION_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v2; DROP TABLE IF EXISTS database_replication_config_v2;";
+pub const M_244_DATABASE_REPLICATION_V4_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v2; DROP TABLE IF EXISTS database_replication_config_v2;";
 pub const M_245_ENCRYPTION_V5_UP: &str = include_str!("245_add_encryption_v5.sql");
-pub const M_245_ENCRYPTION_V5_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v2; DROP TABLE IF EXISTS encryption_key_versions_v2;";
+pub const M_245_ENCRYPTION_V5_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v2; DROP TABLE IF EXISTS encryption_key_versions_v2;";
 pub const M_246_DATA_RESIDENCY_V4_UP: &str = include_str!("246_add_data_residency_v4.sql");
-pub const M_246_DATA_RESIDENCY_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v2; DROP TABLE IF EXISTS data_residency_reports_v2;";
-pub const M_247_SECURITY_SCAN_RULES_V5_UP: &str = include_str!("247_add_security_scan_rules_v5.sql");
+pub const M_246_DATA_RESIDENCY_V4_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v2; DROP TABLE IF EXISTS data_residency_reports_v2;";
+pub const M_247_SECURITY_SCAN_RULES_V5_UP: &str =
+    include_str!("247_add_security_scan_rules_v5.sql");
 pub const M_247_SECURITY_SCAN_RULES_V5_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v3; DROP TABLE IF EXISTS security_scan_rules_v5;";
-pub const M_248_COMPLIANCE_FRAMEWORKS_V5_UP: &str = include_str!("248_add_compliance_frameworks_v5.sql");
-pub const M_248_COMPLIANCE_FRAMEWORKS_V5_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v4; DROP TABLE IF EXISTS compliance_frameworks_v5;";
+pub const M_248_COMPLIANCE_FRAMEWORKS_V5_UP: &str =
+    include_str!("248_add_compliance_frameworks_v5.sql");
+pub const M_248_COMPLIANCE_FRAMEWORKS_V5_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v4; DROP TABLE IF EXISTS compliance_frameworks_v5;";
 pub const M_249_AUDIT_TRAIL_V6_UP: &str = include_str!("249_add_audit_trail_v6.sql");
 pub const M_249_AUDIT_TRAIL_V6_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v6;";
 pub const M_253_LOG_AGGREGATION_V5_UP: &str = include_str!("253_add_log_aggregation_v5.sql");
 pub const M_253_LOG_AGGREGATION_V5_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules_v2; DROP TABLE IF EXISTS log_entries_v5;";
-pub const M_254_DISTRIBUTED_TRACING_V6_UP: &str = include_str!("254_add_distributed_tracing_v6.sql");
-pub const M_254_DISTRIBUTED_TRACING_V6_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies_v2; DROP TABLE IF EXISTS trace_sampling_rules_v5;";
-pub const M_255_DASHBOARD_REPORTING_V5_UP: &str = include_str!("255_add_dashboard_reporting_v5.sql");
+pub const M_254_DISTRIBUTED_TRACING_V6_UP: &str =
+    include_str!("254_add_distributed_tracing_v6.sql");
+pub const M_254_DISTRIBUTED_TRACING_V6_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v2; DROP TABLE IF EXISTS trace_sampling_rules_v5;";
+pub const M_255_DASHBOARD_REPORTING_V5_UP: &str =
+    include_str!("255_add_dashboard_reporting_v5.sql");
 pub const M_255_DASHBOARD_REPORTING_V5_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v3; DROP TABLE IF EXISTS dashboard_shares_v2;";
-pub const M_256_PIPELINE_ACTION_REVIEWS_V3_UP: &str = include_str!("256_add_pipeline_action_reviews_v3.sql");
-pub const M_256_PIPELINE_ACTION_REVIEWS_V3_DOWN: &str =
-    "DROP TABLE IF EXISTS review_recommendations_v2; DROP TABLE IF EXISTS review_analytics_v2; DROP TABLE IF EXISTS review_moderation_queue_v2; DROP TABLE IF EXISTS review_helpfulness_v2; DROP TABLE IF EXISTS pipeline_action_reviews_v3;";
-pub const M_257_ENVIRONMENT_DEPLOYMENT_V3_UP: &str = include_str!("257_add_environment_deployment_history_v3.sql");
-pub const M_257_ENVIRONMENT_DEPLOYMENT_V3_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_analytics_v3; DROP TABLE IF EXISTS deployment_comparison_v3; DROP TABLE IF EXISTS environment_deployment_history_v3;";
+pub const M_256_PIPELINE_ACTION_REVIEWS_V3_UP: &str =
+    include_str!("256_add_pipeline_action_reviews_v3.sql");
+pub const M_256_PIPELINE_ACTION_REVIEWS_V3_DOWN: &str = "DROP TABLE IF EXISTS review_recommendations_v2; DROP TABLE IF EXISTS review_analytics_v2; DROP TABLE IF EXISTS review_moderation_queue_v2; DROP TABLE IF EXISTS review_helpfulness_v2; DROP TABLE IF EXISTS pipeline_action_reviews_v3;";
+pub const M_257_ENVIRONMENT_DEPLOYMENT_V3_UP: &str =
+    include_str!("257_add_environment_deployment_history_v3.sql");
+pub const M_257_ENVIRONMENT_DEPLOYMENT_V3_DOWN: &str = "DROP TABLE IF EXISTS deployment_analytics_v3; DROP TABLE IF EXISTS deployment_comparison_v3; DROP TABLE IF EXISTS environment_deployment_history_v3;";
 pub const M_258_CACHE_HIT_ANALYSIS_V2_UP: &str = include_str!("258_add_cache_hit_analysis_v2.sql");
-pub const M_258_CACHE_HIT_ANALYSIS_V2_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_performance_insights_v2; DROP TABLE IF EXISTS cache_cost_optimization_v2; DROP TABLE IF EXISTS cache_size_tracking_v2; DROP TABLE IF EXISTS cache_hit_analysis_v2;";
+pub const M_258_CACHE_HIT_ANALYSIS_V2_DOWN: &str = "DROP TABLE IF EXISTS cache_performance_insights_v2; DROP TABLE IF EXISTS cache_cost_optimization_v2; DROP TABLE IF EXISTS cache_size_tracking_v2; DROP TABLE IF EXISTS cache_hit_analysis_v2;";
 pub const M_259_TEST_SUITE_METRICS_BASELINES_V2_UP: &str =
     include_str!("259_add_test_suite_metrics_baselines_v2.sql");
 pub const M_259_TEST_SUITE_METRICS_BASELINES_V2_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v2; DROP TABLE IF EXISTS test_suite_metrics_v2;";
 pub const M_260_CODE_QUALITY_METRICS_THRESHOLDS_V3_UP: &str =
     include_str!("260_add_code_quality_metrics_thresholds_v3.sql");
-pub const M_260_CODE_QUALITY_METRICS_THRESHOLDS_V3_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v2; DROP TABLE IF EXISTS code_quality_metrics_v3;";
+pub const M_260_CODE_QUALITY_METRICS_THRESHOLDS_V3_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v2; DROP TABLE IF EXISTS code_quality_metrics_v3;";
 pub const M_261_PERF_TEST_ALERTS_V3_UP: &str =
     include_str!("261_add_performance_test_alerts_v3.sql");
-pub const M_261_PERF_TEST_ALERTS_V3_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v3; DROP TABLE IF EXISTS performance_test_alerts_v3;";
+pub const M_261_PERF_TEST_ALERTS_V3_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v3; DROP TABLE IF EXISTS performance_test_alerts_v3;";
 pub const M_262_API_DOCS_V7_UP: &str = include_str!("262_add_api_docs_v7.sql");
 pub const M_262_API_DOCS_V7_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v7;";
 pub const M_263_RATE_LIMIT_TIERS_V5_UP: &str = include_str!("263_add_rate_limit_tiers_v5.sql");
-pub const M_263_RATE_LIMIT_TIERS_V5_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v2; DROP TABLE IF EXISTS rate_limit_tiers_v5;";
+pub const M_263_RATE_LIMIT_TIERS_V5_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v2; DROP TABLE IF EXISTS rate_limit_tiers_v5;";
 pub const M_264_API_ANALYTICS_V8_UP: &str = include_str!("264_add_api_analytics_v8.sql");
 pub const M_264_API_ANALYTICS_V8_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v8;";
-pub const M_265_DATABASE_REPLICATION_V5_UP: &str = include_str!("265_add_database_replication_v5.sql");
-pub const M_265_DATABASE_REPLICATION_V5_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v3; DROP TABLE IF EXISTS database_replication_config_v3;";
+pub const M_265_DATABASE_REPLICATION_V5_UP: &str =
+    include_str!("265_add_database_replication_v5.sql");
+pub const M_265_DATABASE_REPLICATION_V5_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v3; DROP TABLE IF EXISTS database_replication_config_v3;";
 pub const M_266_ENCRYPTION_V6_UP: &str = include_str!("266_add_encryption_v6.sql");
-pub const M_266_ENCRYPTION_V6_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v3; DROP TABLE IF EXISTS encryption_key_versions_v3;";
+pub const M_266_ENCRYPTION_V6_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v3; DROP TABLE IF EXISTS encryption_key_versions_v3;";
 pub const M_267_DATA_RESIDENCY_V5_UP: &str = include_str!("267_add_data_residency_v5.sql");
-pub const M_267_DATA_RESIDENCY_V5_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v3; DROP TABLE IF EXISTS data_residency_reports_v3;";
+pub const M_267_DATA_RESIDENCY_V5_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v3; DROP TABLE IF EXISTS data_residency_reports_v3;";
 pub const M_271_WORKFLOW_TEMPLATES_V4_UP: &str = include_str!("271_add_workflow_templates_v4.sql");
 pub const M_271_WORKFLOW_TEMPLATES_V4_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v3; DROP TABLE IF EXISTS workflow_templates_v4;";
 pub const M_272_AUTOMATION_RULES_V7_UP: &str = include_str!("272_add_automation_rules_v7.sql");
 pub const M_272_AUTOMATION_RULES_V7_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v7;";
-pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_UP: &str = include_str!("273_add_scheduled_task_templates_v4.sql");
-pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v4;";
+pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_UP: &str =
+    include_str!("273_add_scheduled_task_templates_v4.sql");
+pub const M_273_SCHEDULED_TASK_TEMPLATES_V4_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v4;";
 pub const M_274_LOG_AGGREGATION_V6_UP: &str = include_str!("274_add_log_aggregation_v6.sql");
 pub const M_274_LOG_AGGREGATION_V6_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules_v3; DROP TABLE IF EXISTS log_entries_v6;";
-pub const M_275_DISTRIBUTED_TRACING_V7_UP: &str = include_str!("275_add_distributed_tracing_v7.sql");
-pub const M_275_DISTRIBUTED_TRACING_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies_v3; DROP TABLE IF EXISTS trace_sampling_rules_v6;";
-pub const M_276_DASHBOARD_REPORTING_V6_UP: &str = include_str!("276_add_dashboard_reporting_v6.sql");
+pub const M_275_DISTRIBUTED_TRACING_V7_UP: &str =
+    include_str!("275_add_distributed_tracing_v7.sql");
+pub const M_275_DISTRIBUTED_TRACING_V7_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v3; DROP TABLE IF EXISTS trace_sampling_rules_v6;";
+pub const M_276_DASHBOARD_REPORTING_V6_UP: &str =
+    include_str!("276_add_dashboard_reporting_v6.sql");
 pub const M_276_DASHBOARD_REPORTING_V6_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v4; DROP TABLE IF EXISTS dashboard_shares_v3;";
-pub const M_277_PIPELINE_ACTION_REVIEWS_V4_UP: &str = include_str!("277_add_pipeline_action_reviews_v4.sql");
-pub const M_277_PIPELINE_ACTION_REVIEWS_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS review_recommendations_v3; DROP TABLE IF EXISTS review_analytics_v3; DROP TABLE IF EXISTS review_moderation_queue_v3; DROP TABLE IF EXISTS review_helpfulness_v3; DROP TABLE IF EXISTS pipeline_action_reviews_v4;";
-pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_UP: &str = include_str!("278_add_environment_deployment_history_v4.sql");
-pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_analytics_v4; DROP TABLE IF EXISTS deployment_comparison_v4; DROP TABLE IF EXISTS environment_deployment_history_v4;";
+pub const M_277_PIPELINE_ACTION_REVIEWS_V4_UP: &str =
+    include_str!("277_add_pipeline_action_reviews_v4.sql");
+pub const M_277_PIPELINE_ACTION_REVIEWS_V4_DOWN: &str = "DROP TABLE IF EXISTS review_recommendations_v3; DROP TABLE IF EXISTS review_analytics_v3; DROP TABLE IF EXISTS review_moderation_queue_v3; DROP TABLE IF EXISTS review_helpfulness_v3; DROP TABLE IF EXISTS pipeline_action_reviews_v4;";
+pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_UP: &str =
+    include_str!("278_add_environment_deployment_history_v4.sql");
+pub const M_278_ENVIRONMENT_DEPLOYMENT_V4_DOWN: &str = "DROP TABLE IF EXISTS deployment_analytics_v4; DROP TABLE IF EXISTS deployment_comparison_v4; DROP TABLE IF EXISTS environment_deployment_history_v4;";
 pub const M_279_CACHE_HIT_ANALYSIS_V3_UP: &str = include_str!("279_add_cache_hit_analysis_v3.sql");
-pub const M_279_CACHE_HIT_ANALYSIS_V3_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_performance_insights_v3; DROP TABLE IF EXISTS cache_cost_optimization_v3; DROP TABLE IF EXISTS cache_size_tracking_v3; DROP TABLE IF EXISTS cache_hit_analysis_v3;";
-pub const M_280_TEST_SUITE_METRICS_BASELINES_V3_UP: &str = include_str!("280_add_test_suite_metrics_baselines_v3.sql");
+pub const M_279_CACHE_HIT_ANALYSIS_V3_DOWN: &str = "DROP TABLE IF EXISTS cache_performance_insights_v3; DROP TABLE IF EXISTS cache_cost_optimization_v3; DROP TABLE IF EXISTS cache_size_tracking_v3; DROP TABLE IF EXISTS cache_hit_analysis_v3;";
+pub const M_280_TEST_SUITE_METRICS_BASELINES_V3_UP: &str =
+    include_str!("280_add_test_suite_metrics_baselines_v3.sql");
 pub const M_280_TEST_SUITE_METRICS_BASELINES_V3_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v3; DROP TABLE IF EXISTS test_suite_metrics_v3;";
-pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_UP: &str = include_str!("281_add_code_quality_metrics_thresholds_v4.sql");
-pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v3; DROP TABLE IF EXISTS code_quality_metrics_v4;";
-pub const M_282_PERF_TEST_ALERTS_V4_UP: &str = include_str!("282_add_performance_test_alerts_v4.sql");
-pub const M_282_PERF_TEST_ALERTS_V4_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v4; DROP TABLE IF EXISTS performance_test_alerts_v4;";
+pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_UP: &str =
+    include_str!("281_add_code_quality_metrics_thresholds_v4.sql");
+pub const M_281_CODE_QUALITY_METRICS_THRESHOLDS_V4_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v3; DROP TABLE IF EXISTS code_quality_metrics_v4;";
+pub const M_282_PERF_TEST_ALERTS_V4_UP: &str =
+    include_str!("282_add_performance_test_alerts_v4.sql");
+pub const M_282_PERF_TEST_ALERTS_V4_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v4; DROP TABLE IF EXISTS performance_test_alerts_v4;";
 pub const M_283_API_DOCS_V8_UP: &str = include_str!("283_add_api_docs_v8.sql");
 pub const M_283_API_DOCS_V8_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v8;";
 pub const M_284_RATE_LIMIT_TIERS_V6_UP: &str = include_str!("284_add_rate_limit_tiers_v6.sql");
@@ -520,22 +571,19 @@ pub const M_285_API_ANALYTICS_V9_UP: &str = include_str!("285_add_api_analytics_
 pub const M_285_API_ANALYTICS_V9_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v9;";
 pub const M_286_DATABASE_REPLICATION_V6_UP: &str =
     include_str!("286_add_database_replication_v6.sql");
-pub const M_286_DATABASE_REPLICATION_V6_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v4; DROP TABLE IF EXISTS database_replication_config_v4;";
+pub const M_286_DATABASE_REPLICATION_V6_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v4; DROP TABLE IF EXISTS database_replication_config_v4;";
 pub const M_287_ENCRYPTION_V7_UP: &str = include_str!("287_add_encryption_v7.sql");
-pub const M_287_ENCRYPTION_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v4; DROP TABLE IF EXISTS encryption_key_versions_v4;";
+pub const M_287_ENCRYPTION_V7_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v4; DROP TABLE IF EXISTS encryption_key_versions_v4;";
 pub const M_288_DATA_RESIDENCY_V6_UP: &str = include_str!("288_add_data_residency_v6.sql");
-pub const M_288_DATA_RESIDENCY_V6_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v4; DROP TABLE IF EXISTS data_residency_reports_v4;";
+pub const M_288_DATA_RESIDENCY_V6_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v4; DROP TABLE IF EXISTS data_residency_reports_v4;";
 pub const M_295_LOG_AGGREGATION_V7_UP: &str = include_str!("295_add_log_aggregation_v7.sql");
 pub const M_295_LOG_AGGREGATION_V7_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules_v4; DROP TABLE IF EXISTS log_entries_v7;";
 pub const M_296_DISTRIBUTED_TRACING_V8_UP: &str =
     include_str!("296_add_distributed_tracing_v8.sql");
-pub const M_296_DISTRIBUTED_TRACING_V8_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies_v4; DROP TABLE IF EXISTS trace_sampling_rules_v7;";
-pub const M_297_DASHBOARD_REPORTING_V7_UP: &str = include_str!("297_add_dashboard_reporting_v7.sql");
+pub const M_296_DISTRIBUTED_TRACING_V8_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v4; DROP TABLE IF EXISTS trace_sampling_rules_v7;";
+pub const M_297_DASHBOARD_REPORTING_V7_UP: &str =
+    include_str!("297_add_dashboard_reporting_v7.sql");
 pub const M_297_DASHBOARD_REPORTING_V7_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v5; DROP TABLE IF EXISTS dashboard_shares_v4;";
 pub const M_304_API_DOCS_V9_UP: &str = include_str!("304_add_api_docs_v9.sql");
@@ -547,20 +595,17 @@ pub const M_306_API_ANALYTICS_V10_UP: &str = include_str!("306_add_api_analytics
 pub const M_306_API_ANALYTICS_V10_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v10;";
 pub const M_307_DATABASE_REPLICATION_V7_UP: &str =
     include_str!("307_add_database_replication_v7.sql");
-pub const M_307_DATABASE_REPLICATION_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v5; DROP TABLE IF EXISTS database_replication_config_v5;";
+pub const M_307_DATABASE_REPLICATION_V7_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v5; DROP TABLE IF EXISTS database_replication_config_v5;";
 pub const M_308_ENCRYPTION_V8_UP: &str = include_str!("308_add_encryption_v8.sql");
-pub const M_308_ENCRYPTION_V8_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v5; DROP TABLE IF EXISTS encryption_key_versions_v5;";
+pub const M_308_ENCRYPTION_V8_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v5; DROP TABLE IF EXISTS encryption_key_versions_v5;";
 pub const M_309_DATA_RESIDENCY_V7_UP: &str = include_str!("309_add_data_residency_v7.sql");
-pub const M_309_DATA_RESIDENCY_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v5; DROP TABLE IF EXISTS data_residency_reports_v5;";
+pub const M_309_DATA_RESIDENCY_V7_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v5; DROP TABLE IF EXISTS data_residency_reports_v5;";
 pub const M_310_SECURITY_SCAN_V9_UP: &str = include_str!("310_add_security_scan_v9.sql");
 pub const M_310_SECURITY_SCAN_V9_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v6; DROP TABLE IF EXISTS security_scan_rules_v8;";
-pub const M_311_COMPLIANCE_FRAMEWORKS_V9_UP: &str = include_str!("311_add_compliance_frameworks_v9.sql");
-pub const M_311_COMPLIANCE_FRAMEWORKS_V9_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v7; DROP TABLE IF EXISTS compliance_frameworks_v8;";
+pub const M_311_COMPLIANCE_FRAMEWORKS_V9_UP: &str =
+    include_str!("311_add_compliance_frameworks_v9.sql");
+pub const M_311_COMPLIANCE_FRAMEWORKS_V9_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v7; DROP TABLE IF EXISTS compliance_frameworks_v8;";
 pub const M_312_AUDIT_TRAIL_V9_UP: &str = include_str!("312_add_audit_trail_v9.sql");
 pub const M_312_AUDIT_TRAIL_V9_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v9;";
 pub const M_325_API_DOCS_V10_UP: &str = include_str!("325_add_api_docs_v10.sql");
@@ -572,53 +617,54 @@ pub const M_327_API_ANALYTICS_V11_UP: &str = include_str!("327_add_api_analytics
 pub const M_327_API_ANALYTICS_V11_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v11;";
 pub const M_328_DATABASE_REPLICATION_V8_UP: &str =
     include_str!("328_add_database_replication_v8.sql");
-pub const M_328_DATABASE_REPLICATION_V8_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v6; DROP TABLE IF EXISTS database_replication_config_v6;";
+pub const M_328_DATABASE_REPLICATION_V8_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v6; DROP TABLE IF EXISTS database_replication_config_v6;";
 pub const M_329_ENCRYPTION_V9_UP: &str = include_str!("329_add_encryption_v9.sql");
-pub const M_329_ENCRYPTION_V9_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v6; DROP TABLE IF EXISTS encryption_key_versions_v6;";
+pub const M_329_ENCRYPTION_V9_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v6; DROP TABLE IF EXISTS encryption_key_versions_v6;";
 pub const M_330_DATA_RESIDENCY_V8_UP: &str = include_str!("330_add_data_residency_v8.sql");
-pub const M_330_DATA_RESIDENCY_V8_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v6; DROP TABLE IF EXISTS data_residency_reports_v6;";
+pub const M_330_DATA_RESIDENCY_V8_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v6; DROP TABLE IF EXISTS data_residency_reports_v6;";
 pub const M_331_SECURITY_SCAN_V10_UP: &str = include_str!("331_add_security_scan_v10.sql");
 pub const M_331_SECURITY_SCAN_V10_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v7; DROP TABLE IF EXISTS security_scan_rules_v9;";
 pub const M_332_COMPLIANCE_FRAMEWORKS_V10_UP: &str =
     include_str!("332_add_compliance_frameworks_v10.sql");
-pub const M_332_COMPLIANCE_FRAMEWORKS_V10_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v8; DROP TABLE IF EXISTS compliance_frameworks_v9;";
+pub const M_332_COMPLIANCE_FRAMEWORKS_V10_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v8; DROP TABLE IF EXISTS compliance_frameworks_v9;";
 pub const M_333_AUDIT_TRAIL_V10_UP: &str = include_str!("333_add_audit_trail_v10.sql");
 pub const M_333_AUDIT_TRAIL_V10_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v10;";
 pub const M_334_WORKFLOW_TEMPLATES_V7_UP: &str = include_str!("334_add_workflow_templates_v7.sql");
 pub const M_334_WORKFLOW_TEMPLATES_V7_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v6; DROP TABLE IF EXISTS workflow_templates_v7;";
 pub const M_335_AUTOMATION_RULES_V10_UP: &str = include_str!("335_add_automation_rules_v10.sql");
 pub const M_335_AUTOMATION_RULES_V10_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v10;";
-pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_UP: &str = include_str!("336_add_scheduled_task_templates_v7.sql");
-pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v7;";
+pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_UP: &str =
+    include_str!("336_add_scheduled_task_templates_v7.sql");
+pub const M_336_SCHEDULED_TASK_TEMPLATES_V7_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v7;";
 pub const M_337_LOG_AGGREGATION_V9_UP: &str = include_str!("337_add_log_aggregation_v9.sql");
-pub const M_337_LOG_AGGREGATION_V9_DOWN: &str = "DROP TABLE IF EXISTS log_alert_rules_v6; DROP TABLE IF EXISTS log_entries_v9;";
-pub const M_338_DISTRIBUTED_TRACING_V10_UP: &str = include_str!("338_add_distributed_tracing_v10.sql");
+pub const M_337_LOG_AGGREGATION_V9_DOWN: &str =
+    "DROP TABLE IF EXISTS log_alert_rules_v6; DROP TABLE IF EXISTS log_entries_v9;";
+pub const M_338_DISTRIBUTED_TRACING_V10_UP: &str =
+    include_str!("338_add_distributed_tracing_v10.sql");
 pub const M_338_DISTRIBUTED_TRACING_V10_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v6; DROP TABLE IF EXISTS trace_sampling_rules_v9;";
-pub const M_339_DASHBOARD_REPORTING_V9_UP: &str = include_str!("339_add_dashboard_reporting_v9.sql");
-pub const M_339_DASHBOARD_REPORTING_V9_DOWN: &str = "DROP TABLE IF EXISTS report_schedules_v7; DROP TABLE IF EXISTS dashboard_shares_v6;";
-pub const M_340_PIPELINE_ACTION_REVIEWS_V7_UP: &str = include_str!("340_add_pipeline_action_reviews_v7.sql");
-pub const M_340_PIPELINE_ACTION_REVIEWS_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS review_recommendations_v7; DROP TABLE IF EXISTS review_analytics_v7; DROP TABLE IF EXISTS review_moderation_queue_v7; DROP TABLE IF EXISTS review_helpfulness_v7; DROP TABLE IF EXISTS pipeline_action_reviews_v7;";
-pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_UP: &str = include_str!("341_add_environment_deployment_history_v7.sql");
-pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_analytics_v7; DROP TABLE IF EXISTS deployment_comparison_v7; DROP TABLE IF EXISTS environment_deployment_history_v7;";
+pub const M_339_DASHBOARD_REPORTING_V9_UP: &str =
+    include_str!("339_add_dashboard_reporting_v9.sql");
+pub const M_339_DASHBOARD_REPORTING_V9_DOWN: &str =
+    "DROP TABLE IF EXISTS report_schedules_v7; DROP TABLE IF EXISTS dashboard_shares_v6;";
+pub const M_340_PIPELINE_ACTION_REVIEWS_V7_UP: &str =
+    include_str!("340_add_pipeline_action_reviews_v7.sql");
+pub const M_340_PIPELINE_ACTION_REVIEWS_V7_DOWN: &str = "DROP TABLE IF EXISTS review_recommendations_v7; DROP TABLE IF EXISTS review_analytics_v7; DROP TABLE IF EXISTS review_moderation_queue_v7; DROP TABLE IF EXISTS review_helpfulness_v7; DROP TABLE IF EXISTS pipeline_action_reviews_v7;";
+pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_UP: &str =
+    include_str!("341_add_environment_deployment_history_v7.sql");
+pub const M_341_ENVIRONMENT_DEPLOYMENT_V7_DOWN: &str = "DROP TABLE IF EXISTS deployment_analytics_v7; DROP TABLE IF EXISTS deployment_comparison_v7; DROP TABLE IF EXISTS environment_deployment_history_v7;";
 pub const M_342_CACHE_HIT_ANALYSIS_V6_UP: &str = include_str!("342_add_cache_hit_analysis_v6.sql");
-pub const M_342_CACHE_HIT_ANALYSIS_V6_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_performance_insights_v6; DROP TABLE IF EXISTS cache_cost_optimization_v6; DROP TABLE IF EXISTS cache_size_tracking_v6; DROP TABLE IF EXISTS cache_hit_analysis_v6;";
-pub const M_343_TEST_SUITE_MANAGEMENT_V9_UP: &str = include_str!("343_add_test_suite_management_v9.sql");
+pub const M_342_CACHE_HIT_ANALYSIS_V6_DOWN: &str = "DROP TABLE IF EXISTS cache_performance_insights_v6; DROP TABLE IF EXISTS cache_cost_optimization_v6; DROP TABLE IF EXISTS cache_size_tracking_v6; DROP TABLE IF EXISTS cache_hit_analysis_v6;";
+pub const M_343_TEST_SUITE_MANAGEMENT_V9_UP: &str =
+    include_str!("343_add_test_suite_management_v9.sql");
 pub const M_343_TEST_SUITE_MANAGEMENT_V9_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v6; DROP TABLE IF EXISTS test_suite_metrics_v6;";
 pub const M_344_CODE_QUALITY_RULES_V9_UP: &str = include_str!("344_add_code_quality_rules_v9.sql");
-pub const M_344_CODE_QUALITY_RULES_V9_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v6; DROP TABLE IF EXISTS code_quality_metrics_v7;";
-pub const M_345_PERFORMANCE_TESTING_V10_UP: &str = include_str!("345_add_performance_testing_v10.sql");
-pub const M_345_PERFORMANCE_TESTING_V10_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v7; DROP TABLE IF EXISTS performance_test_alerts_v7;";
+pub const M_344_CODE_QUALITY_RULES_V9_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v6; DROP TABLE IF EXISTS code_quality_metrics_v7;";
+pub const M_345_PERFORMANCE_TESTING_V10_UP: &str =
+    include_str!("345_add_performance_testing_v10.sql");
+pub const M_345_PERFORMANCE_TESTING_V10_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v7; DROP TABLE IF EXISTS performance_test_alerts_v7;";
 pub const M_346_API_DOCS_V11_UP: &str = include_str!("346_add_api_docs_v11.sql");
 pub const M_346_API_DOCS_V11_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v11;";
 pub const M_347_RATE_LIMIT_TIERS_V9_UP: &str = include_str!("347_add_rate_limit_tiers_v9.sql");
@@ -626,62 +672,61 @@ pub const M_347_RATE_LIMIT_TIERS_V9_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_alerts_v6; DROP TABLE IF EXISTS rate_limit_tiers_v9;";
 pub const M_348_API_ANALYTICS_V12_UP: &str = include_str!("348_add_api_analytics_v12.sql");
 pub const M_348_API_ANALYTICS_V12_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v12;";
-pub const M_361_PIPELINE_ACTION_REVIEWS_V8_UP: &str = include_str!("361_add_pipeline_action_reviews_v8.sql");
-pub const M_361_PIPELINE_ACTION_REVIEWS_V8_DOWN: &str =
-    "DROP TABLE IF EXISTS review_recommendations_v8; DROP TABLE IF EXISTS review_analytics_v8; DROP TABLE IF EXISTS review_moderation_queue_v8; DROP TABLE IF EXISTS review_helpfulness_v8; DROP TABLE IF EXISTS pipeline_action_reviews_v8;";
-pub const M_362_ENVIRONMENT_DEPLOYMENT_V8_UP: &str = include_str!("362_add_environment_deployment_history_v8.sql");
-pub const M_362_ENVIRONMENT_DEPLOYMENT_V8_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_analytics_v8; DROP TABLE IF EXISTS deployment_comparison_v8; DROP TABLE IF EXISTS environment_deployment_history_v8;";
+pub const M_361_PIPELINE_ACTION_REVIEWS_V8_UP: &str =
+    include_str!("361_add_pipeline_action_reviews_v8.sql");
+pub const M_361_PIPELINE_ACTION_REVIEWS_V8_DOWN: &str = "DROP TABLE IF EXISTS review_recommendations_v8; DROP TABLE IF EXISTS review_analytics_v8; DROP TABLE IF EXISTS review_moderation_queue_v8; DROP TABLE IF EXISTS review_helpfulness_v8; DROP TABLE IF EXISTS pipeline_action_reviews_v8;";
+pub const M_362_ENVIRONMENT_DEPLOYMENT_V8_UP: &str =
+    include_str!("362_add_environment_deployment_history_v8.sql");
+pub const M_362_ENVIRONMENT_DEPLOYMENT_V8_DOWN: &str = "DROP TABLE IF EXISTS deployment_analytics_v8; DROP TABLE IF EXISTS deployment_comparison_v8; DROP TABLE IF EXISTS environment_deployment_history_v8;";
 pub const M_363_CACHE_HIT_ANALYSIS_V7_UP: &str = include_str!("363_add_cache_hit_analysis_v7.sql");
-pub const M_363_CACHE_HIT_ANALYSIS_V7_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_performance_insights_v7; DROP TABLE IF EXISTS cache_cost_optimization_v7; DROP TABLE IF EXISTS cache_size_tracking_v7; DROP TABLE IF EXISTS cache_hit_analysis_v7;";
-pub const M_364_TEST_SUITE_MANAGEMENT_V10_UP: &str = include_str!("364_add_test_suite_management_v10.sql");
+pub const M_363_CACHE_HIT_ANALYSIS_V7_DOWN: &str = "DROP TABLE IF EXISTS cache_performance_insights_v7; DROP TABLE IF EXISTS cache_cost_optimization_v7; DROP TABLE IF EXISTS cache_size_tracking_v7; DROP TABLE IF EXISTS cache_hit_analysis_v7;";
+pub const M_364_TEST_SUITE_MANAGEMENT_V10_UP: &str =
+    include_str!("364_add_test_suite_management_v10.sql");
 pub const M_364_TEST_SUITE_MANAGEMENT_V10_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v7; DROP TABLE IF EXISTS test_suite_metrics_v7;";
-pub const M_365_CODE_QUALITY_RULES_V10_UP: &str = include_str!("365_add_code_quality_rules_v10.sql");
-pub const M_365_CODE_QUALITY_RULES_V10_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v7; DROP TABLE IF EXISTS code_quality_metrics_v8;";
-pub const M_366_PERFORMANCE_TESTING_V11_UP: &str = include_str!("366_add_performance_testing_v11.sql");
-pub const M_366_PERFORMANCE_TESTING_V11_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v8; DROP TABLE IF EXISTS performance_test_alerts_v8;";
+pub const M_365_CODE_QUALITY_RULES_V10_UP: &str =
+    include_str!("365_add_code_quality_rules_v10.sql");
+pub const M_365_CODE_QUALITY_RULES_V10_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v7; DROP TABLE IF EXISTS code_quality_metrics_v8;";
+pub const M_366_PERFORMANCE_TESTING_V11_UP: &str =
+    include_str!("366_add_performance_testing_v11.sql");
+pub const M_366_PERFORMANCE_TESTING_V11_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v8; DROP TABLE IF EXISTS performance_test_alerts_v8;";
 pub const M_370_DATABASE_REPLICATION_V10_UP: &str =
     include_str!("370_add_database_replication_v10.sql");
-pub const M_370_DATABASE_REPLICATION_V10_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v8; DROP TABLE IF EXISTS database_replication_config_v8;";
-pub const M_371_ENCRYPTION_V11_UP: &str =
-    include_str!("371_add_encryption_v11.sql");
-pub const M_371_ENCRYPTION_V11_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v8; DROP TABLE IF EXISTS encryption_key_versions_v8;";
-pub const M_372_DATA_RESIDENCY_V10_UP: &str =
-    include_str!("372_add_data_residency_v10.sql");
-pub const M_372_DATA_RESIDENCY_V10_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v8; DROP TABLE IF EXISTS data_residency_reports_v8;";
+pub const M_370_DATABASE_REPLICATION_V10_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v8; DROP TABLE IF EXISTS database_replication_config_v8;";
+pub const M_371_ENCRYPTION_V11_UP: &str = include_str!("371_add_encryption_v11.sql");
+pub const M_371_ENCRYPTION_V11_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v8; DROP TABLE IF EXISTS encryption_key_versions_v8;";
+pub const M_372_DATA_RESIDENCY_V10_UP: &str = include_str!("372_add_data_residency_v10.sql");
+pub const M_372_DATA_RESIDENCY_V10_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v8; DROP TABLE IF EXISTS data_residency_reports_v8;";
 
 pub const M_352_SECURITY_SCAN_V11_UP: &str = include_str!("352_add_security_scan_v11.sql");
 pub const M_352_SECURITY_SCAN_V11_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v8; DROP TABLE IF EXISTS security_scan_rules_v10;";
 pub const M_353_COMPLIANCE_FRAMEWORKS_V11_UP: &str =
     include_str!("353_add_compliance_frameworks_v11.sql");
-pub const M_353_COMPLIANCE_FRAMEWORKS_V11_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v9; DROP TABLE IF EXISTS compliance_frameworks_v10;";
+pub const M_353_COMPLIANCE_FRAMEWORKS_V11_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v9; DROP TABLE IF EXISTS compliance_frameworks_v10;";
 pub const M_354_AUDIT_TRAIL_V11_UP: &str = include_str!("354_add_audit_trail_v11.sql");
 pub const M_354_AUDIT_TRAIL_V11_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v11;";
 pub const M_355_WORKFLOW_TEMPLATES_V8_UP: &str = include_str!("355_add_workflow_templates_v8.sql");
 pub const M_355_WORKFLOW_TEMPLATES_V8_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v7; DROP TABLE IF EXISTS workflow_templates_v8;";
 pub const M_356_AUTOMATION_RULES_V11_UP: &str = include_str!("356_add_automation_rules_v11.sql");
 pub const M_356_AUTOMATION_RULES_V11_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v11;";
-pub const M_357_SCHEDULED_TASK_TEMPLATES_V8_UP: &str = include_str!("357_add_scheduled_task_templates_v8.sql");
-pub const M_357_SCHEDULED_TASK_TEMPLATES_V8_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v8;";
+pub const M_357_SCHEDULED_TASK_TEMPLATES_V8_UP: &str =
+    include_str!("357_add_scheduled_task_templates_v8.sql");
+pub const M_357_SCHEDULED_TASK_TEMPLATES_V8_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v8;";
 pub const M_376_WORKFLOW_TEMPLATES_V9_UP: &str = include_str!("376_add_workflow_templates_v9.sql");
 pub const M_376_WORKFLOW_TEMPLATES_V9_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v8; DROP TABLE IF EXISTS workflow_templates_v9;";
 pub const M_377_AUTOMATION_RULES_V12_UP: &str = include_str!("377_add_automation_rules_v12.sql");
 pub const M_377_AUTOMATION_RULES_V12_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v12;";
-pub const M_378_SCHEDULED_TASK_TEMPLATES_V9_UP: &str = include_str!("378_add_scheduled_task_templates_v9.sql");
-pub const M_378_SCHEDULED_TASK_TEMPLATES_V9_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v9;";
+pub const M_378_SCHEDULED_TASK_TEMPLATES_V9_UP: &str =
+    include_str!("378_add_scheduled_task_templates_v9.sql");
+pub const M_378_SCHEDULED_TASK_TEMPLATES_V9_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v9;";
 pub const M_388_API_DOCS_V13_UP: &str = include_str!("388_add_api_docs_v13.sql");
 pub const M_388_API_DOCS_V13_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v13;";
 pub const M_389_RATE_LIMIT_TIERS_V11_UP: &str = include_str!("389_add_rate_limit_tiers_v11.sql");
-pub const M_389_RATE_LIMIT_TIERS_V11_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v8; DROP TABLE IF EXISTS rate_limit_tiers_v11;";
+pub const M_389_RATE_LIMIT_TIERS_V11_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v8; DROP TABLE IF EXISTS rate_limit_tiers_v11;";
 pub const M_390_API_ANALYTICS_V14_UP: &str = include_str!("390_add_api_analytics_v14.sql");
 pub const M_390_API_ANALYTICS_V14_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v14;";
 pub const M_400_LOG_AGGREGATION_V12_UP: &str = include_str!("400_add_log_aggregation_v12.sql");
@@ -689,8 +734,7 @@ pub const M_400_LOG_AGGREGATION_V12_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules_v9; DROP TABLE IF EXISTS log_entries_v12;";
 pub const M_401_DISTRIBUTED_TRACING_V13_UP: &str =
     include_str!("401_add_distributed_tracing_v13.sql");
-pub const M_401_DISTRIBUTED_TRACING_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies_v9; DROP TABLE IF EXISTS trace_sampling_rules_v12;";
+pub const M_401_DISTRIBUTED_TRACING_V13_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v9; DROP TABLE IF EXISTS trace_sampling_rules_v12;";
 pub const M_402_DASHBOARD_REPORTING_V12_UP: &str =
     include_str!("402_add_dashboard_reporting_v12.sql");
 pub const M_402_DASHBOARD_REPORTING_V12_DOWN: &str =
@@ -701,63 +745,62 @@ pub const M_406_TEST_SUITE_MANAGEMENT_V12_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v9; DROP TABLE IF EXISTS test_suite_metrics_v9;";
 pub const M_407_CODE_QUALITY_RULES_V12_UP: &str =
     include_str!("407_add_code_quality_rules_v12.sql");
-pub const M_407_CODE_QUALITY_RULES_V12_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v9; DROP TABLE IF EXISTS code_quality_metrics_v10;";
+pub const M_407_CODE_QUALITY_RULES_V12_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v9; DROP TABLE IF EXISTS code_quality_metrics_v10;";
 pub const M_408_PERFORMANCE_TESTING_V13_UP: &str =
     include_str!("408_add_performance_testing_v13.sql");
-pub const M_408_PERFORMANCE_TESTING_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v10; DROP TABLE IF EXISTS performance_test_alerts_v10;";
+pub const M_408_PERFORMANCE_TESTING_V13_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v10; DROP TABLE IF EXISTS performance_test_alerts_v10;";
 pub const M_409_API_DOCS_V14_UP: &str = include_str!("409_add_api_docs_v14.sql");
 pub const M_409_API_DOCS_V14_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v14;";
 pub const M_410_RATE_LIMIT_TIERS_V12_UP: &str = include_str!("410_add_rate_limit_tiers_v12.sql");
-pub const M_410_RATE_LIMIT_TIERS_V12_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v9; DROP TABLE IF EXISTS rate_limit_tiers_v12;";
+pub const M_410_RATE_LIMIT_TIERS_V12_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v9; DROP TABLE IF EXISTS rate_limit_tiers_v12;";
 pub const M_411_API_ANALYTICS_V15_UP: &str = include_str!("411_add_api_analytics_v15.sql");
 pub const M_411_API_ANALYTICS_V15_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v15;";
 pub const M_430_API_DOCS_V15_UP: &str = include_str!("430_add_api_docs_v15.sql");
 pub const M_430_API_DOCS_V15_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v15;";
 pub const M_431_RATE_LIMIT_TIERS_V13_UP: &str = include_str!("431_add_rate_limit_tiers_v13.sql");
-pub const M_431_RATE_LIMIT_TIERS_V13_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v10; DROP TABLE IF EXISTS rate_limit_tiers_v13;";
+pub const M_431_RATE_LIMIT_TIERS_V13_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v10; DROP TABLE IF EXISTS rate_limit_tiers_v13;";
 pub const M_432_API_ANALYTICS_V16_UP: &str = include_str!("432_add_api_analytics_v16.sql");
 pub const M_432_API_ANALYTICS_V16_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v16;";
 pub const M_451_API_DOCS_V16_UP: &str = include_str!("451_add_api_docs_v16.sql");
 pub const M_451_API_DOCS_V16_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v16;";
 pub const M_452_RATE_LIMIT_TIERS_V14_UP: &str = include_str!("452_add_rate_limit_tiers_v14.sql");
-pub const M_452_RATE_LIMIT_TIERS_V14_DOWN: &str = "DROP TABLE IF EXISTS rate_limit_alerts_v11; DROP TABLE IF EXISTS rate_limit_tiers_v14;";
+pub const M_452_RATE_LIMIT_TIERS_V14_DOWN: &str =
+    "DROP TABLE IF EXISTS rate_limit_alerts_v11; DROP TABLE IF EXISTS rate_limit_tiers_v14;";
 pub const M_453_API_ANALYTICS_V17_UP: &str = include_str!("453_add_api_analytics_v17.sql");
 pub const M_453_API_ANALYTICS_V17_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v17;";
 pub const M_433_DATABASE_REPLICATION_V13_UP: &str =
     include_str!("433_add_database_replication_v13.sql");
-pub const M_433_DATABASE_REPLICATION_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v11; DROP TABLE IF EXISTS database_replication_config_v11;";
+pub const M_433_DATABASE_REPLICATION_V13_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v11; DROP TABLE IF EXISTS database_replication_config_v11;";
 pub const M_434_ENCRYPTION_V14_UP: &str = include_str!("434_add_encryption_v14.sql");
-pub const M_434_ENCRYPTION_V14_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v11; DROP TABLE IF EXISTS encryption_key_versions_v11;";
+pub const M_434_ENCRYPTION_V14_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v11; DROP TABLE IF EXISTS encryption_key_versions_v11;";
 pub const M_435_DATA_RESIDENCY_V13_UP: &str = include_str!("435_add_data_residency_v13.sql");
-pub const M_435_DATA_RESIDENCY_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v11; DROP TABLE IF EXISTS data_residency_reports_v11;";
+pub const M_435_DATA_RESIDENCY_V13_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v11; DROP TABLE IF EXISTS data_residency_reports_v11;";
 pub const M_412_DATABASE_REPLICATION_V12_UP: &str =
     include_str!("412_add_database_replication_v12.sql");
-pub const M_412_DATABASE_REPLICATION_V12_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v10; DROP TABLE IF EXISTS database_replication_config_v10;";
+pub const M_412_DATABASE_REPLICATION_V12_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v10; DROP TABLE IF EXISTS database_replication_config_v10;";
 pub const M_413_ENCRYPTION_V13_UP: &str = include_str!("413_add_encryption_v13.sql");
-pub const M_413_ENCRYPTION_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v10; DROP TABLE IF EXISTS encryption_key_versions_v10;";
+pub const M_413_ENCRYPTION_V13_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v10; DROP TABLE IF EXISTS encryption_key_versions_v10;";
 pub const M_414_DATA_RESIDENCY_V12_UP: &str = include_str!("414_add_data_residency_v12.sql");
-pub const M_414_DATA_RESIDENCY_V12_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v10; DROP TABLE IF EXISTS data_residency_reports_v10;";
-pub const M_418_WORKFLOW_TEMPLATES_V11_UP: &str = include_str!("418_add_workflow_templates_v11.sql");
+pub const M_414_DATA_RESIDENCY_V12_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v10; DROP TABLE IF EXISTS data_residency_reports_v10;";
+pub const M_418_WORKFLOW_TEMPLATES_V11_UP: &str =
+    include_str!("418_add_workflow_templates_v11.sql");
 pub const M_418_WORKFLOW_TEMPLATES_V11_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v10; DROP TABLE IF EXISTS workflow_templates_v11;";
 pub const M_419_AUTOMATION_RULES_V14_UP: &str = include_str!("419_add_automation_rules_v14.sql");
 pub const M_419_AUTOMATION_RULES_V14_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v14;";
-pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_UP: &str = include_str!("420_add_scheduled_task_templates_v11.sql");
-pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v11;";
+pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_UP: &str =
+    include_str!("420_add_scheduled_task_templates_v11.sql");
+pub const M_420_SCHEDULED_TASK_TEMPLATES_V11_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v11;";
 pub const M_421_LOG_AGGREGATION_V13_UP: &str = include_str!("421_add_log_aggregation_v13.sql");
 pub const M_421_LOG_AGGREGATION_V13_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules_v10; DROP TABLE IF EXISTS log_entries_v13;";
-pub const M_422_DISTRIBUTED_TRACING_V14_UP: &str = include_str!("422_add_distributed_tracing_v14.sql");
-pub const M_422_DISTRIBUTED_TRACING_V14_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies_v10; DROP TABLE IF EXISTS trace_sampling_rules_v13;";
-pub const M_423_DASHBOARD_REPORTING_V13_UP: &str = include_str!("423_add_dashboard_reporting_v13.sql");
+pub const M_422_DISTRIBUTED_TRACING_V14_UP: &str =
+    include_str!("422_add_distributed_tracing_v14.sql");
+pub const M_422_DISTRIBUTED_TRACING_V14_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v10; DROP TABLE IF EXISTS trace_sampling_rules_v13;";
+pub const M_423_DASHBOARD_REPORTING_V13_UP: &str =
+    include_str!("423_add_dashboard_reporting_v13.sql");
 pub const M_423_DASHBOARD_REPORTING_V13_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v11; DROP TABLE IF EXISTS dashboard_shares_v10;";
 pub const M_427_TEST_SUITE_MANAGEMENT_V13_UP: &str =
@@ -766,19 +809,18 @@ pub const M_427_TEST_SUITE_MANAGEMENT_V13_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v10; DROP TABLE IF EXISTS test_suite_metrics_v10;";
 pub const M_428_CODE_QUALITY_RULES_V13_UP: &str =
     include_str!("428_add_code_quality_rules_v13.sql");
-pub const M_428_CODE_QUALITY_RULES_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v10; DROP TABLE IF EXISTS code_quality_metrics_v11;";
+pub const M_428_CODE_QUALITY_RULES_V13_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v10; DROP TABLE IF EXISTS code_quality_metrics_v11;";
 pub const M_429_PERFORMANCE_TESTING_V14_UP: &str =
     include_str!("429_add_performance_testing_v14.sql");
-pub const M_429_PERFORMANCE_TESTING_V14_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v11; DROP TABLE IF EXISTS performance_test_alerts_v11;";
+pub const M_429_PERFORMANCE_TESTING_V14_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v11; DROP TABLE IF EXISTS performance_test_alerts_v11;";
 pub const M_442_LOG_AGGREGATION_V14_UP: &str = include_str!("442_add_log_aggregation_v14.sql");
 pub const M_442_LOG_AGGREGATION_V14_DOWN: &str =
     "DROP TABLE IF EXISTS log_alert_rules_v11; DROP TABLE IF EXISTS log_entries_v14;";
-pub const M_443_DISTRIBUTED_TRACING_V15_UP: &str = include_str!("443_add_distributed_tracing_v15.sql");
-pub const M_443_DISTRIBUTED_TRACING_V15_DOWN: &str =
-    "DROP TABLE IF EXISTS trace_service_dependencies_v11; DROP TABLE IF EXISTS trace_sampling_rules_v14;";
-pub const M_444_DASHBOARD_REPORTING_V14_UP: &str = include_str!("444_add_dashboard_reporting_v14.sql");
+pub const M_443_DISTRIBUTED_TRACING_V15_UP: &str =
+    include_str!("443_add_distributed_tracing_v15.sql");
+pub const M_443_DISTRIBUTED_TRACING_V15_DOWN: &str = "DROP TABLE IF EXISTS trace_service_dependencies_v11; DROP TABLE IF EXISTS trace_sampling_rules_v14;";
+pub const M_444_DASHBOARD_REPORTING_V14_UP: &str =
+    include_str!("444_add_dashboard_reporting_v14.sql");
 pub const M_444_DASHBOARD_REPORTING_V14_DOWN: &str =
     "DROP TABLE IF EXISTS report_schedules_v12; DROP TABLE IF EXISTS dashboard_shares_v11;";
 
@@ -789,26 +831,30 @@ pub const M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN: &str =
 
 pub const M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP: &str =
     include_str!("449_add_code_quality_metrics_v12_thresholds_v11.sql");
-pub const M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v11; DROP TABLE IF EXISTS code_quality_metrics_v12;";
+pub const M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v11; DROP TABLE IF EXISTS code_quality_metrics_v12;";
 
 pub const M_450_PERFORMANCE_TEST_ALERTS_V12_UP: &str =
     include_str!("450_add_performance_test_alerts_v12.sql");
-pub const M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v12; DROP TABLE IF EXISTS performance_test_alerts_v12;";
-pub const M_460_WORKFLOW_TEMPLATES_V13_UP: &str = include_str!("460_add_workflow_templates_v13.sql");
+pub const M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v12; DROP TABLE IF EXISTS performance_test_alerts_v12;";
+pub const M_460_WORKFLOW_TEMPLATES_V13_UP: &str =
+    include_str!("460_add_workflow_templates_v13.sql");
 pub const M_460_WORKFLOW_TEMPLATES_V13_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v12; DROP TABLE IF EXISTS workflow_templates_v13;";
 pub const M_461_AUTOMATION_RULES_V16_UP: &str = include_str!("461_add_automation_rules_v16.sql");
 pub const M_461_AUTOMATION_RULES_V16_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v16;";
-pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_UP: &str = include_str!("462_add_scheduled_task_templates_v13.sql");
-pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v13;";
+pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_UP: &str =
+    include_str!("462_add_scheduled_task_templates_v13.sql");
+pub const M_462_SCHEDULED_TASK_TEMPLATES_V13_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v13;";
 
-pub const M_481_WORKFLOW_TEMPLATES_V14_UP: &str = include_str!("481_add_workflow_templates_v14.sql");
+pub const M_481_WORKFLOW_TEMPLATES_V14_UP: &str =
+    include_str!("481_add_workflow_templates_v14.sql");
 pub const M_481_WORKFLOW_TEMPLATES_V14_DOWN: &str = "DROP TABLE IF EXISTS workflow_template_reviews_v13; DROP TABLE IF EXISTS workflow_templates_v14;";
 pub const M_482_AUTOMATION_RULES_V17_UP: &str = include_str!("482_add_automation_rules_v17.sql");
 pub const M_482_AUTOMATION_RULES_V17_DOWN: &str = "DROP TABLE IF EXISTS automation_rules_v17;";
-pub const M_483_SCHEDULED_TASK_TEMPLATES_V14_UP: &str = include_str!("483_add_scheduled_task_templates_v14.sql");
-pub const M_483_SCHEDULED_TASK_TEMPLATES_V14_DOWN: &str = "DROP TABLE IF EXISTS scheduled_task_templates_v14;";
+pub const M_483_SCHEDULED_TASK_TEMPLATES_V14_UP: &str =
+    include_str!("483_add_scheduled_task_templates_v14.sql");
+pub const M_483_SCHEDULED_TASK_TEMPLATES_V14_DOWN: &str =
+    "DROP TABLE IF EXISTS scheduled_task_templates_v14;";
 
 pub const M_469_TEST_SUITE_MANAGEMENT_V15_UP: &str =
     include_str!("469_add_test_suite_management_v15.sql");
@@ -816,12 +862,10 @@ pub const M_469_TEST_SUITE_MANAGEMENT_V15_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v12; DROP TABLE IF EXISTS test_suite_metrics_v12;";
 pub const M_470_CODE_QUALITY_RULES_V15_UP: &str =
     include_str!("470_add_code_quality_rules_v15.sql");
-pub const M_470_CODE_QUALITY_RULES_V15_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v12; DROP TABLE IF EXISTS code_quality_metrics_v13;";
+pub const M_470_CODE_QUALITY_RULES_V15_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v12; DROP TABLE IF EXISTS code_quality_metrics_v13;";
 pub const M_471_PERFORMANCE_TESTING_V16_UP: &str =
     include_str!("471_add_performance_testing_v16.sql");
-pub const M_471_PERFORMANCE_TESTING_V16_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v13; DROP TABLE IF EXISTS performance_test_alerts_v13;";
+pub const M_471_PERFORMANCE_TESTING_V16_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v13; DROP TABLE IF EXISTS performance_test_alerts_v13;";
 pub const M_487_PIPELINE_ACTION_REVIEWS_V14_UP: &str =
     include_str!("487_add_pipeline_action_reviews_v14.sql");
 pub const M_487_PIPELINE_ACTION_REVIEWS_V14_DOWN: &str =
@@ -832,8 +876,7 @@ pub const M_488_ENVIRONMENT_DEPLOYMENT_V14_DOWN: &str =
     "DROP TABLE IF EXISTS environment_deployment_history_v14;";
 pub const M_489_CACHE_HIT_ANALYSIS_V13_UP: &str =
     include_str!("489_add_cache_hit_analysis_v13.sql");
-pub const M_489_CACHE_HIT_ANALYSIS_V13_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_hit_analysis_v13;";
+pub const M_489_CACHE_HIT_ANALYSIS_V13_DOWN: &str = "DROP TABLE IF EXISTS cache_hit_analysis_v13;";
 
 pub const M_490_TEST_SUITE_MANAGEMENT_V16_UP: &str =
     include_str!("490_add_test_suite_management_v16.sql");
@@ -841,48 +884,45 @@ pub const M_490_TEST_SUITE_MANAGEMENT_V16_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v13; DROP TABLE IF EXISTS test_suite_metrics_v13;";
 pub const M_491_CODE_QUALITY_RULES_V16_UP: &str =
     include_str!("491_add_code_quality_rules_v16.sql");
-pub const M_491_CODE_QUALITY_RULES_V16_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v13; DROP TABLE IF EXISTS code_quality_metrics_v14;";
+pub const M_491_CODE_QUALITY_RULES_V16_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v13; DROP TABLE IF EXISTS code_quality_metrics_v14;";
 pub const M_492_PERFORMANCE_TESTING_V17_UP: &str =
     include_str!("492_add_performance_testing_v17.sql");
-pub const M_492_PERFORMANCE_TESTING_V17_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v14; DROP TABLE IF EXISTS performance_test_alerts_v14;";
+pub const M_492_PERFORMANCE_TESTING_V17_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v14; DROP TABLE IF EXISTS performance_test_alerts_v14;";
 pub const M_499_SECURITY_SCAN_V18_UP: &str = include_str!("499_add_security_scan_rules_v18.sql");
 pub const M_499_SECURITY_SCAN_V18_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v15; DROP TABLE IF EXISTS security_scan_rules_v17;";
 pub const M_500_COMPLIANCE_V18_UP: &str = include_str!("500_add_compliance_frameworks_v18.sql");
-pub const M_500_COMPLIANCE_V18_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v16; DROP TABLE IF EXISTS compliance_frameworks_v17;";
+pub const M_500_COMPLIANCE_V18_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v16; DROP TABLE IF EXISTS compliance_frameworks_v17;";
 pub const M_501_AUDIT_TRAIL_V18_UP: &str = include_str!("501_add_audit_trail_v18.sql");
 pub const M_501_AUDIT_TRAIL_V18_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v18;";
 pub const M_520_SECURITY_SCAN_V19_UP: &str = include_str!("520_add_security_scan_rules_v19.sql");
 pub const M_520_SECURITY_SCAN_V19_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v16; DROP TABLE IF EXISTS security_scan_rules_v18;";
 pub const M_521_COMPLIANCE_V19_UP: &str = include_str!("521_add_compliance_frameworks_v19.sql");
-pub const M_521_COMPLIANCE_V19_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v17; DROP TABLE IF EXISTS compliance_frameworks_v18;";
+pub const M_521_COMPLIANCE_V19_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v17; DROP TABLE IF EXISTS compliance_frameworks_v18;";
 pub const M_522_AUDIT_TRAIL_V19_UP: &str = include_str!("522_add_audit_trail_v19.sql");
 pub const M_522_AUDIT_TRAIL_V19_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v19;";
 
-pub const M_508_PIPELINE_ACTION_REVIEWS_V15_UP: &str = include_str!("508_add_pipeline_action_reviews_v15.sql");
-pub const M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN: &str =
-    "DROP TABLE IF EXISTS review_recommendations_v15; DROP TABLE IF EXISTS review_analytics_v15; DROP TABLE IF EXISTS review_moderation_queue_v15; DROP TABLE IF EXISTS review_helpfulness_v15; DROP TABLE IF EXISTS pipeline_action_reviews_v15;";
-pub const M_509_ENVIRONMENT_DEPLOYMENT_V15_UP: &str = include_str!("509_add_environment_deployment_history_v15.sql");
-pub const M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_analytics_v15; DROP TABLE IF EXISTS deployment_comparison_v15; DROP TABLE IF EXISTS environment_deployment_history_v15;";
-pub const M_510_CACHE_HIT_ANALYSIS_V14_UP: &str = include_str!("510_add_cache_hit_analysis_v14.sql");
-pub const M_510_CACHE_HIT_ANALYSIS_V14_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_performance_insights_v14; DROP TABLE IF EXISTS cache_cost_optimization_v14; DROP TABLE IF EXISTS cache_size_tracking_v14; DROP TABLE IF EXISTS cache_hit_analysis_v14;";
+pub const M_508_PIPELINE_ACTION_REVIEWS_V15_UP: &str =
+    include_str!("508_add_pipeline_action_reviews_v15.sql");
+pub const M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN: &str = "DROP TABLE IF EXISTS review_recommendations_v15; DROP TABLE IF EXISTS review_analytics_v15; DROP TABLE IF EXISTS review_moderation_queue_v15; DROP TABLE IF EXISTS review_helpfulness_v15; DROP TABLE IF EXISTS pipeline_action_reviews_v15;";
+pub const M_509_ENVIRONMENT_DEPLOYMENT_V15_UP: &str =
+    include_str!("509_add_environment_deployment_history_v15.sql");
+pub const M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN: &str = "DROP TABLE IF EXISTS deployment_analytics_v15; DROP TABLE IF EXISTS deployment_comparison_v15; DROP TABLE IF EXISTS environment_deployment_history_v15;";
+pub const M_510_CACHE_HIT_ANALYSIS_V14_UP: &str =
+    include_str!("510_add_cache_hit_analysis_v14.sql");
+pub const M_510_CACHE_HIT_ANALYSIS_V14_DOWN: &str = "DROP TABLE IF EXISTS cache_performance_insights_v14; DROP TABLE IF EXISTS cache_cost_optimization_v14; DROP TABLE IF EXISTS cache_size_tracking_v14; DROP TABLE IF EXISTS cache_hit_analysis_v14;";
 
-pub const M_511_TEST_SUITE_MANAGEMENT_V17_UP: &str = include_str!("511_add_test_suite_management_v17.sql");
+pub const M_511_TEST_SUITE_MANAGEMENT_V17_UP: &str =
+    include_str!("511_add_test_suite_management_v17.sql");
 pub const M_511_TEST_SUITE_MANAGEMENT_V17_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v14; DROP TABLE IF EXISTS test_suite_metrics_v14;";
-pub const M_512_CODE_QUALITY_RULES_V17_UP: &str = include_str!("512_add_code_quality_rules_v17.sql");
-pub const M_512_CODE_QUALITY_RULES_V17_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v14; DROP TABLE IF EXISTS code_quality_metrics_v15;";
-pub const M_513_PERFORMANCE_TESTING_V18_UP: &str = include_str!("513_add_performance_testing_v18.sql");
-pub const M_513_PERFORMANCE_TESTING_V18_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v15; DROP TABLE IF EXISTS performance_test_alerts_v15;";
+pub const M_512_CODE_QUALITY_RULES_V17_UP: &str =
+    include_str!("512_add_code_quality_rules_v17.sql");
+pub const M_512_CODE_QUALITY_RULES_V17_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v14; DROP TABLE IF EXISTS code_quality_metrics_v15;";
+pub const M_513_PERFORMANCE_TESTING_V18_UP: &str =
+    include_str!("513_add_performance_testing_v18.sql");
+pub const M_513_PERFORMANCE_TESTING_V18_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v15; DROP TABLE IF EXISTS performance_test_alerts_v15;";
 pub const M_514_API_DOCS_V19_UP: &str = include_str!("514_add_api_docs_v19.sql");
 pub const M_514_API_DOCS_V19_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v19;";
 pub const M_515_RATE_LIMIT_TIERS_V17_UP: &str = include_str!("515_add_rate_limit_tiers_v17.sql");
@@ -892,24 +932,21 @@ pub const M_516_API_ANALYTICS_V20_UP: &str = include_str!("516_add_api_analytics
 pub const M_516_API_ANALYTICS_V20_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v20;";
 pub const M_517_DATABASE_REPLICATION_V17_UP: &str =
     include_str!("517_add_database_replication_v17.sql");
-pub const M_517_DATABASE_REPLICATION_V17_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v15; DROP TABLE IF EXISTS database_replication_config_v15;";
+pub const M_517_DATABASE_REPLICATION_V17_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v15; DROP TABLE IF EXISTS database_replication_config_v15;";
 pub const M_518_ENCRYPTION_V18_UP: &str = include_str!("518_add_encryption_v18.sql");
-pub const M_518_ENCRYPTION_V18_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v15; DROP TABLE IF EXISTS encryption_key_versions_v15;";
+pub const M_518_ENCRYPTION_V18_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v15; DROP TABLE IF EXISTS encryption_key_versions_v15;";
 pub const M_519_DATA_RESIDENCY_V17_UP: &str = include_str!("519_add_data_residency_v17.sql");
-pub const M_519_DATA_RESIDENCY_V17_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v15; DROP TABLE IF EXISTS data_residency_reports_v15;";
+pub const M_519_DATA_RESIDENCY_V17_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v15; DROP TABLE IF EXISTS data_residency_reports_v15;";
 
-pub const M_529_PIPELINE_ACTION_REVIEWS_V16_UP: &str = include_str!("529_add_pipeline_action_reviews_v16.sql");
-pub const M_529_PIPELINE_ACTION_REVIEWS_V16_DOWN: &str =
-    "DROP TABLE IF EXISTS review_recommendations_v16; DROP TABLE IF EXISTS review_analytics_v16; DROP TABLE IF EXISTS review_moderation_queue_v16; DROP TABLE IF EXISTS review_helpfulness_v16; DROP TABLE IF EXISTS pipeline_action_reviews_v16;";
-pub const M_530_ENVIRONMENT_DEPLOYMENT_V16_UP: &str = include_str!("530_add_environment_deployment_history_v16.sql");
-pub const M_530_ENVIRONMENT_DEPLOYMENT_V16_DOWN: &str =
-    "DROP TABLE IF EXISTS deployment_analytics_v16; DROP TABLE IF EXISTS deployment_comparison_v16; DROP TABLE IF EXISTS environment_deployment_history_v16;";
-pub const M_531_CACHE_HIT_ANALYSIS_V15_UP: &str = include_str!("531_add_cache_hit_analysis_v15.sql");
-pub const M_531_CACHE_HIT_ANALYSIS_V15_DOWN: &str =
-    "DROP TABLE IF EXISTS cache_performance_insights_v15; DROP TABLE IF EXISTS cache_cost_optimization_v15; DROP TABLE IF EXISTS cache_size_tracking_v15; DROP TABLE IF EXISTS cache_hit_analysis_v15;";
+pub const M_529_PIPELINE_ACTION_REVIEWS_V16_UP: &str =
+    include_str!("529_add_pipeline_action_reviews_v16.sql");
+pub const M_529_PIPELINE_ACTION_REVIEWS_V16_DOWN: &str = "DROP TABLE IF EXISTS review_recommendations_v16; DROP TABLE IF EXISTS review_analytics_v16; DROP TABLE IF EXISTS review_moderation_queue_v16; DROP TABLE IF EXISTS review_helpfulness_v16; DROP TABLE IF EXISTS pipeline_action_reviews_v16;";
+pub const M_530_ENVIRONMENT_DEPLOYMENT_V16_UP: &str =
+    include_str!("530_add_environment_deployment_history_v16.sql");
+pub const M_530_ENVIRONMENT_DEPLOYMENT_V16_DOWN: &str = "DROP TABLE IF EXISTS deployment_analytics_v16; DROP TABLE IF EXISTS deployment_comparison_v16; DROP TABLE IF EXISTS environment_deployment_history_v16;";
+pub const M_531_CACHE_HIT_ANALYSIS_V15_UP: &str =
+    include_str!("531_add_cache_hit_analysis_v15.sql");
+pub const M_531_CACHE_HIT_ANALYSIS_V15_DOWN: &str = "DROP TABLE IF EXISTS cache_performance_insights_v15; DROP TABLE IF EXISTS cache_cost_optimization_v15; DROP TABLE IF EXISTS cache_size_tracking_v15; DROP TABLE IF EXISTS cache_hit_analysis_v15;";
 
 pub const M_040_BOARDS_UP: &str = include_str!("040_add_boards.sql");
 pub const M_041_BOARDS_DOWN: &str = include_str!("down/041_add_boards_down.sql");
@@ -929,33 +966,31 @@ pub const M_536_RATE_LIMIT_TIERS_V18_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_alerts_v15; DROP TABLE IF EXISTS rate_limit_tiers_v18;";
 pub const M_537_API_ANALYTICS_V21_UP: &str = include_str!("537_add_api_analytics_v21.sql");
 pub const M_537_API_ANALYTICS_V21_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v21;";
-pub const M_538_DATABASE_REPLICATION_V18_UP: &str = include_str!("538_add_database_replication_v18.sql");
-pub const M_538_DATABASE_REPLICATION_V18_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v16; DROP TABLE IF EXISTS database_replication_config_v16;";
+pub const M_538_DATABASE_REPLICATION_V18_UP: &str =
+    include_str!("538_add_database_replication_v18.sql");
+pub const M_538_DATABASE_REPLICATION_V18_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v16; DROP TABLE IF EXISTS database_replication_config_v16;";
 pub const M_539_ENCRYPTION_V19_UP: &str = include_str!("539_add_encryption_v19.sql");
-pub const M_539_ENCRYPTION_V19_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v16; DROP TABLE IF EXISTS encryption_key_versions_v16;";
+pub const M_539_ENCRYPTION_V19_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v16; DROP TABLE IF EXISTS encryption_key_versions_v16;";
 pub const M_540_DATA_RESIDENCY_V18_UP: &str = include_str!("540_add_data_residency_v18.sql");
-pub const M_540_DATA_RESIDENCY_V18_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v16; DROP TABLE IF EXISTS data_residency_reports_v16;";
+pub const M_540_DATA_RESIDENCY_V18_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v16; DROP TABLE IF EXISTS data_residency_reports_v16;";
 pub const M_541_SECURITY_SCAN_V20_UP: &str = include_str!("541_add_security_scan_v20.sql");
 pub const M_541_SECURITY_SCAN_V20_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v17; DROP TABLE IF EXISTS security_scan_rules_v19;";
 pub const M_542_COMPLIANCE_V20_UP: &str = include_str!("542_add_compliance_v20.sql");
-pub const M_542_COMPLIANCE_V20_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v18; DROP TABLE IF EXISTS compliance_frameworks_v19;";
+pub const M_542_COMPLIANCE_V20_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v18; DROP TABLE IF EXISTS compliance_frameworks_v19;";
 pub const M_543_AUDIT_TRAIL_V20_UP: &str = include_str!("543_add_audit_trail_v20.sql");
 pub const M_543_AUDIT_TRAIL_V20_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v20;";
 
-pub const M_553_TEST_SUITE_MANAGEMENT_V19_UP: &str = include_str!("553_add_test_suite_management_v19.sql");
+pub const M_553_TEST_SUITE_MANAGEMENT_V19_UP: &str =
+    include_str!("553_add_test_suite_management_v19.sql");
 pub const M_553_TEST_SUITE_MANAGEMENT_V19_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v16; DROP TABLE IF EXISTS test_suite_metrics_v16;";
-pub const M_554_CODE_QUALITY_RULES_V19_UP: &str = include_str!("554_add_code_quality_rules_v19.sql");
-pub const M_554_CODE_QUALITY_RULES_V19_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v16; DROP TABLE IF EXISTS code_quality_metrics_v17;";
-pub const M_555_PERFORMANCE_TESTING_V20_UP: &str = include_str!("555_add_performance_testing_v20.sql");
-pub const M_555_PERFORMANCE_TESTING_V20_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v17; DROP TABLE IF EXISTS performance_test_alerts_v17;";
+pub const M_554_CODE_QUALITY_RULES_V19_UP: &str =
+    include_str!("554_add_code_quality_rules_v19.sql");
+pub const M_554_CODE_QUALITY_RULES_V19_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v16; DROP TABLE IF EXISTS code_quality_metrics_v17;";
+pub const M_555_PERFORMANCE_TESTING_V20_UP: &str =
+    include_str!("555_add_performance_testing_v20.sql");
+pub const M_555_PERFORMANCE_TESTING_V20_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v17; DROP TABLE IF EXISTS performance_test_alerts_v17;";
 pub const M_556_API_DOCS_V21_UP: &str = include_str!("556_add_api_docs_v21.sql");
 pub const M_557_RATE_LIMIT_TIERS_V19_UP: &str = include_str!("557_add_rate_limit_tiers_v19.sql");
 pub const M_558_API_ANALYTICS_V22_UP: &str = include_str!("558_add_api_analytics_v22.sql");
@@ -963,20 +998,20 @@ pub const M_562_SECURITY_SCAN_V21_UP: &str = include_str!("562_add_security_scan
 pub const M_562_SECURITY_SCAN_V21_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v18; DROP TABLE IF EXISTS security_scan_rules_v20;";
 pub const M_563_COMPLIANCE_V21_UP: &str = include_str!("563_add_compliance_v21.sql");
-pub const M_563_COMPLIANCE_V21_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v19; DROP TABLE IF EXISTS compliance_frameworks_v20;";
+pub const M_563_COMPLIANCE_V21_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v19; DROP TABLE IF EXISTS compliance_frameworks_v20;";
 pub const M_564_AUDIT_TRAIL_V21_UP: &str = include_str!("564_add_audit_trail_v21.sql");
 pub const M_564_AUDIT_TRAIL_V21_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v21;";
 
-pub const M_574_TEST_SUITE_MANAGEMENT_V20_UP: &str = include_str!("574_add_test_suite_management_v20.sql");
+pub const M_574_TEST_SUITE_MANAGEMENT_V20_UP: &str =
+    include_str!("574_add_test_suite_management_v20.sql");
 pub const M_574_TEST_SUITE_MANAGEMENT_V20_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v17; DROP TABLE IF EXISTS test_suite_metrics_v17;";
-pub const M_575_CODE_QUALITY_RULES_V20_UP: &str = include_str!("575_add_code_quality_rules_v20.sql");
-pub const M_575_CODE_QUALITY_RULES_V20_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v17; DROP TABLE IF EXISTS code_quality_metrics_v18;";
-pub const M_576_PERFORMANCE_TESTING_V21_UP: &str = include_str!("576_add_performance_testing_v21.sql");
-pub const M_576_PERFORMANCE_TESTING_V21_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v18; DROP TABLE IF EXISTS performance_test_alerts_v18; DROP TABLE IF EXISTS performance_test_baselines_v19;";
+pub const M_575_CODE_QUALITY_RULES_V20_UP: &str =
+    include_str!("575_add_code_quality_rules_v20.sql");
+pub const M_575_CODE_QUALITY_RULES_V20_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v17; DROP TABLE IF EXISTS code_quality_metrics_v18;";
+pub const M_576_PERFORMANCE_TESTING_V21_UP: &str =
+    include_str!("576_add_performance_testing_v21.sql");
+pub const M_576_PERFORMANCE_TESTING_V21_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v18; DROP TABLE IF EXISTS performance_test_alerts_v18; DROP TABLE IF EXISTS performance_test_baselines_v19;";
 pub const M_577_API_DOCS_V22_UP: &str = include_str!("577_add_api_docs_v22.sql");
 pub const M_577_API_DOCS_V22_DOWN: &str = "DROP TABLE IF EXISTS api_docs_v22;";
 pub const M_578_RATE_LIMIT_TIERS_V20_UP: &str = include_str!("578_add_rate_limit_tiers_v20.sql");
@@ -984,58 +1019,78 @@ pub const M_578_RATE_LIMIT_TIERS_V20_DOWN: &str =
     "DROP TABLE IF EXISTS rate_limit_alerts_v17; DROP TABLE IF EXISTS rate_limit_tiers_v20;";
 pub const M_579_API_ANALYTICS_V23_UP: &str = include_str!("579_add_api_analytics_v23.sql");
 pub const M_579_API_ANALYTICS_V23_DOWN: &str = "DROP TABLE IF EXISTS api_analytics_v23;";
-pub const M_580_DATABASE_REPLICATION_V20_UP: &str = include_str!("580_add_database_replication_v20.sql");
-pub const M_580_DATABASE_REPLICATION_V20_DOWN: &str =
-    "DROP TABLE IF EXISTS database_replication_alerts_v18; DROP TABLE IF EXISTS database_replication_config_v18;";
+pub const M_580_DATABASE_REPLICATION_V20_UP: &str =
+    include_str!("580_add_database_replication_v20.sql");
+pub const M_580_DATABASE_REPLICATION_V20_DOWN: &str = "DROP TABLE IF EXISTS database_replication_alerts_v18; DROP TABLE IF EXISTS database_replication_config_v18;";
 pub const M_581_ENCRYPTION_V21_UP: &str = include_str!("581_add_encryption_v21.sql");
-pub const M_581_ENCRYPTION_V21_DOWN: &str =
-    "DROP TABLE IF EXISTS encryption_compliance_checks_v18; DROP TABLE IF EXISTS encryption_key_versions_v18;";
+pub const M_581_ENCRYPTION_V21_DOWN: &str = "DROP TABLE IF EXISTS encryption_compliance_checks_v18; DROP TABLE IF EXISTS encryption_key_versions_v18;";
 pub const M_582_DATA_RESIDENCY_V20_UP: &str = include_str!("582_add_data_residency_v20.sql");
-pub const M_582_DATA_RESIDENCY_V20_DOWN: &str =
-    "DROP TABLE IF EXISTS data_residency_compliance_v18; DROP TABLE IF EXISTS data_residency_reports_v18;";
+pub const M_582_DATA_RESIDENCY_V20_DOWN: &str = "DROP TABLE IF EXISTS data_residency_compliance_v18; DROP TABLE IF EXISTS data_residency_reports_v18;";
 pub const M_583_SECURITY_SCAN_V22_UP: &str = include_str!("583_add_security_scan_v22.sql");
 pub const M_583_SECURITY_SCAN_V22_DOWN: &str =
     "DROP TABLE IF EXISTS security_scan_fixes_v19; DROP TABLE IF EXISTS security_scan_rules_v21;";
 pub const M_584_COMPLIANCE_V22_UP: &str = include_str!("584_add_compliance_v22.sql");
-pub const M_584_COMPLIANCE_V22_DOWN: &str =
-    "DROP TABLE IF EXISTS compliance_assessments_v20; DROP TABLE IF EXISTS compliance_frameworks_v21;";
+pub const M_584_COMPLIANCE_V22_DOWN: &str = "DROP TABLE IF EXISTS compliance_assessments_v20; DROP TABLE IF EXISTS compliance_frameworks_v21;";
 pub const M_585_AUDIT_TRAIL_V22_UP: &str = include_str!("585_add_audit_trail_v22.sql");
 pub const M_585_AUDIT_TRAIL_V22_DOWN: &str = "DROP TABLE IF EXISTS audit_trail_v22;";
 
-pub const M_595_TEST_SUITE_MANAGEMENT_V21_UP: &str = include_str!("595_add_test_suite_management_v21.sql");
+pub const M_595_TEST_SUITE_MANAGEMENT_V21_UP: &str =
+    include_str!("595_add_test_suite_management_v21.sql");
 pub const M_595_TEST_SUITE_MANAGEMENT_V21_DOWN: &str =
     "DROP TABLE IF EXISTS test_suite_baselines_v18; DROP TABLE IF EXISTS test_suite_metrics_v18;";
-pub const M_596_CODE_QUALITY_RULES_V21_UP: &str = include_str!("596_add_code_quality_rules_v21.sql");
-pub const M_596_CODE_QUALITY_RULES_V21_DOWN: &str =
-    "DROP TABLE IF EXISTS code_quality_thresholds_v18; DROP TABLE IF EXISTS code_quality_metrics_v19;";
-pub const M_597_PERFORMANCE_TESTING_V22_UP: &str = include_str!("597_add_performance_testing_v22.sql");
-pub const M_597_PERFORMANCE_TESTING_V22_DOWN: &str =
-    "DROP TABLE IF EXISTS performance_test_alert_history_v19; DROP TABLE IF EXISTS performance_test_alerts_v19;";
-pub const M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_UP: &str = include_str!("610_add_api_doc_examples_changelogs_v21.sql");
-pub const M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_DOWN: &str = include_str!("down/610_add_api_doc_examples_changelogs_v21_down.sql");
-pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_UP: &str = include_str!("611_add_rate_limit_tier_quotas_v21.sql");
-pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_DOWN: &str = include_str!("down/611_add_rate_limit_tier_quotas_v21_down.sql");
-pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_UP: &str = include_str!("612_add_analytics_dashboard_templates_alert_rules_v21.sql");
-pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_DOWN: &str = include_str!("down/612_add_analytics_dashboard_templates_alert_rules_v21_down.sql");
-pub const M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_UP: &str = include_str!("613_add_workflow_execution_logs_templates_v21.sql");
-pub const M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_DOWN: &str = include_str!("down/613_add_workflow_execution_logs_templates_v21_down.sql");
-pub const M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_UP: &str = include_str!("614_add_automation_rule_execution_history_performance_v21.sql");
-pub const M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_DOWN: &str = include_str!("down/614_add_automation_rule_execution_history_performance_v21_down.sql");
-pub const M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_UP: &str = include_str!("615_add_scheduled_task_performance_resource_usage_v21.sql");
-pub const M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_DOWN: &str = include_str!("down/615_add_scheduled_task_performance_resource_usage_v21_down.sql");
-pub const M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_UP: &str = include_str!("619_add_pipeline_action_security_scans_compatibility_v20.sql");
-pub const M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_DOWN: &str = include_str!("down/619_add_pipeline_action_security_scans_compatibility_v20_down.sql");
-pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_UP: &str = include_str!("620_add_environment_drift_detection_snapshots_v20.sql");
-pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_DOWN: &str = include_str!("down/620_add_environment_drift_detection_snapshots_v20_down.sql");
-pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_UP: &str = include_str!("621_add_cache_prediction_model_warming_strategies_v20.sql");
-pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_DOWN: &str = include_str!("down/621_add_cache_prediction_model_warming_strategies_v20_down.sql");
-pub const M_631_MERGE_QUEUE_STATUS_CHECKS_UP: &str = include_str!("631_add_merge_queue_status_checks.sql");
-pub const M_631_MERGE_QUEUE_STATUS_CHECKS_DOWN: &str = "DROP TABLE IF EXISTS merge_queue_checks_v1; DROP TABLE IF EXISTS merge_queue_entries_v1;";
+pub const M_596_CODE_QUALITY_RULES_V21_UP: &str =
+    include_str!("596_add_code_quality_rules_v21.sql");
+pub const M_596_CODE_QUALITY_RULES_V21_DOWN: &str = "DROP TABLE IF EXISTS code_quality_thresholds_v18; DROP TABLE IF EXISTS code_quality_metrics_v19;";
+pub const M_597_PERFORMANCE_TESTING_V22_UP: &str =
+    include_str!("597_add_performance_testing_v22.sql");
+pub const M_597_PERFORMANCE_TESTING_V22_DOWN: &str = "DROP TABLE IF EXISTS performance_test_alert_history_v19; DROP TABLE IF EXISTS performance_test_alerts_v19;";
+pub const M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_UP: &str =
+    include_str!("610_add_api_doc_examples_changelogs_v21.sql");
+pub const M_610_API_DOC_EXAMPLES_CHANGELOGS_V21_DOWN: &str =
+    include_str!("down/610_add_api_doc_examples_changelogs_v21_down.sql");
+pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_UP: &str =
+    include_str!("611_add_rate_limit_tier_quotas_v21.sql");
+pub const M_611_RATE_LIMIT_TIER_QUOTAS_V21_DOWN: &str =
+    include_str!("down/611_add_rate_limit_tier_quotas_v21_down.sql");
+pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_UP: &str =
+    include_str!("612_add_analytics_dashboard_templates_alert_rules_v21.sql");
+pub const M_612_ANALYTICS_DASHBOARD_TEMPLATES_ALERT_RULES_V21_DOWN: &str =
+    include_str!("down/612_add_analytics_dashboard_templates_alert_rules_v21_down.sql");
+pub const M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_UP: &str =
+    include_str!("613_add_workflow_execution_logs_templates_v21.sql");
+pub const M_613_WORKFLOW_EXECUTION_LOGS_TEMPLATES_V21_DOWN: &str =
+    include_str!("down/613_add_workflow_execution_logs_templates_v21_down.sql");
+pub const M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_UP: &str =
+    include_str!("614_add_automation_rule_execution_history_performance_v21.sql");
+pub const M_614_AUTOMATION_RULE_EXECUTION_HISTORY_PERFORMANCE_V21_DOWN: &str =
+    include_str!("down/614_add_automation_rule_execution_history_performance_v21_down.sql");
+pub const M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_UP: &str =
+    include_str!("615_add_scheduled_task_performance_resource_usage_v21.sql");
+pub const M_615_SCHEDULED_TASK_PERFORMANCE_RESOURCE_USAGE_V21_DOWN: &str =
+    include_str!("down/615_add_scheduled_task_performance_resource_usage_v21_down.sql");
+pub const M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_UP: &str =
+    include_str!("619_add_pipeline_action_security_scans_compatibility_v20.sql");
+pub const M_619_PIPELINE_ACTION_SECURITY_SCANS_COMPATIBILITY_V20_DOWN: &str =
+    include_str!("down/619_add_pipeline_action_security_scans_compatibility_v20_down.sql");
+pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_UP: &str =
+    include_str!("620_add_environment_drift_detection_snapshots_v20.sql");
+pub const M_620_ENVIRONMENT_DRIFT_DETECTION_SNAPSHOTS_V20_DOWN: &str =
+    include_str!("down/620_add_environment_drift_detection_snapshots_v20_down.sql");
+pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_UP: &str =
+    include_str!("621_add_cache_prediction_model_warming_strategies_v20.sql");
+pub const M_621_CACHE_PREDICTION_MODEL_WARMING_STRATEGIES_V20_DOWN: &str =
+    include_str!("down/621_add_cache_prediction_model_warming_strategies_v20_down.sql");
+pub const M_631_MERGE_QUEUE_STATUS_CHECKS_UP: &str =
+    include_str!("631_add_merge_queue_status_checks.sql");
+pub const M_631_MERGE_QUEUE_STATUS_CHECKS_DOWN: &str =
+    "DROP TABLE IF EXISTS merge_queue_checks_v1; DROP TABLE IF EXISTS merge_queue_entries_v1;";
 pub const M_632_SEARCH_INDEX_SYNC_UP: &str = include_str!("632_add_search_index_sync.sql");
-pub const M_632_SEARCH_INDEX_SYNC_DOWN: &str = "DROP TABLE IF EXISTS search_index_queue_v1; DROP TABLE IF EXISTS search_index_sync_log_v1;";
+pub const M_632_SEARCH_INDEX_SYNC_DOWN: &str =
+    "DROP TABLE IF EXISTS search_index_queue_v1; DROP TABLE IF EXISTS search_index_sync_log_v1;";
 pub const M_633_FEDERATION_DELIVERY_UP: &str = include_str!("633_add_federation_delivery.sql");
 pub const M_633_FEDERATION_DELIVERY_DOWN: &str = "DROP TABLE IF EXISTS federation_peer_state_v1; DROP TABLE IF EXISTS federation_delivery_queue_v1;";
-pub const M_634_PROJECT_BOARD_ENHANCEMENTS_UP: &str = include_str!("634_add_project_board_enhancements.sql");
+pub const M_634_PROJECT_BOARD_ENHANCEMENTS_UP: &str =
+    include_str!("634_add_project_board_enhancements.sql");
 pub const M_634_PROJECT_BOARD_ENHANCEMENTS_DOWN: &str = "DROP TABLE IF EXISTS project_board_card_movements_v1; DROP TABLE IF EXISTS project_board_cards_v1; DROP TABLE IF EXISTS project_board_columns_v1; DROP TABLE IF EXISTS project_boards;";
 pub const M_635_ADD_PLUGIN_SYSTEM_UP: &str = include_str!("635_add_plugin_system.sql");
 pub const M_635_ADD_PLUGIN_SYSTEM_DOWN: &str = "DROP TABLE IF EXISTS plugin_logs_v1; DROP TABLE IF EXISTS plugin_hooks_v1; DROP TABLE IF EXISTS plugins_v1;";
@@ -1043,10 +1098,28 @@ pub const M_636_ADD_MARKETPLACE_UP: &str = include_str!("636_add_marketplace.sql
 pub const M_636_ADD_MARKETPLACE_DOWN: &str = "DROP TABLE IF EXISTS marketplace_downloads_v1; DROP TABLE IF EXISTS marketplace_reviews_v1; DROP TABLE IF EXISTS marketplace_listings_v1;";
 pub const M_637_ADD_TENANT_ISOLATION_UP: &str = include_str!("637_add_tenant_isolation.sql");
 pub const M_637_ADD_TENANT_ISOLATION_DOWN: &str = "DROP TABLE IF EXISTS tenant_billing_v1; DROP TABLE IF EXISTS tenant_isolation_policies_v1; DROP TABLE IF EXISTS tenant_resource_quotas_v1;";
-pub const M_638_PERFORMANCE_INDEXES_V2_UP: &str = include_str!("638_add_performance_indexes_v2.sql");
+pub const M_638_PERFORMANCE_INDEXES_V2_UP: &str =
+    include_str!("638_add_performance_indexes_v2.sql");
 pub const M_638_PERFORMANCE_INDEXES_V2_DOWN: &str = "DROP INDEX IF EXISTS idx_repositories_name; DROP INDEX IF EXISTS idx_repositories_owner_name; DROP INDEX IF EXISTS idx_issues_repo_status; DROP INDEX IF EXISTS idx_issues_created_at; DROP INDEX IF EXISTS idx_pull_requests_repo_status; DROP INDEX IF EXISTS idx_pipeline_runs_repo_status; DROP INDEX IF EXISTS idx_commits_repo_date; DROP INDEX IF EXISTS idx_events_type_created; DROP INDEX IF EXISTS idx_audit_events_user_created; DROP INDEX IF EXISTS idx_access_tokens_hash; DROP INDEX IF EXISTS idx_sessions_user_id;";
 pub const M_639_ADD_IMPORT_JOBS_UP: &str = include_str!("639_add_import_jobs.sql");
 pub const M_639_ADD_IMPORT_JOBS_DOWN: &str = "DROP TABLE IF EXISTS import_jobs;";
+
+// ADR-0008 track 2: flag lifecycle governance + staleness evidence.
+pub const M_640_FLAG_GOVERNANCE_UP: &str = include_str!("640_flag_governance.sql");
+pub const M_640_FLAG_GOVERNANCE_DOWN: &str = "\
+ALTER TABLE feature_flags
+    DROP CONSTRAINT IF EXISTS feature_flags_name_format_check,
+    DROP CONSTRAINT IF EXISTS feature_flags_kind_check;
+DROP INDEX IF EXISTS idx_feature_flags_last_evaluated;
+DROP INDEX IF EXISTS idx_feature_flags_last_changed;
+DROP INDEX IF EXISTS idx_feature_flags_kind;
+ALTER TABLE feature_flags
+    DROP COLUMN IF EXISTS last_changed_at,
+    DROP COLUMN IF EXISTS last_evaluated_at,
+    DROP COLUMN IF EXISTS salt,
+    DROP COLUMN IF EXISTS ticket,
+    DROP COLUMN IF EXISTS owner,
+    DROP COLUMN IF EXISTS kind;";
 
 #[derive(Debug, Clone)]
 pub struct Migration {
@@ -1285,7 +1358,8 @@ impl MigrationManager {
             version: 53,
             name: "add_oidc".into(),
             up_sql: M_053_ADD_OIDC_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS oidc_providers; DROP TABLE IF EXISTS oidc_identities;".into(),
+            down_sql: "DROP TABLE IF EXISTS oidc_providers; DROP TABLE IF EXISTS oidc_identities;"
+                .into(),
         });
         self.add_migration(Migration {
             version: 54,
@@ -1327,7 +1401,8 @@ impl MigrationManager {
             version: 60,
             name: "add_oauth2".into(),
             up_sql: M_060_OAUTH2_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS oauth_codes; DROP TABLE IF EXISTS oauth_clients;".into(),
+            down_sql: "DROP TABLE IF EXISTS oauth_codes; DROP TABLE IF EXISTS oauth_clients;"
+                .into(),
         });
         self.add_migration(Migration {
             version: 62,
@@ -1339,7 +1414,8 @@ impl MigrationManager {
             version: 63,
             name: "add_discussions".into(),
             up_sql: M_063_DISCUSSIONS_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS discussion_comments; DROP TABLE IF EXISTS discussions;".into(),
+            down_sql: "DROP TABLE IF EXISTS discussion_comments; DROP TABLE IF EXISTS discussions;"
+                .into(),
         });
         self.add_migration(Migration {
             version: 65,
@@ -1369,7 +1445,8 @@ impl MigrationManager {
             version: 69,
             name: "add_npm_packages".into(),
             up_sql: M_069_NPM_PACKAGES_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS npm_versions; DROP TABLE IF EXISTS npm_packages;".into(),
+            down_sql: "DROP TABLE IF EXISTS npm_versions; DROP TABLE IF EXISTS npm_packages;"
+                .into(),
         });
         self.add_migration(Migration {
             version: 70,
@@ -1387,7 +1464,9 @@ impl MigrationManager {
             version: 72,
             name: "add_discussion_labels_reactions".into(),
             up_sql: M_072_DISCUSSION_LABELS_REACTIONS_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS discussion_reactions; DROP TABLE IF EXISTS discussion_labels;".into(),
+            down_sql:
+                "DROP TABLE IF EXISTS discussion_reactions; DROP TABLE IF EXISTS discussion_labels;"
+                    .into(),
         });
         self.add_migration(Migration {
             version: 73,
@@ -1909,7 +1988,9 @@ impl MigrationManager {
             version: 163,
             name: "add_workflow_triggers_actions".into(),
             up_sql: M_163_WORKFLOW_TRIGGERS_ACTIONS_UP.into(),
-            down_sql: "DROP TABLE IF EXISTS workflow_actions; DROP TABLE IF EXISTS workflow_triggers;".into(),
+            down_sql:
+                "DROP TABLE IF EXISTS workflow_actions; DROP TABLE IF EXISTS workflow_triggers;"
+                    .into(),
         });
         self.add_migration(Migration {
             version: 166,
@@ -3519,6 +3600,12 @@ impl MigrationManager {
             up_sql: M_639_ADD_IMPORT_JOBS_UP.into(),
             down_sql: M_639_ADD_IMPORT_JOBS_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 640,
+            name: "flag_governance".into(),
+            up_sql: M_640_FLAG_GOVERNANCE_UP.into(),
+            down_sql: M_640_FLAG_GOVERNANCE_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3560,7 +3647,14 @@ mod tests {
     #[test]
     fn test_new_manager_has_initial_migration() {
         let mgr = MigrationManager::new();
-        assert_eq!(mgr.all().len(), 408);
+        // Assert the head of the list, not its length: the length changes
+        // with every migration, the ordering contract does not.
+        assert!(!mgr.all().is_empty());
+        assert_eq!(
+            mgr.all().last().map(|m| m.name.as_str()),
+            Some("flag_governance"),
+            "newest migration must be flag_governance (640)"
+        );
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");
         assert_eq!(mgr.all()[1].version, 3);
@@ -3804,7 +3898,10 @@ mod tests {
         assert_eq!(mgr.all()[154].version, 180);
         assert_eq!(mgr.all()[154].name, "add_performance_test_configs_results");
         assert_eq!(mgr.all()[155].version, 185);
-        assert_eq!(mgr.all()[155].name, "add_compliance_frameworks_v2_assessments");
+        assert_eq!(
+            mgr.all()[155].name,
+            "add_compliance_frameworks_v2_assessments"
+        );
         assert_eq!(mgr.all()[156].version, 187);
         assert_eq!(mgr.all()[156].name, "add_workflow_templates");
     }
@@ -3812,14 +3909,19 @@ mod tests {
     #[test]
     fn test_add_migration_sequential() {
         let mut mgr = MigrationManager::new();
+        let before = mgr.all().len();
+        // Derived, not hardcoded: a fixture pinned to a literal version
+        // collides with the real migration list the moment it reaches that
+        // number, and the count assertion then churns on every migration.
+        let next = mgr.all().last().expect("manager is never empty").version + 1;
         mgr.add_migration(Migration {
-            version: 640,
+            version: next,
             name: "add_index".into(),
             up_sql: "CREATE INDEX test;".into(),
             down_sql: "DROP INDEX test;".into(),
         });
-        assert_eq!(mgr.all().len(), 409);
-        assert_eq!(mgr.all()[408].version, 640);
+        assert_eq!(mgr.all().len(), before + 1);
+        assert_eq!(mgr.all()[before].version, next);
     }
 
     #[test]
@@ -3838,21 +3940,28 @@ mod tests {
     fn test_get_pending_none_applied() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(0);
-        assert_eq!(pending.len(), 408);
+        assert_eq!(pending.len(), mgr.all().len());
+        assert!(!pending.is_empty());
     }
 
     #[test]
     fn test_get_pending_all_applied() {
         let mgr = MigrationManager::new();
+        // Everything at or below the applied version is excluded, whatever
+        // the total happens to be.
         let pending = mgr.get_pending(192);
-        assert_eq!(pending.len(), 246);
+        let expected = mgr.all().iter().filter(|m| m.version > 192).count();
+        assert_eq!(pending.len(), expected);
+        assert!(pending.iter().all(|m| m.version > 192));
     }
 
     #[test]
     fn test_get_pending_partial() {
         let mgr = MigrationManager::new();
         let pending = mgr.get_pending(1);
-        assert_eq!(pending.len(), 407);
+        let expected = mgr.all().iter().filter(|m| m.version > 1).count();
+        assert_eq!(pending.len(), expected);
+        assert!(pending.iter().all(|m| m.version > 1));
     }
 
     #[test]
@@ -4009,16 +4118,31 @@ mod tests {
     #[test]
     fn test_container_repo_policies_sql_not_empty() {
         assert_ne!(M_083_CONTAINER_REPO_POLICIES_UP, "");
-        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_repository_policies"));
-        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_vulnerability_scans"));
-        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_image_signatures"));
-        assert!(M_083_CONTAINER_REPO_POLICIES_UP.contains("CREATE TABLE IF NOT EXISTS container_pull_through_cache"));
+        assert!(
+            M_083_CONTAINER_REPO_POLICIES_UP
+                .contains("CREATE TABLE IF NOT EXISTS container_repository_policies")
+        );
+        assert!(
+            M_083_CONTAINER_REPO_POLICIES_UP
+                .contains("CREATE TABLE IF NOT EXISTS container_vulnerability_scans")
+        );
+        assert!(
+            M_083_CONTAINER_REPO_POLICIES_UP
+                .contains("CREATE TABLE IF NOT EXISTS container_image_signatures")
+        );
+        assert!(
+            M_083_CONTAINER_REPO_POLICIES_UP
+                .contains("CREATE TABLE IF NOT EXISTS container_pull_through_cache")
+        );
     }
 
     #[test]
     fn test_container_repo_policies_down_sql_not_empty() {
         assert_ne!(M_083_CONTAINER_REPO_POLICIES_DOWN, "");
-        assert!(M_083_CONTAINER_REPO_POLICIES_DOWN.contains("DROP TABLE IF EXISTS container_repository_policies"));
+        assert!(
+            M_083_CONTAINER_REPO_POLICIES_DOWN
+                .contains("DROP TABLE IF EXISTS container_repository_policies")
+        );
     }
 
     #[test]
@@ -4038,7 +4162,10 @@ mod tests {
     #[test]
     fn test_webhook_deliveries_v2_sql_not_empty() {
         assert_ne!(M_100_WEBHOOK_DELIVERIES_V2_UP, "");
-        assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("CREATE TABLE IF NOT EXISTS webhook_deliveries_v2"));
+        assert!(
+            M_100_WEBHOOK_DELIVERIES_V2_UP
+                .contains("CREATE TABLE IF NOT EXISTS webhook_deliveries_v2")
+        );
         assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("webhook_id"));
         assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("event"));
         assert!(M_100_WEBHOOK_DELIVERIES_V2_UP.contains("payload"));
@@ -4054,14 +4181,19 @@ mod tests {
     #[test]
     fn test_webhook_deliveries_v2_down_sql_not_empty() {
         assert_ne!(M_100_WEBHOOK_DELIVERIES_V2_DOWN, "");
-        assert!(M_100_WEBHOOK_DELIVERIES_V2_DOWN.contains("DROP TABLE IF EXISTS webhook_deliveries_v2"));
+        assert!(
+            M_100_WEBHOOK_DELIVERIES_V2_DOWN.contains("DROP TABLE IF EXISTS webhook_deliveries_v2")
+        );
     }
 
     #[test]
     fn test_events_and_subscriptions_sql_not_empty() {
         assert_ne!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP, "");
         assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("CREATE TABLE IF NOT EXISTS events"));
-        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("CREATE TABLE IF NOT EXISTS event_subscriptions"));
+        assert!(
+            M_101_EVENTS_AND_SUBSCRIPTIONS_UP
+                .contains("CREATE TABLE IF NOT EXISTS event_subscriptions")
+        );
         assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("event_type"));
         assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("resource_type"));
         assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_UP.contains("resource_id"));
@@ -4074,7 +4206,10 @@ mod tests {
     #[test]
     fn test_events_and_subscriptions_down_sql_not_empty() {
         assert_ne!(M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN, "");
-        assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN.contains("DROP TABLE IF EXISTS event_subscriptions"));
+        assert!(
+            M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN
+                .contains("DROP TABLE IF EXISTS event_subscriptions")
+        );
         assert!(M_101_EVENTS_AND_SUBSCRIPTIONS_DOWN.contains("DROP TABLE IF EXISTS events"));
     }
 
@@ -4102,7 +4237,9 @@ mod tests {
     #[test]
     fn test_chaos_engineering_sql_not_empty() {
         assert_ne!(M_103_CHAOS_ENGINEERING_UP, "");
-        assert!(M_103_CHAOS_ENGINEERING_UP.contains("CREATE TABLE IF NOT EXISTS chaos_experiments"));
+        assert!(
+            M_103_CHAOS_ENGINEERING_UP.contains("CREATE TABLE IF NOT EXISTS chaos_experiments")
+        );
         assert!(M_103_CHAOS_ENGINEERING_UP.contains("CREATE TABLE IF NOT EXISTS chaos_results"));
         assert!(M_103_CHAOS_ENGINEERING_UP.contains("experiment_type"));
         assert!(M_103_CHAOS_ENGINEERING_UP.contains("target"));
@@ -4160,56 +4297,103 @@ mod tests {
     #[test]
     fn test_test_suite_config_notifications_sql_not_empty() {
         assert_ne!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP, "");
-        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_configurations"));
+        assert!(
+            M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_configurations")
+        );
         assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("suite_id"));
         assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("config_key"));
         assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("config_value"));
-        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_notifications"));
+        assert!(
+            M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_notifications")
+        );
         assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_UP.contains("notification_type"));
     }
 
     #[test]
     fn test_test_suite_config_notifications_down_sql_not_empty() {
         assert_ne!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN, "");
-        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN.contains("DROP TABLE IF EXISTS test_suite_notifications"));
-        assert!(M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN.contains("DROP TABLE IF EXISTS test_suite_configurations"));
+        assert!(
+            M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_notifications")
+        );
+        assert!(
+            M_196_TEST_SUITE_CONFIG_NOTIFICATIONS_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_configurations")
+        );
     }
 
     #[test]
     fn test_code_quality_rules_v2_sql_not_empty() {
         assert_ne!(M_197_CODE_QUALITY_RULES_V2_UP, "");
-        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_rules_v2"));
+        assert!(
+            M_197_CODE_QUALITY_RULES_V2_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_rules_v2")
+        );
         assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("auto_fix"));
         assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("fix_config"));
-        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_rule_versions"));
-        assert!(M_197_CODE_QUALITY_RULES_V2_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_rule_test_results"));
+        assert!(
+            M_197_CODE_QUALITY_RULES_V2_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_rule_versions")
+        );
+        assert!(
+            M_197_CODE_QUALITY_RULES_V2_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_rule_test_results")
+        );
     }
 
     #[test]
     fn test_code_quality_rules_v2_down_sql_not_empty() {
         assert_ne!(M_197_CODE_QUALITY_RULES_V2_DOWN, "");
-        assert!(M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rule_test_results"));
-        assert!(M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rule_versions"));
-        assert!(M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rules_v2"));
+        assert!(
+            M_197_CODE_QUALITY_RULES_V2_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_rule_test_results")
+        );
+        assert!(
+            M_197_CODE_QUALITY_RULES_V2_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_rule_versions")
+        );
+        assert!(
+            M_197_CODE_QUALITY_RULES_V2_DOWN.contains("DROP TABLE IF EXISTS code_quality_rules_v2")
+        );
     }
 
     #[test]
     fn test_performance_baselines_regressions_sql_not_empty() {
         assert_ne!(M_198_PERF_BASELINES_REGRESSIONS_UP, "");
-        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("CREATE TABLE IF NOT EXISTS performance_baselines"));
+        assert!(
+            M_198_PERF_BASELINES_REGRESSIONS_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_baselines")
+        );
         assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("baseline_value"));
         assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("threshold_percent"));
-        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("CREATE TABLE IF NOT EXISTS performance_regressions"));
+        assert!(
+            M_198_PERF_BASELINES_REGRESSIONS_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_regressions")
+        );
         assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("regression_percent"));
-        assert!(M_198_PERF_BASELINES_REGRESSIONS_UP.contains("CREATE TABLE IF NOT EXISTS performance_trend_data"));
+        assert!(
+            M_198_PERF_BASELINES_REGRESSIONS_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_trend_data")
+        );
     }
 
     #[test]
     fn test_performance_baselines_regressions_down_sql_not_empty() {
         assert_ne!(M_198_PERF_BASELINES_REGRESSIONS_DOWN, "");
-        assert!(M_198_PERF_BASELINES_REGRESSIONS_DOWN.contains("DROP TABLE IF EXISTS performance_trend_data"));
-        assert!(M_198_PERF_BASELINES_REGRESSIONS_DOWN.contains("DROP TABLE IF EXISTS performance_regressions"));
-        assert!(M_198_PERF_BASELINES_REGRESSIONS_DOWN.contains("DROP TABLE IF EXISTS performance_baselines"));
+        assert!(
+            M_198_PERF_BASELINES_REGRESSIONS_DOWN
+                .contains("DROP TABLE IF EXISTS performance_trend_data")
+        );
+        assert!(
+            M_198_PERF_BASELINES_REGRESSIONS_DOWN
+                .contains("DROP TABLE IF EXISTS performance_regressions")
+        );
+        assert!(
+            M_198_PERF_BASELINES_REGRESSIONS_DOWN
+                .contains("DROP TABLE IF EXISTS performance_baselines")
+        );
     }
 
     #[test]
@@ -4234,8 +4418,13 @@ mod tests {
     #[test]
     fn test_rate_limit_tiers_v5_sql_not_empty() {
         assert_ne!(M_263_RATE_LIMIT_TIERS_V5_UP, "");
-        assert!(M_263_RATE_LIMIT_TIERS_V5_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_tiers_v5"));
-        assert!(M_263_RATE_LIMIT_TIERS_V5_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_alerts_v2"));
+        assert!(
+            M_263_RATE_LIMIT_TIERS_V5_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_tiers_v5")
+        );
+        assert!(
+            M_263_RATE_LIMIT_TIERS_V5_UP
+                .contains("CREATE TABLE IF NOT EXISTS rate_limit_alerts_v2")
+        );
         assert!(M_263_RATE_LIMIT_TIERS_V5_UP.contains("features"));
         assert!(M_263_RATE_LIMIT_TIERS_V5_UP.contains("limits"));
         assert!(M_263_RATE_LIMIT_TIERS_V5_UP.contains("threshold"));
@@ -4244,8 +4433,12 @@ mod tests {
     #[test]
     fn test_rate_limit_tiers_v5_down_sql_not_empty() {
         assert_ne!(M_263_RATE_LIMIT_TIERS_V5_DOWN, "");
-        assert!(M_263_RATE_LIMIT_TIERS_V5_DOWN.contains("DROP TABLE IF EXISTS rate_limit_alerts_v2"));
-        assert!(M_263_RATE_LIMIT_TIERS_V5_DOWN.contains("DROP TABLE IF EXISTS rate_limit_tiers_v5"));
+        assert!(
+            M_263_RATE_LIMIT_TIERS_V5_DOWN.contains("DROP TABLE IF EXISTS rate_limit_alerts_v2")
+        );
+        assert!(
+            M_263_RATE_LIMIT_TIERS_V5_DOWN.contains("DROP TABLE IF EXISTS rate_limit_tiers_v5")
+        );
     }
 
     #[test]
@@ -4287,8 +4480,13 @@ mod tests {
     #[test]
     fn test_rate_limit_tiers_v8_sql_not_empty() {
         assert_ne!(M_326_RATE_LIMIT_TIERS_V8_UP, "");
-        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_tiers_v8"));
-        assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_alerts_v5"));
+        assert!(
+            M_326_RATE_LIMIT_TIERS_V8_UP.contains("CREATE TABLE IF NOT EXISTS rate_limit_tiers_v8")
+        );
+        assert!(
+            M_326_RATE_LIMIT_TIERS_V8_UP
+                .contains("CREATE TABLE IF NOT EXISTS rate_limit_alerts_v5")
+        );
         assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("features"));
         assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("limits"));
         assert!(M_326_RATE_LIMIT_TIERS_V8_UP.contains("threshold"));
@@ -4297,14 +4495,20 @@ mod tests {
     #[test]
     fn test_rate_limit_tiers_v8_down_sql_not_empty() {
         assert_ne!(M_326_RATE_LIMIT_TIERS_V8_DOWN, "");
-        assert!(M_326_RATE_LIMIT_TIERS_V8_DOWN.contains("DROP TABLE IF EXISTS rate_limit_alerts_v5"));
-        assert!(M_326_RATE_LIMIT_TIERS_V8_DOWN.contains("DROP TABLE IF EXISTS rate_limit_tiers_v8"));
+        assert!(
+            M_326_RATE_LIMIT_TIERS_V8_DOWN.contains("DROP TABLE IF EXISTS rate_limit_alerts_v5")
+        );
+        assert!(
+            M_326_RATE_LIMIT_TIERS_V8_DOWN.contains("DROP TABLE IF EXISTS rate_limit_tiers_v8")
+        );
     }
 
     #[test]
     fn test_api_analytics_v11_sql_not_empty() {
         assert_ne!(M_327_API_ANALYTICS_V11_UP, "");
-        assert!(M_327_API_ANALYTICS_V11_UP.contains("CREATE TABLE IF NOT EXISTS api_analytics_v11"));
+        assert!(
+            M_327_API_ANALYTICS_V11_UP.contains("CREATE TABLE IF NOT EXISTS api_analytics_v11")
+        );
         assert!(M_327_API_ANALYTICS_V11_UP.contains("endpoint"));
         assert!(M_327_API_ANALYTICS_V11_UP.contains("cost_cents"));
         assert!(M_327_API_ANALYTICS_V11_UP.contains("cache_hit"));
@@ -4321,8 +4525,12 @@ mod tests {
     #[test]
     fn test_log_aggregation_v14_up_sql_not_empty() {
         assert_ne!(M_442_LOG_AGGREGATION_V14_UP, "");
-        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("CREATE TABLE IF NOT EXISTS log_entries_v14"));
-        assert!(M_442_LOG_AGGREGATION_V14_UP.contains("CREATE TABLE IF NOT EXISTS log_alert_rules_v11"));
+        assert!(
+            M_442_LOG_AGGREGATION_V14_UP.contains("CREATE TABLE IF NOT EXISTS log_entries_v14")
+        );
+        assert!(
+            M_442_LOG_AGGREGATION_V14_UP.contains("CREATE TABLE IF NOT EXISTS log_alert_rules_v11")
+        );
         assert!(M_442_LOG_AGGREGATION_V14_UP.contains("level"));
         assert!(M_442_LOG_AGGREGATION_V14_UP.contains("message"));
         assert!(M_442_LOG_AGGREGATION_V14_UP.contains("source"));
@@ -4337,15 +4545,23 @@ mod tests {
     #[test]
     fn test_log_aggregation_v14_down_sql_not_empty() {
         assert_ne!(M_442_LOG_AGGREGATION_V14_DOWN, "");
-        assert!(M_442_LOG_AGGREGATION_V14_DOWN.contains("DROP TABLE IF EXISTS log_alert_rules_v11"));
+        assert!(
+            M_442_LOG_AGGREGATION_V14_DOWN.contains("DROP TABLE IF EXISTS log_alert_rules_v11")
+        );
         assert!(M_442_LOG_AGGREGATION_V14_DOWN.contains("DROP TABLE IF EXISTS log_entries_v14"));
     }
 
     #[test]
     fn test_distributed_tracing_v15_up_sql_not_empty() {
         assert_ne!(M_443_DISTRIBUTED_TRACING_V15_UP, "");
-        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("CREATE TABLE IF NOT EXISTS trace_sampling_rules_v14"));
-        assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("CREATE TABLE IF NOT EXISTS trace_service_dependencies_v11"));
+        assert!(
+            M_443_DISTRIBUTED_TRACING_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS trace_sampling_rules_v14")
+        );
+        assert!(
+            M_443_DISTRIBUTED_TRACING_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS trace_service_dependencies_v11")
+        );
         assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("service_name"));
         assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("endpoint"));
         assert!(M_443_DISTRIBUTED_TRACING_V15_UP.contains("sample_rate"));
@@ -4360,15 +4576,27 @@ mod tests {
     #[test]
     fn test_distributed_tracing_v15_down_sql_not_empty() {
         assert_ne!(M_443_DISTRIBUTED_TRACING_V15_DOWN, "");
-        assert!(M_443_DISTRIBUTED_TRACING_V15_DOWN.contains("DROP TABLE IF EXISTS trace_service_dependencies_v11"));
-        assert!(M_443_DISTRIBUTED_TRACING_V15_DOWN.contains("DROP TABLE IF EXISTS trace_sampling_rules_v14"));
+        assert!(
+            M_443_DISTRIBUTED_TRACING_V15_DOWN
+                .contains("DROP TABLE IF EXISTS trace_service_dependencies_v11")
+        );
+        assert!(
+            M_443_DISTRIBUTED_TRACING_V15_DOWN
+                .contains("DROP TABLE IF EXISTS trace_sampling_rules_v14")
+        );
     }
 
     #[test]
     fn test_dashboard_reporting_v14_up_sql_not_empty() {
         assert_ne!(M_444_DASHBOARD_REPORTING_V14_UP, "");
-        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("CREATE TABLE IF NOT EXISTS dashboard_shares_v11"));
-        assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("CREATE TABLE IF NOT EXISTS report_schedules_v12"));
+        assert!(
+            M_444_DASHBOARD_REPORTING_V14_UP
+                .contains("CREATE TABLE IF NOT EXISTS dashboard_shares_v11")
+        );
+        assert!(
+            M_444_DASHBOARD_REPORTING_V14_UP
+                .contains("CREATE TABLE IF NOT EXISTS report_schedules_v12")
+        );
         assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("dashboard_id"));
         assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("user_id"));
         assert!(M_444_DASHBOARD_REPORTING_V14_UP.contains("permission"));
@@ -4380,15 +4608,27 @@ mod tests {
     #[test]
     fn test_dashboard_reporting_v14_down_sql_not_empty() {
         assert_ne!(M_444_DASHBOARD_REPORTING_V14_DOWN, "");
-        assert!(M_444_DASHBOARD_REPORTING_V14_DOWN.contains("DROP TABLE IF EXISTS report_schedules_v12"));
-        assert!(M_444_DASHBOARD_REPORTING_V14_DOWN.contains("DROP TABLE IF EXISTS dashboard_shares_v11"));
+        assert!(
+            M_444_DASHBOARD_REPORTING_V14_DOWN
+                .contains("DROP TABLE IF EXISTS report_schedules_v12")
+        );
+        assert!(
+            M_444_DASHBOARD_REPORTING_V14_DOWN
+                .contains("DROP TABLE IF EXISTS dashboard_shares_v11")
+        );
     }
 
     #[test]
     fn test_test_suite_metrics_baselines_v11_up_sql_not_empty() {
         assert_ne!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP, "");
-        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v11"));
-        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v11"));
+        assert!(
+            M_448_TEST_SUITE_METRICS_BASELINES_V11_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v11")
+        );
+        assert!(
+            M_448_TEST_SUITE_METRICS_BASELINES_V11_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v11")
+        );
         assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("suite_id"));
         assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("metric_name"));
         assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_UP.contains("metric_value"));
@@ -4399,15 +4639,27 @@ mod tests {
     #[test]
     fn test_test_suite_metrics_baselines_v11_down_sql_not_empty() {
         assert_ne!(M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN, "");
-        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN.contains("DROP TABLE IF EXISTS test_suite_baselines_v11"));
-        assert!(M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN.contains("DROP TABLE IF EXISTS test_suite_metrics_v11"));
+        assert!(
+            M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_baselines_v11")
+        );
+        assert!(
+            M_448_TEST_SUITE_METRICS_BASELINES_V11_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_metrics_v11")
+        );
     }
 
     #[test]
     fn test_code_quality_metrics_v12_thresholds_v11_up_sql_not_empty() {
         assert_ne!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP, "");
-        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v12"));
-        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v11"));
+        assert!(
+            M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v12")
+        );
+        assert!(
+            M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v11")
+        );
         assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("repo_id"));
         assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("file_path"));
         assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_UP.contains("metric_name"));
@@ -4418,15 +4670,27 @@ mod tests {
     #[test]
     fn test_code_quality_metrics_v12_thresholds_v11_down_sql_not_empty() {
         assert_ne!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN, "");
-        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN.contains("DROP TABLE IF EXISTS code_quality_thresholds_v11"));
-        assert!(M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN.contains("DROP TABLE IF EXISTS code_quality_metrics_v12"));
+        assert!(
+            M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_thresholds_v11")
+        );
+        assert!(
+            M_449_CODE_QUALITY_METRICS_V12_THRESHOLDS_V11_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_metrics_v12")
+        );
     }
 
     #[test]
     fn test_performance_test_alerts_v12_up_sql_not_empty() {
         assert_ne!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP, "");
-        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v12"));
-        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v12"));
+        assert!(
+            M_450_PERFORMANCE_TEST_ALERTS_V12_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v12")
+        );
+        assert!(
+            M_450_PERFORMANCE_TEST_ALERTS_V12_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v12")
+        );
         assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("baseline_id"));
         assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("alert_type"));
         assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_UP.contains("threshold"));
@@ -4437,161 +4701,325 @@ mod tests {
     #[test]
     fn test_performance_test_alerts_v12_down_sql_not_empty() {
         assert_ne!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN, "");
-        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v12"));
-        assert!(M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v12"));
+        assert!(
+            M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN
+                .contains("DROP TABLE IF EXISTS performance_test_alert_history_v12")
+        );
+        assert!(
+            M_450_PERFORMANCE_TEST_ALERTS_V12_DOWN
+                .contains("DROP TABLE IF EXISTS performance_test_alerts_v12")
+        );
     }
 
     #[test]
     fn test_pipeline_action_reviews_v15_up_sql_not_empty() {
         assert_ne!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP, "");
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS pipeline_action_reviews_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_helpfulness_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_moderation_queue_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_analytics_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_UP.contains("CREATE TABLE IF NOT EXISTS review_recommendations_v15"));
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS pipeline_action_reviews_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS review_helpfulness_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS review_moderation_queue_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS review_analytics_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS review_recommendations_v15")
+        );
     }
 
     #[test]
     fn test_pipeline_action_reviews_v15_down_sql_not_empty() {
         assert_ne!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN, "");
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_recommendations_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_analytics_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_moderation_queue_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS review_helpfulness_v15"));
-        assert!(M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN.contains("DROP TABLE IF EXISTS pipeline_action_reviews_v15"));
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN
+                .contains("DROP TABLE IF EXISTS review_recommendations_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN
+                .contains("DROP TABLE IF EXISTS review_analytics_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN
+                .contains("DROP TABLE IF EXISTS review_moderation_queue_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN
+                .contains("DROP TABLE IF EXISTS review_helpfulness_v15")
+        );
+        assert!(
+            M_508_PIPELINE_ACTION_REVIEWS_V15_DOWN
+                .contains("DROP TABLE IF EXISTS pipeline_action_reviews_v15")
+        );
     }
 
     #[test]
     fn test_environment_deployment_history_v15_up_sql_not_empty() {
         assert_ne!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP, "");
-        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.contains("CREATE TABLE IF NOT EXISTS environment_deployment_history_v15"));
-        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.contains("CREATE TABLE IF NOT EXISTS deployment_comparison_v15"));
-        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_UP.contains("CREATE TABLE IF NOT EXISTS deployment_analytics_v15"));
+        assert!(
+            M_509_ENVIRONMENT_DEPLOYMENT_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS environment_deployment_history_v15")
+        );
+        assert!(
+            M_509_ENVIRONMENT_DEPLOYMENT_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS deployment_comparison_v15")
+        );
+        assert!(
+            M_509_ENVIRONMENT_DEPLOYMENT_V15_UP
+                .contains("CREATE TABLE IF NOT EXISTS deployment_analytics_v15")
+        );
     }
 
     #[test]
     fn test_environment_deployment_history_v15_down_sql_not_empty() {
         assert_ne!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN, "");
-        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.contains("DROP TABLE IF EXISTS deployment_analytics_v15"));
-        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.contains("DROP TABLE IF EXISTS deployment_comparison_v15"));
-        assert!(M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN.contains("DROP TABLE IF EXISTS environment_deployment_history_v15"));
+        assert!(
+            M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN
+                .contains("DROP TABLE IF EXISTS deployment_analytics_v15")
+        );
+        assert!(
+            M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN
+                .contains("DROP TABLE IF EXISTS deployment_comparison_v15")
+        );
+        assert!(
+            M_509_ENVIRONMENT_DEPLOYMENT_V15_DOWN
+                .contains("DROP TABLE IF EXISTS environment_deployment_history_v15")
+        );
     }
 
     #[test]
     fn test_cache_hit_analysis_v14_up_sql_not_empty() {
         assert_ne!(M_510_CACHE_HIT_ANALYSIS_V14_UP, "");
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_hit_analysis_v14"));
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_size_tracking_v14"));
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_cost_optimization_v14"));
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_UP.contains("CREATE TABLE IF NOT EXISTS cache_performance_insights_v14"));
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_UP
+                .contains("CREATE TABLE IF NOT EXISTS cache_hit_analysis_v14")
+        );
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_UP
+                .contains("CREATE TABLE IF NOT EXISTS cache_size_tracking_v14")
+        );
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_UP
+                .contains("CREATE TABLE IF NOT EXISTS cache_cost_optimization_v14")
+        );
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_UP
+                .contains("CREATE TABLE IF NOT EXISTS cache_performance_insights_v14")
+        );
     }
 
     #[test]
     fn test_cache_hit_analysis_v14_down_sql_not_empty() {
         assert_ne!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN, "");
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_performance_insights_v14"));
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_cost_optimization_v14"));
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_size_tracking_v14"));
-        assert!(M_510_CACHE_HIT_ANALYSIS_V14_DOWN.contains("DROP TABLE IF EXISTS cache_hit_analysis_v14"));
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_DOWN
+                .contains("DROP TABLE IF EXISTS cache_performance_insights_v14")
+        );
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_DOWN
+                .contains("DROP TABLE IF EXISTS cache_cost_optimization_v14")
+        );
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_DOWN
+                .contains("DROP TABLE IF EXISTS cache_size_tracking_v14")
+        );
+        assert!(
+            M_510_CACHE_HIT_ANALYSIS_V14_DOWN
+                .contains("DROP TABLE IF EXISTS cache_hit_analysis_v14")
+        );
     }
 
     #[test]
     fn test_test_suite_management_v20_up_sql_not_empty() {
         assert_ne!(M_574_TEST_SUITE_MANAGEMENT_V20_UP, "");
-        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v17"));
-        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v17"));
+        assert!(
+            M_574_TEST_SUITE_MANAGEMENT_V20_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v17")
+        );
+        assert!(
+            M_574_TEST_SUITE_MANAGEMENT_V20_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v17")
+        );
     }
 
     #[test]
     fn test_test_suite_management_v20_down_sql_not_empty() {
         assert_ne!(M_574_TEST_SUITE_MANAGEMENT_V20_DOWN, "");
-        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_DOWN.contains("DROP TABLE IF EXISTS test_suite_baselines_v17"));
-        assert!(M_574_TEST_SUITE_MANAGEMENT_V20_DOWN.contains("DROP TABLE IF EXISTS test_suite_metrics_v17"));
+        assert!(
+            M_574_TEST_SUITE_MANAGEMENT_V20_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_baselines_v17")
+        );
+        assert!(
+            M_574_TEST_SUITE_MANAGEMENT_V20_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_metrics_v17")
+        );
     }
 
     #[test]
     fn test_code_quality_rules_v20_up_sql_not_empty() {
         assert_ne!(M_575_CODE_QUALITY_RULES_V20_UP, "");
-        assert!(M_575_CODE_QUALITY_RULES_V20_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v18"));
-        assert!(M_575_CODE_QUALITY_RULES_V20_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v17"));
+        assert!(
+            M_575_CODE_QUALITY_RULES_V20_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v18")
+        );
+        assert!(
+            M_575_CODE_QUALITY_RULES_V20_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v17")
+        );
     }
 
     #[test]
     fn test_code_quality_rules_v20_down_sql_not_empty() {
         assert_ne!(M_575_CODE_QUALITY_RULES_V20_DOWN, "");
-        assert!(M_575_CODE_QUALITY_RULES_V20_DOWN.contains("DROP TABLE IF EXISTS code_quality_thresholds_v17"));
-        assert!(M_575_CODE_QUALITY_RULES_V20_DOWN.contains("DROP TABLE IF EXISTS code_quality_metrics_v18"));
+        assert!(
+            M_575_CODE_QUALITY_RULES_V20_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_thresholds_v17")
+        );
+        assert!(
+            M_575_CODE_QUALITY_RULES_V20_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_metrics_v18")
+        );
     }
 
     #[test]
     fn test_performance_testing_v21_up_sql_not_empty() {
         assert_ne!(M_576_PERFORMANCE_TESTING_V21_UP, "");
-        assert!(M_576_PERFORMANCE_TESTING_V21_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v18"));
-        assert!(M_576_PERFORMANCE_TESTING_V21_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v18"));
+        assert!(
+            M_576_PERFORMANCE_TESTING_V21_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v18")
+        );
+        assert!(
+            M_576_PERFORMANCE_TESTING_V21_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v18")
+        );
     }
 
     #[test]
     fn test_performance_testing_v21_down_sql_not_empty() {
         assert_ne!(M_576_PERFORMANCE_TESTING_V21_DOWN, "");
-        assert!(M_576_PERFORMANCE_TESTING_V21_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v18"));
-        assert!(M_576_PERFORMANCE_TESTING_V21_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v18"));
+        assert!(
+            M_576_PERFORMANCE_TESTING_V21_DOWN
+                .contains("DROP TABLE IF EXISTS performance_test_alert_history_v18")
+        );
+        assert!(
+            M_576_PERFORMANCE_TESTING_V21_DOWN
+                .contains("DROP TABLE IF EXISTS performance_test_alerts_v18")
+        );
     }
 
     #[test]
     fn test_test_suite_management_v21_up_sql_not_empty() {
         assert_ne!(M_595_TEST_SUITE_MANAGEMENT_V21_UP, "");
-        assert!(M_595_TEST_SUITE_MANAGEMENT_V21_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v18"));
-        assert!(M_595_TEST_SUITE_MANAGEMENT_V21_UP.contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v18"));
+        assert!(
+            M_595_TEST_SUITE_MANAGEMENT_V21_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_metrics_v18")
+        );
+        assert!(
+            M_595_TEST_SUITE_MANAGEMENT_V21_UP
+                .contains("CREATE TABLE IF NOT EXISTS test_suite_baselines_v18")
+        );
     }
 
     #[test]
     fn test_test_suite_management_v21_down_sql_not_empty() {
         assert_ne!(M_595_TEST_SUITE_MANAGEMENT_V21_DOWN, "");
-        assert!(M_595_TEST_SUITE_MANAGEMENT_V21_DOWN.contains("DROP TABLE IF EXISTS test_suite_baselines_v18"));
-        assert!(M_595_TEST_SUITE_MANAGEMENT_V21_DOWN.contains("DROP TABLE IF EXISTS test_suite_metrics_v18"));
+        assert!(
+            M_595_TEST_SUITE_MANAGEMENT_V21_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_baselines_v18")
+        );
+        assert!(
+            M_595_TEST_SUITE_MANAGEMENT_V21_DOWN
+                .contains("DROP TABLE IF EXISTS test_suite_metrics_v18")
+        );
     }
 
     #[test]
     fn test_code_quality_rules_v21_up_sql_not_empty() {
         assert_ne!(M_596_CODE_QUALITY_RULES_V21_UP, "");
-        assert!(M_596_CODE_QUALITY_RULES_V21_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v19"));
-        assert!(M_596_CODE_QUALITY_RULES_V21_UP.contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v18"));
+        assert!(
+            M_596_CODE_QUALITY_RULES_V21_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_metrics_v19")
+        );
+        assert!(
+            M_596_CODE_QUALITY_RULES_V21_UP
+                .contains("CREATE TABLE IF NOT EXISTS code_quality_thresholds_v18")
+        );
     }
 
     #[test]
     fn test_code_quality_rules_v21_down_sql_not_empty() {
         assert_ne!(M_596_CODE_QUALITY_RULES_V21_DOWN, "");
-        assert!(M_596_CODE_QUALITY_RULES_V21_DOWN.contains("DROP TABLE IF EXISTS code_quality_thresholds_v18"));
-        assert!(M_596_CODE_QUALITY_RULES_V21_DOWN.contains("DROP TABLE IF EXISTS code_quality_metrics_v19"));
+        assert!(
+            M_596_CODE_QUALITY_RULES_V21_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_thresholds_v18")
+        );
+        assert!(
+            M_596_CODE_QUALITY_RULES_V21_DOWN
+                .contains("DROP TABLE IF EXISTS code_quality_metrics_v19")
+        );
     }
 
     #[test]
     fn test_performance_testing_v22_up_sql_not_empty() {
         assert_ne!(M_597_PERFORMANCE_TESTING_V22_UP, "");
-        assert!(M_597_PERFORMANCE_TESTING_V22_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v19"));
-        assert!(M_597_PERFORMANCE_TESTING_V22_UP.contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v19"));
+        assert!(
+            M_597_PERFORMANCE_TESTING_V22_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_test_alerts_v19")
+        );
+        assert!(
+            M_597_PERFORMANCE_TESTING_V22_UP
+                .contains("CREATE TABLE IF NOT EXISTS performance_test_alert_history_v19")
+        );
     }
 
     #[test]
     fn test_performance_testing_v22_down_sql_not_empty() {
         assert_ne!(M_597_PERFORMANCE_TESTING_V22_DOWN, "");
-        assert!(M_597_PERFORMANCE_TESTING_V22_DOWN.contains("DROP TABLE IF EXISTS performance_test_alert_history_v19"));
-        assert!(M_597_PERFORMANCE_TESTING_V22_DOWN.contains("DROP TABLE IF EXISTS performance_test_alerts_v19"));
+        assert!(
+            M_597_PERFORMANCE_TESTING_V22_DOWN
+                .contains("DROP TABLE IF EXISTS performance_test_alert_history_v19")
+        );
+        assert!(
+            M_597_PERFORMANCE_TESTING_V22_DOWN
+                .contains("DROP TABLE IF EXISTS performance_test_alerts_v19")
+        );
     }
 
     #[test]
     fn test_tenant_isolation_up_sql_not_empty() {
         assert_ne!(M_637_ADD_TENANT_ISOLATION_UP, "");
-        assert!(M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_resource_quotas_v1"));
-        assert!(M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_isolation_policies_v1"));
-        assert!(M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_billing_v1"));
+        assert!(
+            M_637_ADD_TENANT_ISOLATION_UP
+                .contains("CREATE TABLE IF NOT EXISTS tenant_resource_quotas_v1")
+        );
+        assert!(
+            M_637_ADD_TENANT_ISOLATION_UP
+                .contains("CREATE TABLE IF NOT EXISTS tenant_isolation_policies_v1")
+        );
+        assert!(
+            M_637_ADD_TENANT_ISOLATION_UP.contains("CREATE TABLE IF NOT EXISTS tenant_billing_v1")
+        );
     }
 
     #[test]
     fn test_tenant_isolation_down_sql_not_empty() {
         assert_ne!(M_637_ADD_TENANT_ISOLATION_DOWN, "");
         assert!(M_637_ADD_TENANT_ISOLATION_DOWN.contains("DROP TABLE IF EXISTS tenant_billing_v1"));
-        assert!(M_637_ADD_TENANT_ISOLATION_DOWN.contains("DROP TABLE IF EXISTS tenant_isolation_policies_v1"));
-        assert!(M_637_ADD_TENANT_ISOLATION_DOWN.contains("DROP TABLE IF EXISTS tenant_resource_quotas_v1"));
+        assert!(
+            M_637_ADD_TENANT_ISOLATION_DOWN
+                .contains("DROP TABLE IF EXISTS tenant_isolation_policies_v1")
+        );
+        assert!(
+            M_637_ADD_TENANT_ISOLATION_DOWN
+                .contains("DROP TABLE IF EXISTS tenant_resource_quotas_v1")
+        );
     }
 }

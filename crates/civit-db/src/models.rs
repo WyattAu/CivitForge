@@ -481,6 +481,54 @@ pub struct FeatureFlag {
     pub enabled_for_orgs: Vec<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Lifecycle category (`release`, `experiment`, `operational`,
+    /// `permission`); sets the staleness deadline. ADR-0008.
+    pub kind: String,
+    /// Accountable party. Governance requires this on creation.
+    pub owner: String,
+    /// External issue reference for the change.
+    pub ticket: String,
+    /// Rollout-cycle identifier: sticky within a cycle, re-drawable across
+    /// cycles without a deploy.
+    pub salt: String,
+    /// Last evaluation read. `None` means never evaluated, which is a
+    /// staleness signal rather than missing data.
+    pub last_evaluated_at: Option<DateTime<Utc>>,
+    /// The staleness clock runs from here, not from `created_at`.
+    pub last_changed_at: DateTime<Utc>,
+}
+
+/// One signal behind a staleness verdict, so the API can explain itself.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlagSignalView {
+    /// Stable wire name (`aged_past_deadline`, `fully_rolled_out`, ...).
+    pub signal: String,
+    /// Human-readable detail, e.g. `31 days past a 30 day deadline`.
+    pub detail: String,
+}
+
+/// A flag with the verdict the kit computed and the evidence behind it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FlagStalenessView {
+    pub id: Uuid,
+    pub name: String,
+    pub kind: String,
+    pub owner: String,
+    pub ticket: String,
+    /// `fresh`, `aging`, `stale`, or `permanent`.
+    pub staleness: String,
+    /// True when the flag is a removal candidate.
+    pub is_removal_candidate: bool,
+    /// Days since creation.
+    pub age_days: i64,
+    /// Days since the last change, when known.
+    pub last_changed_age_days: Option<i64>,
+    /// Days since the last evaluation, when it has ever been evaluated.
+    pub last_evaluated_age_days: Option<i64>,
+    pub enabled: bool,
+    pub percentage: i32,
+    /// Every signal that fired, in report order.
+    pub signals: Vec<FlagSignalView>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]

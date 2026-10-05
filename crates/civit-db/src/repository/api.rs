@@ -3,66 +3,57 @@
 
 use crate::error::{DbError, Result};
 use crate::models::{
-    ActivityEvent, AnalyticsAlertRuleV21, AnalyticsDashboardTemplateV21,
-    ApiAnalyticV2, ApiAnalyticV3, ApiAnalyticV4, ApiAnalyticV5, ApiAnalyticV6,
-    ApiAnalyticV7, ApiAnalyticV8, ApiAnalyticV9, ApiAnalyticV11, ApiAnalyticV12, ApiAnalyticV13,
-    ApiAnalyticV14, ApiAnalyticV15, ApiAnalyticV16, ApiAnalyticV17, ApiAnalyticV18, ApiAnalyticV19,
-    ApiAnalyticV20, ApiAnalyticV21, ApiAnalyticV23,
-    ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation,
-    ApiDocChangelogV21, ApiDocExampleV21,
-    ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8, ApiDocsV10,
-    ApiDocsV11, ApiDocsV12, ApiDocsV13, ApiDocsV14, ApiDocsV15, ApiDocsV16, ApiDocsV17,
-    ApiDocsV18, ApiDocsV19, ApiDocsV20, ApiDocsV22,
-    ApiDocumentation, ApiVersion, ApiWebhookDeliveryV2, ApiWebhookV2,
-    BoardCardAssignee, BoardCardLabel, CacheCostOptimizationV3,
-    CacheHitAnalysisV3, CachePerformanceInsightsV3, CacheSizeTrackingV3,
-    CodeQualityMetric, CodeQualityMetricV4, CodeQualityMetricV6, CodeQualityMetricV7,
-    CodeQualityMetricV8, CodeQualityMetricV10, CodeQualityMetricV13, CodeQualityMetricV14,
-    CodeQualityMetricV15, CodeQualityMetricV16, CodeQualityMetricV17, CodeQualityMetricV19,
-    CodeQualityMetricV20, CodeQualityThresholdV3, CodeQualityThresholdV5, CodeQualityThresholdV6,
-    CodeQualityThresholdV7, CodeQualityThresholdV9, CodeQualityThresholdV13,
-    CodeQualityThresholdV14, CodeQualityThresholdV15, CodeQualityThresholdV16,
-    CodeQualityThresholdV17, CodeQualityThresholdV19, CodeQualityThresholdV20,
-    DataArchive, DataMigration, DataResidencyComplianceV4, DataResidencyComplianceV8,
-    DataResidencyComplianceV11, DataResidencyReportV4, DataResidencyReportV8,
-    DataResidencyReportV11, DataResidencyRule, DataResidencyViolation, DatabaseBackup,
-    DatabaseRecoveryPoint, DatabaseReplica, DatabaseReplicationAlertV4,
-    DatabaseReplicationAlertV8, DatabaseReplicationAlertV11, DatabaseReplicationConfigV4,
-    DatabaseReplicationConfigV8, DatabaseReplicationConfigV11, DeploymentAnalyticsV4,
-    DeploymentComparisonV4, EncryptionComplianceCheckV4, EncryptionComplianceCheckV8,
-    EncryptionComplianceCheckV11, EncryptionKeyVersionV4, EncryptionKeyVersionV8,
-    EncryptionKeyVersionV11, EncryptionPolicy, EnvironmentDeploymentHistoryV4,
-    PerformanceTest, PerformanceTestAlertV4,
+    ActivityEvent, AnalyticsAlertRuleV21, AnalyticsDashboardTemplateV21, ApiAnalyticV2,
+    ApiAnalyticV3, ApiAnalyticV4, ApiAnalyticV5, ApiAnalyticV6, ApiAnalyticV7, ApiAnalyticV8,
+    ApiAnalyticV9, ApiAnalyticV11, ApiAnalyticV12, ApiAnalyticV13, ApiAnalyticV14, ApiAnalyticV15,
+    ApiAnalyticV16, ApiAnalyticV17, ApiAnalyticV18, ApiAnalyticV19, ApiAnalyticV20, ApiAnalyticV21,
+    ApiAnalyticV23, ApiAnalyticsCapacityPlan, ApiAnalyticsCorrelation, ApiDocChangelogV21,
+    ApiDocExampleV21, ApiDocsV2, ApiDocsV3, ApiDocsV4, ApiDocsV5, ApiDocsV6, ApiDocsV7, ApiDocsV8,
+    ApiDocsV10, ApiDocsV11, ApiDocsV12, ApiDocsV13, ApiDocsV14, ApiDocsV15, ApiDocsV16, ApiDocsV17,
+    ApiDocsV18, ApiDocsV19, ApiDocsV20, ApiDocsV22, ApiDocumentation, ApiVersion,
+    ApiWebhookDeliveryV2, ApiWebhookV2, BoardCardAssignee, BoardCardLabel, CacheCostOptimizationV3,
+    CacheHitAnalysisV3, CachePerformanceInsightsV3, CacheSizeTrackingV3, CodeQualityMetric,
+    CodeQualityMetricV4, CodeQualityMetricV6, CodeQualityMetricV7, CodeQualityMetricV8,
+    CodeQualityMetricV10, CodeQualityMetricV13, CodeQualityMetricV14, CodeQualityMetricV15,
+    CodeQualityMetricV16, CodeQualityMetricV17, CodeQualityMetricV19, CodeQualityMetricV20,
+    CodeQualityThresholdV3, CodeQualityThresholdV5, CodeQualityThresholdV6, CodeQualityThresholdV7,
+    CodeQualityThresholdV9, CodeQualityThresholdV13, CodeQualityThresholdV14,
+    CodeQualityThresholdV15, CodeQualityThresholdV16, CodeQualityThresholdV17,
+    CodeQualityThresholdV19, CodeQualityThresholdV20, DataArchive, DataMigration,
+    DataResidencyComplianceV4, DataResidencyComplianceV8, DataResidencyComplianceV11,
+    DataResidencyReportV4, DataResidencyReportV8, DataResidencyReportV11, DataResidencyRule,
+    DataResidencyViolation, DatabaseBackup, DatabaseRecoveryPoint, DatabaseReplica,
+    DatabaseReplicationAlertV4, DatabaseReplicationAlertV8, DatabaseReplicationAlertV11,
+    DatabaseReplicationConfigV4, DatabaseReplicationConfigV8, DatabaseReplicationConfigV11,
+    DeploymentAnalyticsV4, DeploymentComparisonV4, EncryptionComplianceCheckV4,
+    EncryptionComplianceCheckV8, EncryptionComplianceCheckV11, EncryptionKeyVersionV4,
+    EncryptionKeyVersionV8, EncryptionKeyVersionV11, EncryptionPolicy,
+    EnvironmentDeploymentHistoryV4, PerformanceTest, PerformanceTestAlertHistoryV4,
+    PerformanceTestAlertHistoryV6, PerformanceTestAlertHistoryV7, PerformanceTestAlertHistoryV8,
+    PerformanceTestAlertHistoryV10, PerformanceTestAlertHistoryV14, PerformanceTestAlertHistoryV15,
+    PerformanceTestAlertHistoryV16, PerformanceTestAlertHistoryV17, PerformanceTestAlertHistoryV18,
+    PerformanceTestAlertHistoryV20, PerformanceTestAlertHistoryV21, PerformanceTestAlertV4,
     PerformanceTestAlertV6, PerformanceTestAlertV7, PerformanceTestAlertV8,
     PerformanceTestAlertV10, PerformanceTestAlertV14, PerformanceTestAlertV15,
     PerformanceTestAlertV16, PerformanceTestAlertV17, PerformanceTestAlertV18,
-    PerformanceTestAlertV20, PerformanceTestAlertV21,
-    PerformanceTestAlertHistoryV4, PerformanceTestAlertHistoryV6,
-    PerformanceTestAlertHistoryV7, PerformanceTestAlertHistoryV8,
-    PerformanceTestAlertHistoryV10, PerformanceTestAlertHistoryV14,
-    PerformanceTestAlertHistoryV15, PerformanceTestAlertHistoryV16,
-    PerformanceTestAlertHistoryV17, PerformanceTestAlertHistoryV18,
-    PerformanceTestAlertHistoryV20, PerformanceTestAlertHistoryV21,
-    PipelineActionReviewV4, PrComment, PrReviewer, PrStatusCheck, PrTimeline,
-    PullRequest, RateLimitAlert, RateLimitAlertV2, RateLimitAlertV3, RateLimitAlertV4,
-    RateLimitAlertV5, RateLimitAlertV6, RateLimitAlertV7, RateLimitAlertV8, RateLimitAlertV9,
-    RateLimitAlertV10, RateLimitAlertV11, RateLimitAlertV12, RateLimitAlertV13,
-    RateLimitAlertV14, RateLimitAlertV15, RateLimitAlertV17, RateLimitOverage,
-    RateLimitTier, RateLimitTierV2, RateLimitTierV3, RateLimitTierV4, RateLimitTierV5,
-    RateLimitTierV6, RateLimitTierV8, RateLimitTierV9, RateLimitTierV10, RateLimitTierV11,
-    RateLimitTierV12, RateLimitTierV13, RateLimitTierV14, RateLimitTierV15, RateLimitTierV16,
-    RateLimitTierV17, RateLimitTierV18, RateLimitTierV20,
-    RateLimitTierQuotaV21, RateLimitUsageV2, RateLimitUsageAnalyticsV21,
-    ReviewAnalyticsV3, ReviewAssignment, ReviewHelpfulnessV3, ReviewModerationQueueV3,
-    ReviewRecommendationV3, ReviewSummary,
+    PerformanceTestAlertV20, PerformanceTestAlertV21, PipelineActionReviewV4, PrComment,
+    PrReviewer, PrStatusCheck, PrTimeline, PullRequest, RateLimitAlert, RateLimitAlertV2,
+    RateLimitAlertV3, RateLimitAlertV4, RateLimitAlertV5, RateLimitAlertV6, RateLimitAlertV7,
+    RateLimitAlertV8, RateLimitAlertV9, RateLimitAlertV10, RateLimitAlertV11, RateLimitAlertV12,
+    RateLimitAlertV13, RateLimitAlertV14, RateLimitAlertV15, RateLimitAlertV17, RateLimitOverage,
+    RateLimitTier, RateLimitTierQuotaV21, RateLimitTierV2, RateLimitTierV3, RateLimitTierV4,
+    RateLimitTierV5, RateLimitTierV6, RateLimitTierV8, RateLimitTierV9, RateLimitTierV10,
+    RateLimitTierV11, RateLimitTierV12, RateLimitTierV13, RateLimitTierV14, RateLimitTierV15,
+    RateLimitTierV16, RateLimitTierV17, RateLimitTierV18, RateLimitTierV20,
+    RateLimitUsageAnalyticsV21, RateLimitUsageV2, ReviewAnalyticsV3, ReviewAssignment,
+    ReviewHelpfulnessV3, ReviewModerationQueueV3, ReviewRecommendationV3, ReviewSummary,
     TestCoverage, TestSuiteBaselineV3, TestSuiteBaselineV5, TestSuiteBaselineV6,
     TestSuiteBaselineV7, TestSuiteBaselineV9, TestSuiteBaselineV13, TestSuiteBaselineV14,
     TestSuiteBaselineV15, TestSuiteBaselineV16, TestSuiteBaselineV17, TestSuiteBaselineV19,
-    TestSuiteBaselineV20, TestSuiteBaselineV21,
-    TestSuiteMetricV3, TestSuiteMetricV5, TestSuiteMetricV6, TestSuiteMetricV7,
-    TestSuiteMetricV9, TestSuiteMetricV13, TestSuiteMetricV14, TestSuiteMetricV15,
-    TestSuiteMetricV16, TestSuiteMetricV17, TestSuiteMetricV19, TestSuiteMetricV20,
-    TestSuiteMetricV21,
+    TestSuiteBaselineV20, TestSuiteBaselineV21, TestSuiteMetricV3, TestSuiteMetricV5,
+    TestSuiteMetricV6, TestSuiteMetricV7, TestSuiteMetricV9, TestSuiteMetricV13,
+    TestSuiteMetricV14, TestSuiteMetricV15, TestSuiteMetricV16, TestSuiteMetricV17,
+    TestSuiteMetricV19, TestSuiteMetricV20, TestSuiteMetricV21,
 };
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
@@ -557,10 +548,7 @@ impl super::DbRepository {
 
     // --- PR Templates ---
 
-    pub async fn list_pr_templates(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<Vec<crate::models::PrTemplate>> {
+    pub async fn list_pr_templates(&self, repo_id: Uuid) -> Result<Vec<crate::models::PrTemplate>> {
         let rows = sqlx::query_as::<_, crate::models::PrTemplate>(
             "SELECT id, repo_id, name, title, body, base_branch, labels, created_at FROM pr_templates WHERE repo_id = $1 ORDER BY name",
         )
@@ -623,11 +611,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn delete_pr_template(
-        &self,
-        template_id: Uuid,
-        repo_id: Uuid,
-    ) -> Result<()> {
+    pub async fn delete_pr_template(&self, template_id: Uuid, repo_id: Uuid) -> Result<()> {
         sqlx::query("DELETE FROM pr_templates WHERE id = $1 AND repo_id = $2")
             .bind(template_id)
             .bind(repo_id)
@@ -923,11 +907,7 @@ impl super::DbRepository {
 
     // --- PR: Resolve/Unresolve Comments ---
 
-    pub async fn resolve_comment(
-        &self,
-        comment_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<()> {
+    pub async fn resolve_comment(&self, comment_id: Uuid, user_id: Uuid) -> Result<()> {
         sqlx::query(
             "UPDATE pr_comments SET resolved = true, resolved_by = $2, updated_at = NOW() WHERE id = $1",
         )
@@ -1022,11 +1002,7 @@ impl super::DbRepository {
 
     // --- PR: Re-request review ---
 
-    pub async fn rerequest_pr_review(
-        &self,
-        pr_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<PrReviewer> {
+    pub async fn rerequest_pr_review(&self, pr_id: Uuid, user_id: Uuid) -> Result<PrReviewer> {
         let row = sqlx::query_as::<_, PrReviewer>(
             "INSERT INTO pr_reviewers (pr_id, user_id, review_status, submitted_at) VALUES ($1, $2, 'pending', NULL) ON CONFLICT (pr_id, user_id) DO UPDATE SET review_status = 'pending', submitted_at = NULL RETURNING pr_id, user_id, review_status, submitted_at",
         )
@@ -1122,7 +1098,10 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn list_npm_versions(&self, package_id: Uuid) -> Result<Vec<crate::models::NpmVersion>> {
+    pub async fn list_npm_versions(
+        &self,
+        package_id: Uuid,
+    ) -> Result<Vec<crate::models::NpmVersion>> {
         let rows = sqlx::query_as::<_, crate::models::NpmVersion>(
             "SELECT * FROM npm_versions WHERE package_id = $1 ORDER BY created_at DESC",
         )
@@ -1267,10 +1246,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn update_pages_last_built(
-        &self,
-        site_id: Uuid,
-    ) -> Result<crate::models::PagesSite> {
+    pub async fn update_pages_last_built(&self, site_id: Uuid) -> Result<crate::models::PagesSite> {
         let row = sqlx::query_as::<_, crate::models::PagesSite>(
             r#"UPDATE pages_sites
                SET last_built_at = NOW(), updated_at = NOW()
@@ -1369,11 +1345,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn remove_discussion_label(
-        &self,
-        discussion_id: Uuid,
-        label: &str,
-    ) -> Result<()> {
+    pub async fn remove_discussion_label(&self, discussion_id: Uuid, label: &str) -> Result<()> {
         sqlx::query("DELETE FROM discussion_labels WHERE discussion_id = $1 AND label = $2")
             .bind(discussion_id)
             .bind(label)
@@ -1476,6 +1448,80 @@ impl super::DbRepository {
     }
 
     // --- Feature Flags ---
+
+    /// Creates a flag with governance metadata (ADR-0008).
+    ///
+    /// `owner` is required by the API layer, not here: the database must
+    /// stay able to load legacy rows written before governance existed.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_feature_flag_governed(
+        &self,
+        name: &str,
+        description: &str,
+        enabled: bool,
+        enabled_for_percentage: i32,
+        kind: &str,
+        owner: &str,
+        ticket: &str,
+        salt: &str,
+    ) -> Result<crate::models::FeatureFlag> {
+        let row = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            r#"INSERT INTO feature_flags
+                 (name, description, enabled, enabled_for_percentage,
+                  kind, owner, ticket, salt, last_changed_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+               RETURNING *"#,
+        )
+        .bind(name)
+        .bind(description)
+        .bind(enabled)
+        .bind(enabled_for_percentage)
+        .bind(kind)
+        .bind(owner)
+        .bind(ticket)
+        .bind(salt)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("create_feature_flag_governed: {e}")))?;
+        Ok(row)
+    }
+
+    /// Records that a flag was evaluated, so `None` provably means
+    /// "never evaluated" rather than "not measured yet".
+    ///
+    /// Fire-and-forget on purpose: a failed telemetry write must not fail
+    /// the request being measured.
+    pub async fn touch_feature_flag_evaluation(&self, name: &str) -> Result<()> {
+        sqlx::query("UPDATE feature_flags SET last_evaluated_at = NOW() WHERE name = $1")
+            .bind(name)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("touch_feature_flag_evaluation: {e}")))?;
+        Ok(())
+    }
+
+    /// Bumps `last_changed_at`, restarting the staleness clock.
+    pub async fn touch_feature_flag_change(&self, id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE feature_flags SET last_changed_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("touch_feature_flag_change: {e}")))?;
+        Ok(())
+    }
+
+    /// Flags with no recorded evaluation, for the staleness audit.
+    pub async fn list_never_evaluated_feature_flags(
+        &self,
+    ) -> Result<Vec<crate::models::FeatureFlag>> {
+        let rows = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            "SELECT * FROM feature_flags WHERE last_evaluated_at IS NULL ORDER BY name",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_never_evaluated_feature_flags: {e}")))?;
+        Ok(rows)
+    }
 
     pub async fn create_feature_flag(
         &self,
@@ -1592,11 +1638,7 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn add_feature_flag_user(
-        &self,
-        flag_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<()> {
+    pub async fn add_feature_flag_user(&self, flag_id: Uuid, user_id: Uuid) -> Result<()> {
         sqlx::query(
             r#"UPDATE feature_flags
                SET enabled_for_users = array_append(
@@ -1614,11 +1656,7 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn remove_feature_flag_user(
-        &self,
-        flag_id: Uuid,
-        user_id: Uuid,
-    ) -> Result<()> {
+    pub async fn remove_feature_flag_user(&self, flag_id: Uuid, user_id: Uuid) -> Result<()> {
         sqlx::query(
             r#"UPDATE feature_flags
                SET enabled_for_users = array_remove(enabled_for_users, $2),
@@ -1633,11 +1671,7 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn add_feature_flag_org(
-        &self,
-        flag_id: Uuid,
-        org_id: Uuid,
-    ) -> Result<()> {
+    pub async fn add_feature_flag_org(&self, flag_id: Uuid, org_id: Uuid) -> Result<()> {
         sqlx::query(
             r#"UPDATE feature_flags
                SET enabled_for_orgs = array_append(
@@ -1655,11 +1689,7 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn remove_feature_flag_org(
-        &self,
-        flag_id: Uuid,
-        org_id: Uuid,
-    ) -> Result<()> {
+    pub async fn remove_feature_flag_org(&self, flag_id: Uuid, org_id: Uuid) -> Result<()> {
         sqlx::query(
             r#"UPDATE feature_flags
                SET enabled_for_orgs = array_remove(enabled_for_orgs, $2),
@@ -1944,7 +1974,10 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_user_usage_quotas(&self, user_id: Uuid) -> Result<Vec<crate::models::UsageQuota>> {
+    pub async fn get_user_usage_quotas(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<crate::models::UsageQuota>> {
         let rows = sqlx::query_as::<_, crate::models::UsageQuota>(
             r#"SELECT * FROM usage_quotas 
                WHERE user_id = $1 AND period_start <= NOW()
@@ -2103,10 +2136,7 @@ impl super::DbRepository {
         Ok(rows)
     }
 
-    pub async fn get_monitoring_alert(
-        &self,
-        id: Uuid,
-    ) -> Result<crate::models::MonitoringAlert> {
+    pub async fn get_monitoring_alert(&self, id: Uuid) -> Result<crate::models::MonitoringAlert> {
         sqlx::query_as::<_, crate::models::MonitoringAlert>(
             "SELECT * FROM monitoring_alerts WHERE id = $1",
         )
@@ -2153,17 +2183,12 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn trigger_monitoring_alert(
-        &self,
-        id: Uuid,
-    ) -> Result<()> {
-        sqlx::query(
-            "UPDATE monitoring_alerts SET last_triggered_at = NOW() WHERE id = $1",
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("trigger_monitoring_alert: {e}")))?;
+    pub async fn trigger_monitoring_alert(&self, id: Uuid) -> Result<()> {
+        sqlx::query("UPDATE monitoring_alerts SET last_triggered_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("trigger_monitoring_alert: {e}")))?;
         Ok(())
     }
 
@@ -2374,7 +2399,11 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("get_api_documentation: {e}")))
     }
 
-    pub async fn list_api_documentation(&self, limit: i64, offset: i64) -> Result<Vec<ApiDocumentation>> {
+    pub async fn list_api_documentation(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiDocumentation>> {
         sqlx::query_as::<_, ApiDocumentation>(
             "SELECT * FROM api_documentation ORDER BY endpoint, method LIMIT $1 OFFSET $2",
         )
@@ -2385,7 +2414,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("list_api_documentation: {e}")))
     }
 
-    pub async fn search_api_documentation_by_tag(&self, tag: &str) -> Result<Vec<ApiDocumentation>> {
+    pub async fn search_api_documentation_by_tag(
+        &self,
+        tag: &str,
+    ) -> Result<Vec<ApiDocumentation>> {
         sqlx::query_as::<_, ApiDocumentation>(
             "SELECT * FROM api_documentation WHERE $1 = ANY(tags) ORDER BY endpoint, method",
         )
@@ -2624,10 +2656,7 @@ impl super::DbRepository {
         Ok(rows)
     }
 
-    pub async fn get_coverage_statistics(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_coverage_statistics(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'avg_line_coverage', AVG(line_coverage),
@@ -2708,11 +2737,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn delete_old_coverage(
-        &self,
-        repo_id: Uuid,
-        older_than_days: i64,
-    ) -> Result<i64> {
+    pub async fn delete_old_coverage(&self, repo_id: Uuid, older_than_days: i64) -> Result<i64> {
         let result = sqlx::query(
             r#"DELETE FROM test_coverage
                WHERE repo_id = $1
@@ -2786,10 +2811,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("get_code_quality_metrics: {e}")))
     }
 
-    pub async fn get_quality_metrics_summary(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_quality_metrics_summary(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let rows = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'metric_name', metric_name,
@@ -2842,10 +2864,7 @@ impl super::DbRepository {
         Ok(rows)
     }
 
-    pub async fn get_complexity_analysis(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_complexity_analysis(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'avg_complexity', AVG(metric_value) FILTER (WHERE metric_name = 'cyclomatic_complexity'),
@@ -2866,10 +2885,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_duplication_detection(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_duplication_detection(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'duplication_ratio', AVG(metric_value) FILTER (WHERE metric_name = 'duplication_ratio'),
@@ -2888,10 +2904,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_code_smells(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_code_smells(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'total_smells', SUM(metric_value) FILTER (WHERE metric_name = 'code_smells'),
@@ -2913,10 +2926,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_technical_debt(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_technical_debt(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'total_debt_hours', SUM(metric_value) FILTER (WHERE metric_name = 'technical_debt_hours'),
@@ -2998,10 +3008,7 @@ impl super::DbRepository {
         Ok(rows)
     }
 
-    pub async fn start_performance_test(
-        &self,
-        id: Uuid,
-    ) -> Result<PerformanceTest> {
+    pub async fn start_performance_test(&self, id: Uuid) -> Result<PerformanceTest> {
         let row = sqlx::query_as::<_, PerformanceTest>(
             r#"UPDATE performance_tests
                SET status = 'running', started_at = NOW()
@@ -3064,10 +3071,7 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn get_performance_test_summary(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_performance_test_summary(&self, repo_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'total_tests', COUNT(*),
@@ -3099,10 +3103,7 @@ impl super::DbRepository {
 
     // --- Database Backups ---
 
-    pub async fn create_database_backup(
-        &self,
-        backup_type: &str,
-    ) -> Result<DatabaseBackup> {
+    pub async fn create_database_backup(&self, backup_type: &str) -> Result<DatabaseBackup> {
         let row = sqlx::query_as::<_, DatabaseBackup>(
             r#"INSERT INTO database_backups (backup_type)
                VALUES ($1)
@@ -3349,10 +3350,12 @@ impl super::DbRepository {
     }
 
     pub async fn enforce_archive_retention(&self) -> Result<i64> {
-        let result = sqlx::query("DELETE FROM data_archives WHERE expires_at IS NOT NULL AND expires_at < NOW()")
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("enforce_archive_retention: {e}")))?;
+        let result = sqlx::query(
+            "DELETE FROM data_archives WHERE expires_at IS NOT NULL AND expires_at < NOW()",
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("enforce_archive_retention: {e}")))?;
         Ok(result.rows_affected() as i64)
     }
 
@@ -3676,9 +3679,7 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("get_endpoint_analytics_v3: {e}")))
     }
 
-    pub async fn get_api_analytics_v3_cache_stats(
-        &self,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_api_analytics_v3_cache_stats(&self) -> Result<serde_json::Value> {
         let row: (i64, i64) = sqlx::query_as(
             r#"SELECT 
                 COUNT(*) as total,
@@ -3688,7 +3689,7 @@ impl super::DbRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| DbError::Database(format!("get_api_analytics_v3_cache_stats: {e}")))?;
-        
+
         let total = row.0;
         let cache_hits = row.1;
         let cache_hit_rate = if total > 0 {
@@ -3696,7 +3697,7 @@ impl super::DbRepository {
         } else {
             0.0
         };
-        
+
         Ok(serde_json::json!({
             "total_requests": total,
             "cache_hits": cache_hits,
@@ -3704,9 +3705,7 @@ impl super::DbRepository {
         }))
     }
 
-    pub async fn get_api_analytics_v3_performance_stats(
-        &self,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_api_analytics_v3_performance_stats(&self) -> Result<serde_json::Value> {
         let row: (f64, f64, f64, f64) = sqlx::query_as(
             r#"SELECT 
                 COALESCE(AVG(response_time_ms), 0.0) as avg_response_time,
@@ -3718,7 +3717,7 @@ impl super::DbRepository {
         .fetch_one(&self.pool)
         .await
         .map_err(|e| DbError::Database(format!("get_api_analytics_v3_performance_stats: {e}")))?;
-        
+
         Ok(serde_json::json!({
             "avg_response_time_ms": row.0,
             "p95_response_time_ms": row.1,
@@ -3918,22 +3917,18 @@ impl super::DbRepository {
     }
 
     pub async fn get_data_residency_rule(&self, id: Uuid) -> Result<DataResidencyRule> {
-        sqlx::query_as::<_, DataResidencyRule>(
-            "SELECT * FROM data_residency_rules WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_data_residency_rule: {e}")))
+        sqlx::query_as::<_, DataResidencyRule>("SELECT * FROM data_residency_rules WHERE id = $1")
+            .bind(id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_data_residency_rule: {e}")))
     }
 
     pub async fn list_data_residency_rules(&self) -> Result<Vec<DataResidencyRule>> {
-        sqlx::query_as::<_, DataResidencyRule>(
-            "SELECT * FROM data_residency_rules ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_data_residency_rules: {e}")))
+        sqlx::query_as::<_, DataResidencyRule>("SELECT * FROM data_residency_rules ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_data_residency_rules: {e}")))
     }
 
     pub async fn update_data_residency_rule(
@@ -4045,11 +4040,7 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("get_residency_violations_by_data_type: {e}")))
     }
 
-    pub async fn check_region_compliance(
-        &self,
-        data_type: &str,
-        region: &str,
-    ) -> Result<bool> {
+    pub async fn check_region_compliance(&self, data_type: &str, region: &str) -> Result<bool> {
         let result = sqlx::query_scalar::<_, bool>(
             r#"SELECT EXISTS (
                    SELECT 1 FROM data_residency_rules
@@ -4201,15 +4192,13 @@ impl super::DbRepository {
         method: &str,
         version: &str,
     ) -> Result<()> {
-        sqlx::query(
-            "DELETE FROM api_docs_v3 WHERE endpoint = $1 AND method = $2 AND version = $3",
-        )
-        .bind(endpoint)
-        .bind(method)
-        .bind(version)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("delete_api_docs_v3: {e}")))?;
+        sqlx::query("DELETE FROM api_docs_v3 WHERE endpoint = $1 AND method = $2 AND version = $3")
+            .bind(endpoint)
+            .bind(method)
+            .bind(version)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("delete_api_docs_v3: {e}")))?;
         Ok(())
     }
 
@@ -4573,7 +4562,13 @@ impl super::DbRepository {
         &self,
         endpoint: &str,
         method: &str,
-    ) -> Result<(String, String, String, String, Vec<(String, String, String)>)> {
+    ) -> Result<(
+        String,
+        String,
+        String,
+        String,
+        Vec<(String, String, String)>,
+    )> {
         let docs = sqlx::query_as::<_, ApiDocsV4>(
             "SELECT * FROM api_docs_v4 WHERE endpoint = $1 AND method = $2 ORDER BY created_at DESC LIMIT 2",
         )
@@ -4584,7 +4579,13 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("detect_breaking_changes: {e}")))?;
 
         if docs.len() < 2 {
-            return Ok((endpoint.into(), method.into(), String::new(), String::new(), vec![]));
+            return Ok((
+                endpoint.into(),
+                method.into(),
+                String::new(),
+                String::new(),
+                vec![],
+            ));
         }
 
         let old = &docs[1];
@@ -4592,10 +4593,20 @@ impl super::DbRepository {
         let mut breaking = Vec::new();
 
         if old.deprecated && !new.deprecated {
-            breaking.push(("deprecated".into(), "field_change".into(), "Previously deprecated endpoint is now active".into()));
+            breaking.push((
+                "deprecated".into(),
+                "field_change".into(),
+                "Previously deprecated endpoint is now active".into(),
+            ));
         }
 
-        Ok((endpoint.into(), method.into(), old.version.clone(), new.version.clone(), breaking))
+        Ok((
+            endpoint.into(),
+            method.into(),
+            old.version.clone(),
+            new.version.clone(),
+            breaking,
+        ))
     }
 
     pub async fn generate_migration_guide(
@@ -4649,7 +4660,10 @@ impl super::DbRepository {
             .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v2: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v2_by_name(&self, name: &str) -> Result<Option<RateLimitTierV2>> {
+    pub async fn get_rate_limit_tier_v2_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV2>> {
         sqlx::query_as::<_, RateLimitTierV2>("SELECT * FROM rate_limit_tiers_v2 WHERE name = $1")
             .bind(name)
             .fetch_optional(&self.pool)
@@ -4754,16 +4768,27 @@ impl super::DbRepository {
                 let remaining = (tier.rate_limit as i64) - (u.usage_count as i64);
                 let reset_at = Utc::now() + chrono::Duration::hours(1);
 
-                Ok((allowed, remaining, tier.rate_limit as i64, reset_at, tier.name, tier.features))
+                Ok((
+                    allowed,
+                    remaining,
+                    tier.rate_limit as i64,
+                    reset_at,
+                    tier.name,
+                    tier.features,
+                ))
             }
-            None => Ok((true, 1000, 1000, Utc::now() + chrono::Duration::hours(1), "free".into(), serde_json::json!({}))),
+            None => Ok((
+                true,
+                1000,
+                1000,
+                Utc::now() + chrono::Duration::hours(1),
+                "free".into(),
+                serde_json::json!({}),
+            )),
         }
     }
 
-    pub async fn get_user_usage_v2(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<RateLimitUsageV2>> {
+    pub async fn get_user_usage_v2(&self, user_id: Uuid) -> Result<Vec<RateLimitUsageV2>> {
         sqlx::query_as::<_, RateLimitUsageV2>(
             "SELECT * FROM rate_limit_usage_v2 WHERE user_id = $1 ORDER BY period_start DESC",
         )
@@ -4776,7 +4801,17 @@ impl super::DbRepository {
     pub async fn get_quota_management(
         &self,
         user_id: Uuid,
-    ) -> Result<Option<(String, i64, Option<i64>, Option<i64>, i32, DateTime<Utc>, DateTime<Utc>)>> {
+    ) -> Result<
+        Option<(
+            String,
+            i64,
+            Option<i64>,
+            Option<i64>,
+            i32,
+            DateTime<Utc>,
+            DateTime<Utc>,
+        )>,
+    > {
         let usage = sqlx::query_as::<_, RateLimitUsageV2>(
             "SELECT * FROM rate_limit_usage_v2 WHERE user_id = $1 AND period_start > NOW() - INTERVAL '1 month' ORDER BY usage_count DESC LIMIT 1",
         )
@@ -4800,7 +4835,15 @@ impl super::DbRepository {
                 let period_start = u.period_start;
                 let period_end = period_start + chrono::Duration::days(30);
 
-                Ok(Some((tier.name, u.usage_count as i64, monthly_quota, quota_remaining, 0, period_start, period_end)))
+                Ok(Some((
+                    tier.name,
+                    u.usage_count as i64,
+                    monthly_quota,
+                    quota_remaining,
+                    0,
+                    period_start,
+                    period_end,
+                )))
             }
             None => Ok(None),
         }
@@ -4829,7 +4872,11 @@ impl super::DbRepository {
                 .await
                 .map_err(|e| DbError::Database(format!("check_feature_access tier: {e}")))?;
 
-                let enabled = tier.features.get(feature).and_then(|v| v.as_bool()).unwrap_or(false);
+                let enabled = tier
+                    .features
+                    .get(feature)
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
                 Ok((enabled, tier.name))
             }
             None => Ok((false, "free".into())),
@@ -4838,7 +4885,11 @@ impl super::DbRepository {
 
     // --- API Analytics v5 ---
 
-    pub async fn list_api_analytics_v5(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV5>> {
+    pub async fn list_api_analytics_v5(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV5>> {
         sqlx::query_as::<_, ApiAnalyticV5>(
             "SELECT * FROM api_analytics_v5 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -4917,7 +4968,9 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("get_geographic_analytics: {e}")))
     }
 
-    pub async fn get_performance_optimization(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_performance_optimization(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64)>(
             r#"SELECT
                 endpoint,
@@ -4935,21 +4988,33 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_performance_optimization: {e}")))?;
 
-        let result = rows.into_iter().map(|(endpoint, method, avg, p95, cache)| {
-            let mut suggestions = Vec::new();
-            if avg > 500.0 {
-                suggestions.push("Consider adding response caching".into());
-            }
-            if cache < 50.0 {
-                suggestions.push("Low cache hit rate, review caching strategy".into());
-            }
-            (endpoint, method, avg, p95, cache, suggestions)
-        }).collect();
+        let result = rows
+            .into_iter()
+            .map(|(endpoint, method, avg, p95, cache)| {
+                let mut suggestions = Vec::new();
+                if avg > 500.0 {
+                    suggestions.push("Consider adding response caching".into());
+                }
+                if cache < 50.0 {
+                    suggestions.push("Low cache hit rate, review caching strategy".into());
+                }
+                (endpoint, method, avg, p95, cache, suggestions)
+            })
+            .collect();
 
         Ok(result)
     }
 
-    pub async fn get_cost_analysis(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64)>(
             r#"SELECT
                 COUNT(*) AS total_requests,
@@ -4990,7 +5055,14 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_cost_analysis uas: {e}")))?;
 
-        Ok((totals.0, totals.1, totals.2, estimated_cost, region_costs, ua_costs))
+        Ok((
+            totals.0,
+            totals.1,
+            totals.2,
+            estimated_cost,
+            region_costs,
+            ua_costs,
+        ))
     }
 
     // --- API Docs v5 ---
@@ -5082,7 +5154,9 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_security_schemes_for_endpoint: {e}")))?;
 
-        Ok(doc.map(|d| d.security_schemes).unwrap_or(serde_json::json!([])))
+        Ok(doc
+            .map(|d| d.security_schemes)
+            .unwrap_or(serde_json::json!([])))
     }
 
     // --- API Docs v8 ---
@@ -5171,7 +5245,10 @@ impl super::DbRepository {
             .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v3: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v3_by_name(&self, name: &str) -> Result<Option<RateLimitTierV3>> {
+    pub async fn get_rate_limit_tier_v3_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV3>> {
         sqlx::query_as::<_, RateLimitTierV3>("SELECT * FROM rate_limit_tiers_v3 WHERE name = $1")
             .bind(name)
             .fetch_optional(&self.pool)
@@ -5282,10 +5359,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_user_overages(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<RateLimitOverage>> {
+    pub async fn get_user_overages(&self, user_id: Uuid) -> Result<Vec<RateLimitOverage>> {
         sqlx::query_as::<_, RateLimitOverage>(
             "SELECT * FROM rate_limit_overages WHERE user_id = $1 ORDER BY period_start DESC",
         )
@@ -5319,10 +5393,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_user_rate_limit_alerts(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<RateLimitAlert>> {
+    pub async fn get_user_rate_limit_alerts(&self, user_id: Uuid) -> Result<Vec<RateLimitAlert>> {
         sqlx::query_as::<_, RateLimitAlert>(
             "SELECT * FROM rate_limit_alerts WHERE user_id = $1 ORDER BY triggered_at DESC",
         )
@@ -5335,22 +5406,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v6 ---
 
     pub async fn list_rate_limit_tiers_v6(&self) -> Result<Vec<RateLimitTierV6>> {
-        sqlx::query_as::<_, RateLimitTierV6>(
-            "SELECT * FROM rate_limit_tiers_v6 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v6: {e}")))
+        sqlx::query_as::<_, RateLimitTierV6>("SELECT * FROM rate_limit_tiers_v6 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v6: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v6_by_name(&self, name: &str) -> Result<Option<RateLimitTierV6>> {
-        sqlx::query_as::<_, RateLimitTierV6>(
-            "SELECT * FROM rate_limit_tiers_v6 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v6_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v6_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV6>> {
+        sqlx::query_as::<_, RateLimitTierV6>("SELECT * FROM rate_limit_tiers_v6 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v6_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v6(
@@ -5455,7 +5525,10 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_user_rate_limit_alerts_v6(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV4>> {
+    pub async fn get_user_rate_limit_alerts_v6(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV4>> {
         sqlx::query_as::<_, RateLimitAlertV4>(
             "SELECT * FROM rate_limit_alerts_v3 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -5467,7 +5540,11 @@ impl super::DbRepository {
 
     // --- API Analytics v6 ---
 
-    pub async fn list_api_analytics_v6(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV6>> {
+    pub async fn list_api_analytics_v6(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV6>> {
         sqlx::query_as::<_, ApiAnalyticV6>(
             "SELECT * FROM api_analytics_v6 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -5590,7 +5667,9 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_performance_optimization_v6(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_performance_optimization_v6(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -5618,7 +5697,16 @@ impl super::DbRepository {
         Ok(rows)
     }
 
-    pub async fn get_cost_analysis_v6(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v6(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -5653,7 +5741,14 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_cost_analysis_v6 ua_costs: {e}")))?;
 
-        Ok((totals.0, totals.1, totals.2, totals.3, region_costs, ua_costs))
+        Ok((
+            totals.0,
+            totals.1,
+            totals.2,
+            totals.3,
+            region_costs,
+            ua_costs,
+        ))
     }
 
     // --- API Docs v6 ---
@@ -5820,7 +5915,10 @@ impl super::DbRepository {
             .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v4: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v4_by_name(&self, name: &str) -> Result<Option<RateLimitTierV4>> {
+    pub async fn get_rate_limit_tier_v4_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV4>> {
         sqlx::query_as::<_, RateLimitTierV4>("SELECT * FROM rate_limit_tiers_v4 WHERE name = $1")
             .bind(name)
             .fetch_optional(&self.pool)
@@ -6023,10 +6121,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("get_alert_history: {e}")))
     }
 
-    pub async fn get_alert_analytics(
-        &self,
-        user_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_alert_analytics(&self, user_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'total_alerts', COUNT(*),
@@ -6051,7 +6146,11 @@ impl super::DbRepository {
 
     // --- API Analytics v7 ---
 
-    pub async fn list_api_analytics_v7(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV7>> {
+    pub async fn list_api_analytics_v7(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV7>> {
         sqlx::query_as::<_, ApiAnalyticV7>(
             "SELECT * FROM api_analytics_v7 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -6239,7 +6338,11 @@ impl super::DbRepository {
 
     // --- API Analytics v9 ---
 
-    pub async fn list_api_analytics_v9(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV9>> {
+    pub async fn list_api_analytics_v9(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV9>> {
         sqlx::query_as::<_, ApiAnalyticV9>(
             "SELECT * FROM api_analytics_v9 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -6288,7 +6391,16 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_cost_analysis_v9(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v9(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -6323,10 +6435,19 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("get_cost_analysis_v9 ua_costs: {e}")))?;
 
-        Ok((totals.0, totals.1, totals.2, totals.3, region_costs, ua_costs))
+        Ok((
+            totals.0,
+            totals.1,
+            totals.2,
+            totals.3,
+            region_costs,
+            ua_costs,
+        ))
     }
 
-    pub async fn get_usage_optimization_v9(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v9(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -6434,22 +6555,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v8 ---
 
     pub async fn list_rate_limit_tiers_v8(&self) -> Result<Vec<RateLimitTierV8>> {
-        sqlx::query_as::<_, RateLimitTierV8>(
-            "SELECT * FROM rate_limit_tiers_v8 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v8: {e}")))
+        sqlx::query_as::<_, RateLimitTierV8>("SELECT * FROM rate_limit_tiers_v8 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v8: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v8_by_name(&self, name: &str) -> Result<Option<RateLimitTierV8>> {
-        sqlx::query_as::<_, RateLimitTierV8>(
-            "SELECT * FROM rate_limit_tiers_v8 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v8_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v8_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV8>> {
+        sqlx::query_as::<_, RateLimitTierV8>("SELECT * FROM rate_limit_tiers_v8 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v8_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v8(
@@ -6554,7 +6674,10 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_user_rate_limit_alerts_v8(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV5>> {
+    pub async fn get_user_rate_limit_alerts_v8(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV5>> {
         sqlx::query_as::<_, RateLimitAlertV5>(
             "SELECT * FROM rate_limit_alerts_v5 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -6566,7 +6689,11 @@ impl super::DbRepository {
 
     // --- API Analytics v11 ---
 
-    pub async fn list_api_analytics_v11(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV11>> {
+    pub async fn list_api_analytics_v11(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV11>> {
         sqlx::query_as::<_, ApiAnalyticV11>(
             "SELECT * FROM api_analytics_v11 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -6615,7 +6742,16 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_cost_analysis_v11(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v11(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -6646,7 +6782,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v11(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v11(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -6920,13 +7058,11 @@ impl super::DbRepository {
         &self,
         name: &str,
     ) -> Result<Option<RateLimitTierV5>> {
-        sqlx::query_as::<_, RateLimitTierV5>(
-            "SELECT * FROM rate_limit_tiers_v5 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v5_by_name: {e}")))
+        sqlx::query_as::<_, RateLimitTierV5>("SELECT * FROM rate_limit_tiers_v5 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v5_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v5(
@@ -7124,10 +7260,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("get_alert_history_v3: {e}")))
     }
 
-    pub async fn get_alert_analytics_v3(
-        &self,
-        user_id: Uuid,
-    ) -> Result<serde_json::Value> {
+    pub async fn get_alert_analytics_v3(&self, user_id: Uuid) -> Result<serde_json::Value> {
         let row = sqlx::query_scalar::<_, serde_json::Value>(
             r#"SELECT json_build_object(
                 'total_alerts', COUNT(*),
@@ -7162,7 +7295,11 @@ impl super::DbRepository {
 
     // --- API Analytics v8 ---
 
-    pub async fn list_api_analytics_v8(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV8>> {
+    pub async fn list_api_analytics_v8(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV8>> {
         sqlx::query_as::<_, ApiAnalyticV8>(
             "SELECT * FROM api_analytics_v8 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -7834,10 +7971,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v4: {e}")))
     }
 
-    pub async fn get_code_quality_score_v4(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v4(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT AVG(metric_value) FROM code_quality_metrics_v4 WHERE repo_id = $1"#,
         )
@@ -8257,10 +8391,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v6: {e}")))
     }
 
-    pub async fn get_code_quality_score_v6(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v6(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT AVG(metric_value) FROM code_quality_metrics_v6 WHERE repo_id = $1"#,
         )
@@ -8713,10 +8844,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v7: {e}")))
     }
 
-    pub async fn get_code_quality_score_v7(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v7(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT AVG(metric_value) FROM code_quality_metrics_v7 WHERE repo_id = $1"#,
         )
@@ -8843,10 +8971,15 @@ impl super::DbRepository {
         .bind(repo_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_code_quality_enforcement_report_v6 violating: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_code_quality_enforcement_report_v6 violating: {e}"
+            ))
+        })?;
 
         let compliance_rate = if total_thresholds.0 > 0 {
-            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64) * 100.0
+            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64)
+                * 100.0
         } else {
             100.0
         };
@@ -9009,7 +9142,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v7: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v7: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -9223,10 +9360,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v8: {e}")))
     }
 
-    pub async fn get_code_quality_score_v8(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v8(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT COALESCE(
                    (SELECT AVG(100.0 - LEAST(metric_value, 100.0))
@@ -9359,10 +9493,15 @@ impl super::DbRepository {
         .bind(repo_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_code_quality_enforcement_report_v7 violating: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_code_quality_enforcement_report_v7 violating: {e}"
+            ))
+        })?;
 
         let compliance_rate = if total_thresholds.0 > 0 {
-            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64) * 100.0
+            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64)
+                * 100.0
         } else {
             100.0
         };
@@ -9525,7 +9664,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v8: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v8: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -9739,10 +9882,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v10: {e}")))
     }
 
-    pub async fn get_code_quality_score_v10(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v10(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT COALESCE(
                    (SELECT AVG(100.0 - LEAST(metric_value, 100.0))
@@ -9875,10 +10015,15 @@ impl super::DbRepository {
         .bind(repo_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_code_quality_enforcement_report_v9 violating: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_code_quality_enforcement_report_v9 violating: {e}"
+            ))
+        })?;
 
         let compliance_rate = if total_thresholds.0 > 0 {
-            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64) * 100.0
+            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64)
+                * 100.0
         } else {
             100.0
         };
@@ -10041,7 +10186,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v10: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v10: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -10253,10 +10402,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v13: {e}")))
     }
 
-    pub async fn get_code_quality_score_v13(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v13(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT COALESCE(
                    (SELECT AVG(100.0 - LEAST(metric_value, 100.0))
@@ -10387,10 +10533,15 @@ impl super::DbRepository {
         .bind(repo_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_code_quality_enforcement_report_v13 violating: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_code_quality_enforcement_report_v13 violating: {e}"
+            ))
+        })?;
 
         let compliance_rate = if total_thresholds.0 > 0 {
-            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64) * 100.0
+            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64)
+                * 100.0
         } else {
             100.0
         };
@@ -10553,7 +10704,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v14: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v14: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -10765,10 +10920,7 @@ impl super::DbRepository {
         rows.map_err(|e| DbError::Database(format!("list_code_quality_metrics_v14: {e}")))
     }
 
-    pub async fn get_code_quality_score_v14(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v14(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT COALESCE(
                    (SELECT AVG(100.0 - LEAST(metric_value, 100.0))
@@ -10899,10 +11051,15 @@ impl super::DbRepository {
         .bind(repo_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_code_quality_enforcement_report_v14 violating: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_code_quality_enforcement_report_v14 violating: {e}"
+            ))
+        })?;
 
         let compliance_rate = if total_thresholds.0 > 0 {
-            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64) * 100.0
+            ((total_thresholds.0 - violating_thresholds.0) as f64 / total_thresholds.0 as f64)
+                * 100.0
         } else {
             100.0
         };
@@ -11065,7 +11222,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v15: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v15: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -11125,12 +11286,14 @@ impl super::DbRepository {
         replica_id: Uuid,
         config_key: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM database_replication_config_v4 WHERE replica_id = $1 AND config_key = $2")
-            .bind(replica_id)
-            .bind(config_key)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_replication_config: {e}")))?;
+        sqlx::query(
+            "DELETE FROM database_replication_config_v4 WHERE replica_id = $1 AND config_key = $2",
+        )
+        .bind(replica_id)
+        .bind(config_key)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_replication_config: {e}")))?;
         Ok(())
     }
 
@@ -11407,10 +11570,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_data_residency_report(
-        &self,
-        id: Uuid,
-    ) -> Result<DataResidencyReportV4> {
+    pub async fn get_data_residency_report(&self, id: Uuid) -> Result<DataResidencyReportV4> {
         sqlx::query_as::<_, DataResidencyReportV4>(
             "SELECT * FROM data_residency_reports_v4 WHERE id = $1",
         )
@@ -11676,12 +11836,14 @@ impl super::DbRepository {
         replica_id: Uuid,
         config_key: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM database_replication_config_v8 WHERE replica_id = $1 AND config_key = $2")
-            .bind(replica_id)
-            .bind(config_key)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_replication_config_v8: {e}")))?;
+        sqlx::query(
+            "DELETE FROM database_replication_config_v8 WHERE replica_id = $1 AND config_key = $2",
+        )
+        .bind(replica_id)
+        .bind(config_key)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_replication_config_v8: {e}")))?;
         Ok(())
     }
 
@@ -11761,7 +11923,10 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn trigger_replication_alert_v8(&self, id: Uuid) -> Result<DatabaseReplicationAlertV8> {
+    pub async fn trigger_replication_alert_v8(
+        &self,
+        id: Uuid,
+    ) -> Result<DatabaseReplicationAlertV8> {
         let row = sqlx::query_as::<_, DatabaseReplicationAlertV8>(
             r#"UPDATE database_replication_alerts_v8
                SET last_triggered_at = NOW()
@@ -11810,10 +11975,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_encryption_key_version_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<EncryptionKeyVersionV8> {
+    pub async fn get_encryption_key_version_v8(&self, id: Uuid) -> Result<EncryptionKeyVersionV8> {
         sqlx::query_as::<_, EncryptionKeyVersionV8>(
             "SELECT * FROM encryption_key_versions_v8 WHERE id = $1",
         )
@@ -11939,7 +12101,9 @@ impl super::DbRepository {
             .bind(id)
             .execute(&self.pool)
             .await
-            .map_err(|e| DbError::Database(format!("delete_encryption_compliance_check_v8: {e}")))?;
+            .map_err(|e| {
+                DbError::Database(format!("delete_encryption_compliance_check_v8: {e}"))
+            })?;
         Ok(())
     }
 
@@ -11961,10 +12125,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_data_residency_report_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<DataResidencyReportV8> {
+    pub async fn get_data_residency_report_v8(&self, id: Uuid) -> Result<DataResidencyReportV8> {
         sqlx::query_as::<_, DataResidencyReportV8>(
             "SELECT * FROM data_residency_reports_v8 WHERE id = $1",
         )
@@ -12230,12 +12391,14 @@ impl super::DbRepository {
         replica_id: Uuid,
         config_key: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM database_replication_config_v11 WHERE replica_id = $1 AND config_key = $2")
-            .bind(replica_id)
-            .bind(config_key)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_replication_config_v11: {e}")))?;
+        sqlx::query(
+            "DELETE FROM database_replication_config_v11 WHERE replica_id = $1 AND config_key = $2",
+        )
+        .bind(replica_id)
+        .bind(config_key)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_replication_config_v11: {e}")))?;
         Ok(())
     }
 
@@ -12315,7 +12478,10 @@ impl super::DbRepository {
         Ok(())
     }
 
-    pub async fn trigger_replication_alert_v11(&self, id: Uuid) -> Result<DatabaseReplicationAlertV11> {
+    pub async fn trigger_replication_alert_v11(
+        &self,
+        id: Uuid,
+    ) -> Result<DatabaseReplicationAlertV11> {
         let row = sqlx::query_as::<_, DatabaseReplicationAlertV11>(
             r#"UPDATE database_replication_alerts_v11
                SET last_triggered_at = NOW()
@@ -12493,7 +12659,9 @@ impl super::DbRepository {
             .bind(id)
             .execute(&self.pool)
             .await
-            .map_err(|e| DbError::Database(format!("delete_encryption_compliance_check_v11: {e}")))?;
+            .map_err(|e| {
+                DbError::Database(format!("delete_encryption_compliance_check_v11: {e}"))
+            })?;
         Ok(())
     }
 
@@ -12515,10 +12683,7 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_data_residency_report_v11(
-        &self,
-        id: Uuid,
-    ) -> Result<DataResidencyReportV11> {
+    pub async fn get_data_residency_report_v11(&self, id: Uuid) -> Result<DataResidencyReportV11> {
         sqlx::query_as::<_, DataResidencyReportV11>(
             "SELECT * FROM data_residency_reports_v11 WHERE id = $1",
         )
@@ -12803,25 +12968,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v9 ---
 
     pub async fn list_rate_limit_tiers_v9(&self) -> Result<Vec<RateLimitTierV9>> {
-        sqlx::query_as::<_, RateLimitTierV9>(
-            "SELECT * FROM rate_limit_tiers_v9 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v9: {e}")))
+        sqlx::query_as::<_, RateLimitTierV9>("SELECT * FROM rate_limit_tiers_v9 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v9: {e}")))
     }
 
     pub async fn get_rate_limit_tier_v9_by_name(
         &self,
         name: &str,
     ) -> Result<Option<RateLimitTierV9>> {
-        sqlx::query_as::<_, RateLimitTierV9>(
-            "SELECT * FROM rate_limit_tiers_v9 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v9_by_name: {e}")))
+        sqlx::query_as::<_, RateLimitTierV9>("SELECT * FROM rate_limit_tiers_v9 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v9_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v9(
@@ -12939,7 +13100,11 @@ impl super::DbRepository {
 
     // --- API Analytics v12 ---
 
-    pub async fn list_api_analytics_v12(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV12>> {
+    pub async fn list_api_analytics_v12(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV12>> {
         sqlx::query_as::<_, ApiAnalyticV12>(
             "SELECT * FROM api_analytics_v12 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -12988,7 +13153,16 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_cost_analysis_v12(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v12(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -13019,7 +13193,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v12(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v12(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -13122,25 +13298,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v10 ---
 
     pub async fn list_rate_limit_tiers_v10(&self) -> Result<Vec<RateLimitTierV10>> {
-        sqlx::query_as::<_, RateLimitTierV10>(
-            "SELECT * FROM rate_limit_tiers_v10 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v10: {e}")))
+        sqlx::query_as::<_, RateLimitTierV10>("SELECT * FROM rate_limit_tiers_v10 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v10: {e}")))
     }
 
     pub async fn get_rate_limit_tier_v10_by_name(
         &self,
         name: &str,
     ) -> Result<Option<RateLimitTierV10>> {
-        sqlx::query_as::<_, RateLimitTierV10>(
-            "SELECT * FROM rate_limit_tiers_v10 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v10_by_name: {e}")))
+        sqlx::query_as::<_, RateLimitTierV10>("SELECT * FROM rate_limit_tiers_v10 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v10_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v10(
@@ -13258,7 +13430,11 @@ impl super::DbRepository {
 
     // --- API Analytics v13 ---
 
-    pub async fn list_api_analytics_v13(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV13>> {
+    pub async fn list_api_analytics_v13(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV13>> {
         sqlx::query_as::<_, ApiAnalyticV13>(
             "SELECT * FROM api_analytics_v13 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -13307,7 +13483,16 @@ impl super::DbRepository {
         Ok(row)
     }
 
-    pub async fn get_cost_analysis_v13(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v13(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -13338,7 +13523,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v13(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v13(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -13440,22 +13627,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v11 ---
 
     pub async fn list_rate_limit_tiers_v11(&self) -> Result<Vec<RateLimitTierV11>> {
-        sqlx::query_as::<_, RateLimitTierV11>(
-            "SELECT * FROM rate_limit_tiers_v11 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v11: {e}")))
+        sqlx::query_as::<_, RateLimitTierV11>("SELECT * FROM rate_limit_tiers_v11 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v11: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v11_by_name(&self, name: &str) -> Result<Option<RateLimitTierV11>> {
-        sqlx::query_as::<_, RateLimitTierV11>(
-            "SELECT * FROM rate_limit_tiers_v11 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v11_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v11_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV11>> {
+        sqlx::query_as::<_, RateLimitTierV11>("SELECT * FROM rate_limit_tiers_v11 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v11_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v11(
@@ -13498,7 +13684,9 @@ impl super::DbRepository {
         features: Option<&serde_json::Value>,
         limits: Option<&serde_json::Value>,
     ) -> Result<RateLimitTierV11> {
-        let existing = self.get_rate_limit_tier_v11_by_name(name).await?
+        let existing = self
+            .get_rate_limit_tier_v11_by_name(name)
+            .await?
             .ok_or_else(|| DbError::Database(format!("Tier {name} not found")))?;
         let new_desc = description.unwrap_or(&existing.description);
         let new_rate = rate_limit.unwrap_or(existing.rate_limit);
@@ -13557,7 +13745,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v11: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v11(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV8>> {
+    pub async fn get_user_rate_limit_alerts_v11(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV8>> {
         sqlx::query_as::<_, RateLimitAlertV8>(
             "SELECT * FROM rate_limit_alerts_v8 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -13569,7 +13760,11 @@ impl super::DbRepository {
 
     // --- API Analytics v14 ---
 
-    pub async fn list_api_analytics_v14(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV14>> {
+    pub async fn list_api_analytics_v14(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV14>> {
         sqlx::query_as::<_, ApiAnalyticV14>(
             "SELECT * FROM api_analytics_v14 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -13617,7 +13812,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v14: {e}")))
     }
 
-    pub async fn get_cost_analysis_v14(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v14(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -13648,7 +13852,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v14(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v14(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -13750,22 +13956,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v12 ---
 
     pub async fn list_rate_limit_tiers_v12(&self) -> Result<Vec<RateLimitTierV12>> {
-        sqlx::query_as::<_, RateLimitTierV12>(
-            "SELECT * FROM rate_limit_tiers_v12 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v12: {e}")))
+        sqlx::query_as::<_, RateLimitTierV12>("SELECT * FROM rate_limit_tiers_v12 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v12: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v12_by_name(&self, name: &str) -> Result<Option<RateLimitTierV12>> {
-        sqlx::query_as::<_, RateLimitTierV12>(
-            "SELECT * FROM rate_limit_tiers_v12 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v12_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v12_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV12>> {
+        sqlx::query_as::<_, RateLimitTierV12>("SELECT * FROM rate_limit_tiers_v12 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v12_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v12(
@@ -13808,7 +14013,9 @@ impl super::DbRepository {
         features: Option<&serde_json::Value>,
         limits: Option<&serde_json::Value>,
     ) -> Result<RateLimitTierV12> {
-        let existing = self.get_rate_limit_tier_v12_by_name(name).await?
+        let existing = self
+            .get_rate_limit_tier_v12_by_name(name)
+            .await?
             .ok_or_else(|| DbError::Database(format!("Tier {name} not found")))?;
         let new_desc = description.unwrap_or(&existing.description);
         let new_rate = rate_limit.unwrap_or(existing.rate_limit);
@@ -13867,7 +14074,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v9_for_v12: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v9_for_v12(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV9>> {
+    pub async fn get_user_rate_limit_alerts_v9_for_v12(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV9>> {
         sqlx::query_as::<_, RateLimitAlertV9>(
             "SELECT * FROM rate_limit_alerts_v9 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -13879,7 +14089,11 @@ impl super::DbRepository {
 
     // --- API Analytics v15 ---
 
-    pub async fn list_api_analytics_v15(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV15>> {
+    pub async fn list_api_analytics_v15(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV15>> {
         sqlx::query_as::<_, ApiAnalyticV15>(
             "SELECT * FROM api_analytics_v15 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -13927,7 +14141,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v15: {e}")))
     }
 
-    pub async fn get_cost_analysis_v15(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v15(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -13958,7 +14181,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v15(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v15(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -14060,22 +14285,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v13 ---
 
     pub async fn list_rate_limit_tiers_v13(&self) -> Result<Vec<RateLimitTierV13>> {
-        sqlx::query_as::<_, RateLimitTierV13>(
-            "SELECT * FROM rate_limit_tiers_v13 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v13: {e}")))
+        sqlx::query_as::<_, RateLimitTierV13>("SELECT * FROM rate_limit_tiers_v13 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v13: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v13_by_name(&self, name: &str) -> Result<Option<RateLimitTierV13>> {
-        sqlx::query_as::<_, RateLimitTierV13>(
-            "SELECT * FROM rate_limit_tiers_v13 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v13_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v13_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV13>> {
+        sqlx::query_as::<_, RateLimitTierV13>("SELECT * FROM rate_limit_tiers_v13 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v13_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v13(
@@ -14118,7 +14342,9 @@ impl super::DbRepository {
         features: Option<&serde_json::Value>,
         limits: Option<&serde_json::Value>,
     ) -> Result<RateLimitTierV13> {
-        let existing = self.get_rate_limit_tier_v13_by_name(name).await?
+        let existing = self
+            .get_rate_limit_tier_v13_by_name(name)
+            .await?
             .ok_or_else(|| DbError::Database(format!("Tier {name} not found")))?;
         let new_desc = description.unwrap_or(&existing.description);
         let new_rate = rate_limit.unwrap_or(existing.rate_limit);
@@ -14177,7 +14403,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v10_for_v13: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v10_for_v13(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV10>> {
+    pub async fn get_user_rate_limit_alerts_v10_for_v13(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV10>> {
         sqlx::query_as::<_, RateLimitAlertV10>(
             "SELECT * FROM rate_limit_alerts_v10 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -14189,7 +14418,11 @@ impl super::DbRepository {
 
     // --- API Analytics v16 ---
 
-    pub async fn list_api_analytics_v16(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV16>> {
+    pub async fn list_api_analytics_v16(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV16>> {
         sqlx::query_as::<_, ApiAnalyticV16>(
             "SELECT * FROM api_analytics_v16 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -14237,7 +14470,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v16: {e}")))
     }
 
-    pub async fn get_cost_analysis_v16(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v16(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -14268,7 +14510,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v16(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v16(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -14370,22 +14614,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v14 ---
 
     pub async fn list_rate_limit_tiers_v14(&self) -> Result<Vec<RateLimitTierV14>> {
-        sqlx::query_as::<_, RateLimitTierV14>(
-            "SELECT * FROM rate_limit_tiers_v14 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v14: {e}")))
+        sqlx::query_as::<_, RateLimitTierV14>("SELECT * FROM rate_limit_tiers_v14 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v14: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v14_by_name(&self, name: &str) -> Result<Option<RateLimitTierV14>> {
-        sqlx::query_as::<_, RateLimitTierV14>(
-            "SELECT * FROM rate_limit_tiers_v14 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v14_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v14_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV14>> {
+        sqlx::query_as::<_, RateLimitTierV14>("SELECT * FROM rate_limit_tiers_v14 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v14_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v14(
@@ -14428,7 +14671,9 @@ impl super::DbRepository {
         features: Option<&serde_json::Value>,
         limits: Option<&serde_json::Value>,
     ) -> Result<RateLimitTierV14> {
-        let existing = self.get_rate_limit_tier_v14_by_name(name).await?
+        let existing = self
+            .get_rate_limit_tier_v14_by_name(name)
+            .await?
             .ok_or_else(|| DbError::Database(format!("Tier {name} not found")))?;
         let new_desc = description.unwrap_or(&existing.description);
         let new_rate = rate_limit.unwrap_or(existing.rate_limit);
@@ -14487,7 +14732,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v11_for_v14: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v11_for_v14(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV11>> {
+    pub async fn get_user_rate_limit_alerts_v11_for_v14(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV11>> {
         sqlx::query_as::<_, RateLimitAlertV11>(
             "SELECT * FROM rate_limit_alerts_v11 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -14499,7 +14747,11 @@ impl super::DbRepository {
 
     // --- API Analytics v17 ---
 
-    pub async fn list_api_analytics_v17(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV17>> {
+    pub async fn list_api_analytics_v17(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV17>> {
         sqlx::query_as::<_, ApiAnalyticV17>(
             "SELECT * FROM api_analytics_v17 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -14547,7 +14799,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v17: {e}")))
     }
 
-    pub async fn get_cost_analysis_v17(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v17(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -14578,7 +14839,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v17(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v17(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -14680,22 +14943,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v15 ---
 
     pub async fn list_rate_limit_tiers_v15(&self) -> Result<Vec<RateLimitTierV15>> {
-        sqlx::query_as::<_, RateLimitTierV15>(
-            "SELECT * FROM rate_limit_tiers_v15 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v15: {e}")))
+        sqlx::query_as::<_, RateLimitTierV15>("SELECT * FROM rate_limit_tiers_v15 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v15: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v15_by_name(&self, name: &str) -> Result<Option<RateLimitTierV15>> {
-        sqlx::query_as::<_, RateLimitTierV15>(
-            "SELECT * FROM rate_limit_tiers_v15 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v15_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v15_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV15>> {
+        sqlx::query_as::<_, RateLimitTierV15>("SELECT * FROM rate_limit_tiers_v15 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v15_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v15(
@@ -14795,7 +15057,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v12_for_v15: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v12_for_v15(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV12>> {
+    pub async fn get_user_rate_limit_alerts_v12_for_v15(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV12>> {
         sqlx::query_as::<_, RateLimitAlertV12>(
             "SELECT * FROM rate_limit_alerts_v12 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -14807,7 +15072,11 @@ impl super::DbRepository {
 
     // --- API Analytics v18 ---
 
-    pub async fn list_api_analytics_v18(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV18>> {
+    pub async fn list_api_analytics_v18(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV18>> {
         sqlx::query_as::<_, ApiAnalyticV18>(
             "SELECT * FROM api_analytics_v18 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -14855,7 +15124,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v18: {e}")))
     }
 
-    pub async fn get_cost_analysis_v18(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v18(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -14886,7 +15164,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v18(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v18(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -15109,10 +15389,7 @@ impl super::DbRepository {
         }
     }
 
-    pub async fn get_code_quality_score_v15(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v15(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT
                    CASE
@@ -15203,12 +15480,14 @@ impl super::DbRepository {
         repo_id: Uuid,
         metric_name: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM code_quality_thresholds_v12 WHERE repo_id = $1 AND metric_name = $2")
-            .bind(repo_id)
-            .bind(metric_name)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v15: {e}")))?;
+        sqlx::query(
+            "DELETE FROM code_quality_thresholds_v12 WHERE repo_id = $1 AND metric_name = $2",
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v15: {e}")))?;
         Ok(())
     }
 
@@ -15325,11 +15604,13 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("record_performance_test_alert_v16: {e}")))?;
 
-        sqlx::query("UPDATE performance_test_alerts_v13 SET last_triggered_at = NOW() WHERE id = $1")
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("record_performance_test_alert_v16: {e}")))?;
+        sqlx::query(
+            "UPDATE performance_test_alerts_v13 SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v16: {e}")))?;
 
         Ok(row)
     }
@@ -15385,7 +15666,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v16: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v16: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -15584,10 +15869,7 @@ impl super::DbRepository {
         }
     }
 
-    pub async fn get_code_quality_score_v16(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<f64> {
+    pub async fn get_code_quality_score_v16(&self, repo_id: Uuid) -> Result<f64> {
         let row: (Option<f64>,) = sqlx::query_as(
             r#"SELECT
                    CASE
@@ -15679,12 +15961,14 @@ impl super::DbRepository {
         repo_id: Uuid,
         metric_name: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM code_quality_thresholds_v13 WHERE repo_id = $1 AND metric_name = $2")
-            .bind(repo_id)
-            .bind(metric_name)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v16: {e}")))?;
+        sqlx::query(
+            "DELETE FROM code_quality_thresholds_v13 WHERE repo_id = $1 AND metric_name = $2",
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v16: {e}")))?;
         Ok(())
     }
 
@@ -15801,11 +16085,13 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("record_performance_test_alert_v17: {e}")))?;
 
-        sqlx::query("UPDATE performance_test_alerts_v14 SET last_triggered_at = NOW() WHERE id = $1")
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("record_performance_test_alert_v17: {e}")))?;
+        sqlx::query(
+            "UPDATE performance_test_alerts_v14 SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v17: {e}")))?;
 
         Ok(row)
     }
@@ -15861,7 +16147,11 @@ impl super::DbRepository {
         .bind(alert_id)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_performance_test_alert_notification_config_v17: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_performance_test_alert_notification_config_v17: {e}"
+            ))
+        })?;
         Ok(row)
     }
 
@@ -16134,9 +16424,7 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("check_code_quality_violation_v17: {e}")))?;
         match row {
-            Some((threshold, enabled)) => {
-                Ok(enabled && metric_value > threshold)
-            }
+            Some((threshold, enabled)) => Ok(enabled && metric_value > threshold),
             None => Ok(false),
         }
     }
@@ -16146,12 +16434,14 @@ impl super::DbRepository {
         repo_id: Uuid,
         metric_name: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM code_quality_thresholds_v14 WHERE repo_id = $1 AND metric_name = $2")
-            .bind(repo_id)
-            .bind(metric_name)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v17: {e}")))?;
+        sqlx::query(
+            "DELETE FROM code_quality_thresholds_v14 WHERE repo_id = $1 AND metric_name = $2",
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v17: {e}")))?;
         Ok(())
     }
 
@@ -16180,7 +16470,11 @@ impl super::DbRepository {
         .bind(repo_id)
         .fetch_one(&self.pool)
         .await
-        .map_err(|e| DbError::Database(format!("get_code_quality_enforcement_report_v17 violating: {e}")))?;
+        .map_err(|e| {
+            DbError::Database(format!(
+                "get_code_quality_enforcement_report_v17 violating: {e}"
+            ))
+        })?;
 
         let compliance_rate = if total.0 > 0 {
             ((total.0 - violating.0) as f64 / total.0 as f64) * 100.0
@@ -16274,11 +16568,13 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("record_performance_test_alert_v18: {e}")))?;
 
-        sqlx::query("UPDATE performance_test_alerts_v15 SET last_triggered_at = NOW() WHERE id = $1")
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("record_performance_test_alert_v18 update: {e}")))?;
+        sqlx::query(
+            "UPDATE performance_test_alerts_v15 SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v18 update: {e}")))?;
 
         Ok(row)
     }
@@ -16404,22 +16700,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v16 ---
 
     pub async fn list_rate_limit_tiers_v16(&self) -> Result<Vec<RateLimitTierV16>> {
-        sqlx::query_as::<_, RateLimitTierV16>(
-            "SELECT * FROM rate_limit_tiers_v16 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v16: {e}")))
+        sqlx::query_as::<_, RateLimitTierV16>("SELECT * FROM rate_limit_tiers_v16 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v16: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v16_by_name(&self, name: &str) -> Result<Option<RateLimitTierV16>> {
-        sqlx::query_as::<_, RateLimitTierV16>(
-            "SELECT * FROM rate_limit_tiers_v16 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v16_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v16_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV16>> {
+        sqlx::query_as::<_, RateLimitTierV16>("SELECT * FROM rate_limit_tiers_v16 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v16_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v16(
@@ -16519,7 +16814,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v13: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v13(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV13>> {
+    pub async fn get_user_rate_limit_alerts_v13(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV13>> {
         sqlx::query_as::<_, RateLimitAlertV13>(
             "SELECT * FROM rate_limit_alerts_v13 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -16531,7 +16829,11 @@ impl super::DbRepository {
 
     // --- API Analytics v19 ---
 
-    pub async fn list_api_analytics_v19(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV19>> {
+    pub async fn list_api_analytics_v19(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV19>> {
         sqlx::query_as::<_, ApiAnalyticV19>(
             "SELECT * FROM api_analytics_v19 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -16579,7 +16881,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v19: {e}")))
     }
 
-    pub async fn get_cost_analysis_v19(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v19(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let totals = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             r#"SELECT COUNT(*) as total_requests,
                       COALESCE(SUM(request_size_bytes), 0) as total_request_bytes,
@@ -16610,7 +16921,9 @@ impl super::DbRepository {
         Ok((totals.0, totals.1, totals.2, totals.3, regions, ua_costs))
     }
 
-    pub async fn get_usage_optimization_v19(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v19(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64, Vec<String>)>(
             r#"SELECT endpoint, method,
                       AVG(response_time_ms)::NUMERIC::FLOAT as avg_rt,
@@ -16711,22 +17024,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v17 ---
 
     pub async fn list_rate_limit_tiers_v17(&self) -> Result<Vec<RateLimitTierV17>> {
-        sqlx::query_as::<_, RateLimitTierV17>(
-            "SELECT * FROM rate_limit_tiers_v17 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v17: {e}")))
+        sqlx::query_as::<_, RateLimitTierV17>("SELECT * FROM rate_limit_tiers_v17 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v17: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v17_by_name(&self, name: &str) -> Result<Option<RateLimitTierV17>> {
-        sqlx::query_as::<_, RateLimitTierV17>(
-            "SELECT * FROM rate_limit_tiers_v17 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v17_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v17_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV17>> {
+        sqlx::query_as::<_, RateLimitTierV17>("SELECT * FROM rate_limit_tiers_v17 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v17_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v17(
@@ -16826,7 +17138,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v14: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v14(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV14>> {
+    pub async fn get_user_rate_limit_alerts_v14(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV14>> {
         sqlx::query_as::<_, RateLimitAlertV14>(
             "SELECT * FROM rate_limit_alerts_v14 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -16838,7 +17153,11 @@ impl super::DbRepository {
 
     // --- API Analytics v20 ---
 
-    pub async fn list_api_analytics_v20(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV20>> {
+    pub async fn list_api_analytics_v20(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV20>> {
         sqlx::query_as::<_, ApiAnalyticV20>(
             "SELECT * FROM api_analytics_v20 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -16886,7 +17205,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v20: {e}")))
     }
 
-    pub async fn get_cost_analysis_v20(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v20(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let row: (i64, i64, i64, i64) = sqlx::query_as(
             r#"SELECT COUNT(*) as total_requests, COALESCE(SUM(request_size_bytes), 0), COALESCE(SUM(response_size_bytes), 0), COALESCE(SUM(cost_cents), 0)
                FROM api_analytics_v20"#,
@@ -16914,7 +17242,9 @@ impl super::DbRepository {
         Ok((row.0, row.1, row.2, row.3, regions, user_agents))
     }
 
-    pub async fn get_usage_optimization_v20(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v20(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows: Vec<(String, String, f64, f64, f64, Vec<String>)> = sqlx::query_as(
             r#"SELECT endpoint, method,
                     AVG(response_time_ms)::FLOAT8 as avg_rt,
@@ -17006,22 +17336,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v18 ---
 
     pub async fn list_rate_limit_tiers_v18(&self) -> Result<Vec<RateLimitTierV18>> {
-        sqlx::query_as::<_, RateLimitTierV18>(
-            "SELECT * FROM rate_limit_tiers_v18 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v18: {e}")))
+        sqlx::query_as::<_, RateLimitTierV18>("SELECT * FROM rate_limit_tiers_v18 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v18: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v18_by_name(&self, name: &str) -> Result<Option<RateLimitTierV18>> {
-        sqlx::query_as::<_, RateLimitTierV18>(
-            "SELECT * FROM rate_limit_tiers_v18 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v18_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v18_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV18>> {
+        sqlx::query_as::<_, RateLimitTierV18>("SELECT * FROM rate_limit_tiers_v18 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v18_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v18(
@@ -17121,7 +17450,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v15: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v15(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV15>> {
+    pub async fn get_user_rate_limit_alerts_v15(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV15>> {
         sqlx::query_as::<_, RateLimitAlertV15>(
             "SELECT * FROM rate_limit_alerts_v15 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -17133,7 +17465,11 @@ impl super::DbRepository {
 
     // --- API Analytics v21 ---
 
-    pub async fn list_api_analytics_v21(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV21>> {
+    pub async fn list_api_analytics_v21(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV21>> {
         sqlx::query_as::<_, ApiAnalyticV21>(
             "SELECT * FROM api_analytics_v21 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -17181,7 +17517,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v21: {e}")))
     }
 
-    pub async fn get_cost_analysis_v21(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v21(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let row: (i64, i64, i64, i64) = sqlx::query_as(
             r#"SELECT COUNT(*) as total_requests, COALESCE(SUM(request_size_bytes), 0), COALESCE(SUM(response_size_bytes), 0), COALESCE(SUM(cost_cents), 0)
                FROM api_analytics_v21"#,
@@ -17209,7 +17554,9 @@ impl super::DbRepository {
         Ok((row.0, row.1, row.2, row.3, regions, user_agents))
     }
 
-    pub async fn get_usage_optimization_v21(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v21(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows: Vec<(String, String, f64, f64, f64, Vec<String>)> = sqlx::query_as(
             r#"SELECT endpoint, method,
                     AVG(response_time_ms)::FLOAT8 as avg_rt,
@@ -17506,12 +17853,14 @@ impl super::DbRepository {
         repo_id: Uuid,
         metric_name: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM code_quality_thresholds_v16 WHERE repo_id = $1 AND metric_name = $2")
-            .bind(repo_id)
-            .bind(metric_name)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v19: {e}")))?;
+        sqlx::query(
+            "DELETE FROM code_quality_thresholds_v16 WHERE repo_id = $1 AND metric_name = $2",
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v19: {e}")))?;
         Ok(())
     }
 
@@ -17642,11 +17991,13 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("record_performance_test_alert_v20: {e}")))?;
 
-        sqlx::query("UPDATE performance_test_alerts_v17 SET last_triggered_at = NOW() WHERE id = $1")
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("record_performance_test_alert_v20 update: {e}")))?;
+        sqlx::query(
+            "UPDATE performance_test_alerts_v17 SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v20 update: {e}")))?;
 
         Ok(row)
     }
@@ -17977,12 +18328,14 @@ impl super::DbRepository {
         repo_id: Uuid,
         metric_name: &str,
     ) -> Result<()> {
-        sqlx::query("DELETE FROM code_quality_thresholds_v17 WHERE repo_id = $1 AND metric_name = $2")
-            .bind(repo_id)
-            .bind(metric_name)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v20: {e}")))?;
+        sqlx::query(
+            "DELETE FROM code_quality_thresholds_v17 WHERE repo_id = $1 AND metric_name = $2",
+        )
+        .bind(repo_id)
+        .bind(metric_name)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("delete_code_quality_threshold_v20: {e}")))?;
         Ok(())
     }
 
@@ -18113,11 +18466,13 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("record_performance_test_alert_v21: {e}")))?;
 
-        sqlx::query("UPDATE performance_test_alerts_v18 SET last_triggered_at = NOW() WHERE id = $1")
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| DbError::Database(format!("record_performance_test_alert_v21 update: {e}")))?;
+        sqlx::query(
+            "UPDATE performance_test_alerts_v18 SET last_triggered_at = NOW() WHERE id = $1",
+        )
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("record_performance_test_alert_v21 update: {e}")))?;
 
         Ok(row)
     }
@@ -18384,22 +18739,21 @@ impl super::DbRepository {
     // --- Rate Limit Tiers v20 ---
 
     pub async fn list_rate_limit_tiers_v20(&self) -> Result<Vec<RateLimitTierV20>> {
-        sqlx::query_as::<_, RateLimitTierV20>(
-            "SELECT * FROM rate_limit_tiers_v20 ORDER BY name",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v20: {e}")))
+        sqlx::query_as::<_, RateLimitTierV20>("SELECT * FROM rate_limit_tiers_v20 ORDER BY name")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("list_rate_limit_tiers_v20: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_v20_by_name(&self, name: &str) -> Result<Option<RateLimitTierV20>> {
-        sqlx::query_as::<_, RateLimitTierV20>(
-            "SELECT * FROM rate_limit_tiers_v20 WHERE name = $1",
-        )
-        .bind(name)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v20_by_name: {e}")))
+    pub async fn get_rate_limit_tier_v20_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<RateLimitTierV20>> {
+        sqlx::query_as::<_, RateLimitTierV20>("SELECT * FROM rate_limit_tiers_v20 WHERE name = $1")
+            .bind(name)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| DbError::Database(format!("get_rate_limit_tier_v20_by_name: {e}")))
     }
 
     pub async fn create_rate_limit_tier_v20(
@@ -18499,7 +18853,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_alert_v17: {e}")))
     }
 
-    pub async fn get_user_rate_limit_alerts_v17(&self, user_id: Uuid) -> Result<Vec<RateLimitAlertV17>> {
+    pub async fn get_user_rate_limit_alerts_v17(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitAlertV17>> {
         sqlx::query_as::<_, RateLimitAlertV17>(
             "SELECT * FROM rate_limit_alerts_v17 WHERE user_id = $1 ORDER BY created_at DESC",
         )
@@ -18511,7 +18868,11 @@ impl super::DbRepository {
 
     // --- API Analytics v23 ---
 
-    pub async fn list_api_analytics_v23(&self, limit: i64, offset: i64) -> Result<Vec<ApiAnalyticV23>> {
+    pub async fn list_api_analytics_v23(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ApiAnalyticV23>> {
         sqlx::query_as::<_, ApiAnalyticV23>(
             "SELECT * FROM api_analytics_v23 ORDER BY created_at DESC LIMIT $1 OFFSET $2",
         )
@@ -18559,7 +18920,16 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_api_analytic_v23: {e}")))
     }
 
-    pub async fn get_cost_analysis_v23(&self) -> Result<(i64, i64, i64, i64, Vec<(String, i64, i64)>, Vec<(String, i64, i64)>)> {
+    pub async fn get_cost_analysis_v23(
+        &self,
+    ) -> Result<(
+        i64,
+        i64,
+        i64,
+        i64,
+        Vec<(String, i64, i64)>,
+        Vec<(String, i64, i64)>,
+    )> {
         let total = sqlx::query_as::<_, (i64, i64, i64, i64)>(
             "SELECT COUNT(*), COALESCE(SUM(request_size_bytes), 0), COALESCE(SUM(response_size_bytes), 0), COALESCE(SUM(cost_cents), 0) FROM api_analytics_v23",
         )
@@ -18584,7 +18954,9 @@ impl super::DbRepository {
         Ok((total.0, total.1, total.2, total.3, by_region, by_ua))
     }
 
-    pub async fn get_usage_optimization_v23(&self) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
+    pub async fn get_usage_optimization_v23(
+        &self,
+    ) -> Result<Vec<(String, String, f64, f64, f64, Vec<String>)>> {
         let rows = sqlx::query_as::<_, (String, String, f64, f64, f64)>(
             "SELECT endpoint, method,
                     COALESCE(AVG(response_time_ms), 0.0),
@@ -18604,7 +18976,9 @@ impl super::DbRepository {
             .map(|(ep, method, avg_rt, p95_rt, cache_rate)| {
                 let mut suggestions = Vec::new();
                 if avg_rt > 500.0 {
-                    suggestions.push("High average response time - consider caching or optimization".into());
+                    suggestions.push(
+                        "High average response time - consider caching or optimization".into(),
+                    );
                 }
                 if cache_rate < 0.3 {
                     suggestions.push("Low cache hit rate - review caching strategy".into());
@@ -18621,7 +18995,10 @@ impl super::DbRepository {
 
     // --- API Doc Examples v21 ---
 
-    pub async fn list_api_doc_examples_v21(&self, endpoint_id: Uuid) -> Result<Vec<ApiDocExampleV21>> {
+    pub async fn list_api_doc_examples_v21(
+        &self,
+        endpoint_id: Uuid,
+    ) -> Result<Vec<ApiDocExampleV21>> {
         sqlx::query_as::<_, ApiDocExampleV21>(
             "SELECT * FROM api_doc_examples_v21 WHERE endpoint_id = $1 ORDER BY language, title",
         )
@@ -18667,7 +19044,10 @@ impl super::DbRepository {
 
     // --- API Doc Changelogs v21 ---
 
-    pub async fn list_api_doc_changelogs_v21(&self, endpoint_id: Uuid) -> Result<Vec<ApiDocChangelogV21>> {
+    pub async fn list_api_doc_changelogs_v21(
+        &self,
+        endpoint_id: Uuid,
+    ) -> Result<Vec<ApiDocChangelogV21>> {
         sqlx::query_as::<_, ApiDocChangelogV21>(
             "SELECT * FROM api_doc_changelogs_v21 WHERE endpoint_id = $1 ORDER BY created_at DESC",
         )
@@ -18709,7 +19089,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("list_rate_limit_tier_quotas_v21: {e}")))
     }
 
-    pub async fn get_rate_limit_tier_quota_v21_by_tier(&self, tier: &str) -> Result<Option<RateLimitTierQuotaV21>> {
+    pub async fn get_rate_limit_tier_quota_v21_by_tier(
+        &self,
+        tier: &str,
+    ) -> Result<Option<RateLimitTierQuotaV21>> {
         sqlx::query_as::<_, RateLimitTierQuotaV21>(
             "SELECT * FROM rate_limit_tier_quotas_v21 WHERE tier = $1",
         )
@@ -18794,7 +19177,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("create_rate_limit_usage_analytics_v21: {e}")))
     }
 
-    pub async fn get_rate_limit_usage_analytics_v21_by_user(&self, user_id: Uuid) -> Result<Vec<RateLimitUsageAnalyticsV21>> {
+    pub async fn get_rate_limit_usage_analytics_v21_by_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<RateLimitUsageAnalyticsV21>> {
         sqlx::query_as::<_, RateLimitUsageAnalyticsV21>(
             "SELECT * FROM rate_limit_usage_analytics_v21 WHERE user_id = $1 ORDER BY period_start DESC",
         )
@@ -18806,7 +19192,9 @@ impl super::DbRepository {
 
     // --- Analytics Dashboard Templates v21 ---
 
-    pub async fn list_analytics_dashboard_templates_v21(&self) -> Result<Vec<AnalyticsDashboardTemplateV21>> {
+    pub async fn list_analytics_dashboard_templates_v21(
+        &self,
+    ) -> Result<Vec<AnalyticsDashboardTemplateV21>> {
         sqlx::query_as::<_, AnalyticsDashboardTemplateV21>(
             "SELECT * FROM analytics_dashboard_templates_v21 ORDER BY usage_count DESC",
         )
@@ -18815,7 +19203,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("list_analytics_dashboard_templates_v21: {e}")))
     }
 
-    pub async fn get_analytics_dashboard_template_v21_by_id(&self, id: Uuid) -> Result<Option<AnalyticsDashboardTemplateV21>> {
+    pub async fn get_analytics_dashboard_template_v21_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<AnalyticsDashboardTemplateV21>> {
         sqlx::query_as::<_, AnalyticsDashboardTemplateV21>(
             "SELECT * FROM analytics_dashboard_templates_v21 WHERE id = $1",
         )
@@ -18851,7 +19242,9 @@ impl super::DbRepository {
             .bind(id)
             .execute(&self.pool)
             .await
-            .map_err(|e| DbError::Database(format!("delete_analytics_dashboard_template_v21: {e}")))?;
+            .map_err(|e| {
+                DbError::Database(format!("delete_analytics_dashboard_template_v21: {e}"))
+            })?;
         Ok(())
     }
 
@@ -18866,7 +19259,10 @@ impl super::DbRepository {
         .map_err(|e| DbError::Database(format!("list_analytics_alert_rules_v21: {e}")))
     }
 
-    pub async fn get_analytics_alert_rule_v21_by_id(&self, id: Uuid) -> Result<Option<AnalyticsAlertRuleV21>> {
+    pub async fn get_analytics_alert_rule_v21_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<AnalyticsAlertRuleV21>> {
         sqlx::query_as::<_, AnalyticsAlertRuleV21>(
             "SELECT * FROM analytics_alert_rules_v21 WHERE id = $1",
         )

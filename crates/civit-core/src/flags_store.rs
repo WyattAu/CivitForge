@@ -39,7 +39,9 @@ fn to_kit_flag(f: &civit_db::models::FeatureFlag) -> Option<Flag> {
 impl FlagStore for DbFlagStore {
     async fn get(&self, name: &FlagName) -> Option<Flag> {
         let all = self.db.list_feature_flags().await.ok()?;
-        all.iter().find(|f| f.name == name.as_str()).and_then(to_kit_flag)
+        all.iter()
+            .find(|f| f.name == name.as_str())
+            .and_then(to_kit_flag)
     }
 
     async fn list(&self) -> Vec<Flag> {
@@ -74,19 +76,31 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    #[test]
-    fn db_row_maps_to_kit_flag() {
-        let row = civit_db::models::FeatureFlag {
+    /// Row factory: governance columns default to their schema defaults so
+    /// these tests state only what they are about.
+    fn row(name: &str, percentage: i32) -> civit_db::models::FeatureFlag {
+        civit_db::models::FeatureFlag {
             id: uuid::Uuid::nil(),
-            name: "my_flag".into(),
+            name: name.into(),
             description: "test".into(),
             enabled: true,
             enabled_for_users: Vec::new(),
-            enabled_for_percentage: 50,
+            enabled_for_percentage: percentage,
             enabled_for_orgs: Vec::new(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
-        };
+            kind: "release".into(),
+            owner: "team".into(),
+            ticket: "T-1".into(),
+            salt: String::new(),
+            last_evaluated_at: Some(Utc::now()),
+            last_changed_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn db_row_maps_to_kit_flag() {
+        let row = row("my_flag", 50);
         let flag = to_kit_flag(&row).expect("valid row maps");
         assert_eq!(flag.name.as_str(), "my_flag");
         assert!(flag.enabled);
@@ -95,22 +109,10 @@ mod tests {
 
     #[test]
     fn percentage_clamped_to_u8_range() {
-        let mut row = civit_db::models::FeatureFlag {
-            id: uuid::Uuid::nil(),
-            name: "over".into(),
-            description: String::new(),
-            enabled: true,
-            enabled_for_users: Vec::new(),
-            enabled_for_percentage: 250,
-            enabled_for_orgs: Vec::new(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        };
-        let flag = to_kit_flag(&row).expect("valid row maps");
+        let flag = to_kit_flag(&row("over", 250)).expect("clamped high");
         assert_eq!(flag.percentage, 100);
 
-        row.enabled_for_percentage = -5;
-        let flag = to_kit_flag(&row).expect("valid row maps");
+        let flag = to_kit_flag(&row("under", -5)).expect("clamped low");
         assert_eq!(flag.percentage, 0);
     }
 }
