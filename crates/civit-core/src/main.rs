@@ -65,6 +65,14 @@ async fn main() -> Result<()> {
     // Guard must live for the process lifetime: flushes spans on drop.
     let _telemetry_guard = otelkit::init(telemetry)?;
 
+    // W3C TraceContext + Baggage propagator for inbound `traceparent`.
+    // otelkit 2.0 does not install one, so without this the global
+    // propagator is a no-op and inbound traces never link (upstream gap
+    // worth reporting).
+    opentelemetry::global::set_text_map_propagator(
+        opentelemetry_sdk::propagation::TraceContextPropagator::new(),
+    );
+
     let mut config = AppConfig::from_env()?;
     if debug_mode {
         config.debug_mode = true;

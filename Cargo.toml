@@ -59,6 +59,12 @@ rcgen = "0.13"
 x509-parser = { version = "0.17", features = ["verify"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# ADR-0007 step 2: W3C context propagation onto the otelkit SDK. Versions
+# track otelkit's own pins (opentelemetry 0.32 / tracing-opentelemetry
+# 0.33) so the process never links two OTel stacks.
+opentelemetry = "0.32"
+opentelemetry_sdk = "0.32"
+tracing-opentelemetry = "0.33"
 thiserror = "2"
 anyhow = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
