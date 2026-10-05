@@ -1,7 +1,8 @@
 # ADR-0007: otelkit & flag-kit adoption scope (deferred)
 
-- Status: accepted — step 1 shipped (otelkit subscriber `7e20ce3`;
-  flag-kit bucketing + validation `dba123b`); steps 2-3 deferred
+- Status: accepted — steps 1-2 shipped (otelkit subscriber `7e20ce3`;
+  flag-kit bucketing + validation `dba123b`; flag-kit `FlagStore`
+  adapter + `Evaluator` `d191e50`); remaining steps deferred
 - Date: 2026-09-07
 - Deciders: Wyatt
 
@@ -37,8 +38,15 @@ Defer both to dedicated sessions. On adoption:
    Remaining: middleware W3C context propagation onto the SDK, then
    delete the hand-rolled OTLP exporter.
 2. flag-kit — DONE step 1: kit `bucket()` rollout + `FlagName`
-   validation adopted in `FeatureFlagService` (`dba123b`). Remaining:
-   `Evaluator` + `FlagStore` adapter over the DB tables, then admin UI.
+   validation adopted in `FeatureFlagService` (`dba123b`). DONE step 2:
+   `flags_store::DbFlagStore` implements `FlagStore` over the
+   `feature_flags` table and `AppState` carries the kit `Evaluator`
+   (`d191e50`). The adapter is deliberately a read model — `set`/`delete`
+   return `FlagError::Storage` because kit `Flag` cannot express
+   targeting lists or descriptions, so admin-managed writes stay on the
+   admin API rather than being silently clobbered. Remaining: expose the
+   evaluator through the admin API/UI and migrate rollout SQL off
+   `hashtext` onto kit bucketing.
 3. Prerequisite for both: the local dev machine's `target/` sweeper
    makes server-side builds mandatory (see deploy/civitforge.sh).
 
@@ -46,6 +54,7 @@ Defer both to dedicated sessions. On adoption:
 
 - civit-telemetry remains as-is (functional, E2E-verified) until the
   dedicated sessions.
-- The kit ecosystem's unreleased-version risk is now handled via
-  `[patch.crates-io]` pins (error-codes 1.1.0, error-classify 0.3.0,
-  shutdown-kit 0.2.0) — remove pins on publish.
+- The kit ecosystem's unreleased-version risk is now handled via a
+  `[patch.crates-io]` pin for throttle-kit (pending the `remaining_burst`
+  release); error-codes, error-classify, and shutdown-kit pins were
+  dropped once published.
