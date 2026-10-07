@@ -1121,6 +1121,12 @@ ALTER TABLE feature_flags
     DROP COLUMN IF EXISTS owner,
     DROP COLUMN IF EXISTS kind;";
 
+// ADR-0008: durable state + decision history for health-gated rollouts.
+pub const M_641_FLAG_ROLLOUTS_UP: &str = include_str!("641_flag_rollouts.sql");
+pub const M_641_FLAG_ROLLOUTS_DOWN: &str = "\
+DROP TABLE IF EXISTS flag_rollout_events;
+DROP TABLE IF EXISTS flag_rollouts;";
+
 #[derive(Debug, Clone)]
 pub struct Migration {
     pub version: i64,
@@ -3606,6 +3612,12 @@ impl MigrationManager {
             up_sql: M_640_FLAG_GOVERNANCE_UP.into(),
             down_sql: M_640_FLAG_GOVERNANCE_DOWN.into(),
         });
+        self.add_migration(Migration {
+            version: 641,
+            name: "flag_rollouts".into(),
+            up_sql: M_641_FLAG_ROLLOUTS_UP.into(),
+            down_sql: M_641_FLAG_ROLLOUTS_DOWN.into(),
+        });
     }
 
     pub fn add_migration(&mut self, migration: Migration) {
@@ -3652,8 +3664,8 @@ mod tests {
         assert!(!mgr.all().is_empty());
         assert_eq!(
             mgr.all().last().map(|m| m.name.as_str()),
-            Some("flag_governance"),
-            "newest migration must be flag_governance (640)"
+            Some("flag_rollouts"),
+            "newest migration must be flag_rollouts (641)"
         );
         assert_eq!(mgr.all()[0].version, 1);
         assert_eq!(mgr.all()[0].name, "initial_schema");

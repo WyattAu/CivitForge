@@ -498,6 +498,49 @@ pub struct FeatureFlag {
     pub last_changed_at: DateTime<Utc>,
 }
 
+/// Durable state for a health-gated rollout.
+///
+/// Persisted rather than held in memory so a restart cannot reset a failure
+/// streak and promote a rollout that was about to roll back.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FlagRollout {
+    pub flag_id: Uuid,
+    /// Index into the configured stage list.
+    pub stage_index: i32,
+    /// Consecutive failing observation windows.
+    pub consecutive_failures: i32,
+    /// When the current stage was entered; the gate's minimum observation
+    /// window runs from here.
+    pub stage_started_at: DateTime<Utc>,
+    pub last_observed_at: Option<DateTime<Utc>>,
+    /// `pending`, `promote`, `hold`, `rollback`, `started`, or `completed`.
+    pub last_decision: String,
+    /// Kit reason code behind the decision.
+    pub last_reason: String,
+    pub last_error_rate: Option<f64>,
+    pub last_latency_p99_ms: Option<f64>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// One decision the controller made, for audit.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FlagRolloutEvent {
+    pub id: Uuid,
+    pub flag_id: Uuid,
+    /// `promote`, `hold`, `rollback`, `started`, or `completed`.
+    pub decision: String,
+    /// Kit reason code.
+    pub reason: String,
+    pub stage_index: i32,
+    pub percentage_before: i32,
+    pub percentage_after: i32,
+    pub error_rate: Option<f64>,
+    pub latency_p99_ms: Option<f64>,
+    pub total_samples: i64,
+    pub created_at: DateTime<Utc>,
+}
+
 /// One signal behind a staleness verdict, so the API can explain itself.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FlagSignalView {

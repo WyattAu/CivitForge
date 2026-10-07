@@ -2514,9 +2514,9 @@ checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "flag-kit"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df84c86d51b710ba910c93819ebbd7cc706c9b3da5c0d8fbeeea405e0a8eba97"
+checksum = "095b7176f67ad4e45b974713ae74d03045063255f6666dea4b9908cf08e46910"
 dependencies = [
  "async-trait",
  "chrono",

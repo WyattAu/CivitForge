@@ -37,6 +37,7 @@ pub mod protection;
 pub mod realtime;
 pub mod provenance;
 pub mod release;
+pub mod rollout_controller;
 pub mod release_manager;
 pub mod resilience;
 pub mod runner;

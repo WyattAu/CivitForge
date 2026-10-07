@@ -174,6 +174,11 @@ pub async fn tracing_middleware(req: Request, next: Next) -> Response {
     // Also record via the global tracing_setup functions
     crate::telemetry::tracing_setup::record_http_request(duration);
 
+    // Feed the rolling health window. This is the only place the status code
+    // is known, so it is the only place an error rate can come from — and
+    // flag-kit's health gate is gated on exactly that.
+    crate::telemetry::global_health_window().record(duration, status);
+
     response
 }
 

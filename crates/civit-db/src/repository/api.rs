@@ -1516,6 +1516,178 @@ impl super::DbRepository {
         Ok(())
     }
 
+    // ---------------------------------------------------------------------
+    // Health-gated rollouts (ADR-0008)
+    // ---------------------------------------------------------------------
+
+    /// Flags eligible for automated rollout: enabled, mid-rollout, and not
+    /// an exempt kind.
+    ///
+    /// `0 < percentage < 100` is what makes a flag "in flight": a flag at 0
+    /// has not started, and one at 100 is finished (and a removal
+    /// candidate, per the staleness policy).
+    pub async fn list_in_flight_rollout_flags(
+        &self,
+    ) -> Result<Vec<crate::models::FeatureFlag>> {
+        let rows = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            r#"SELECT * FROM feature_flags
+               WHERE enabled = true
+                 AND enabled_for_percentage > 0
+                 AND enabled_for_percentage < 100
+                 AND kind IN ('release', 'experiment')
+               ORDER BY name"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_in_flight_rollout_flags: {e}")))?;
+        Ok(rows)
+    }
+
+    /// Loads a rollout's durable state, or `None` when it has none yet.
+    pub async fn get_flag_rollout(
+        &self,
+        flag_id: Uuid,
+    ) -> Result<Option<crate::models::FlagRollout>> {
+        let row = sqlx::query_as::<_, crate::models::FlagRollout>(
+            "SELECT * FROM flag_rollouts WHERE flag_id = $1",
+        )
+        .bind(flag_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_flag_rollout: {e}")))?;
+        Ok(row)
+    }
+
+    /// Starts a rollout at its current percentage, recording the event.
+    pub async fn start_flag_rollout(&self, flag_id: Uuid) -> Result<crate::models::FlagRollout> {
+        let row = sqlx::query_as::<_, crate::models::FlagRollout>(
+            r#"INSERT INTO flag_rollouts (flag_id, stage_index, last_decision)
+               VALUES ($1, 0, 'started')
+               ON CONFLICT (flag_id) DO UPDATE
+                 SET stage_index = 0,
+                     consecutive_failures = 0,
+                     stage_started_at = NOW(),
+                     last_decision = 'started',
+                     last_reason = '',
+                     updated_at = NOW()
+               RETURNING *"#,
+        )
+        .bind(flag_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("start_flag_rollout: {e}")))?;
+        Ok(row)
+    }
+
+    /// Persists a gate observation and its decision.
+    ///
+    /// One statement so the decision and the streak cannot diverge if the
+    /// process dies between them.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn record_flag_rollout_observation(
+        &self,
+        flag_id: Uuid,
+        decision: &str,
+        reason: &str,
+        stage_index: i32,
+        consecutive_failures: i32,
+        error_rate: Option<f64>,
+        latency_p99_ms: Option<f64>,
+        total_samples: i64,
+        percentage_before: i32,
+        percentage_after: i32,
+    ) -> Result<()> {
+        let mut tx = self.pool.begin().await.map_err(|e| {
+            DbError::Database(format!("record_flag_rollout_observation begin: {e}"))
+        })?;
+
+        sqlx::query(
+            r#"INSERT INTO flag_rollout_events
+                 (flag_id, decision, reason, stage_index, percentage_before,
+                  percentage_after, error_rate, latency_p99_ms, total_samples)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)"#,
+        )
+        .bind(flag_id)
+        .bind(decision)
+        .bind(reason)
+        .bind(stage_index)
+        .bind(percentage_before)
+        .bind(percentage_after)
+        .bind(error_rate)
+        .bind(latency_p99_ms)
+        .bind(total_samples)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DbError::Database(format!("insert flag_rollout_events: {e}")))?;
+
+        // A rollback restarts the streak and the stage clock, because the gate
+        // restarts from its first stage; anything else keeps the clock
+        // running so min_duration is measured from stage entry.
+        let reset_stage = decision == "rollback";
+        sqlx::query(
+            r#"UPDATE flag_rollouts
+               SET consecutive_failures = $2,
+                   stage_index = $3,
+                   stage_started_at = CASE WHEN $4 THEN NOW() ELSE stage_started_at END,
+                   last_observed_at = NOW(),
+                   last_decision = $5,
+                   last_reason = $6,
+                   last_error_rate = $7,
+                   last_latency_p99_ms = $8,
+                   updated_at = NOW()
+               WHERE flag_id = $1"#,
+        )
+        .bind(flag_id)
+        .bind(consecutive_failures)
+        .bind(stage_index)
+        .bind(reset_stage)
+        .bind(decision)
+        .bind(reason)
+        .bind(error_rate)
+        .bind(latency_p99_ms)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| DbError::Database(format!("update flag_rollouts: {e}")))?;
+
+        tx.commit()
+            .await
+            .map_err(|e| DbError::Database(format!("record_flag_rollout_observation commit: {e}")))
+    }
+
+    /// Moves a flag's rollout percentage.
+    pub async fn set_feature_flag_percentage(&self, flag_id: Uuid, percentage: i32) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE feature_flags
+               SET enabled_for_percentage = $2,
+                   last_changed_at = NOW(),
+                   updated_at = NOW()
+               WHERE id = $1"#,
+        )
+        .bind(flag_id)
+        .bind(percentage.clamp(0, 100))
+        .execute(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("set_feature_flag_percentage: {e}")))?;
+        Ok(())
+    }
+
+    /// Decision history for a flag, newest first.
+    pub async fn list_flag_rollout_events(
+        &self,
+        flag_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<crate::models::FlagRolloutEvent>> {
+        let rows = sqlx::query_as::<_, crate::models::FlagRolloutEvent>(
+            "SELECT * FROM flag_rollout_events WHERE flag_id = $1 ORDER BY created_at DESC LIMIT $2",
+        )
+        .bind(flag_id)
+        .bind(limit.clamp(1, 500))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_flag_rollout_events: {e}")))?;
+        Ok(rows)
+    }
+
     /// Flags with no recorded evaluation, for the staleness audit.
     pub async fn list_never_evaluated_feature_flags(
         &self,

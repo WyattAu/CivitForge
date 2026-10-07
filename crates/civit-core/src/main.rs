@@ -1,11 +1,12 @@
 #![forbid(unsafe_code)]
 
 use anyhow::Result;
+use std::sync::Arc;
+
 use civit_core::{api::create_router, config::AppConfig};
 use shutdown_kit::shutdown_signal;
 use std::net::SocketAddr;
-use tracing::info;
-use tracing_subscriber::EnvFilter;
+use tracing::{error, info};
 
 fn split_sql_statements(sql: &str) -> Vec<&str> {
     let mut statements = Vec::new();
@@ -124,7 +125,50 @@ async fn main() -> Result<()> {
         info!(current = current_version, "database schema is up to date");
     }
 
-    let router = create_router(config.clone(), pool)?;
+    // create_router consumes the pool, so the controller gets its own clone
+    // of the same handle rather than a second connection pool.
+    let router = create_router(config.clone(), pool.clone())?;
+
+    // Health-gated rollout controller (ADR-0008). Drives in-flight flag
+    // rollouts from the rolling health window: promote on green, roll back on
+    // red, and hold when there is not enough evidence either way.
+    if config.rollout_controller_enabled() {
+        let rollout_db = Arc::new(civit_core::db::DbRepository::new(pool.clone()));
+        let rollout_config = civit_core::rollout_controller::RolloutControllerConfig::default();
+        let tick = rollout_config.tick;
+        let controller =
+            civit_core::rollout_controller::RolloutController::new(rollout_db, rollout_config);
+        tokio::spawn(async move {
+            // Stagger the first tick so it does not race startup migrations.
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            loop {
+                let window = civit_telemetry::global_health_window();
+                match controller.tick_once(window).await {
+                    Ok(observations) => {
+                        for obs in observations {
+                            if obs.decision != flag_kit::gate::Decision::Hold {
+                                info!(
+                                    flag = %obs.flag_name,
+                                    decision = %obs.decision.as_str(),
+                                    reason = %obs.reason,
+                                    from = obs.percentage_before,
+                                    to = obs.percentage_after,
+                                    error_rate = ?obs.error_rate,
+                                    p99_ms = ?obs.latency_p99_ms,
+                                    "health-gated rollout"
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => error!(error = %e, "rollout controller tick failed"),
+                }
+                tokio::time::sleep(tick).await;
+            }
+        });
+        info!("health-gated rollout controller started");
+    } else {
+        info!("health-gated rollout controller disabled (CIVIT_ROLLOUT_CONTROLLER=false)");
+    }
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port)
         .parse()

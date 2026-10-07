@@ -143,6 +143,17 @@ impl AppConfig {
         Ok(())
     }
 
+    /// Whether the health-gated rollout controller runs.
+    ///
+    /// Defaults on, and off via `CIVIT_ROLLOUT_CONTROLLER=false` for
+    /// operators who want flag changes to stay manual.
+    #[must_use]
+    pub fn rollout_controller_enabled(&self) -> bool {
+        std::env::var("CIVIT_ROLLOUT_CONTROLLER")
+            .map(|v| !matches!(v.trim().to_ascii_lowercase().as_str(), "0" | "false" | "no"))
+            .unwrap_or(true)
+    }
+
     pub fn tls_enabled(&self) -> bool {
         self.tls_cert_path.is_some() && self.tls_key_path.is_some()
     }
