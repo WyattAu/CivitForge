@@ -237,18 +237,18 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
                         <div class="space-y-3">
                             <div class="flex items-center justify-between">
                                 <h2 class="text-lg font-semibold">"Flag Lifecycle Audit"</h2>
-                                {move || {
-                                    let a = audit.get();
-                                    a.map(|a| {
+                                <Show when=move || audit.get().is_some() fallback=|| ()>
+                                    {move || {
+                                        let a = audit.get().expect("guarded by Show");
                                         view! {
                                             <div class="flex gap-2 text-xs">
                                                 <Badge color=BadgeColor::Danger text=format!("{} removal candidates", a.removal_candidates) />
                                                 <Badge color=BadgeColor::Warning text=format!("{} aging", a.aging) />
                                                 <Badge color=BadgeColor::Neutral text=format!("{} total", a.total) />
                                             </div>
-                                        }.into_view()
-                                    }).unwrap_or_else(|| ().into_view())
-                                }}
+                                        }
+                                    }}
+                                </Show>
                             </div>
                             <p class="text-xs text-gray-500 dark:text-gray-400">
                                 "Verdicts from the shared staleness policy (flag-kit). Removal candidates are flags past their lifecycle deadline, fully rolled out but still present, or never evaluated. Permission gates are permanently exempt."
