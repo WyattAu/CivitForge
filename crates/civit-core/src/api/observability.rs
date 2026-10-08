@@ -7,7 +7,6 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 /// Query parameters for listing traces.
 #[derive(Debug, Deserialize)]
@@ -168,7 +167,6 @@ pub async fn export_traces(
 mod tests {
     use super::*;
     use crate::telemetry::opentelemetry::{InstrumentationProvider, Resource};
-    use std::sync::Arc;
 
     #[test]
     fn test_default_resource_service_name() {

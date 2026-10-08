@@ -17,6 +17,7 @@ pub mod boards;
 pub mod branch_protection;
 pub mod circuit_breaker;
 pub mod chaos;
+pub mod chaos_faults;
 pub mod code_browser;
 pub mod codeowners;
 pub mod compliance;
@@ -337,6 +338,7 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
         .merge(compliance::compliance_routes())
         .merge(observability_routes())
         .merge(chaos::chaos_routes())
+        .merge(chaos_faults::fault_routes())
         .merge(resilience::resilience_routes())
         .merge(circuit_breaker::circuit_breaker_routes())
         .merge(api_gateway::gateway_routes())
@@ -456,6 +458,14 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
         ))
         .layer(TraceLayer::new_for_http())
+        // Chaos fault injection sits INSIDE the tracing middleware: layers
+        // run bottom-up, so an injected 500 is seen and counted by exactly
+        // the health window the rollout gate reads. Outside it, injection
+        // would be invisible to the gate and prove nothing.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::api::chaos_faults::fault_middleware,
+        ))
         // Request-span middleware. Was never installed — the request spans,
         // the HTTP metrics, and the rolling health window that gates rollout
         // automation all silently saw nothing. Layers run bottom-up, so this
@@ -612,6 +622,8 @@ pub struct AppState {
     pub notification_broadcaster: Arc<tokio::sync::broadcast::Sender<String>>,
     /// flag-kit Evaluator over the DB read model (ADR-0007 step 2)
     pub flag_evaluator: Arc<flag_kit::Evaluator>,
+    /// Chaos fault injection state (admin-controlled, in-memory only).
+    pub fault_injector: Arc<crate::api::chaos_faults::FaultInjector>,
     /// The one in-process telemetry provider. Shared by the request-span
     /// middleware and the observability endpoints so both read the same
     /// counters; a private instance in either place would report numbers the
@@ -641,6 +653,7 @@ impl AppState {
         let flag_evaluator = Arc::new(flag_kit::Evaluator::new(Arc::new(
             crate::flags_store::DbFlagStore::new(Arc::new(DbRepository::new(db.clone()))),
         )));
+        let fault_injector = Arc::new(crate::api::chaos_faults::FaultInjector::default());
         let telemetry_provider = Arc::new(
             crate::telemetry::opentelemetry::InstrumentationProvider::new(
                 crate::telemetry::opentelemetry::Resource::default(),
@@ -696,6 +709,7 @@ impl AppState {
             wiki_git,
             notification_broadcaster: Arc::new(tokio::sync::broadcast::channel(256).0),
             flag_evaluator,
+            fault_injector,
             telemetry_provider,
             #[cfg(feature = "webauthn")]
             webauthn_service: {
