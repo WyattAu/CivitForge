@@ -53,6 +53,49 @@ struct FlagSignal {
     detail: String,
 }
 
+/// One in-flight rollout as the controller reports it.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct FlagRolloutRow {
+    flag_id: String,
+    name: String,
+    #[serde(default)]
+    kind: String,
+    #[serde(default)]
+    owner: String,
+    enabled_for_percentage: i32,
+    stage_index: i32,
+    consecutive_failures: i32,
+    #[serde(default)]
+    last_decision: String,
+    #[serde(default)]
+    last_reason: String,
+    last_error_rate: Option<f64>,
+    last_latency_p99_ms: Option<f64>,
+}
+
+/// One recent controller decision.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct RolloutEventRow {
+    #[serde(default)]
+    name: String,
+    decision: String,
+    #[serde(default)]
+    reason: String,
+    percentage_before: i32,
+    percentage_after: i32,
+    #[serde(default)]
+    error_rate: Option<f64>,
+    #[serde(default, rename = "createdAt")]
+    created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct RolloutsResponse {
+    controller_enabled: bool,
+    rollouts: Vec<FlagRolloutRow>,
+    recent_events: Vec<RolloutEventRow>,
+}
+
 #[derive(Debug, Clone, serde::Deserialize)]
 struct StalenessAuditResponse {
     flags: Vec<FlagStaleness>,
@@ -91,6 +134,20 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
     let (error, set_error) = signal(Option::<String>::None);
 
     let (audit, set_audit) = signal(Option::<StalenessAuditResponse>::None);
+    let (rollouts, set_rollouts) = signal(Option::<RolloutsResponse>::None);
+    let load_rollouts = Callback::new(move |_| {
+        let token = auth.0.with(|s| s.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            if let Ok(resp) = client.get("/admin/feature-flags/rollouts").await {
+                if resp.status().is_success() {
+                    if let Ok(data) = resp.json::<RolloutsResponse>().await {
+                        set_rollouts.set(Some(data));
+                    }
+                }
+            }
+        });
+    });
     let load_audit = Callback::new(move |_| {
         let token = auth.0.with(|s| s.token.clone());
         leptos::task::spawn_local(async move {
@@ -138,6 +195,7 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
 
     load_flags.run(());
     load_audit.run(());
+    load_rollouts.run(());
 
     let toggle_flag = Callback::new(move |flag_id: String| {
         let token = auth.0.with(|s| s.token.clone());
@@ -230,6 +288,78 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
                                     </For>
                                 </tbody>
                             </table>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-lg font-semibold">"Health-Gated Rollouts"</h2>
+                                <Show when=move || rollouts.get().is_some() fallback=|| ()>
+                                    {move || {
+                                        let r = rollouts.get().expect("guarded by Show");
+                                        view! {
+                                            <Badge
+                                                color=if r.controller_enabled { BadgeColor::Success } else { BadgeColor::Neutral }
+                                                text=if r.controller_enabled { "controller running".to_string() } else { "controller disabled".to_string() }
+                                            />
+                                        }
+                                    }}
+                                </Show>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-50 dark:bg-gray-800">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Flag"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Exposure"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Stage"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Bad windows"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Last decision"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Evidence"</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                        <For each=move || rollouts.get().map(|r| r.rollouts).unwrap_or_default() key=|r| r.flag_id.clone() let:row>
+                                        {
+                                            let decision_color = match row.last_decision.as_str() {
+                                                "rollback" => BadgeColor::Danger,
+                                                "hold" => BadgeColor::Warning,
+                                                "promote" | "completed" => BadgeColor::Success,
+                                                _ => BadgeColor::Neutral,
+                                            };
+                                            let evidence = format!(
+                                                "error rate {} | p99 {} ms",
+                                                row.last_error_rate.map(|r| format!("{:.2}%", r * 100.0)).unwrap_or_else(|| "n/a".into()),
+                                                row.last_latency_p99_ms.map(|p| format!("{:.0}", p)).unwrap_or_else(|| "n/a".into()),
+                                            );
+                                            view! {
+                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{row.name.clone()}</td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{format!("{}%", row.enabled_for_percentage)}</td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{format!("{}", row.stage_index)}</td>
+                                                    <td class="px-4 py-3 text-sm" class=("text-red-600", row.consecutive_failures > 0)>{format!("{}", row.consecutive_failures)}</td>
+                                                    <td class="px-4 py-3">
+                                                        <Badge color=decision_color text=row.last_decision.clone() />
+                                                    </td>
+                                                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{evidence}</td>
+                                                </tr>
+                                            }
+                                        }
+                                        </For>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">"Recent decisions"</h3>
+                                <ul class="mt-1 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                                    <For each=move || rollouts.get().map(|r| r.recent_events).unwrap_or_default() key=|e| format!("{:?}-{}", e.created_at, e.name.clone()) let:ev>
+                                        <li>
+                                            {format!("[{}] {} {}: {} → {} ({})", ev.created_at.clone().unwrap_or_default(), ev.name, ev.decision, ev.percentage_before, ev.percentage_after, ev.reason)}
+                                        </li>
+                                    </For>
+                                </ul>
+                            </div>
                         </div>
                     </Card>
 

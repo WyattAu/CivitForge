@@ -560,6 +560,47 @@ pub async fn audit_flag_staleness(
     .into_response()
 }
 
+/// `GET /api/v1/admin/feature-flags/rollouts` — the controller's live state.
+///
+/// Without this the only way to answer "what is the rollout automation
+/// doing" is a database query, which is not an operator surface.
+pub async fn list_flag_rollouts(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> impl IntoResponse {
+    if let Err(rejection) = require_admin(&auth) {
+        return rejection.into_response();
+    }
+
+    let rollouts = match state.db.list_flag_rollout_views().await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+    let recent_events = match state.db.list_recent_flag_rollout_events(50).await {
+        Ok(r) => r,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response();
+        }
+    };
+
+    Json(serde_json::json!({
+        "controller_enabled": state.config.rollout_controller_enabled(),
+        "rollouts": rollouts,
+        "recent_events": recent_events,
+    }))
+    .into_response()
+}
+
 pub fn feature_flag_routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/feature-flags", get(list_feature_flags_for_user))
@@ -570,6 +611,10 @@ pub fn feature_flag_routes() -> Router<AppState> {
         .route(
             "/api/v1/admin/feature-flags/stale",
             get(audit_flag_staleness),
+        )
+        .route(
+            "/api/v1/admin/feature-flags/rollouts",
+            get(list_flag_rollouts),
         )
         .route(
             "/api/v1/admin/feature-flags/{id}",

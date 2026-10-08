@@ -523,6 +523,46 @@ pub struct FlagRollout {
     pub updated_at: DateTime<Utc>,
 }
 
+/// A rollout as the operator should see it: the flag, the gate's position,
+/// and the evidence behind the last decision.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FlagRolloutView {
+    pub flag_id: Uuid,
+    pub name: String,
+    /// Lifecycle category.
+    pub kind: String,
+    pub owner: String,
+    /// Current exposure.
+    pub enabled_for_percentage: i32,
+    /// Index into the controller's stage list.
+    pub stage_index: i32,
+    pub consecutive_failures: i32,
+    /// When the current stage's observation window started.
+    pub stage_started_at: DateTime<Utc>,
+    pub last_observed_at: Option<DateTime<Utc>>,
+    pub last_decision: String,
+    pub last_reason: String,
+    pub last_error_rate: Option<f64>,
+    pub last_latency_p99_ms: Option<f64>,
+}
+
+/// A recent controller decision, newest first.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FlagRolloutEventView {
+    pub id: Uuid,
+    pub flag_id: Uuid,
+    pub name: String,
+    pub decision: String,
+    pub reason: String,
+    pub stage_index: i32,
+    pub percentage_before: i32,
+    pub percentage_after: i32,
+    pub error_rate: Option<f64>,
+    pub latency_p99_ms: Option<f64>,
+    pub total_samples: i64,
+    pub created_at: DateTime<Utc>,
+}
+
 /// One decision the controller made, for audit.
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct FlagRolloutEvent {

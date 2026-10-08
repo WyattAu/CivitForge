@@ -1705,6 +1705,50 @@ impl super::DbRepository {
         Ok(row)
     }
 
+    /// Every rollout with its flag, for the operator view.
+    ///
+    /// Rows exist only for flags the controller has observed, and a flag at
+    /// 100% keeps its row — the completed rollout's history is part of the
+    /// operational record, and the staleness audit takes over from there.
+    pub async fn list_flag_rollout_views(&self) -> Result<Vec<crate::models::FlagRolloutView>> {
+        let rows = sqlx::query_as::<_, crate::models::FlagRolloutView>(
+            r#"SELECT f.id AS flag_id, f.name, f.kind, f.owner,
+                      f.enabled_for_percentage,
+                      r.stage_index, r.consecutive_failures,
+                      r.stage_started_at, r.last_observed_at,
+                      r.last_decision, r.last_reason,
+                      r.last_error_rate, r.last_latency_p99_ms
+               FROM flag_rollouts r
+               JOIN feature_flags f ON f.id = r.flag_id
+               ORDER BY f.name"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_flag_rollout_views: {e}")))?;
+        Ok(rows)
+    }
+
+    /// Recent controller decisions across all flags, newest first.
+    pub async fn list_recent_flag_rollout_events(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<crate::models::FlagRolloutEventView>> {
+        let rows = sqlx::query_as::<_, crate::models::FlagRolloutEventView>(
+            r#"SELECT e.id, e.flag_id, f.name, e.decision, e.reason,
+                      e.stage_index, e.percentage_before, e.percentage_after,
+                      e.error_rate, e.latency_p99_ms, e.total_samples, e.created_at
+               FROM flag_rollout_events e
+               JOIN feature_flags f ON f.id = e.flag_id
+               ORDER BY e.created_at DESC
+               LIMIT $1"#,
+        )
+        .bind(limit.clamp(1, 200))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("list_recent_flag_rollout_events: {e}")))?;
+        Ok(rows)
+    }
+
     /// Flags with no recorded evaluation, for the staleness audit.
     pub async fn list_never_evaluated_feature_flags(
         &self,
