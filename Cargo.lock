@@ -5500,9 +5500,9 @@ dependencies = [
 
 [[package]]
 name = "otelkit"
-version = "2.1.0"
+version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "977493636b01c32d0ecebc6a8f4c48a97cc32add9173a6bab430ca5b8f79b70e"
+checksum = "b2397b322a2866f9f91ac2cc9717a49eafe73f1fa93f1f605ee81daa09e1c94b"
 dependencies = [
  "opentelemetry",
  "opentelemetry-otlp",

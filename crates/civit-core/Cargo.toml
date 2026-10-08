@@ -27,7 +27,7 @@ shutdown-kit = "0.3"
 # remaining_burst() token-bucket semantics via git main until 2.1.0 publishes
 throttle-kit = { git = "https://github.com/WyattAu/ratelimit", branch = "main" }
 # ADR-0006 Phase 4: otelkit subscriber + OTLP export (step 1 of ADR-0007)
-otelkit = { version = "2.1", features = ["otlp", "prometheus"] }
+otelkit = { version = "2.2.1", features = ["otlp", "prometheus"] }
 # ADR-0006 Phase 4: deterministic flag bucketing + name validation
 flag-kit = { version = "0.7", features = ["chrono"] }
 async-trait = "0.1"

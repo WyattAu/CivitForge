@@ -51,6 +51,43 @@ pub struct MetricResponse {
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
+/// GET /api/v1/metrics/prometheus
+///
+/// Serves the live Prometheus exposition from the process telemetry guard.
+/// text/plain per the exposition format; a scrape target must not receive
+/// JSON, and a guard-less process (unit tests) reports 503 rather than an
+/// empty scrape that looks like a healthy service with zero metrics.
+pub async fn prometheus_exposition(
+    State(state): State<crate::api::AppState>,
+) -> impl IntoResponse {
+    use axum::http::StatusCode;
+    use axum::response::{IntoResponse, Response};
+
+    let Some(guard) = state.telemetry_guard.as_ref() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "prometheus metrics not configured".to_string(),
+        )
+            .into_response();
+    };
+    match guard.gather_metrics() {
+        Ok(text) => (
+            StatusCode::OK,
+            [(
+                axum::http::header::CONTENT_TYPE,
+                "text/plain; version=0.0.4; charset=utf-8",
+            )],
+            text,
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("metrics gather failed: {e}"),
+        )
+            .into_response(),
+    }
+}
+
 /// GET /api/v1/observability/traces
 ///
 /// Returns recent trace spans from the in-memory instrumentation provider.

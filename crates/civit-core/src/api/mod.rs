@@ -135,6 +135,16 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
+    create_router_with_telemetry(config, db, None)
+}
+
+/// Like [`create_router`], with the process telemetry guard so the
+/// Prometheus exposition endpoint can serve the live registry.
+pub fn create_router_with_telemetry(
+    config: AppConfig,
+    db: PgPool,
+    telemetry: Option<Arc<otelkit::TelemetryGuard>>,
+) -> Result<Router> {
     let state = AppState::new(config, db);
 
     let cors = if state.config.cors_allowed_origins.is_empty()
@@ -474,7 +484,11 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             state.clone(),
             crate::middleware::tracing::tracing_middleware_with_state,
         ))
-        .with_state(state.clone())
+        .with_state({
+            let mut guarded = state.clone();
+            guarded.telemetry_guard = telemetry;
+            guarded
+        })
         .layer(axum::Extension(rate_limiter))
         .layer(axum::Extension(state_jwt_service))
         .layer(axum::Extension(std::sync::Arc::new(state.db.clone())))
@@ -516,6 +530,10 @@ fn observability_routes() -> axum::Router<AppState> {
     // the request middleware feeds, and a private instance here would show
     // the UI numbers the gate never saw.
     Router::new()
+        .route(
+            "/api/v1/metrics/prometheus",
+            get(observability::prometheus_exposition),
+        )
         .route(
             "/api/v1/observability/traces",
             get(observability::list_traces),
@@ -624,6 +642,10 @@ pub struct AppState {
     pub flag_evaluator: Arc<flag_kit::Evaluator>,
     /// Chaos fault injection state (admin-controlled, in-memory only).
     pub fault_injector: Arc<crate::api::chaos_faults::FaultInjector>,
+    /// otelkit guard when the process initialized telemetry with a
+    /// Prometheus registry. `None` in unit tests; the metrics endpoint
+    /// reports an honest "not configured" rather than an empty scrape.
+    pub telemetry_guard: Option<Arc<otelkit::TelemetryGuard>>,
     /// The one in-process telemetry provider. Shared by the request-span
     /// middleware and the observability endpoints so both read the same
     /// counters; a private instance in either place would report numbers the
@@ -710,6 +732,7 @@ impl AppState {
             notification_broadcaster: Arc::new(tokio::sync::broadcast::channel(256).0),
             flag_evaluator,
             fault_injector,
+            telemetry_guard: None,
             telemetry_provider,
             #[cfg(feature = "webauthn")]
             webauthn_service: {

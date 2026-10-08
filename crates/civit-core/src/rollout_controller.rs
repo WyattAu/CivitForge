@@ -68,6 +68,95 @@ impl Default for RolloutControllerConfig {
 }
 
 impl RolloutControllerConfig {
+    /// Builds the configuration from `CIVIT_ROLLOUT_*` environment
+    /// variables, falling back to the defaults above.
+    ///
+    /// Invalid values are hard errors rather than silent defaults: an
+    /// operator who sets a 1% error budget and gets 0.1% because of a typo
+    /// has a stricter gate than intended, and one who sets 10000 gets none.
+    /// Fail-fast is the only honest option for safety-relevant tuning.
+    ///
+    /// # Errors
+    /// Returns the variable name and the offending value.
+    pub fn from_env() -> std::result::Result<Self, String> {
+        // `std::env::set_var` is unsafe in edition 2024 and the crate
+        // forbids unsafe code, so tests inject a lookup instead of mutating
+        // process state — which also removes the ordering coupling between
+        // parallel tests and the environment.
+        Self::from_lookup(|name| std::env::var(name).ok())
+    }
+
+    /// [`Self::from_env`] with an injectable variable lookup.
+    ///
+    /// # Errors
+    /// Same contract as [`Self::from_env`].
+    pub fn from_lookup(
+        get: impl Fn(&str) -> Option<String>,
+    ) -> std::result::Result<Self, String> {
+        let parse =
+            |name: &str, default: u64| -> std::result::Result<u64, String> {
+                match get(name) {
+                    None => Ok(default),
+                    Some(raw) => raw.trim().parse::<u64>().map_err(|_| {
+                        format!("{name} must be a non-negative integer, got {raw:?}")
+                    }),
+                }
+            };
+
+        let tick_secs = parse("CIVIT_ROLLOUT_TICK_SECS", 60)?;
+        if tick_secs == 0 {
+            return Err("CIVIT_ROLLOUT_TICK_SECS must be at least 1".into());
+        }
+
+        let failure_limit = parse("CIVIT_ROLLOUT_FAILURE_LIMIT", 2)?;
+        if failure_limit == 0 {
+            return Err("CIVIT_ROLLOUT_FAILURE_LIMIT must be at least 1".into());
+        }
+
+        let error_permille = parse("CIVIT_ROLLOUT_MAX_ERROR_RATE_PERMILLE", 10)?;
+        if error_permille > 1000 {
+            return Err(format!(
+                "CIVIT_ROLLOUT_MAX_ERROR_RATE_PERMILLE must be 0..=1000, got {error_permille}"
+            ));
+        }
+
+        let min_stage_secs = parse("CIVIT_ROLLOUT_MIN_STAGE_SECS", 600)?;
+        let min_samples = parse("CIVIT_ROLLOUT_MIN_SAMPLES", 100)?;
+
+        let stages = match get("CIVIT_ROLLOUT_STAGES") {
+            None => Self::default().stages,
+            Some(raw) => {
+                let mut parsed = Vec::new();
+                for part in raw.split(',') {
+                    let v: u8 = part
+                        .trim()
+                        .parse()
+                        .map_err(|_| format!("CIVIT_ROLLOUT_STAGES must be comma-separated percentages 0..=100, got {raw:?}"))?;
+                    if v > 100 {
+                        return Err(format!(
+                            "CIVIT_ROLLOUT_STAGES percentages must be 0..=100, got {v}"
+                        ));
+                    }
+                    parsed.push(v);
+                }
+                if parsed.is_empty() {
+                    return Err("CIVIT_ROLLOUT_STAGES must not be empty".into());
+                }
+                parsed
+            }
+        };
+
+        Ok(Self {
+            tick: Duration::from_secs(tick_secs),
+            stages,
+            failure_limit: failure_limit as u32,
+            max_error_rate: error_permille as f64 / 1000.0,
+            max_latency_p99_ms: parse("CIVIT_ROLLOUT_MAX_P99_MS", 1000)? as f64,
+            min_stage_duration: Duration::from_secs(min_stage_secs),
+            min_samples,
+        })
+    }
+
     /// Builds the gate this configuration describes.
     ///
     /// # Errors
@@ -344,7 +433,57 @@ mod tests {
         assert_eq!(gate.stage().min_samples, 7);
     }
 
-    /// A zero window is the case that must never look healthy.
+    /// Lookup table for tests; no process-env mutation, so parallel tests
+    /// cannot interfere and `forbid(unsafe_code)` stays intact.
+    fn lookup_of(
+        vars: &[(&'static str, &'static str)],
+    ) -> impl Fn(&str) -> Option<String> {
+        move |name: &str| {
+            vars.iter()
+                .find(|(k, _)| *k == name)
+                .map(|(_, v)| (*v).to_string())
+        }
+    }
+
+    #[test]
+    fn from_lookup_defaults_when_unset() {
+        let cfg = RolloutControllerConfig::from_lookup(lookup_of(&[])).unwrap();
+        assert_eq!(cfg.tick, Duration::from_secs(60));
+        assert_eq!(cfg.stages, vec![5, 25, 50, 100]);
+        assert_eq!(cfg.failure_limit, 2);
+        assert_eq!(cfg.max_error_rate, 0.01);
+    }
+
+    #[test]
+    fn from_lookup_rejects_invalid_values() {
+        fn bad(vars: &[(&'static str, &'static str)]) -> bool {
+            RolloutControllerConfig::from_lookup(lookup_of(vars)).is_err()
+        }
+        assert!(bad(&[("CIVIT_ROLLOUT_TICK_SECS", "soon")]));
+        assert!(bad(&[("CIVIT_ROLLOUT_TICK_SECS", "0")]));
+        assert!(bad(&[("CIVIT_ROLLOUT_MAX_ERROR_RATE_PERMILLE", "2000")]));
+        assert!(bad(&[("CIVIT_ROLLOUT_STAGES", "5,250")]));
+        assert!(bad(&[("CIVIT_ROLLOUT_STAGES", "")]));
+        assert!(bad(&[("CIVIT_ROLLOUT_FAILURE_LIMIT", "0")]));
+    }
+
+    /// The gate built from parsed values must reflect them exactly.
+    #[test]
+    fn from_lookup_values_reach_the_gate() {
+        let cfg = RolloutControllerConfig::from_lookup(lookup_of(&[
+            ("CIVIT_ROLLOUT_TICK_SECS", "30"),
+            ("CIVIT_ROLLOUT_STAGES", "10,40,80"),
+            ("CIVIT_ROLLOUT_MAX_ERROR_RATE_PERMILLE", "50"),
+        ]))
+        .unwrap();
+        assert_eq!(cfg.tick, Duration::from_secs(30));
+        assert_eq!(cfg.stages, vec![10, 40, 80]);
+        assert_eq!(cfg.max_error_rate, 0.05);
+        let gate = cfg.build_gate().unwrap();
+        assert_eq!(gate.stage().percentage, 10);
+    }
+
+    /// A zero window is the case that must never look healthy.    /// A zero window is the case that must never look healthy.
     #[test]
     fn zero_error_rate_is_none_without_traffic() {
         assert!(HealthWindowSnapshot::default().error_rate().is_none());

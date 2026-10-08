@@ -31,6 +31,34 @@ impl Extractor for HeaderExtractor<'_> {
     }
 }
 
+/// HTTP metric instruments.
+///
+/// Created once against the global meter provider otelkit installs; before
+/// that exists they are no-ops, which is correct — dropping telemetry at
+/// boot beats blocking the first request on it.
+struct HttpMetrics {
+    requests: otelkit::otel::opentelemetry::metrics::Counter<u64>,
+    duration: otelkit::otel::opentelemetry::metrics::Histogram<f64>,
+}
+
+fn http_metrics() -> &'static HttpMetrics {
+    static METRICS: std::sync::OnceLock<HttpMetrics> = std::sync::OnceLock::new();
+    METRICS.get_or_init(|| {
+        let meter = otelkit::otel::opentelemetry::global::meter("civitforge");
+        HttpMetrics {
+            requests: meter
+                .u64_counter("http_server_requests_total")
+                .with_description("HTTP requests handled")
+                .build(),
+            duration: meter
+                .f64_histogram("http_server_request_duration_ms")
+                .with_description("HTTP request duration in milliseconds")
+                .with_unit("ms")
+                .build(),
+        }
+    })
+}
+
 /// Extract the inbound `traceparent` into an OTel parent context.
 fn extract_parent(
     headers: &axum::http::HeaderMap,
@@ -184,18 +212,20 @@ async fn trace_request(
 
     provider.end_span(&span_key);
 
-    // Record metrics
-    let mut labels = std::collections::HashMap::new();
-    labels.insert(
-        "method".to_string(),
-        crate::telemetry::opentelemetry::OtelAttribute::String(method),
-    );
-    labels.insert(
-        "status".to_string(),
-        crate::telemetry::opentelemetry::OtelAttribute::Int(status as i64),
-    );
-    provider.increment_metric("http_requests_total", labels.clone());
-    provider.record_metric("http_request_duration_ms", duration_ms, labels);
+    // Real OTel instruments: the previous calls here targeted hand-rolled
+    // provider counters that were never registered, so every write was a
+    // silent no-op and metrics_registered stayed 0. Attributes follow the
+    // OTel HTTP semantic conventions.
+    let metrics = http_metrics();
+    let attrs = [
+        otelkit::otel::opentelemetry::KeyValue::new("http.request.method", method.clone()),
+        otelkit::otel::opentelemetry::KeyValue::new(
+            "http.response.status_code",
+            i64::from(status),
+        ),
+    ];
+    metrics.requests.add(1, &attrs);
+    metrics.duration.record(duration_ms, &attrs);
 
     // Also record via the global tracing_setup functions
     crate::telemetry::tracing_setup::record_http_request(duration);

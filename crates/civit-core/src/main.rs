@@ -3,7 +3,7 @@
 use anyhow::Result;
 use std::sync::Arc;
 
-use civit_core::{api::create_router, config::AppConfig};
+use civit_core::{api::create_router_with_telemetry, config::AppConfig};
 use shutdown_kit::shutdown_signal;
 use std::net::SocketAddr;
 use tracing::{error, info};
@@ -237,12 +237,16 @@ async fn main() -> Result<()> {
     } else {
         "civit_core=info,tower_http=debug".into()
     };
+    // OTEL_METRICS_PROMETHEUS defaults on: metrics and traces compose, and
+    // the /api/v1/metrics/prometheus endpoint serves the exposition.
     let telemetry = otelkit::TelemetryConfig::new("civitforge")
         .service_version(env!("CARGO_PKG_VERSION"))
         .log_level(log_level)
-        .log_format(otelkit::LogFormat::Text);
-    // Guard must live for the process lifetime: flushes spans on drop.
-    let _telemetry_guard = otelkit::init(telemetry)?;
+        .log_format(otelkit::LogFormat::Text)
+        .with_prometheus_metrics();
+    // Guard must live for the process lifetime: flushes spans on drop, and
+    // owns the Prometheus registry the metrics endpoint serves.
+    let telemetry_guard = otelkit::init(telemetry)?;
 
     // W3C TraceContext propagator for inbound `traceparent`. otelkit 2.1
     // installs one itself; setting it here is idempotent and keeps the
@@ -305,14 +309,20 @@ async fn main() -> Result<()> {
 
     // create_router consumes the pool, so the controller gets its own clone
     // of the same handle rather than a second connection pool.
-    let router = create_router(config.clone(), pool.clone())?;
+    let router = create_router_with_telemetry(
+        config.clone(),
+        pool.clone(),
+        Some(std::sync::Arc::new(telemetry_guard)),
+    )?;
 
     // Health-gated rollout controller (ADR-0008). Drives in-flight flag
     // rollouts from the rolling health window: promote on green, roll back on
     // red, and hold when there is not enough evidence either way.
     if config.rollout_controller_enabled() {
         let rollout_db = Arc::new(civit_core::db::DbRepository::new(pool.clone()));
-        let rollout_config = civit_core::rollout_controller::RolloutControllerConfig::default();
+        let rollout_config =
+            civit_core::rollout_controller::RolloutControllerConfig::from_env()
+                .map_err(|e| anyhow::anyhow!("rollout controller config: {e}"))?;
         let tick = rollout_config.tick;
         let controller =
             civit_core::rollout_controller::RolloutController::new(rollout_db, rollout_config);
