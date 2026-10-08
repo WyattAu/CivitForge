@@ -1,6 +1,6 @@
 # ADR-0007: otelkit & flag-kit adoption scope (deferred)
 
-- Status: accepted — steps 1-2 shipped (otelkit subscriber `7e20ce3`;
+- Status: accepted — steps 1-3 shipped (complete) (otelkit subscriber `7e20ce3`;
   flag-kit bucketing + validation `dba123b`; flag-kit `FlagStore`
   adapter + `Evaluator` `d191e50`); remaining steps deferred
 - Date: 2026-09-07
@@ -44,9 +44,19 @@ Defer both to dedicated sessions. On adoption:
    re-exports the OTel surface, so CivitForge dropped its hand-pinned
    `opentelemetry` deps rather than guessing versions that match the kit's
    (`a40fd63`). Its `prometheus` feature is now enabled, which is what the
-   health gate needs for real telemetry. Remaining: replace the in-process
-   InstrumentationProvider counters with the Prometheus meter, then delete
-   the hand-rolled OTLP exporter.
+   health gate needs for real telemetry.
+   DONE step 3: metrics and traces compose. otelkit 2.2.0 accepts
+   Prometheus metrics alongside any primary exporter (the old single-
+   exporter match made the production pair impossible), and 2.2.1 carries
+   service.name onto the meter resource after a scrape showed
+   unknown_service:civit-core. CivitForge initializes both, serves
+   /api/v1/metrics/prometheus from the guard's registry, and the
+   middleware records real OTel instruments — the previous
+   increment_metric calls wrote to counters that were never registered, a
+   silent no-op since the middleware was first written. The hand-rolled
+   OTLP exporter (1,152 lines, zero references) is deleted. Verified
+   live: exposition text/plain with attributed target_info and counters
+   split by status code.
 2. flag-kit — DONE step 1: kit `bucket()` rollout + `FlagName`
    validation adopted in `FeatureFlagService` (`dba123b`). DONE step 2:
    `flags_store::DbFlagStore` implements `FlagStore` over the
