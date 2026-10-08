@@ -14,7 +14,7 @@
 // against a dev instance: it creates what it needs and reports what it found.
 
 import { OpenFeature } from '@openfeature/server-sdk';
-import { OfrepProvider } from '@openfeature/ofrep-provider';
+import { OFREPProvider as OfrepProvider } from '@openfeature/ofrep-provider';
 
 const base = process.env.CIVITFORGE_URL || 'http://127.0.0.1:9091';
 const token = process.env.CIVIT_TOKEN || '';
@@ -94,9 +94,11 @@ async function check(name, fn, expect) {
   }
 }
 
+// The provider appends /ofrep/v1/evaluate/flags itself, so baseUrl is the
+// server root. headers is an array of tuples, not an object.
 const provider = new OfrepProvider({
-  baseUrl: `${base}/ofrep/v1/evaluate/flags`,
-  ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+  baseUrl: base,
+  ...(token ? { headers: [['Authorization', `Bearer ${token}`]] } : {}),
 });
 await OpenFeature.setProviderAndWait(provider);
 OpenFeature.setContext({ targetingKey: process.env.TARGETING_KEY || 'interop-user' });
@@ -108,17 +110,39 @@ await seed();
 // most interop-significant detail in the spec.
 await check(
   'missing flag falls back to the code default',
-  () => OpenFeature.client().getBooleanValue(`no_such_flag_${RUN}`, false),
+  () => OpenFeature.getClient().getBooleanValue(`no_such_flag_${RUN}`, false),
   (v) => v === false,
 );
 
+// The default is the opposite of the expected value, so a passthrough of the
+// default (provider error) reads as a failure rather than coincidentally
+// matching.
 for (const f of FIXTURES) {
+  const fallback = f.expect === false;
   await check(
-    `${f.name} resolves as expected`,
-    () => OpenFeature.client().getBooleanValue(f.name, 'sentinel'),
+    `${f.name} resolves as expected (not the fallback)`,
+    () => OpenFeature.getClient().getBooleanValue(f.name, fallback),
     (v) => (f.expect === 'boolean' ? typeof v === 'boolean' : v === f.expect),
   );
 }
+
+// The partial rollout is subject-dependent, so the honest check is not "some
+// boolean" but "the same value the wire returns for this exact subject".
+await check(
+  'partial rollout matches the wire decision for this subject',
+  async () => {
+    const key = FIXTURES.find((f) => f.expect === 'boolean')?.name;
+    const viaSdk = await OpenFeature.getClient().getBooleanValue(key, true);
+    const res = await api(`/ofrep/v1/evaluate/flags/${key}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify({ context: { targetingKey: 'interop-user' } }),
+    });
+    const viaWire = res.body?.value;
+    return { viaSdk, viaWire, consistent: viaSdk === viaWire };
+  },
+  (v) => v.consistent && typeof v.viaWire === 'boolean',
+);
 
 // Bulk endpoint, straight at the wire: the provider's own single-flag path is
 // covered above, so this checks the response shape directly.

@@ -193,6 +193,26 @@ pub async fn create_feature_flag(
         return rejection.into_response();
     }
 
+    // Conflict before insert: a duplicate name is the client's mistake and
+    // must read as 409, not as a 500 carrying a raw constraint violation.
+    match state.db.get_feature_flag_by_name(&req.name).await {
+        Ok(Some(_)) => {
+            return (
+                StatusCode::CONFLICT,
+                Json(serde_json::json!({"error": format!("flag {} already exists", req.name)})),
+            )
+                .into_response();
+        }
+        Ok(None) => {}
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response();
+        }
+    }
+
     let kind = if req.kind.is_empty() {
         flag_kit::FlagKind::Release.as_str()
     } else {

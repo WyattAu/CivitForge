@@ -8,36 +8,214 @@ use shutdown_kit::shutdown_signal;
 use std::net::SocketAddr;
 use tracing::{error, info};
 
-fn split_sql_statements(sql: &str) -> Vec<&str> {
-    let mut statements = Vec::new();
-    let mut in_dollar_quote = false;
-    let mut start = 0;
-    let mut chars = sql.char_indices().peekable();
+/// Splits a migration script into statements.
+///
+/// Comment-aware, and that is not optional. A `;` inside a `--` comment used
+/// to split mid-comment, leaving a fragment that no longer began with `--`,
+/// so Postgres parsed the prose as SQL: migration 640 shipped with
+/// "lifecycle category; sets the staleness deadline" in a comment and the
+/// server died with `syntax error at or near "sets"`. A migration that
+/// applies cleanly under `psql -f` can still break here, so the runner — not
+/// the migration author — has to be correct.
+///
+/// Handles `--` line comments, nested-free `/* */` block comments, single
+/// quotes (with `''` escapes), dollar-quoted strings, and `;` as the only
+/// statement terminator.
+#[cfg(test)]
+mod sql_split_tests {
+    use super::split_sql_statements;
 
-    while let Some((i, c)) = chars.next() {
-        if c == '$' {
-            let mut tag = String::new();
-            tag.push(c);
-            while let Some(&(_, next_c)) = chars.peek() {
-                if next_c == '$' {
-                    tag.push(next_c);
-                    chars.next();
-                    break;
-                } else if next_c.is_alphanumeric() || next_c == '_' {
-                    tag.push(next_c);
-                    chars.next();
-                } else {
-                    tag.clear();
-                    tag.push(c);
-                    break;
+    fn parts(sql: &str) -> Vec<String> {
+        split_sql_statements(sql)
+            .into_iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    }
+
+    /// The regression that shipped: a `;` inside a `--` comment used to split
+    /// mid-comment, leaving a fragment that began with prose and was parsed
+    /// as SQL. Migration 640 died with `syntax error at or near "sets"`.
+    #[test]
+    fn semicolon_inside_a_line_comment_does_not_split() {
+        let sql = "-- kind sets the deadline; sets the staleness clock\nCREATE TABLE a (id INT);";
+        let p = parts(sql);
+        assert_eq!(p.len(), 1, "comment semicolon must not split: {p:?}");
+        assert!(p[0].contains("CREATE TABLE a"));
+    }
+
+    #[test]
+    fn block_comment_with_semicolons_is_ignored() {
+        let sql = "/* step one; step two; three */ CREATE TABLE b (id INT); SELECT 1;";
+        let p = parts(sql);
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[0].contains("CREATE TABLE b"));
+        assert_eq!(p[1], "SELECT 1");
+    }
+
+    /// A `;` inside a quoted literal is data, not a terminator.
+    #[test]
+    fn semicolon_inside_a_string_literal_does_not_split() {
+        let sql = "INSERT INTO t VALUES ('a;b'); SELECT 2;";
+        let p = parts(sql);
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[0].contains("'a;b'"));
+    }
+
+    #[test]
+    fn escaped_quote_inside_literal_is_handled() {
+        let sql = "INSERT INTO t VALUES ('it''s; fine'); SELECT 3;";
+        let p = parts(sql);
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[0].contains("it''s; fine"));
+    }
+
+    #[test]
+    fn dollar_quoted_body_is_untouched() {
+        let sql = "CREATE FUNCTION f() RETURNS int AS $$ BEGIN; RETURN 1; END; $$ LANGUAGE plpgsql; SELECT 4;";
+        let p = parts(sql);
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[0].contains("RETURN 1; END;"));
+    }
+
+    #[test]
+    fn tagged_dollar_quote_is_untouched() {
+        let sql = "CREATE FUNCTION g() RETURNS int AS $body$ SELECT 1; $body$ LANGUAGE sql; SELECT 5;";
+        let p = parts(sql);
+        assert_eq!(p.len(), 2, "{p:?}");
+        assert!(p[1] == "SELECT 5");
+    }
+
+    #[test]
+    fn plain_statements_still_split() {
+        let p = parts("SELECT 1; SELECT 2;\nSELECT 3");
+        assert_eq!(p.len(), 3, "{p:?}");
+    }
+
+    /// Every shipped migration must survive the runner's splitter.
+    #[test]
+    fn every_shipped_migration_splits_into_executable_fragments() {
+        use civit_db::migrations::MigrationManager;
+        let mgr = MigrationManager::new();
+        let mut checked = 0usize;
+        for m in mgr.all() {
+            let fragments = parts(&m.up_sql);
+            for f in &fragments {
+                // A fragment must either be comment-only or start with
+                // something SQL-ish. A fragment starting with prose is the
+                // exact failure mode that shipped.
+                let body = f
+                    .lines()
+                    .filter(|l| !l.trim_start().starts_with("--"))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let body = body.trim();
+                if body.is_empty() {
+                    continue;
                 }
+                let first = body.split_whitespace().next().unwrap_or("");
+                assert!(
+                    first.chars().next().is_some_and(|c| c.is_ascii_alphabetic()),
+                    "migration {} ({}) produced a fragment starting with {:?}",
+                    m.version,
+                    m.name,
+                    first
+                );
+                checked += 1;
             }
-            if tag.starts_with("$$") && tag.ends_with("$$") {
-                in_dollar_quote = !in_dollar_quote;
+        }
+        assert!(checked > 100, "expected the whole migration set, got {checked}");
+    }
+}
+
+fn split_sql_statements(sql: &str) -> Vec<&str> {
+    let bytes = sql.as_bytes();
+    let mut statements: Vec<&str> = Vec::new();
+    let mut in_line_comment = false;
+    let mut in_block_comment = false;
+    let mut in_single_quote = false;
+    let mut start = 0usize;
+    let mut i = 0usize;
+
+    while i < bytes.len() {
+        let c = bytes[i];
+        let next = bytes.get(i + 1).copied();
+
+        if in_line_comment {
+            if c == b'\n' {
+                in_line_comment = false;
             }
-        } else if c == ';' && !in_dollar_quote {
-            statements.push(&sql[start..i]);
-            start = i + 1;
+            i += 1;
+            continue;
+        }
+        if in_block_comment {
+            if c == b'*' && next == Some(b'/') {
+                in_block_comment = false;
+                i += 2;
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+        if in_single_quote {
+            // '' inside a quoted literal is an escaped quote, not a terminator.
+            if c == b'\'' && next == Some(b'\'') {
+                i += 2;
+                continue;
+            }
+            if c == b'\'' {
+                in_single_quote = false;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'-' if next == Some(b'-') => {
+                in_line_comment = true;
+                i += 2;
+            }
+            b'/' if next == Some(b'*') => {
+                in_block_comment = true;
+                i += 2;
+            }
+            b'\'' => {
+                in_single_quote = true;
+                i += 1;
+            }
+            b'$' => {
+                // Dollar-quoted region: $tag$ ... $tag$, where the empty tag
+                // is $$. The whole region is skipped in one jump rather than
+                // tracked as a toggle: a toggle never looks for the closing
+                // tag, so everything after `$$` was swallowed and no
+                // statement after a dollar-quoted function body ever split.
+                let mut j = i + 1;
+                while j < bytes.len() && (bytes[j].is_ascii_alphanumeric() || bytes[j] == b'_') {
+                    j += 1;
+                }
+                if j < bytes.len() && bytes[j] == b'$' {
+                    let tag = &sql[i..=j];
+                    match sql[j + 1..].find(tag) {
+                        Some(offset) => {
+                            i = j + 1 + offset + tag.len();
+                            continue;
+                        }
+                        // Unterminated quote: the rest of the script is the
+                        // body, so no `;` inside it can split anything.
+                        None => {
+                            i = bytes.len();
+                            continue;
+                        }
+                    }
+                }
+                // A bare `$` that opens no tag is just a character.
+                i += 1;
+            }
+            b';' => {
+                statements.push(&sql[start..i]);
+                start = i + 1;
+                i += 1;
+            }
+            _ => i += 1,
         }
     }
     if start < sql.len() {

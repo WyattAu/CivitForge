@@ -1688,6 +1688,21 @@ impl super::DbRepository {
         Ok(rows)
     }
 
+    /// Looks a flag up by name.
+    pub async fn get_feature_flag_by_name(
+        &self,
+        name: &str,
+    ) -> Result<Option<crate::models::FeatureFlag>> {
+        let row = sqlx::query_as::<_, crate::models::FeatureFlag>(
+            "SELECT * FROM feature_flags WHERE name = $1",
+        )
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| DbError::Database(format!("get_feature_flag_by_name: {e}")))?;
+        Ok(row)
+    }
+
     /// Flags with no recorded evaluation, for the staleness audit.
     pub async fn list_never_evaluated_feature_flags(
         &self,

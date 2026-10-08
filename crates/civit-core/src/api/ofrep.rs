@@ -106,9 +106,11 @@ pub async fn evaluate_flag(
         // 404 with FLAG_NOT_FOUND, not an evaluation failure: providers are
         // expected to fall back to the code default for a missing flag, and
         // only do so when the two are distinguishable.
-        let body = serde_json::to_string(&flag_kit::ofrep::FlagNotFound::new(&key))
-            .unwrap_or_else(|_| format!("{{\"errorCode\":\"FLAG_NOT_FOUND\",\"key\":\"{key}\"}}"));
-        return (StatusCode::NOT_FOUND, body).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(flag_kit::ofrep::FlagNotFound::new(&key)),
+        )
+            .into_response();
     };
 
     let user_id = resolve_subject(&req, &params, auth.as_ref(), &headers);
@@ -122,15 +124,10 @@ pub async fn evaluate_flag(
 
     let result = evaluate_row(row, user_id, org_id);
     record_evaluation(&state, std::slice::from_ref(&row.name)).await;
-
-    match serde_json::to_string(&result) {
-        Ok(body) => (StatusCode::OK, body).into_response(),
-        Err(e) => ofrep_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            flag_kit::ofrep::ErrorCode::General,
-            &format!("serialization failed: {e}"),
-        ),
-    }
+    // Json, not a pre-serialized String: axum renders a bare String as
+    // text/plain, and a conformant provider checks the response MIME type
+    // before parsing. Found by the real OFREP provider.
+    (StatusCode::OK, Json(result)).into_response()
 }
 
 /// `POST /ofrep/v1/evaluate/flags` — bulk, with ETag revalidation.
@@ -185,19 +182,12 @@ pub async fn evaluate_flags_bulk(
     let body = flag_kit::ofrep::BulkEvaluationSuccess::new(entries);
     record_evaluation(&state, &flags.iter().map(|f| f.name.clone()).collect::<Vec<_>>()).await;
 
-    match serde_json::to_string(&body) {
-        Ok(json) => (
-            StatusCode::OK,
-            [(header::ETAG, HeaderValue::from_str(&etag).unwrap_or(HeaderValue::from_static("W/\"0\"")))],
-            json,
-        )
-            .into_response(),
-        Err(e) => ofrep_error(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            flag_kit::ofrep::ErrorCode::General,
-            &format!("serialization failed: {e}"),
-        ),
-    }
+    (
+        StatusCode::OK,
+        [(header::ETAG, HeaderValue::from_str(&etag).unwrap_or(HeaderValue::from_static("W/\"0\"")))],
+        Json(body),
+    )
+        .into_response()
 }
 
 /// Resolves the evaluation subject.

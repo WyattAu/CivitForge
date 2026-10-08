@@ -6,10 +6,10 @@
 -- classifier is only as good as its inputs, so the evidence is stored with
 -- the flag rather than recomputed from logs:
 --
---   kind                lifecycle category; sets the staleness deadline and
+--   kind                lifecycle category,  sets the staleness deadline and
 --                       whether the flag is exempt (permission gates never
 --                       go stale).
---   owner               accountable party; enforced at creation so flags
+--   owner               accountable party,  enforced at creation so flags
 --                       cannot be created anonymously.
 --   ticket              external issue reference for the change.
 --   salt                rollout-cycle identifier. Sticky within a cycle,
@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_feature_flags_kind ON feature_flags (kind);
 CREATE INDEX IF NOT EXISTS idx_feature_flags_last_changed ON feature_flags (last_changed_at);
 CREATE INDEX IF NOT EXISTS idx_feature_flags_last_evaluated ON feature_flags (last_evaluated_at);
 
--- Kind must be one of the four lifecycle categories; the kit is the source
+-- Kind must be one of the four lifecycle categories,  the kit is the source
 -- of truth for the wire names, and this constraint keeps a hand-written
 -- INSERT from inventing a fifth. Validated is safe here because the column
 -- is new with a default, so every existing row was backfilled to 'release'.
@@ -64,5 +64,5 @@ ALTER TABLE feature_flags
 
 -- Operators get the grandfathered rows as work to do, rather than a silent
 -- exemption they never learn about. Fix with:
---   UPDATE feature_flags SET name = replace(name, '-', '_') WHERE name ~ '-';
---   ALTER TABLE feature_flags VALIDATE CONSTRAINT feature_flags_name_format_check;
+--   UPDATE feature_flags SET name = replace(name, '-', '_') WHERE name ~ '-'--
+--   ALTER TABLE feature_flags VALIDATE CONSTRAINT feature_flags_name_format_check--

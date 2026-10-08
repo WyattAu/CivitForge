@@ -8,17 +8,17 @@
 --
 -- The decision history is not optional either. An automated system that
 -- changes a flag's exposure needs to answer "why did this jump from 25% to
--- 60%?" months later; a verdict nobody can audit is a verdict nobody will
+-- 60%?" months later,  a verdict nobody can audit is a verdict nobody will
 -- trust when it matters. feature_flag_events records human actions, so the
 -- automated path gets its own table rather than overloading that one.
 
 CREATE TABLE IF NOT EXISTS flag_rollouts (
     flag_id UUID PRIMARY KEY REFERENCES feature_flags(id) ON DELETE CASCADE,
-    -- Index into the configured stage list; 0 is the first stage.
+    -- Index into the configured stage list-- 0 is the first stage.
     stage_index INTEGER NOT NULL DEFAULT 0 CHECK (stage_index >= 0),
     -- Consecutive failing observation windows. Reset to 0 on a healthy one.
     consecutive_failures INTEGER NOT NULL DEFAULT 0 CHECK (consecutive_failures >= 0),
-    -- When the current stage was entered; the gate's min_duration runs from
+    -- When the current stage was entered,  the gate's min_duration runs from
     -- here, not from process start.
     stage_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     last_observed_at TIMESTAMPTZ,
