@@ -188,13 +188,19 @@ impl HealthWindow {
         let elapsed = self.origin.elapsed();
         let current_epoch = (elapsed.as_secs_f64() / self.bucket_width.as_secs_f64().max(f64::MIN_POSITIVE))
             as u64;
+        let bucket_count = guard.len() as u64;
         let mut total = 0u64;
         let mut errors = 0u64;
         let mut latencies: Vec<f64> = Vec::new();
         for bucket in guard.iter() {
-            // Only buckets inside the window, i.e. not a stale epoch.
+            // Bucket epochs are absolute (seconds since window creation), so
+            // freshness is distance in epochs, not a comparison against
+            // "now". An `e + 1 >= current_epoch` test admits only the last
+            // two seconds of a long-lived window and silently starves every
+            // reader — found by the rollout gate holding on
+            // too_few_samples under continuous traffic.
             match bucket.epoch {
-                Some(e) if e + 1 >= current_epoch => {
+                Some(e) if current_epoch.saturating_sub(e) < bucket_count => {
                     total += bucket.total;
                     errors += bucket.errors;
                     latencies.extend(
@@ -318,6 +324,20 @@ mod tests {
         w.record(Duration::from_millis(9000), 200);
         let p99 = w.snapshot().latency_p99_ms().expect("samples");
         assert!(p99 >= 5000.0, "slow tail must survive eviction, got {p99}");
+    }
+
+    /// A window alive for many minutes must still aggregate its recent
+    /// buckets: epochs are absolute, so freshness is distance from now. The
+    /// rollout gate starved on exactly this before the fix.
+    #[test]
+    fn long_lived_window_counts_recent_samples() {
+        let w = HealthWindow::new(60, Duration::from_millis(10)).unwrap();
+        std::thread::sleep(Duration::from_millis(120));
+        w.record(Duration::from_millis(5), 200);
+        w.record(Duration::from_millis(5), 500);
+        let s = w.snapshot();
+        assert_eq!(s.total, 2, "fresh samples in an aged window must count");
+        assert_eq!(s.errors, 1);
     }
 
     #[test]

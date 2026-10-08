@@ -16,6 +16,49 @@ struct AdminFeatureFlag {
     enabled_for_orgs: Vec<String>,
     created_at: String,
     updated_at: String,
+    /// Lifecycle category; sets the staleness deadline (ADR-0008).
+    #[serde(default)]
+    kind: String,
+    /// Accountable party.
+    #[serde(default)]
+    owner: String,
+    /// Rollout-cycle identifier.
+    #[serde(default)]
+    salt: String,
+    /// Staleness clock origin.
+    #[serde(default)]
+    last_changed_at: String,
+}
+
+/// One staleness verdict from the audit endpoint.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct FlagStaleness {
+    id: String,
+    name: String,
+    kind: String,
+    #[serde(default)]
+    owner: String,
+    staleness: String,
+    is_removal_candidate: bool,
+    age_days: i64,
+    #[serde(default)]
+    signals: Vec<FlagSignal>,
+}
+
+/// One signal behind a verdict.
+#[derive(Debug, Clone, serde::Deserialize)]
+struct FlagSignal {
+    signal: String,
+    #[serde(default)]
+    detail: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct StalenessAuditResponse {
+    flags: Vec<FlagStaleness>,
+    total: usize,
+    removal_candidates: usize,
+    aging: usize,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -46,6 +89,21 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
     let (flags, set_flags) = signal(Vec::<AdminFeatureFlag>::new());
     let (loading, set_loading) = signal(true);
     let (error, set_error) = signal(Option::<String>::None);
+
+    let (audit, set_audit) = signal(Option::<StalenessAuditResponse>::None);
+    let load_audit = Callback::new(move |_| {
+        let token = auth.0.with(|s| s.token.clone());
+        leptos::task::spawn_local(async move {
+            let client = ApiClient::new(token);
+            if let Ok(resp) = client.get("/admin/feature-flags/stale").await {
+                if resp.status().is_success() {
+                    if let Ok(data) = resp.json::<StalenessAuditResponse>().await {
+                        set_audit.set(Some(data));
+                    }
+                }
+            }
+        });
+    });
 
     let load_flags = Callback::new(move |_| {
         set_loading.set(true);
@@ -79,6 +137,7 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
     });
 
     load_flags.run(());
+    load_audit.run(());
 
     let toggle_flag = Callback::new(move |flag_id: String| {
         let token = auth.0.with(|s| s.token.clone());
@@ -112,6 +171,8 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Name"</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Description"</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Kind"</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Owner"</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Status"</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Rollout"</th>
                                         <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Actions"</th>
@@ -127,12 +188,25 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
                                             let flag_percentage = flag.enabled_for_percentage;
                                             let flag_user_count = flag.enabled_for_users.len();
                                             let flag_org_count = flag.enabled_for_orgs.len();
+                                            let flag_kind = if flag.kind.is_empty() { "release".to_string() } else { flag.kind.clone() };
+                                            let flag_owner = if flag.owner.is_empty() { "unassigned".to_string() } else { flag.owner.clone() };
                                             let rollout_text = format!("{}% | Users: {} | Orgs: {}", flag_percentage, flag_user_count, flag_org_count);
                                             let status_text = if flag_enabled { "Enabled".to_string() } else { "Disabled".to_string() };
                                             view! {
                                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
                                                     <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{flag_name}</td>
                                                     <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{flag_description}</td>
+                                                    <td class="px-4 py-3">
+                                                        <Badge
+                                                            color=match flag_kind.as_str() {
+                                                                "permission" => BadgeColor::Warning,
+                                                                "experiment" => BadgeColor::Info,
+                                                                _ => BadgeColor::Neutral,
+                                                            }
+                                                            text=flag_kind
+                                                        />
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{flag_owner}</td>
                                                     <td class="px-4 py-3">
                                                         <Badge
                                                             color=if flag_enabled { BadgeColor::Success } else { BadgeColor::Neutral }
@@ -156,6 +230,76 @@ pub fn AdminFeatureFlagsPage() -> impl IntoView {
                                     </For>
                                 </tbody>
                             </table>
+                        </div>
+                    </Card>
+
+                    <Card>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <h2 class="text-lg font-semibold">"Flag Lifecycle Audit"</h2>
+                                {move || {
+                                    let a = audit.get();
+                                    a.map(|a| {
+                                        view! {
+                                            <div class="flex gap-2 text-xs">
+                                                <Badge color=BadgeColor::Danger text=format!("{} removal candidates", a.removal_candidates) />
+                                                <Badge color=BadgeColor::Warning text=format!("{} aging", a.aging) />
+                                                <Badge color=BadgeColor::Neutral text=format!("{} total", a.total) />
+                                            </div>
+                                        }.into_view()
+                                    }).unwrap_or_else(|| ().into_view())
+                                }}
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                "Verdicts from the shared staleness policy (flag-kit). Removal candidates are flags past their lifecycle deadline, fully rolled out but still present, or never evaluated. Permission gates are permanently exempt."
+                            </p>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                    <thead class="bg-gray-50 dark:bg-gray-800">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Flag"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Kind"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Owner"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Age (days)"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Verdict"</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">"Evidence"</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                        <For each=move || audit.get().map(|a| a.flags).unwrap_or_default() key=|v| v.id.clone() let:entry>
+                                        {
+                                            let kind = if entry.kind.is_empty() { "release".to_string() } else { entry.kind.clone() };
+                                            let owner = if entry.owner.is_empty() { "unassigned".to_string() } else { entry.owner.clone() };
+                                            let evidence = if entry.signals.is_empty() {
+                                                "-".to_string()
+                                            } else {
+                                                entry.signals.iter().map(|s| s.detail.as_str()).collect::<Vec<_>>().join("; ")
+                                            };
+                                            let signals = entry.signals.clone();
+                                            let verdict_color = match entry.staleness.as_str() {
+                                                "stale" => BadgeColor::Danger,
+                                                "aging" => BadgeColor::Warning,
+                                                "permanent" => BadgeColor::Info,
+                                                _ => BadgeColor::Success,
+                                            };
+                                            let _ = &signals;
+                                            view! {
+                                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-750">
+                                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{entry.name.clone()}</td>
+                                                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{kind}</td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{owner}</td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{entry.age_days.to_string()}</td>
+                                                    <td class="px-4 py-3">
+                                                        <Badge color=verdict_color text=entry.staleness.clone() />
+                                                    </td>
+                                                    <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{evidence}</td>
+                                                </tr>
+                                            }
+                                        }
+                                        </For>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </Card>
                 </Show>

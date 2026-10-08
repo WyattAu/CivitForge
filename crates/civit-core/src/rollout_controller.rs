@@ -199,7 +199,11 @@ impl RolloutController {
 
         let (percentage_after, final_stage_index, final_streak) = match verdict.decision {
             Decision::Promote => {
-                let target = restored.stage().percentage;
+                // Advance the gate first, then mirror its new stage. Reading
+                // the stage before advancing applies the PREVIOUS stage's
+                // exposure and leaves every rollout one tick behind — the
+                // same defect the kit's RolloutController tests caught, back
+                // again in this reimplementation.
                 if restored.advance().is_err() {
                     // Gate complete: the rollout is finished, not promoted.
                     self.db
@@ -228,6 +232,7 @@ impl RolloutController {
                         total_samples: snapshot.total as i64,
                     });
                 }
+                let target = restored.stage().percentage;
                 self.db
                     .set_feature_flag_percentage(flag.id, i32::from(target))
                     .await?;

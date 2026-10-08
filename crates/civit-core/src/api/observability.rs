@@ -52,23 +52,17 @@ pub struct MetricResponse {
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
-/// Observability state shared across handlers.
-#[derive(Clone)]
-pub struct ObservabilityState {
-    pub provider: Arc<crate::telemetry::opentelemetry::InstrumentationProvider>,
-}
-
 /// GET /api/v1/observability/traces
 ///
 /// Returns recent trace spans from the in-memory instrumentation provider.
 pub async fn list_traces(
-    State(state): State<Arc<ObservabilityState>>,
+    State(state): State<crate::api::AppState>,
     Query(query): Query<TraceQuery>,
 ) -> impl IntoResponse {
     let limit = query.limit.unwrap_or(100).min(1000);
 
     // Export completed spans from the provider
-    let provider = &state.provider;
+    let provider = &state.telemetry_provider;
 
     // Build a snapshot from completed spans
     let spans: Vec<TraceSpanResponse> = Vec::new();
@@ -107,10 +101,10 @@ pub async fn list_traces(
 ///
 /// Returns current metrics from the in-memory instrumentation provider.
 pub async fn list_metrics(
-    State(state): State<Arc<ObservabilityState>>,
+    State(state): State<crate::api::AppState>,
     Query(query): Query<MetricsQuery>,
 ) -> impl IntoResponse {
-    let provider = &state.provider;
+    let provider = &state.telemetry_provider;
     let metric_names = provider.metric_names();
 
     let name_filter = query.name.as_deref();
@@ -155,9 +149,9 @@ pub async fn list_metrics(
 ///
 /// Export and flush all completed spans (for OTLP collector push).
 pub async fn export_traces(
-    State(state): State<Arc<ObservabilityState>>,
+    State(state): State<crate::api::AppState>,
 ) -> impl IntoResponse {
-    let provider = &state.provider;
+    let provider = &state.telemetry_provider;
     let exported = provider.export_spans();
     let count = exported.len();
 
@@ -177,14 +171,12 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
-    fn test_observability_state() {
-        let provider = Arc::new(InstrumentationProvider::new(Resource::default()));
-        let state = ObservabilityState {
-            provider: provider.clone(),
-        };
+    fn test_default_resource_service_name() {
+        let provider = InstrumentationProvider::new(Resource::default());
         assert_eq!(
-            state.provider.resource().service_name,
-            "civitforge"
+            provider.resource().service_name,
+            "civitforge",
+            "observability payloads must carry the service name"
         );
     }
 

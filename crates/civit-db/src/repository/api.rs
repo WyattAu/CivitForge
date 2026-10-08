@@ -1620,10 +1620,12 @@ impl super::DbRepository {
         .await
         .map_err(|e| DbError::Database(format!("insert flag_rollout_events: {e}")))?;
 
-        // A rollback restarts the streak and the stage clock, because the gate
-        // restarts from its first stage; anything else keeps the clock
-        // running so min_duration is measured from stage entry.
-        let reset_stage = decision == "rollback";
+        // Every *new stage* restarts the observation clock — a promotion
+        // enters a stage nobody has observed yet, and without the reset the
+        // minimum-window gate would apply only to stage 0 while later stages
+        // promoted again on the very next tick. A rollback additionally
+        // restarts the streak and the stage index.
+        let new_stage = decision == "rollback" || decision == "promote";
         sqlx::query(
             r#"UPDATE flag_rollouts
                SET consecutive_failures = $2,
@@ -1640,7 +1642,7 @@ impl super::DbRepository {
         .bind(flag_id)
         .bind(consecutive_failures)
         .bind(stage_index)
-        .bind(reset_stage)
+        .bind(new_stage)
         .bind(decision)
         .bind(reason)
         .bind(error_rate)

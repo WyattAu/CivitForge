@@ -53,13 +53,39 @@ fn extract_parent(
 ///    `/api/v1/observability` reads. Retained until otelkit's Prometheus
 ///    meter replaces them.
 pub async fn tracing_middleware(req: Request, next: Next) -> Response {
-    let state = req.extensions().get::<Arc<TracingState>>().cloned();
+    // Extension-based lookup, kept for callers that route through a scope
+    // with TracingState installed. The router uses
+    // `tracing_middleware_with_state`, because nothing ever inserted this
+    // extension: the middleware was dead code and every counter it feeds saw
+    // zero requests.
+    let provider = req
+        .extensions()
+        .get::<Arc<TracingState>>()
+        .map(|s| s.provider.clone());
+    match provider {
+        Some(p) => trace_request(p, req, next).await,
+        None => next.run(req).await,
+    }
+}
 
-    let provider = match state {
-        Some(s) => s.provider.clone(),
-        None => return next.run(req).await,
-    };
+/// State-based variant the router installs.
+///
+/// The provider lives on `AppState` — one instance shared with the
+/// observability endpoints — so counters aggregated for the UI and the
+/// rollout gate are the same numbers.
+pub async fn tracing_middleware_with_state(
+    axum::extract::State(state): axum::extract::State<crate::api::AppState>,
+    req: Request,
+    next: Next,
+) -> Response {
+    trace_request(state.telemetry_provider.clone(), req, next).await
+}
 
+async fn trace_request(
+    provider: Arc<crate::telemetry::opentelemetry::InstrumentationProvider>,
+    req: Request,
+    next: Next,
+) -> Response {
     let method = req.method().to_string();
     let uri = req.uri().path().to_string();
 

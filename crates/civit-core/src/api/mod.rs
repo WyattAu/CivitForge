@@ -456,6 +456,14 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
             HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
         ))
         .layer(TraceLayer::new_for_http())
+        // Request-span middleware. Was never installed — the request spans,
+        // the HTTP metrics, and the rolling health window that gates rollout
+        // automation all silently saw nothing. Layers run bottom-up, so this
+        // sees the request after the state extensions below are applied.
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::middleware::tracing::tracing_middleware_with_state,
+        ))
         .with_state(state.clone())
         .layer(axum::Extension(rate_limiter))
         .layer(axum::Extension(state_jwt_service))
@@ -494,12 +502,9 @@ pub fn create_router(config: AppConfig, db: PgPool) -> Result<Router> {
 
 /// Observability routes for traces and metrics.
 fn observability_routes() -> axum::Router<AppState> {
-    let obs_state = Arc::new(observability::ObservabilityState {
-        provider: Arc::new(crate::telemetry::opentelemetry::InstrumentationProvider::new(
-            crate::telemetry::opentelemetry::Resource::default(),
-        )),
-    });
-
+    // The provider comes from AppState: this must report the same counters
+    // the request middleware feeds, and a private instance here would show
+    // the UI numbers the gate never saw.
     Router::new()
         .route(
             "/api/v1/observability/traces",
@@ -513,7 +518,6 @@ fn observability_routes() -> axum::Router<AppState> {
             "/api/v1/observability/traces/export",
             post(observability::export_traces),
         )
-        .with_state(obs_state)
 }
 
 /// API v2 routes with forward-compatible versioning.
@@ -608,6 +612,11 @@ pub struct AppState {
     pub notification_broadcaster: Arc<tokio::sync::broadcast::Sender<String>>,
     /// flag-kit Evaluator over the DB read model (ADR-0007 step 2)
     pub flag_evaluator: Arc<flag_kit::Evaluator>,
+    /// The one in-process telemetry provider. Shared by the request-span
+    /// middleware and the observability endpoints so both read the same
+    /// counters; a private instance in either place would report numbers the
+    /// other never saw.
+    pub telemetry_provider: Arc<crate::telemetry::opentelemetry::InstrumentationProvider>,
     #[cfg(feature = "webauthn")]
     pub webauthn_service: Option<Arc<civit_auth::webauthn::WebAuthnService>>,
 }
@@ -632,6 +641,11 @@ impl AppState {
         let flag_evaluator = Arc::new(flag_kit::Evaluator::new(Arc::new(
             crate::flags_store::DbFlagStore::new(Arc::new(DbRepository::new(db.clone()))),
         )));
+        let telemetry_provider = Arc::new(
+            crate::telemetry::opentelemetry::InstrumentationProvider::new(
+                crate::telemetry::opentelemetry::Resource::default(),
+            ),
+        );
         let git_service = Arc::new(crate::git::GitService::new(std::path::PathBuf::from(
             &config.storage_path,
         )));
@@ -682,6 +696,7 @@ impl AppState {
             wiki_git,
             notification_broadcaster: Arc::new(tokio::sync::broadcast::channel(256).0),
             flag_evaluator,
+            telemetry_provider,
             #[cfg(feature = "webauthn")]
             webauthn_service: {
                 let rp_name =
