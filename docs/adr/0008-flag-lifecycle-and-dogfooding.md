@@ -142,6 +142,27 @@ harness on day one instead of rediscovering standards.
 - CivitForge is on flag-kit 0.6.0 but the gate is not wired: it needs
   Prometheus, and otelkit's `prometheus` feature is still off.
 
+## Live rollback verification (iteration 7)
+
+The promote path was verified first; the rollback path needed real 5xx
+traffic, and nothing produced it — the chaos experiments table recorded
+*simulated* results only. `chaos_faults` adds actual fault injection:
+admin-set permille failure rate, deterministic dithering, layer installed
+inside the tracing middleware so injected failures land in exactly the
+window the gate reads.
+
+Verified live against continuous injected faults: `hold
+error_rate_too_high` on the first breaching window (tolerance consumed),
+`rollback error_rate_too_high` on the second (failure limit tripped),
+exposure 5→0, stage and streak reset. The controller now has both halves
+of its state machine verified against a real server with the audit trail
+as evidence.
+
+Using the feature found its own flaw: at 1000 permille the injector
+blocked its own off-switch, locking the operator out until restart. The
+control endpoint is exempt by constant, with a test pinning the route and
+exemption together so they cannot drift.
+
 ## Live controller verification (iteration 6)
 
 The rollout controller ran against a live server under continuous real
