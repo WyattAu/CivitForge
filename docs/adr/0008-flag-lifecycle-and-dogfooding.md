@@ -142,7 +142,36 @@ harness on day one instead of rediscovering standards.
 - CivitForge is on flag-kit 0.6.0 but the gate is not wired: it needs
   Prometheus, and otelkit's `prometheus` feature is still off.
 
-## Verification debt
+## Live controller verification (iteration 6)
+
+The rollout controller ran against a live server under continuous real
+traffic, through its full lifecycle: `too_soon` holds for the entire
+stage window, then promote 5→25→50→100 with exactly 600s between stages
+(timestamps in `flag_rollout_events`), a fresh observation clock per
+stage, and every decision persisted with its evidence. At 100% the flag
+leaves the in-flight set and the staleness audit classifies it as
+`fully_rolled_out` — the lifecycle loop closes.
+
+Getting there caught four defects that only exist on the wired path:
+
+1. `tracing_middleware` was never installed on the router — request spans,
+   HTTP metrics, and the health window saw zero requests. The controller
+   holding on `too_few_samples` forever is what made it visible.
+2. `HealthWindow::snapshot` admitted only the last ~2 seconds of a
+   long-lived window (absolute-epoch freshness bug); unit tests passed
+   because they ran moments after window creation.
+3. The controller applied the previous stage's exposure on promote — the
+   kit's own tests had caught this bug in the kit; the reimplementation
+   reintroduced it.
+4. `stage_started_at` reset only on rollback, so the minimum-window gate
+   applied to stage 0 alone while later stages promoted on the next tick.
+
+Also fixed: `AppState` now owns the single `InstrumentationProvider`
+(previously the observability endpoints and the middleware each built
+their own, so their numbers could never agree), and the admin UI renders
+governance columns and the lifecycle audit.
+
+Remaining in this ADR
 
 Recorded rather than glossed over, on the same principle as the
 `never_evaluated` signal: a claim without evidence is worse than no claim.
