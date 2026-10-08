@@ -154,14 +154,27 @@ Recorded rather than glossed over, on the same principle as the
 | CivitForge core | verified — 1,905 tests |
 | CivitForge db | verified — 167 tests |
 | migration 640 against live Postgres | verified — applied to a table with legacy rows; bad names and bad kinds rejected on write |
-| OFREP interop against a real SDK | **not verified** — shapes are pinned to spec 0.4.0 and unit tested, but no third-party OFREP provider has evaluated against it |
-| Playwright E2E | **not run since** the otelkit middleware and `main.rs` changes |
+| OFREP interop against a real SDK | **verified — 8/8** with `@openfeature/ofrep-provider`: missing flag falls back to the code default (FLAG_NOT_FOUND distinguishable), bulk + ETag + If-None-Match 304, SDK result matches the wire decision per subject |
+| Playwright E2E | **verified — 207/219 in one contended run; all 12 failures reproduced as environmental** (corrupted browser install + memory starvation): the 11 auth tests pass in 44s and all 53 accessibility tests pass on a healthy machine |
 
-The E2E gap is environmental: a debug build of the server binary is being
-OOM-killed because the host's swap is saturated (zram 17.4G/31.3G, 18G of
-31G RAM in use by other work). `cargo check` and `cargo test --lib` complete
-because they never link the binary. Remedy: free memory, then
-`CARGO_PROFILE_DEV_DEBUG=0 cargo build -j 2`, then the suite.
+Closing those gaps found three defects no unit test could catch, because
+both unit tests and `psql -f` bypass the runner or tolerate the wrong MIME
+type:
+
+1. The migration runner split on every `;` with no comment awareness, and
+   migration 640 carried semicolons inside comments — the server died on
+   `syntax error at or near "sets"` while the same file passed its own test
+   and applied cleanly under psql. Fixed in the runner, not the migration
+   author's memory.
+2. OFREP handlers returned pre-serialized `String` bodies, which axum
+   renders as `text/plain`. A conformant provider checks the response MIME
+   type before parsing and rejected every evaluation; curl-based testing
+   never noticed.
+3. Duplicate flag creation returned 500 with a raw constraint violation
+   instead of 409.
+
+`scripts/verify_local.sh` and `scripts/ofrep_interop.mjs` are committed so
+this verification is a command, not a memory.
 
 ## Remaining in this ADR
 
