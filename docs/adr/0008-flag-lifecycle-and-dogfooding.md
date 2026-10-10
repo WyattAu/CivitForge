@@ -163,6 +163,21 @@ blocked its own off-switch, locking the operator out until restart. The
 control endpoint is exempt by constant, with a test pinning the route and
 exemption together so they cannot drift.
 
+## Operator surface (iteration 9)
+
+`GET /api/v1/admin/feature-flags/rollouts` serves the controller's live
+state — exposure, stage, consecutive bad windows, last decision with its
+error rate and p99 — plus the fifty most recent decisions across all
+flags. Before it, answering "what is the automation doing" required a
+database query, which is not an operator surface. The admin flags page
+renders it beside the lifecycle audit, with decision badges colored by
+severity and bad-window counts highlighted.
+
+Verified live: within one tick of a flag returning to 5%, the endpoint
+reported `exposure 5, stage 0, streak 0, hold/too_soon, error_rate None` —
+with the null error rate being the honest "no evidence yet" the gate
+reports, not a fabricated zero.
+
 ## Live controller verification (iteration 6)
 
 The rollout controller ran against a live server under continuous real
