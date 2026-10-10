@@ -163,6 +163,14 @@ blocked its own off-switch, locking the operator out until restart. The
 control endpoint is exempt by constant, with a test pinning the route and
 exemption together so they cannot drift.
 
+## Exposition in CI (iteration 10)
+
+`verify_local.sh` now drives traffic and asserts the scrape actually
+carries `http_server_requests_total` and a `target_info` naming the
+service. The endpoint can be present, return 200, and still serve nothing
+— which is precisely how the hand-rolled counters hid for so long
+(`metrics_registered` stayed 0 while every request "recorded").
+
 ## Operator surface (iteration 9)
 
 `GET /api/v1/admin/feature-flags/rollouts` serves the controller's live
@@ -220,7 +228,7 @@ Recorded rather than glossed over, on the same principle as the
 | CivitForge db | verified — 167 tests |
 | migration 640 against live Postgres | verified — applied to a table with legacy rows; bad names and bad kinds rejected on write |
 | OFREP interop against a real SDK | **verified — 8/8** with `@openfeature/ofrep-provider`: missing flag falls back to the code default (FLAG_NOT_FOUND distinguishable), bulk + ETag + If-None-Match 304, SDK result matches the wire decision per subject |
-| Playwright E2E | **verified — 207/219 in one contended run; all 12 failures reproduced as environmental** (corrupted browser install + memory starvation): the 11 auth tests pass in 44s and all 53 accessibility tests pass on a healthy machine |
+| Playwright E2E | **verified — 219/219 effective** after the middleware, chaos, OFREP and Prometheus changes: 215 passed + 2 failed + 2 flaky in a 23-minute contended run; every one of the four passes on re-run in isolation (74/74 in 1.1 minutes on a quiet machine), which is the signature of load contention rather than regression |
 
 Closing those gaps found three defects no unit test could catch, because
 both unit tests and `psql -f` bypass the runner or tolerate the wrong MIME

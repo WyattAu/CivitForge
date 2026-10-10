@@ -106,7 +106,35 @@ done
 log "server healthy: $(curl -s "${BASE_URL}/api/v1/version")"
 
 # -----------------------------------------------------------------------------
-# 4. OFREP interop (third-party provider)
+# 4. Prometheus exposition
+#
+# The scrape endpoint can be present, return 200, and still serve nothing —
+# that is exactly how the hand-rolled counters hid (metrics_registered stayed
+# 0 forever while every request "recorded"). Drive traffic and assert the
+# counter actually appears with a value.
+# -----------------------------------------------------------------------------
+log "Prometheus exposition"
+drive_traffic() {
+  for _ in $(seq 1 30); do
+    curl -s -o /dev/null "${BASE_URL}/api/v1/version" &
+    sleep 0.2
+  done
+  wait
+}
+drive_traffic
+METRICS_BODY="$(curl -s "${BASE_URL}/api/v1/metrics/prometheus")"
+if [[ "$METRICS_BODY" != *"http_server_requests_total"* ]]; then
+  log "exposition missing http_server_requests_total after traffic:"
+  echo "$METRICS_BODY" | head -20
+  fail "Prometheus exposition carries no request counter"
+fi
+if ! grep -q 'service_name="civitforge"' <<<"$METRICS_BODY"; then
+  fail "target_info must carry the service name so a scrape is attributable"
+fi
+log "exposition serves the request counter with service attribution"
+
+# -----------------------------------------------------------------------------
+# 5. OFREP interop (third-party provider)
 # -----------------------------------------------------------------------------
 if [[ -d node_modules/@openfeature/ofrep-provider ]]; then
   log "OFREP interop (community provider)"
@@ -116,7 +144,7 @@ else
 fi
 
 # -----------------------------------------------------------------------------
-# 5. Playwright E2E
+# 6. Playwright E2E
 # -----------------------------------------------------------------------------
 if [[ "$RUN_E2E" == "1" ]]; then
   log "Playwright E2E against ${BASE_URL}"
