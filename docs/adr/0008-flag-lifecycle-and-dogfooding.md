@@ -163,6 +163,16 @@ blocked its own off-switch, locking the operator out until restart. The
 control endpoint is exempt by constant, with a test pinning the route and
 exemption together so they cannot drift.
 
+## Dependency hygiene (iteration 11)
+
+An audit of what the workspace still consumes found one kit pinned from
+git: throttle-kit, because 2.0.0 predated the `remaining_burst()` this
+codebase needed, so every downstream build compiled it from a branch.
+Published 2.1.0 and dropped the patch. `Cargo.lock` now contains zero
+git-sourced dependencies — the estate resolves entirely from crates.io,
+which is also what makes the conformance harness meaningful for external
+consumers.
+
 ## Exposition in CI (iteration 10)
 
 `verify_local.sh` now drives traffic and asserts the scrape actually
