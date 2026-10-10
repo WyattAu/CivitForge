@@ -8488,8 +8488,9 @@ dependencies = [
 
 [[package]]
 name = "throttle-kit"
-version = "2.0.0"
-source = "git+https://github.com/WyattAu/ratelimit?branch=main#a42a248558be8e9d9a25b2453b1443f0fb17752a"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f3f016deeca6c2ede8752a4c4cc92d1a554ed32230aef9ad3b5bf7650b7ee7b"
 dependencies = [
  "dashmap",
  "thiserror 2.0.18",

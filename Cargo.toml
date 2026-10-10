@@ -90,8 +90,6 @@ cryptkit = { version = "0.1" }
 # ── WASM-friendly release profile ──────────────────────────────────────────────
 # Apply to the entire workspace; trunk --release picks these up automatically.
 # ADR-0006: remaining_burst() (token-bucket semantics) on git main until 2.1.0 publishes
-[patch.crates-io]
-throttle-kit = { git = "https://github.com/WyattAu/ratelimit", branch = "main" }
 
 [profile.release]
 opt-level = "z"      # optimise for size
