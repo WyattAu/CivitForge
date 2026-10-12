@@ -103,6 +103,8 @@ mod tests {
         }
     }
 
+    // Reaches matchMedia via the unknown-value fallback; browser only.
+    #[cfg(target_arch = "wasm32")]
     #[test]
     fn from_storage_value_parse() {
         assert_eq!(Locale::from_storage_value(Some("en")), Locale::En);

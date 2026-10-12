@@ -119,6 +119,8 @@ mod tests {
         assert_eq!(Theme::Dark.class_name(), "dark");
     }
 
+    // Reaches matchMedia via the unknown-value fallback; browser only.
+    #[cfg(target_arch = "wasm32")]
     #[test]
     fn from_storage_value_parse() {
         assert_eq!(Theme::from_storage_value(Some("dark")), Theme::Dark);

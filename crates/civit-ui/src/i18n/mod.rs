@@ -95,6 +95,8 @@ mod tests {
         assert_eq!(t("nonexistent.key"), "nonexistent.key");
     }
 
+    // Initialises the locale table from localStorage; browser only.
+    #[cfg(target_arch = "wasm32")]
     #[test]
     fn t_translates_known_keys() {
         // Default locale (no localStorage) → English
