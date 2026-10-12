@@ -50,13 +50,20 @@ pub struct TypingIndicator {
     pub started_at: DateTime<Utc>,
 }
 
+/// Per-subscriber queue depth for realtime fan-out.
+///
+/// These queues were unbounded, so one subscriber that stopped reading grew
+/// the server's heap until the host ran out of memory.
+pub const REALTIME_CHANNEL_CAPACITY: usize = 256;
+
 struct ChannelEntry {
     channel: RealtimeChannel,
-    senders: Vec<tokio::sync::mpsc::UnboundedSender<RealtimeMessage>>,
+    senders: Vec<tokio::sync::mpsc::Sender<RealtimeMessage>>,
 }
 
 pub struct RealtimeChannelService {
     channels: Arc<RwLock<HashMap<String, ChannelEntry>>>,
+    dropped: Arc<std::sync::atomic::AtomicU64>,
     presence: Arc<RwLock<HashMap<String, HashMap<Uuid, PresenceInfo>>>>,
     typing: Arc<RwLock<HashMap<String, HashMap<Uuid, TypingIndicator>>>>,
 }
@@ -71,9 +78,18 @@ impl RealtimeChannelService {
     pub fn new() -> Self {
         Self {
             channels: Arc::new(RwLock::new(HashMap::new())),
+            dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             presence: Arc::new(RwLock::new(HashMap::new())),
             typing: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    /// Messages dropped because a subscriber's queue was full.
+    ///
+    /// A rising count means subscribers are not draining; before this
+    /// existed the same condition was only visible as host memory pressure.
+    pub fn dropped_count(&self) -> u64 {
+        self.dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub async fn create_or_get_channel(
@@ -113,7 +129,7 @@ impl RealtimeChannelService {
     ) -> Result<
         (
             RealtimeChannel,
-            tokio::sync::mpsc::UnboundedReceiver<RealtimeMessage>,
+            tokio::sync::mpsc::Receiver<RealtimeMessage>,
         ),
         sqlx::Error,
     > {
@@ -128,7 +144,7 @@ impl RealtimeChannelService {
         .execute(pool)
         .await?;
 
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, rx) = tokio::sync::mpsc::channel(REALTIME_CHANNEL_CAPACITY);
 
         let mut channels = self.channels.write().await;
         let entry = channels
@@ -194,10 +210,23 @@ impl RealtimeChannelService {
         .execute(pool)
         .await?;
 
-        let channels = self.channels.read().await;
-        if let Some(entry) = channels.get(channel_name) {
-            for sender in &entry.senders {
-                let _ = sender.send(message.clone());
+        {
+            let mut channels = self.channels.write().await;
+            if let Some(entry) = channels.get_mut(channel_name) {
+                // retain, not remove: senders whose subscriber has gone away
+                // were previously kept forever, so the fan-out list grew
+                // without bound too.
+                entry
+                    .senders
+                    .retain(|sender| match sender.try_send(message.clone()) {
+                        Ok(()) => true,
+                        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                            self.dropped
+                                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            true
+                        }
+                        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => false,
+                    });
             }
         }
 

@@ -64,13 +64,20 @@ pub enum ResolutionType {
     ManualResolution,
 }
 
+/// Per-participant queue depth for change fan-out.
+///
+/// These queues were unbounded, so one participant that stopped reading grew
+/// the server's heap until the host ran out of memory.
+pub const COLLABORATION_CAPACITY: usize = 256;
+
 struct SessionEntry {
     session: CollaborationSession,
-    senders: Vec<tokio::sync::mpsc::UnboundedSender<CollaborativeChange>>,
+    senders: Vec<tokio::sync::mpsc::Sender<CollaborativeChange>>,
 }
 
 pub struct LiveCollaborationService {
     sessions: Arc<RwLock<HashMap<Uuid, SessionEntry>>>,
+    dropped: Arc<std::sync::atomic::AtomicU64>,
     resource_sessions: Arc<RwLock<HashMap<String, Vec<Uuid>>>>,
 }
 
@@ -84,6 +91,7 @@ impl LiveCollaborationService {
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             resource_sessions: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -101,7 +109,7 @@ impl LiveCollaborationService {
     ) -> Result<
         (
             CollaborationSession,
-            tokio::sync::mpsc::UnboundedReceiver<CollaborativeChange>,
+            tokio::sync::mpsc::Receiver<CollaborativeChange>,
         ),
         sqlx::Error,
     > {
@@ -143,7 +151,7 @@ impl LiveCollaborationService {
             }
         };
 
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, rx) = tokio::sync::mpsc::channel(COLLABORATION_CAPACITY);
 
         let entry = SessionEntry {
             session: session.clone(),
@@ -229,8 +237,13 @@ impl LiveCollaborationService {
                         && entry.session.user_id != change.user_id
                     {
                         for sender in &entry.senders {
-                            if sender.send(change.clone()).is_ok() {
-                                sent += 1;
+                            match sender.try_send(change.clone()) {
+                                Ok(()) => sent += 1,
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                                    self.dropped
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
                             }
                         }
                     }
@@ -240,6 +253,11 @@ impl LiveCollaborationService {
             }
             None => 0,
         }
+    }
+
+    /// Changes dropped because a participant's queue was full.
+    pub fn dropped_count(&self) -> u64 {
+        self.dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub async fn get_session(

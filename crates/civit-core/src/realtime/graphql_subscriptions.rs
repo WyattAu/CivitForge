@@ -40,13 +40,20 @@ pub struct SubscriptionFilter {
     pub enabled: Option<bool>,
 }
 
+/// Per-subscriber queue depth for subscription fan-out.
+///
+/// This queue was unbounded, so one subscriber that stopped reading grew the
+/// server's heap until the host ran out of memory.
+pub const GRAPHQL_SUBSCRIPTION_CAPACITY: usize = 256;
+
 struct SubscriptionEntry {
     subscription: GraphqlSubscription,
-    tx: tokio::sync::mpsc::UnboundedSender<SubscriptionEvent>,
+    tx: tokio::sync::mpsc::Sender<SubscriptionEvent>,
 }
 
 pub struct GraphqlSubscriptionService {
     subscriptions: Arc<RwLock<HashMap<Uuid, SubscriptionEntry>>>,
+    dropped: Arc<std::sync::atomic::AtomicU64>,
     channel_subscribers: Arc<RwLock<HashMap<String, Vec<Uuid>>>>,
 }
 
@@ -60,6 +67,7 @@ impl GraphqlSubscriptionService {
     pub fn new() -> Self {
         Self {
             subscriptions: Arc::new(RwLock::new(HashMap::new())),
+            dropped: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             channel_subscribers: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -72,7 +80,7 @@ impl GraphqlSubscriptionService {
     ) -> Result<
         (
             GraphqlSubscription,
-            tokio::sync::mpsc::UnboundedReceiver<SubscriptionEvent>,
+            tokio::sync::mpsc::Receiver<SubscriptionEvent>,
         ),
         sqlx::Error,
     > {
@@ -92,7 +100,7 @@ impl GraphqlSubscriptionService {
         .fetch_one(pool)
         .await?;
 
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, rx) = tokio::sync::mpsc::channel(GRAPHQL_SUBSCRIPTION_CAPACITY);
 
         let entry = SubscriptionEntry {
             subscription: subscription.clone(),
@@ -260,15 +268,26 @@ impl GraphqlSubscriptionService {
                 for sub_id in ids {
                     if let Some(entry) = subs.get(sub_id)
                         && entry.subscription.enabled
-                        && entry.tx.send(event.clone()).is_ok()
                     {
-                        sent += 1;
+                        match entry.tx.try_send(event.clone()) {
+                            Ok(()) => sent += 1,
+                            Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                                self.dropped
+                                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            }
+                            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                        }
                     }
                 }
                 sent
             }
             None => 0,
         }
+    }
+
+    /// Events dropped because a subscriber's queue was full.
+    pub fn dropped_count(&self) -> u64 {
+        self.dropped.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub async fn get_channel_subscriber_count(&self, channel: &str) -> usize {
