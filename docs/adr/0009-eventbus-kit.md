@@ -98,25 +98,47 @@ So the plan is:
    a trap for the next reader, and it is what made this look like a live
    migration when it was not.
 2. **Bound the fan-out that is actually live.** Unbounded
-   `mpsc::UnboundedSender` fan-out appears in four modules:
-   `events/websocket.rs` (per-connection), `realtime/channels.rs`,
-   `realtime/collaboration.rs`, and `realtime/graphql_subscriptions.rs`. Each
-   holds `Vec<UnboundedSender<...>>`, so one slow consumer grows its queue
-   without limit and the only pressure signal is host memory exhaustion. This
-   is the same unbounded-backlog failure the kit addresses, in the place where
-   it can actually happen.
-3. Adopt the kit's bounded semantics — an explicit per-subscriber capacity and
-   overflow policy — for those four paths, and expose drop counters through
-   the Prometheus endpoint alongside the existing HTTP instruments.
+   `mpsc::UnboundedSender` fan-out appeared in four modules. Checking which
+   are actually reachable rather than counting them changed the picture:
+
+   - `events/websocket.rs` — **live**. Per-connection outbound queues, and
+     the writer task `await`s each websocket send, so a client that stopped
+     reading grew the heap with nothing to show for it.
+   - `realtime/channels.rs`, `realtime/collaboration.rs`, and
+     `realtime/graphql_subscriptions.rs` — **not wired**. `realtime::`
+     appears nowhere outside its own module; none of the three services is
+     held by `AppState` or reached by a route.
+
+   All four are now bounded (256) with `try_send`. A full queue drops the
+   message for that subscriber and increments a counter; a closed receiver
+   is pruned from the fan-out list, which `channels.rs` never did — it
+   discarded every send error with `let _ =`, so a departed subscriber's
+   sender lived for the life of the process.
+
+3. Expose the drop counters through the Prometheus endpoint alongside the
+   existing HTTP instruments. A bounded queue that is not exported turns a
+   silent backlog back into a silent backlog.
 
 ### Status
 
 The kit work is complete and published (`eventbus-kit` 0.4.0, 59 tests,
-clippy clean under `--all-features -D warnings`). Steps 1–3 are **not started**:
-the build host has 1 GB of available RAM with swap fully consumed, and a
-`civit-core` build was previously OOM-killed at 2.2 GB RSS. Editing four
-modules that cannot be compiled or tested would trade a verified tree for an
-unverified one, so the code is left untouched and green pending build capacity.
+clippy clean under `--all-features -D warnings`). Steps 1–3 are complete in
+`civit-core`: the dead bus is deleted, all four fan-out paths are bounded,
+and each service exposes its drop counters. `civit-core`'s lib suite is
+1917 green.
+
+Step 3's Prometheus export is the one piece still outstanding: the counters
+exist and are queryable in-process (`WebSocketManager::send_stats`, and
+`dropped_count` on each realtime service), but are not yet exported.
+
+### A note on how this ADR went wrong twice
+
+The first draft proposed a greenfield kit that already existed, because it
+researched the design without checking the catalogue. The second draft
+claimed four live modules, because it counted four modules containing
+unbounded channels without checking whether anything called them. Both
+errors were the same shape: treating what exists as what runs. The
+correction in both cases was to grep for the call sites.
 
 ## Consequences
 
