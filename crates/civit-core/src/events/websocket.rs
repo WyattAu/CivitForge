@@ -58,6 +58,41 @@ pub enum SendOutcome {
     Closed,
 }
 
+/// WebSocket delivery instruments.
+///
+/// Built once against the global meter provider otelkit installs, matching
+/// the HTTP instruments in `middleware::tracing`. A bounded queue whose
+/// drops are not exported is just a silent backlog, so these are recorded
+/// on the same path as the in-process counters.
+struct WsMetrics {
+    sent: otelkit::otel::opentelemetry::metrics::Counter<u64>,
+    dropped: otelkit::otel::opentelemetry::metrics::Counter<u64>,
+    closed: otelkit::otel::opentelemetry::metrics::Counter<u64>,
+}
+
+fn ws_metrics() -> &'static WsMetrics {
+    static METRICS: std::sync::OnceLock<WsMetrics> = std::sync::OnceLock::new();
+    METRICS.get_or_init(|| {
+        let meter = otelkit::otel::opentelemetry::global::meter("civitforge");
+        WsMetrics {
+            sent: meter
+                .u64_counter("websocket_messages_sent_total")
+                .with_description("WebSocket frames queued to a connection's writer task")
+                .build(),
+            dropped: meter
+                .u64_counter("websocket_messages_dropped_total")
+                .with_description(
+                    "WebSocket frames dropped because a client was not draining fast enough",
+                )
+                .build(),
+            closed: meter
+                .u64_counter("websocket_connections_closed_total")
+                .with_description("WebSocket sends that found a dead writer task")
+                .build(),
+        }
+    })
+}
+
 /// Cumulative per-connection delivery counters.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct WsSendStats {
@@ -151,14 +186,22 @@ impl WebSocketManager {
         }
     }
 
-    /// Records one send outcome against the shared counters.
+    /// Records one send outcome against the shared counters and the OTel
+    /// instruments behind the Prometheus endpoint.
     fn record(&self, outcome: SendOutcome) -> SendOutcome {
-        let counter = match outcome {
-            SendOutcome::Sent => &self.sent,
-            SendOutcome::Dropped => &self.dropped,
-            SendOutcome::Closed => &self.closed,
+        let (counter, instrument, label) = match outcome {
+            SendOutcome::Sent => (&self.sent, &ws_metrics().sent, "sent"),
+            SendOutcome::Dropped => (&self.dropped, &ws_metrics().dropped, "dropped"),
+            SendOutcome::Closed => (&self.closed, &ws_metrics().closed, "closed"),
         };
         counter.fetch_add(1, Ordering::Relaxed);
+        instrument.add(
+            1,
+            &[otelkit::otel::opentelemetry::KeyValue::new(
+                "websocket.delivery",
+                label,
+            )],
+        );
         outcome
     }
 
