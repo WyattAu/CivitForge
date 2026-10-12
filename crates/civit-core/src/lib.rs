@@ -51,29 +51,19 @@ pub mod ssh;
 pub mod storage;
 pub use civit_telemetry as telemetry;
 // vuln_scanner, security_scanner, compliance, audit_trail — moved to civit-security
-pub mod code_quality;
 pub mod data_archival;
 pub mod data_migration;
 pub mod deployment_strategy;
 pub mod infrastructure;
-pub mod performance_testing;
 pub mod service_mesh;
-pub mod test_coverage;
 // network_policy, encryption, acl — moved to civit-security
 pub use civit_workflow as workflow;
-pub mod dashboard_reporting;
-pub mod distributed_tracing_v2;
 pub mod environment_variables;
-pub mod log_aggregation;
 pub mod pipeline_runners;
 pub mod pipeline_secrets;
-pub mod quality_gates;
-pub mod review_automation;
-pub mod test_suite_management;
 // firewall, intrusion_detection, ddos_protection — moved to civit-security
 pub mod marketplace;
 pub mod object_storage;
-pub mod plugins;
 // backup_encryption — moved to civit-security
 pub mod compliance_config;
 pub mod compliance_reporting;
@@ -83,7 +73,6 @@ pub mod data_retention;
 pub mod database_replication;
 pub mod multi_region;
 pub mod sla_monitoring;
-pub mod tenant_isolation;
 
 pub use telemetry::apm::{
     ApmConfig, ApmDashboard, ApmRecorder, ApmSpan, ApmTransaction, TransactionStats,
