@@ -7,8 +7,8 @@ use axum::{
     response::{IntoResponse, Json},
     routing::{get, post},
 };
-use serde::{Deserialize, Serialize};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // Extension types
@@ -69,8 +69,7 @@ pub struct MessageResponse {
 // In-memory extension store (placeholder for future DB integration)
 // ---------------------------------------------------------------------------
 
-static EXTENSIONS: std::sync::OnceLock<Mutex<Vec<ExtensionManifest>>> =
-    std::sync::OnceLock::new();
+static EXTENSIONS: std::sync::OnceLock<Mutex<Vec<ExtensionManifest>>> = std::sync::OnceLock::new();
 
 static INSTALLED: std::sync::OnceLock<Mutex<Vec<String>>> = std::sync::OnceLock::new();
 

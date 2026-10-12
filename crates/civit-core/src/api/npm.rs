@@ -5,12 +5,11 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use axum::{
-    Json,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::get,
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -90,17 +89,19 @@ pub async fn get_package(
     let dist_tags = rows[0].3.clone();
 
     let versions: serde_json::Value = serde_json::json!(
-        rows.iter().map(|r| {
-            serde_json::json!({
-                "name": r.1,
-                "version": r.2,
-                "dist": {
-                    "tarball": "",
-                    "shasum": "",
-                    "integrity": ""
-                }
+        rows.iter()
+            .map(|r| {
+                serde_json::json!({
+                    "name": r.1,
+                    "version": r.2,
+                    "dist": {
+                        "tarball": "",
+                        "shasum": "",
+                        "integrity": ""
+                    }
+                })
             })
-        }).collect::<Vec<_>>()
+            .collect::<Vec<_>>()
     );
 
     (
@@ -263,8 +264,14 @@ pub async fn download_tarball(
 
 pub fn npm_routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/packages/npm/{name}", get(get_package).put(publish_package))
-        .route("/api/v1/packages/npm/{name}/{version}", get(get_package_version))
+        .route(
+            "/api/v1/packages/npm/{name}",
+            get(get_package).put(publish_package),
+        )
+        .route(
+            "/api/v1/packages/npm/{name}/{version}",
+            get(get_package_version),
+        )
         .route(
             "/api/v1/packages/npm/{name}/-{filename}",
             get(download_tarball),

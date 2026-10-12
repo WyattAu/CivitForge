@@ -4,6 +4,7 @@ use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
 use crate::auth::saml::{SamlConfig, SamlService};
 use crate::error::CoreError;
+use axum::extract::Json;
 use axum::{
     Router,
     extract::{Path, State},
@@ -11,7 +12,6 @@ use axum::{
     response::IntoResponse,
     routing::{get, post},
 };
-use axum::extract::Json;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -252,10 +252,12 @@ pub async fn saml_acs(
     };
 
     // Generate JWT token
-    let token = match state
-        .jwt_service
-        .generate_token(&user.id.to_string(), &user.username, &user.role, None)
-    {
+    let token = match state.jwt_service.generate_token(
+        &user.id.to_string(),
+        &user.username,
+        &user.role,
+        None,
+    ) {
         Ok(t) => t,
         Err(e) => {
             return (
@@ -299,7 +301,10 @@ pub async fn create_saml_provider(
     if req.name.is_empty() || req.entity_id.is_empty() || req.sso_url.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::Config("name, entity_id, and sso_url are required".into()).error_response()),
+            Json(
+                CoreError::Config("name, entity_id, and sso_url are required".into())
+                    .error_response(),
+            ),
         )
             .into_response();
     }
@@ -319,11 +324,7 @@ pub async fn create_saml_provider(
     .await;
 
     match result {
-        Ok(row) => (
-            StatusCode::CREATED,
-            Json(SamlProviderResponse::from(row)),
-        )
-            .into_response(),
+        Ok(row) => (StatusCode::CREATED, Json(SamlProviderResponse::from(row))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -358,14 +359,8 @@ pub async fn list_saml_providers(
 
 pub fn saml_routes() -> Router<AppState> {
     Router::new()
-        .route(
-            "/api/v1/saml/{name}/metadata",
-            get(saml_metadata),
-        )
-        .route(
-            "/api/v1/saml/{name}/acs",
-            post(saml_acs),
-        )
+        .route("/api/v1/saml/{name}/metadata", get(saml_metadata))
+        .route("/api/v1/saml/{name}/acs", post(saml_acs))
         .route(
             "/api/v1/admin/saml",
             get(list_saml_providers).post(create_saml_provider),

@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
 use chrono::{DateTime, Utc};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::VecDeque;
 use uuid::Uuid;
-use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergeQueueEntry {
@@ -129,10 +129,7 @@ impl MergeQueueStore {
         Ok(entry)
     }
 
-    pub async fn get_queue(
-        &self,
-        repository_id: Uuid,
-    ) -> Result<Vec<DbQueueEntry>, sqlx::Error> {
+    pub async fn get_queue(&self, repository_id: Uuid) -> Result<Vec<DbQueueEntry>, sqlx::Error> {
         let entries = sqlx::query_as::<_, DbQueueEntry>(
             r#"
             SELECT id, repository_id, pull_request_id, position, status, merge_sha, created_at, updated_at

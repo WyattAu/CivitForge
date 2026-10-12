@@ -12,6 +12,7 @@ use futures::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
 use uuid::Uuid;
@@ -35,13 +36,46 @@ pub enum WsCommand {
     },
 }
 
+/// Per-connection outbound queue depth.
+///
+/// These queues used to be unbounded, so a client that stopped reading grew
+/// the server's heap until the host ran out of memory, with no signal in
+/// between. A bound turns that into a counted, visible drop.
+pub const WS_SEND_CAPACITY: usize = 256;
+
+/// What a per-connection send did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SendOutcome {
+    /// Queued for the writer task.
+    Sent,
+    /// The connection's queue was full, so this frame was dropped for it.
+    ///
+    /// The connection stays open: a slow client is not a dead one, and
+    /// disconnecting clients because the server was busy would turn
+    /// backpressure into a self-inflicted outage.
+    Dropped,
+    /// The writer task is gone, so the connection is dead.
+    Closed,
+}
+
+/// Cumulative per-connection delivery counters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WsSendStats {
+    /// Frames queued for a writer task.
+    pub sent: u64,
+    /// Frames dropped because a client was not draining fast enough.
+    pub dropped: u64,
+    /// Sends that found a dead writer task.
+    pub closed: u64,
+}
+
 pub struct WsConnection {
     pub id: Uuid,
     pub user_id: Option<String>,
     pub subscriptions: HashSet<String>,
     pub last_ping: Instant,
     pub connected_at: Instant,
-    pub tx: mpsc::UnboundedSender<String>,
+    pub tx: mpsc::Sender<String>,
     pub current_resource: Option<(String, String)>,
     pub entered_at: Option<Instant>,
 }
@@ -54,7 +88,7 @@ pub struct PresenceInfo {
 }
 
 impl WsConnection {
-    pub fn new(id: Uuid, user_id: Option<String>, tx: mpsc::UnboundedSender<String>) -> Self {
+    pub fn new(id: Uuid, user_id: Option<String>, tx: mpsc::Sender<String>) -> Self {
         Self {
             id,
             user_id,
@@ -75,37 +109,69 @@ impl WsConnection {
         self.last_ping.elapsed() > timeout
     }
 
-    pub fn send(&self, msg: &str) -> bool {
-        self.tx.send(msg.to_string()).is_ok()
+    pub fn send(&self, msg: &str) -> SendOutcome {
+        match self.tx.try_send(msg.to_string()) {
+            Ok(()) => SendOutcome::Sent,
+            Err(mpsc::error::TrySendError::Full(_)) => SendOutcome::Dropped,
+            Err(mpsc::error::TrySendError::Closed(_)) => SendOutcome::Closed,
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct WebSocketManager {
     connections: Arc<DashMap<Uuid, WsConnection>>,
+    // Arc'd so clones share one set of counters rather than each clone
+    // reporting its own private totals.
+    sent: Arc<AtomicU64>,
+    dropped: Arc<AtomicU64>,
+    closed: Arc<AtomicU64>,
 }
 
 impl WebSocketManager {
     pub fn new() -> Self {
         Self {
             connections: Arc::new(DashMap::new()),
+            sent: Arc::new(AtomicU64::new(0)),
+            dropped: Arc::new(AtomicU64::new(0)),
+            closed: Arc::new(AtomicU64::new(0)),
         }
+    }
+
+    /// Cumulative delivery counters, for metrics and health reporting.
+    ///
+    /// `dropped` climbing is the signal that clients are not keeping up; it
+    /// is the first visible symptom of the unbounded backlog this bound
+    /// removes.
+    pub fn send_stats(&self) -> WsSendStats {
+        WsSendStats {
+            sent: self.sent.load(Ordering::Relaxed),
+            dropped: self.dropped.load(Ordering::Relaxed),
+            closed: self.closed.load(Ordering::Relaxed),
+        }
+    }
+
+    /// Records one send outcome against the shared counters.
+    fn record(&self, outcome: SendOutcome) -> SendOutcome {
+        let counter = match outcome {
+            SendOutcome::Sent => &self.sent,
+            SendOutcome::Dropped => &self.dropped,
+            SendOutcome::Closed => &self.closed,
+        };
+        counter.fetch_add(1, Ordering::Relaxed);
+        outcome
     }
 
     pub fn register(&self, user_id: Option<String>) -> Uuid {
         let id = Uuid::new_v4();
-        let (tx, _rx) = mpsc::unbounded_channel::<String>();
+        let (tx, _rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let conn = WsConnection::new(id, user_id, tx);
         self.connections.insert(id, conn);
         id
     }
 
     /// Register a connection with a real sender channel (used by the WebSocket handler).
-    pub fn register_with_channel(
-        &self,
-        user_id: Option<String>,
-        tx: mpsc::UnboundedSender<String>,
-    ) -> Uuid {
+    pub fn register_with_channel(&self, user_id: Option<String>, tx: mpsc::Sender<String>) -> Uuid {
         let id = Uuid::new_v4();
         let conn = WsConnection::new(id, user_id, tx);
         self.connections.insert(id, conn);
@@ -150,11 +216,13 @@ impl WebSocketManager {
                 should_send = conn.subscriptions.contains(&format!("repo:{repo_id}"));
             }
             if should_send {
-                if !conn.send(&msg) {
-                    // Channel closed -- connection is dead
-                    stale_ids.push(conn.id);
-                } else {
-                    conn.record_ping();
+                match self.record(conn.send(&msg)) {
+                    // The writer task is gone, so this connection is dead.
+                    SendOutcome::Closed => stale_ids.push(conn.id),
+                    SendOutcome::Sent => conn.record_ping(),
+                    // A client that cannot keep up stays connected; the drop
+                    // is counted so the backlog is visible instead of silent.
+                    SendOutcome::Dropped => {}
                 }
             }
         }
@@ -170,10 +238,15 @@ impl WebSocketManager {
             .connections
             .get(&conn_id)
             .ok_or_else(|| anyhow::anyhow!("connection not found: {conn_id}"))?;
-        if conn.send(msg) {
-            Ok(())
-        } else {
-            Err(anyhow::anyhow!("send failed: channel closed"))
+        match self.record(conn.send(msg)) {
+            SendOutcome::Sent => Ok(()),
+            // A direct reply that had to be dropped is a real failure the
+            // caller needs to see; reporting Ok would hide it.
+            SendOutcome::Dropped => Err(anyhow::anyhow!(
+                "send failed: connection queue full ({} pending)",
+                WS_SEND_CAPACITY
+            )),
+            SendOutcome::Closed => Err(anyhow::anyhow!("send failed: channel closed")),
         }
     }
 
@@ -278,10 +351,11 @@ impl WebSocketManager {
 
         let mut stale_ids: Vec<Uuid> = Vec::new();
         for conn in self.connections.iter_mut() {
-            if (conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global"))
-                && !conn.send(&msg)
-            {
-                stale_ids.push(conn.id);
+            if conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global") {
+                match self.record(conn.send(&msg)) {
+                    SendOutcome::Closed => stale_ids.push(conn.id),
+                    SendOutcome::Sent | SendOutcome::Dropped => {}
+                }
             }
         }
         for id in stale_ids {
@@ -333,10 +407,11 @@ impl WebSocketManager {
         tracing::debug!(pipeline_id = %event.pipeline_id, step_index = event.step_index, "broadcasting pipeline log via websocket");
         let mut stale_ids: Vec<Uuid> = Vec::new();
         for conn in self.connections.iter_mut() {
-            if (conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global"))
-                && !conn.send(&msg)
-            {
-                stale_ids.push(conn.id);
+            if conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global") {
+                match self.record(conn.send(&msg)) {
+                    SendOutcome::Closed => stale_ids.push(conn.id),
+                    SendOutcome::Sent | SendOutcome::Dropped => {}
+                }
             }
         }
         for id in stale_ids {
@@ -353,10 +428,11 @@ impl WebSocketManager {
         tracing::debug!(pipeline_id = %event.pipeline_id, status = %event.status, "broadcasting pipeline status via websocket");
         let mut stale_ids: Vec<Uuid> = Vec::new();
         for conn in self.connections.iter_mut() {
-            if (conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global"))
-                && !conn.send(&msg)
-            {
-                stale_ids.push(conn.id);
+            if conn.subscriptions.contains(&topic) || conn.subscriptions.contains("global") {
+                match self.record(conn.send(&msg)) {
+                    SendOutcome::Closed => stale_ids.push(conn.id),
+                    SendOutcome::Sent | SendOutcome::Dropped => {}
+                }
             }
         }
         for id in stale_ids {
@@ -376,6 +452,12 @@ impl WebSocketManager {
     }
 }
 
+impl Default for WebSocketManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Axum WebSocket upgrade handler.
 ///
 /// Upgrades the HTTP connection to WebSocket, spawns read/write tasks,
@@ -389,7 +471,7 @@ pub async fn ws_upgrade_handler(
 
 async fn handle_socket(socket: WebSocket, manager: Arc<RwLock<WebSocketManager>>) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
-    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    let (tx, mut rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
 
     // Register connection
     let conn_id = {
@@ -528,8 +610,8 @@ mod tests {
     #[test]
     fn broadcast_to_global_subscribers() {
         let mgr = WebSocketManager::new();
-        let (tx1, _rx1) = mpsc::unbounded_channel::<String>();
-        let (tx2, _rx2) = mpsc::unbounded_channel::<String>();
+        let (tx1, _rx1) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx2, _rx2) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id1 = mgr.register_with_channel(None, tx1);
         let _id2 = mgr.register_with_channel(None, tx2);
         mgr.subscribe(id1, "global");
@@ -544,7 +626,7 @@ mod tests {
     #[test]
     fn register_with_channel() {
         let mgr = WebSocketManager::new();
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (tx, mut rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id = mgr.register_with_channel(Some("user-2".to_string()), tx);
         assert_eq!(mgr.active_count(), 1);
 
@@ -558,8 +640,8 @@ mod tests {
     fn broadcast_sends_to_matching_channels() {
         let mgr = WebSocketManager::new();
 
-        let (tx1, mut rx1) = mpsc::unbounded_channel::<String>();
-        let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
+        let (tx1, mut rx1) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx2, mut rx2) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id1 = mgr.register_with_channel(None, tx1);
         let id2 = mgr.register_with_channel(None, tx2);
 
@@ -630,8 +712,8 @@ mod tests {
     fn presence_enter_leave_tracking() {
         let mgr = WebSocketManager::new();
 
-        let (tx1, _rx1) = mpsc::unbounded_channel::<String>();
-        let (tx2, _rx2) = mpsc::unbounded_channel::<String>();
+        let (tx1, _rx1) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx2, _rx2) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id1 = mgr.register_with_channel(Some("alice".to_string()), tx1);
         let id2 = mgr.register_with_channel(Some("bob".to_string()), tx2);
 
@@ -658,8 +740,8 @@ mod tests {
     fn presence_summary_multiple_resources() {
         let mgr = WebSocketManager::new();
 
-        let (tx1, _) = mpsc::unbounded_channel::<String>();
-        let (tx2, _) = mpsc::unbounded_channel::<String>();
+        let (tx1, _) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx2, _) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id1 = mgr.register_with_channel(Some("alice".to_string()), tx1);
         let id2 = mgr.register_with_channel(Some("bob".to_string()), tx2);
 
@@ -681,8 +763,8 @@ mod tests {
     fn broadcast_presence_event_on_enter() {
         let mgr = WebSocketManager::new();
 
-        let (tx_enterer, _) = mpsc::unbounded_channel::<String>();
-        let (tx_watcher, mut rx_watcher) = mpsc::unbounded_channel::<String>();
+        let (tx_enterer, _) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx_watcher, mut rx_watcher) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id_enterer = mgr.register_with_channel(Some("alice".to_string()), tx_enterer);
         let id_watcher = mgr.register_with_channel(None, tx_watcher);
 
@@ -711,8 +793,8 @@ mod tests {
     fn broadcast_presence_event_on_leave() {
         let mgr = WebSocketManager::new();
 
-        let (tx_enterer, _) = mpsc::unbounded_channel::<String>();
-        let (tx_watcher, mut rx_watcher) = mpsc::unbounded_channel::<String>();
+        let (tx_enterer, _) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx_watcher, mut rx_watcher) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id_enterer = mgr.register_with_channel(Some("bob".to_string()), tx_enterer);
         let id_watcher = mgr.register_with_channel(None, tx_watcher);
 
@@ -739,8 +821,8 @@ mod tests {
     fn presence_cleared_on_disconnect() {
         let mgr = WebSocketManager::new();
 
-        let (tx1, _) = mpsc::unbounded_channel::<String>();
-        let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
+        let (tx1, _) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx2, mut rx2) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id1 = mgr.register_with_channel(Some("charlie".to_string()), tx1);
         let id2 = mgr.register_with_channel(None, tx2);
 
@@ -763,7 +845,7 @@ mod tests {
     fn dead_channel_cleaned_on_broadcast() {
         let mgr = WebSocketManager::new();
 
-        let (tx, rx) = mpsc::unbounded_channel::<String>();
+        let (tx, rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id = mgr.register_with_channel(None, tx);
         assert_eq!(mgr.active_count(), 1);
 
@@ -795,7 +877,7 @@ mod tests {
     fn broadcast_pipeline_log_to_subscribed_connection() {
         let mgr = WebSocketManager::new();
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (tx, mut rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id = mgr.register_with_channel(None, tx);
         mgr.subscribe(id, "pipeline:pipe-1");
 
@@ -819,7 +901,7 @@ mod tests {
     fn broadcast_pipeline_status_to_subscribed_connection() {
         let mgr = WebSocketManager::new();
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (tx, mut rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id = mgr.register_with_channel(None, tx);
         mgr.subscribe(id, "pipeline:pipe-2");
 
@@ -843,8 +925,8 @@ mod tests {
     fn pipeline_log_not_sent_to_unsubscribed_connection() {
         let mgr = WebSocketManager::new();
 
-        let (tx1, mut rx1) = mpsc::unbounded_channel::<String>();
-        let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
+        let (tx1, mut rx1) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let (tx2, mut rx2) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id1 = mgr.register_with_channel(None, tx1);
         let _id2 = mgr.register_with_channel(None, tx2);
         mgr.subscribe(id1, "pipeline:pipe-3");
@@ -867,7 +949,7 @@ mod tests {
     fn pipeline_log_sent_to_global_subscriber() {
         let mgr = WebSocketManager::new();
 
-        let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+        let (tx, mut rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
         let id = mgr.register_with_channel(None, tx);
         mgr.subscribe(id, "global");
 
@@ -884,5 +966,83 @@ mod tests {
         let received = rx.try_recv().unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&received).unwrap();
         assert_eq!(parsed["log_line"], "global recv test");
+    }
+
+    // ── bounded send queue ────────────────────────────────────────────────
+
+    #[test]
+    fn slow_client_is_dropped_not_disconnected() {
+        let mgr = WebSocketManager::new();
+        let (tx, _rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        // _rx is held alive but never drained: this client is not reading.
+        let id = mgr.register_with_channel(None, tx);
+        mgr.subscribe(id, "global");
+
+        for _ in 0..(WS_SEND_CAPACITY + 50) {
+            mgr.broadcast_event(&make_system_event("flood"));
+        }
+
+        let stats = mgr.send_stats();
+        assert_eq!(
+            stats.dropped, 50,
+            "frames past capacity must be counted as dropped"
+        );
+        assert_eq!(stats.sent, WS_SEND_CAPACITY as u64);
+        assert_eq!(
+            mgr.active_count(),
+            1,
+            "a slow client must not be disconnected: that would turn the \
+             server's backpressure into a self-inflicted outage"
+        );
+    }
+
+    #[test]
+    fn direct_send_reports_a_full_queue() {
+        let mgr = WebSocketManager::new();
+        let (tx, _rx) = mpsc::channel::<String>(WS_SEND_CAPACITY);
+        let id = mgr.register_with_channel(None, tx);
+
+        for _ in 0..WS_SEND_CAPACITY {
+            mgr.send_to_connection(id, "flood").unwrap();
+        }
+        let err = mgr
+            .send_to_connection(id, "overflow")
+            .expect_err("a dropped direct reply must not report success");
+        assert!(err.to_string().contains("queue full"), "got: {err}");
+    }
+
+    #[test]
+    fn dropped_frames_are_counted_per_manager() {
+        let mgr = WebSocketManager::new();
+        let (tx, _rx) = mpsc::channel::<String>(2);
+        let id = mgr.register_with_channel(None, tx);
+        mgr.subscribe(id, "global");
+
+        for _ in 0..10 {
+            mgr.broadcast_event(&make_system_event("flood"));
+        }
+
+        let stats = mgr.send_stats();
+        assert_eq!(stats.dropped + stats.sent, 10);
+        assert_eq!(stats.closed, 0);
+    }
+
+    #[test]
+    fn send_stats_are_shared_across_clones() {
+        let mgr = WebSocketManager::new();
+        let clone = mgr.clone();
+        let (tx, _rx) = mpsc::channel::<String>(1);
+        let id = mgr.register_with_channel(None, tx);
+        mgr.subscribe(id, "global");
+
+        mgr.broadcast_event(&make_system_event("a"));
+        mgr.broadcast_event(&make_system_event("b"));
+
+        // Capacity is 1 and nothing drains, so one frame queues and one is
+        // dropped; the point of the test is that the clone sees the same
+        // totals rather than a private copy.
+        assert_eq!(clone.send_stats().dropped, mgr.send_stats().dropped);
+        assert_eq!(clone.send_stats().dropped, 1);
+        assert_eq!(clone.send_stats().sent, 1);
     }
 }

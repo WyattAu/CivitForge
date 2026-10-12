@@ -110,7 +110,13 @@ impl RealtimeChannelService {
         &self,
         pool: &sqlx::PgPool,
         channel_name: &str,
-    ) -> Result<(RealtimeChannel, tokio::sync::mpsc::UnboundedReceiver<RealtimeMessage>), sqlx::Error> {
+    ) -> Result<
+        (
+            RealtimeChannel,
+            tokio::sync::mpsc::UnboundedReceiver<RealtimeMessage>,
+        ),
+        sqlx::Error,
+    > {
         let channel = self.create_or_get_channel(pool, channel_name).await?;
 
         sqlx::query(
@@ -404,7 +410,12 @@ mod tests {
         let user_id = Uuid::new_v4();
 
         service
-            .update_presence("test", user_id, Some("user".to_string()), PresenceStatus::Online)
+            .update_presence(
+                "test",
+                user_id,
+                Some("user".to_string()),
+                PresenceStatus::Online,
+            )
             .await;
 
         let presence = service.get_channel_presence("test").await;

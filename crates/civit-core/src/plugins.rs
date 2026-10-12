@@ -89,22 +89,20 @@ impl PluginService {
     }
 
     pub async fn enable_plugin(&self, plugin_id: Uuid) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "UPDATE plugins_v1 SET enabled = true, updated_at = NOW() WHERE id = $1",
-        )
-        .bind(plugin_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("UPDATE plugins_v1 SET enabled = true, updated_at = NOW() WHERE id = $1")
+                .bind(plugin_id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 
     pub async fn disable_plugin(&self, plugin_id: Uuid) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "UPDATE plugins_v1 SET enabled = false, updated_at = NOW() WHERE id = $1",
-        )
-        .bind(plugin_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("UPDATE plugins_v1 SET enabled = false, updated_at = NOW() WHERE id = $1")
+                .bind(plugin_id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 

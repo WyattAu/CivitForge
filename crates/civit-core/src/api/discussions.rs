@@ -144,21 +144,19 @@ async fn enrich_discussion_response(
     pool: &sqlx::PgPool,
     d: crate::db::models::Discussion,
 ) -> DiscussionResponse {
-    let comment_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM discussion_comments WHERE discussion_id = $1",
-    )
-    .bind(d.id)
-    .fetch_one(pool)
-    .await
-    .unwrap_or(0);
+    let comment_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM discussion_comments WHERE discussion_id = $1")
+            .bind(d.id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(0);
 
-    let labels: Vec<DiscussionLabelResponse> = sqlx::query_as(
-        "SELECT * FROM discussion_labels WHERE discussion_id = $1 ORDER BY label",
-    )
-    .bind(d.id)
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let labels: Vec<DiscussionLabelResponse> =
+        sqlx::query_as("SELECT * FROM discussion_labels WHERE discussion_id = $1 ORDER BY label")
+            .bind(d.id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     DiscussionResponse {
         id: d.id,
@@ -216,7 +214,10 @@ pub async fn list_discussions(
         }
     };
 
-    let limit = params.per_page.map(|p| p.clamp(1, 100) as i64).unwrap_or(30);
+    let limit = params
+        .per_page
+        .map(|p| p.clamp(1, 100) as i64)
+        .unwrap_or(30);
     let page = params.page.unwrap_or(1).max(1);
     let offset = ((page - 1) * limit as u32) as i64;
 
@@ -399,18 +400,19 @@ pub async fn create_discussion_comment(
     let author_id = uuid::Uuid::parse_str(&auth.user_id).unwrap_or(uuid::Uuid::nil());
 
     if req.body.trim().is_empty() {
-        return err_response(axum::http::StatusCode::BAD_REQUEST, "comment body is required");
+        return err_response(
+            axum::http::StatusCode::BAD_REQUEST,
+            "comment body is required",
+        );
     }
 
     // Check if discussion is locked
     let discussion = state.db.get_discussion(discussion_id).await;
     if let Ok(ref d) = discussion
-        && d.is_locked {
-            return err_response(
-                axum::http::StatusCode::FORBIDDEN,
-                "discussion is locked",
-            );
-        }
+        && d.is_locked
+    {
+        return err_response(axum::http::StatusCode::FORBIDDEN, "discussion is locked");
+    }
 
     match state
         .db
@@ -539,7 +541,10 @@ pub async fn search_discussions(
         }
     };
 
-    let limit = params.per_page.map(|p| p.clamp(1, 100) as i64).unwrap_or(30);
+    let limit = params
+        .per_page
+        .map(|p| p.clamp(1, 100) as i64)
+        .unwrap_or(30);
     let page = params.page.unwrap_or(1).max(1);
     let offset = ((page - 1) * limit as u32) as i64;
 

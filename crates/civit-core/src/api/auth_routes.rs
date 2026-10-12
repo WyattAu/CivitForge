@@ -818,7 +818,10 @@ pub async fn oauth_authorize(
     if params.code_challenge_method != "S256" {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::BadRequest("code_challenge_method must be 'S256'".into()).error_response()),
+            Json(
+                CoreError::BadRequest("code_challenge_method must be 'S256'".into())
+                    .error_response(),
+            ),
         )
             .into_response();
     }
@@ -1226,7 +1229,10 @@ pub async fn oauth_register_client(
     if req.redirect_uris.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::BadRequest("at least one redirect_uri is required".into()).error_response()),
+            Json(
+                CoreError::BadRequest("at least one redirect_uri is required".into())
+                    .error_response(),
+            ),
         )
             .into_response();
     }

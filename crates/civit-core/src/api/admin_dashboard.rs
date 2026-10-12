@@ -3,8 +3,7 @@
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
 use axum::{
-    Json,
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
@@ -48,7 +47,9 @@ pub struct UpdateWidgetPositionRequest {
     pub position: i32,
 }
 
-fn widget_to_response(widget: &civit_db::models::AdminDashboardConfig) -> AdminDashboardWidgetResponse {
+fn widget_to_response(
+    widget: &civit_db::models::AdminDashboardConfig,
+) -> AdminDashboardWidgetResponse {
     AdminDashboardWidgetResponse {
         id: widget.id.to_string(),
         widget_name: widget.widget_name.clone(),

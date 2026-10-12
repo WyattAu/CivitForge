@@ -1,9 +1,9 @@
 use super::types::*;
 use chrono::Utc;
 use sqlx::PgPool;
-use uuid::Uuid;
 use std::future::Future;
 use std::pin::Pin;
+use uuid::Uuid;
 
 pub struct TestSuiteStore {
     pool: PgPool,
@@ -21,8 +21,8 @@ impl TestSuiteStore {
     ) -> Result<TestSuite, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let config = serde_json::to_value(req.config.unwrap_or_default())
-            .unwrap_or(serde_json::json!({}));
+        let config =
+            serde_json::to_value(req.config.unwrap_or_default()).unwrap_or(serde_json::json!({}));
         let config_parsed: TestSuiteConfig =
             serde_json::from_value(config.clone()).unwrap_or_default();
         let description = req.description.unwrap_or_default();
@@ -131,10 +131,7 @@ impl TestSuiteStore {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn create_run(
-        &self,
-        req: CreateTestRunRequest,
-    ) -> Result<TestRun, sqlx::Error> {
+    pub async fn create_run(&self, req: CreateTestRunRequest) -> Result<TestRun, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
 
@@ -214,9 +211,10 @@ impl TestSuiteStore {
         duration_ms: Option<i32>,
     ) -> Result<TestRun, sqlx::Error> {
         let completed_at = match status {
-            TestRunStatus::Passed | TestRunStatus::Failed | TestRunStatus::Error | TestRunStatus::Skipped => {
-                Some(Utc::now())
-            }
+            TestRunStatus::Passed
+            | TestRunStatus::Failed
+            | TestRunStatus::Error
+            | TestRunStatus::Skipped => Some(Utc::now()),
             _ => None,
         };
 
@@ -247,10 +245,7 @@ impl TestSuiteStore {
         Ok(TestRun::from(row))
     }
 
-    pub async fn get_suite_summary(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<TestSuiteSummary, sqlx::Error> {
+    pub async fn get_suite_summary(&self, repo_id: Uuid) -> Result<TestSuiteSummary, sqlx::Error> {
         let suite_row = sqlx::query_as::<_, SuiteSummaryRow>(
             r#"SELECT
                 COUNT(*) as total_suites,
@@ -723,10 +718,7 @@ impl TestSuiteStore {
         })
     }
 
-    pub async fn get_execution_order(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<ExecutionPlan, sqlx::Error> {
+    pub async fn get_execution_order(&self, repo_id: Uuid) -> Result<ExecutionPlan, sqlx::Error> {
         let suites = self.list_suites(repo_id, None, 1000, 0).await?;
         let mut execution_orders = Vec::new();
         let mut visited = std::collections::HashSet::new();
@@ -820,10 +812,7 @@ impl TestSuiteStore {
         })
     }
 
-    pub async fn get_analytics(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<TestSuiteAnalytics, sqlx::Error> {
+    pub async fn get_analytics(&self, repo_id: Uuid) -> Result<TestSuiteAnalytics, sqlx::Error> {
         let summary = self.get_suite_summary(repo_id).await?;
 
         let activity_rows = sqlx::query_as::<_, ActivityRow>(
@@ -841,10 +830,7 @@ impl TestSuiteStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let most_active_suites = activity_rows
-            .into_iter()
-            .map(SuiteActivity::from)
-            .collect();
+        let most_active_suites = activity_rows.into_iter().map(SuiteActivity::from).collect();
 
         let failure_rows = sqlx::query_as::<_, FailureTrendRow>(
             r#"SELECT
@@ -864,10 +850,7 @@ impl TestSuiteStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let failure_trends = failure_rows
-            .into_iter()
-            .map(FailureTrend::from)
-            .collect();
+        let failure_trends = failure_rows.into_iter().map(FailureTrend::from).collect();
 
         let avg_pass_rate = if summary.total_runs > 0 {
             summary.passed_runs as f64 / summary.total_runs as f64 * 100.0
@@ -1118,7 +1101,10 @@ impl TestSuiteStore {
         let regressions = self.detect_regressions(suite_id).await?;
 
         let active_regressions = regressions.iter().filter(|r| r.status == "open").count() as i64;
-        let resolved_regressions = regressions.iter().filter(|r| r.status == "resolved").count() as i64;
+        let resolved_regressions = regressions
+            .iter()
+            .filter(|r| r.status == "resolved")
+            .count() as i64;
 
         Ok(TestSuiteMetricsSummary {
             suite_id,
@@ -1135,7 +1121,10 @@ impl TestSuiteStore {
         &self,
         suite_id: Uuid,
     ) -> Result<TestSuitePerformanceReport, sqlx::Error> {
-        let suite = self.get_suite(suite_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let suite = self
+            .get_suite(suite_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let metrics_summary = self.get_metrics_summary(suite_id).await?;
         let regressions = self.detect_regressions(suite_id).await?;
 
@@ -1160,14 +1149,17 @@ impl TestSuiteStore {
                 },
                 message: format!(
                     "Performance regression detected: {} regressed by {:.1}% (threshold: {:.1}%)",
-                    regression.metric_name, regression.regression_percent, regression.threshold_percent
+                    regression.metric_name,
+                    regression.regression_percent,
+                    regression.threshold_percent
                 ),
                 created_at: Utc::now(),
             });
         }
 
         let overall_score = if metrics_summary.total_baselines > 0 {
-            let passing_baselines = metrics_summary.total_baselines - metrics_summary.active_regressions;
+            let passing_baselines =
+                metrics_summary.total_baselines - metrics_summary.active_regressions;
             (passing_baselines as f64 / metrics_summary.total_baselines as f64) * 100.0
         } else {
             100.0
@@ -1328,11 +1320,13 @@ impl TestSuiteStore {
                 .await?;
         }
         if let Some(threshold) = req.threshold_percent {
-            sqlx::query(r#"UPDATE test_suite_baselines_v2 SET threshold_percent = $1 WHERE id = $2"#)
-                .bind(threshold)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_baselines_v2 SET threshold_percent = $1 WHERE id = $2"#,
+            )
+            .bind(threshold)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
 
         let row = sqlx::query_as::<_, BaselineV2Row>(
@@ -1419,7 +1413,10 @@ impl TestSuiteStore {
         let regressions = self.detect_regressions_v2(suite_id).await?;
 
         let active_regressions = regressions.iter().filter(|r| r.status == "open").count() as i64;
-        let resolved_regressions = regressions.iter().filter(|r| r.status == "resolved").count() as i64;
+        let resolved_regressions = regressions
+            .iter()
+            .filter(|r| r.status == "resolved")
+            .count() as i64;
 
         Ok(TestSuiteMetricsSummaryV2 {
             suite_id,
@@ -1436,7 +1433,10 @@ impl TestSuiteStore {
         &self,
         suite_id: Uuid,
     ) -> Result<TestSuitePerformanceReportV2, sqlx::Error> {
-        let suite = self.get_suite(suite_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let suite = self
+            .get_suite(suite_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let metrics_summary = self.get_metrics_summary_v2(suite_id).await?;
         let regressions = self.detect_regressions_v2(suite_id).await?;
 
@@ -1461,14 +1461,17 @@ impl TestSuiteStore {
                 },
                 message: format!(
                     "Performance regression detected: {} regressed by {:.1}% (threshold: {:.1}%)",
-                    regression.metric_name, regression.regression_percent, regression.threshold_percent
+                    regression.metric_name,
+                    regression.regression_percent,
+                    regression.threshold_percent
                 ),
                 created_at: Utc::now(),
             });
         }
 
         let overall_score = if metrics_summary.total_baselines > 0 {
-            let passing_baselines = metrics_summary.total_baselines - metrics_summary.active_regressions;
+            let passing_baselines =
+                metrics_summary.total_baselines - metrics_summary.active_regressions;
             (passing_baselines as f64 / metrics_summary.total_baselines as f64) * 100.0
         } else {
             100.0
@@ -1549,7 +1552,10 @@ impl TestSuiteStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(TestSuitePerformanceAlertConfig::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(TestSuitePerformanceAlertConfig::from)
+            .collect())
     }
 
     pub async fn update_alert_config(
@@ -1579,7 +1585,9 @@ impl TestSuiteStore {
                 .await?;
         }
 
-        self.get_alert_config(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -1766,11 +1774,13 @@ impl TestSuiteStore {
                 .await?;
         }
         if let Some(threshold) = req.threshold_percent {
-            sqlx::query(r#"UPDATE test_suite_baselines_v4 SET threshold_percent = $1 WHERE id = $2"#)
-                .bind(threshold)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_baselines_v4 SET threshold_percent = $1 WHERE id = $2"#,
+            )
+            .bind(threshold)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
 
         let row = sqlx::query_as::<_, BaselineV4Row>(
@@ -1847,7 +1857,10 @@ impl TestSuiteStore {
         let regressions = self.detect_regressions_v4(suite_id).await?;
 
         let active_regressions = regressions.iter().filter(|r| r.status == "open").count() as i64;
-        let resolved_regressions = regressions.iter().filter(|r| r.status == "resolved").count() as i64;
+        let resolved_regressions = regressions
+            .iter()
+            .filter(|r| r.status == "resolved")
+            .count() as i64;
 
         Ok(TestSuiteMetricsSummaryV4 {
             suite_id,
@@ -1864,7 +1877,10 @@ impl TestSuiteStore {
         &self,
         suite_id: Uuid,
     ) -> Result<TestSuitePerformanceReportV4, sqlx::Error> {
-        let suite = self.get_suite(suite_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let suite = self
+            .get_suite(suite_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let metrics_summary = self.get_metrics_summary_v4(suite_id).await?;
         let regressions = self.detect_regressions_v4(suite_id).await?;
 
@@ -1891,14 +1907,17 @@ impl TestSuiteStore {
                 severity: severity.to_string(),
                 message: format!(
                     "Performance regression detected: {} regressed by {:.1}% (threshold: {:.1}%)",
-                    regression.metric_name, regression.regression_percent, regression.threshold_percent
+                    regression.metric_name,
+                    regression.regression_percent,
+                    regression.threshold_percent
                 ),
                 created_at: Utc::now(),
             });
         }
 
         let overall_score = if metrics_summary.total_baselines > 0 {
-            let passing_baselines = metrics_summary.total_baselines - metrics_summary.active_regressions;
+            let passing_baselines =
+                metrics_summary.total_baselines - metrics_summary.active_regressions;
             (passing_baselines as f64 / metrics_summary.total_baselines as f64) * 100.0
         } else {
             100.0
@@ -2034,11 +2053,13 @@ impl TestSuiteStore {
                 .await?;
         }
         if let Some(threshold) = req.threshold_percent {
-            sqlx::query(r#"UPDATE test_suite_baselines_v8 SET threshold_percent = $1 WHERE id = $2"#)
-                .bind(threshold)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_baselines_v8 SET threshold_percent = $1 WHERE id = $2"#,
+            )
+            .bind(threshold)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
 
         let row = sqlx::query_as::<_, BaselineV8Row>(
@@ -2115,7 +2136,10 @@ impl TestSuiteStore {
         let regressions = self.detect_regressions_v8(suite_id).await?;
 
         let active_regressions = regressions.iter().filter(|r| r.status == "open").count() as i64;
-        let resolved_regressions = regressions.iter().filter(|r| r.status == "resolved").count() as i64;
+        let resolved_regressions = regressions
+            .iter()
+            .filter(|r| r.status == "resolved")
+            .count() as i64;
 
         Ok(TestSuiteMetricsSummaryV8 {
             suite_id,
@@ -2132,7 +2156,10 @@ impl TestSuiteStore {
         &self,
         suite_id: Uuid,
     ) -> Result<TestSuitePerformanceReportV8, sqlx::Error> {
-        let suite = self.get_suite(suite_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let suite = self
+            .get_suite(suite_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let metrics_summary = self.get_metrics_summary_v8(suite_id).await?;
         let regressions = self.detect_regressions_v8(suite_id).await?;
 
@@ -2159,14 +2186,17 @@ impl TestSuiteStore {
                 severity: severity.to_string(),
                 message: format!(
                     "Performance regression detected: {} regressed by {:.1}% (threshold: {:.1}%)",
-                    regression.metric_name, regression.regression_percent, regression.threshold_percent
+                    regression.metric_name,
+                    regression.regression_percent,
+                    regression.threshold_percent
                 ),
                 created_at: Utc::now(),
             });
         }
 
         let overall_score = if metrics_summary.total_baselines > 0 {
-            let passing_baselines = metrics_summary.total_baselines - metrics_summary.active_regressions;
+            let passing_baselines =
+                metrics_summary.total_baselines - metrics_summary.active_regressions;
             (passing_baselines as f64 / metrics_summary.total_baselines as f64) * 100.0
         } else {
             100.0
@@ -2302,11 +2332,13 @@ impl TestSuiteStore {
                 .await?;
         }
         if let Some(threshold) = req.threshold_percent {
-            sqlx::query(r#"UPDATE test_suite_baselines_v15 SET threshold_percent = $1 WHERE id = $2"#)
-                .bind(threshold)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_baselines_v15 SET threshold_percent = $1 WHERE id = $2"#,
+            )
+            .bind(threshold)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
 
         let row = sqlx::query_as::<_, BaselineV15Row>(
@@ -2383,7 +2415,10 @@ impl TestSuiteStore {
         let regressions = self.detect_regressions_v15(suite_id).await?;
 
         let active_regressions = regressions.iter().filter(|r| r.status == "open").count() as i64;
-        let resolved_regressions = regressions.iter().filter(|r| r.status == "resolved").count() as i64;
+        let resolved_regressions = regressions
+            .iter()
+            .filter(|r| r.status == "resolved")
+            .count() as i64;
 
         Ok(TestSuiteMetricsSummaryV15 {
             suite_id,
@@ -2400,7 +2435,10 @@ impl TestSuiteStore {
         &self,
         suite_id: Uuid,
     ) -> Result<TestSuitePerformanceReportV15, sqlx::Error> {
-        let suite = self.get_suite(suite_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let suite = self
+            .get_suite(suite_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let metrics_summary = self.get_metrics_summary_v15(suite_id).await?;
         let regressions = self.detect_regressions_v15(suite_id).await?;
 
@@ -2427,14 +2465,17 @@ impl TestSuiteStore {
                 severity: severity.to_string(),
                 message: format!(
                     "Performance regression detected: {} regressed by {:.1}% (threshold: {:.1}%)",
-                    regression.metric_name, regression.regression_percent, regression.threshold_percent
+                    regression.metric_name,
+                    regression.regression_percent,
+                    regression.threshold_percent
                 ),
                 created_at: Utc::now(),
             });
         }
 
         let overall_score = if metrics_summary.total_baselines > 0 {
-            let passing_baselines = metrics_summary.total_baselines - metrics_summary.active_regressions;
+            let passing_baselines =
+                metrics_summary.total_baselines - metrics_summary.active_regressions;
             (passing_baselines as f64 / metrics_summary.total_baselines as f64) * 100.0
         } else {
             100.0
@@ -2522,32 +2563,40 @@ impl TestSuiteStore {
         req: UpdateFlakyTestDetectionV19Request,
     ) -> Result<FlakyTestDetectionV19, sqlx::Error> {
         if let Some(score) = req.flaky_score {
-            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET flaky_score = $1 WHERE id = $2"#)
-                .bind(score)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_flaky_detection_v19 SET flaky_score = $1 WHERE id = $2"#,
+            )
+            .bind(score)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(runs) = req.total_runs {
-            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET total_runs = $1 WHERE id = $2"#)
-                .bind(runs)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_flaky_detection_v19 SET total_runs = $1 WHERE id = $2"#,
+            )
+            .bind(runs)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(failures) = req.failure_count {
-            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET failure_count = $1 WHERE id = $2"#)
-                .bind(failures)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_flaky_detection_v19 SET failure_count = $1 WHERE id = $2"#,
+            )
+            .bind(failures)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(at) = req.last_flaky_at {
-            sqlx::query(r#"UPDATE test_suite_flaky_detection_v19 SET last_flaky_at = $1 WHERE id = $2"#)
-                .bind(at)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE test_suite_flaky_detection_v19 SET last_flaky_at = $1 WHERE id = $2"#,
+            )
+            .bind(at)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
 
         let row = sqlx::query_as::<_, FlakyDetectionV19Row>(
@@ -2604,7 +2653,10 @@ impl TestSuiteStore {
             medium_flaky_count: stats.medium_flaky_count,
             low_flaky_count: stats.low_flaky_count,
             avg_flaky_score: stats.avg_flaky_score,
-            most_flaky_tests: most_flaky.into_iter().map(FlakyTestDetectionV19::from).collect(),
+            most_flaky_tests: most_flaky
+                .into_iter()
+                .map(FlakyTestDetectionV19::from)
+                .collect(),
         })
     }
 
@@ -2671,7 +2723,9 @@ impl TestSuiteStore {
         suite_id: Uuid,
         metric_name: &str,
     ) -> Result<TestSuiteTrendAnalysisV19, sqlx::Error> {
-        let trends = self.list_trends(suite_id, Some(metric_name), 100, 0).await?;
+        let trends = self
+            .list_trends(suite_id, Some(metric_name), 100, 0)
+            .await?;
 
         let avg_value = if trends.is_empty() {
             0.0
@@ -2679,17 +2733,41 @@ impl TestSuiteStore {
             trends.iter().map(|t| t.metric_value).sum::<f64>() / trends.len() as f64
         };
 
-        let min_value = trends.iter().map(|t| t.metric_value).fold(f64::INFINITY, f64::min);
-        let min_value = if min_value == f64::INFINITY { 0.0 } else { min_value };
+        let min_value = trends
+            .iter()
+            .map(|t| t.metric_value)
+            .fold(f64::INFINITY, f64::min);
+        let min_value = if min_value == f64::INFINITY {
+            0.0
+        } else {
+            min_value
+        };
 
-        let max_value = trends.iter().map(|t| t.metric_value).fold(f64::NEG_INFINITY, f64::max);
-        let max_value = if max_value == f64::NEG_INFINITY { 0.0 } else { max_value };
+        let max_value = trends
+            .iter()
+            .map(|t| t.metric_value)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let max_value = if max_value == f64::NEG_INFINITY {
+            0.0
+        } else {
+            max_value
+        };
 
         let trend_direction = if trends.len() < 2 {
             "stable".to_string()
         } else {
-            let first_half: f64 = trends.iter().take(trends.len() / 2).map(|t| t.metric_value).sum::<f64>() / (trends.len() / 2) as f64;
-            let second_half: f64 = trends.iter().skip(trends.len() / 2).map(|t| t.metric_value).sum::<f64>() / (trends.len() - trends.len() / 2) as f64;
+            let first_half: f64 = trends
+                .iter()
+                .take(trends.len() / 2)
+                .map(|t| t.metric_value)
+                .sum::<f64>()
+                / (trends.len() / 2) as f64;
+            let second_half: f64 = trends
+                .iter()
+                .skip(trends.len() / 2)
+                .map(|t| t.metric_value)
+                .sum::<f64>()
+                / (trends.len() - trends.len() / 2) as f64;
             if second_half > first_half * 1.1 {
                 "increasing".to_string()
             } else if second_half < first_half * 0.9 {
@@ -2740,7 +2818,10 @@ impl TestSuiteStore {
             suggestions.push(TestOptimizationSuggestionV22 {
                 suite_id,
                 suggestion_type: "slow_tests".to_string(),
-                description: format!("Average test duration is {:.0}ms. Consider splitting into parallel suites.", avg_duration),
+                description: format!(
+                    "Average test duration is {:.0}ms. Consider splitting into parallel suites.",
+                    avg_duration
+                ),
                 impact_score: 80.0,
                 estimated_time_savings_ms: (avg_duration * 0.3) as i64,
             });
@@ -2749,14 +2830,21 @@ impl TestSuiteStore {
         let fail_rate = if runs.is_empty() {
             0.0
         } else {
-            runs.iter().filter(|r| r.status == TestRunStatus::Failed).count() as f64 / runs.len() as f64 * 100.0
+            runs.iter()
+                .filter(|r| r.status == TestRunStatus::Failed)
+                .count() as f64
+                / runs.len() as f64
+                * 100.0
         };
 
         if fail_rate > 10.0 {
             suggestions.push(TestOptimizationSuggestionV22 {
                 suite_id,
                 suggestion_type: "flaky_tests".to_string(),
-                description: format!("Failure rate is {:.1}%. Investigate flaky tests.", fail_rate),
+                description: format!(
+                    "Failure rate is {:.1}%. Investigate flaky tests.",
+                    fail_rate
+                ),
                 impact_score: 70.0,
                 estimated_time_savings_ms: 0,
             });

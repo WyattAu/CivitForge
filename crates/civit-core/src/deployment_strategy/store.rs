@@ -12,7 +12,10 @@ impl DeploymentStrategyStore {
         Self { pool }
     }
 
-    pub async fn create(&self, req: CreateStrategyRequest) -> Result<DeploymentStrategy, sqlx::Error> {
+    pub async fn create(
+        &self,
+        req: CreateStrategyRequest,
+    ) -> Result<DeploymentStrategy, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let config = req.config.unwrap_or(serde_json::json!({}));
@@ -55,7 +58,12 @@ impl DeploymentStrategyStore {
         Ok(row.map(DeploymentStrategy::from))
     }
 
-    pub async fn list_by_repo(&self, repo_id: Uuid, limit: i64, offset: i64) -> Result<Vec<DeploymentStrategy>, sqlx::Error> {
+    pub async fn list_by_repo(
+        &self,
+        repo_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<DeploymentStrategy>, sqlx::Error> {
         let rows = sqlx::query_as::<_, StrategyRow>(
             r#"SELECT id, repo_id, name, strategy_type, config, enabled, created_at
                FROM deployment_strategies WHERE repo_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"#,
@@ -69,8 +77,15 @@ impl DeploymentStrategyStore {
         Ok(rows.into_iter().map(DeploymentStrategy::from).collect())
     }
 
-    pub async fn update(&self, id: Uuid, req: UpdateStrategyRequest) -> Result<DeploymentStrategy, sqlx::Error> {
-        let mut strategy = self.get(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+    pub async fn update(
+        &self,
+        id: Uuid,
+        req: UpdateStrategyRequest,
+    ) -> Result<DeploymentStrategy, sqlx::Error> {
+        let mut strategy = self
+            .get(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         if let Some(name) = req.name {
             sqlx::query(r#"UPDATE deployment_strategies SET name = $1 WHERE id = $2"#)
@@ -116,7 +131,11 @@ impl DeploymentStrategyStore {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn create_config(&self, strategy_id: Uuid, req: CreateStrategyConfigRequest) -> Result<StrategyConfig, sqlx::Error> {
+    pub async fn create_config(
+        &self,
+        strategy_id: Uuid,
+        req: CreateStrategyConfigRequest,
+    ) -> Result<StrategyConfig, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
 
@@ -153,7 +172,10 @@ impl DeploymentStrategyStore {
         Ok(row.map(StrategyConfig::from))
     }
 
-    pub async fn list_configs(&self, strategy_id: Uuid) -> Result<Vec<StrategyConfig>, sqlx::Error> {
+    pub async fn list_configs(
+        &self,
+        strategy_id: Uuid,
+    ) -> Result<Vec<StrategyConfig>, sqlx::Error> {
         let rows = sqlx::query_as::<_, StrategyConfigRow>(
             r#"SELECT id, strategy_id, config_key, config_value, created_at
                FROM deployment_strategy_configs WHERE strategy_id = $1 ORDER BY created_at DESC"#,
@@ -165,14 +187,20 @@ impl DeploymentStrategyStore {
         Ok(rows.into_iter().map(StrategyConfig::from).collect())
     }
 
-    pub async fn update_config(&self, id: Uuid, config_value: serde_json::Value) -> Result<StrategyConfig, sqlx::Error> {
+    pub async fn update_config(
+        &self,
+        id: Uuid,
+        config_value: serde_json::Value,
+    ) -> Result<StrategyConfig, sqlx::Error> {
         sqlx::query(r#"UPDATE deployment_strategy_configs SET config_value = $1 WHERE id = $2"#)
             .bind(&config_value)
             .bind(id)
             .execute(&self.pool)
             .await?;
 
-        self.get_config(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_config(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_config(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -183,7 +211,11 @@ impl DeploymentStrategyStore {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn create_log(&self, strategy_id: Uuid, req: CreateStrategyLogRequest) -> Result<StrategyLog, sqlx::Error> {
+    pub async fn create_log(
+        &self,
+        strategy_id: Uuid,
+        req: CreateStrategyLogRequest,
+    ) -> Result<StrategyLog, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let status = req.status.unwrap_or_else(|| "success".to_string());
@@ -212,7 +244,12 @@ impl DeploymentStrategyStore {
         })
     }
 
-    pub async fn list_logs(&self, strategy_id: Uuid, limit: i64, offset: i64) -> Result<Vec<StrategyLog>, sqlx::Error> {
+    pub async fn list_logs(
+        &self,
+        strategy_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<StrategyLog>, sqlx::Error> {
         let rows = sqlx::query_as::<_, StrategyLogRow>(
             r#"SELECT id, strategy_id, action, status, details, created_at
                FROM deployment_strategy_logs WHERE strategy_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3"#,
@@ -226,9 +263,15 @@ impl DeploymentStrategyStore {
         Ok(rows.into_iter().map(StrategyLog::from).collect())
     }
 
-    pub async fn test_strategy(&self, strategy_id: Uuid) -> Result<StrategyTestResult, sqlx::Error> {
-        let strategy = self.get(strategy_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
-        
+    pub async fn test_strategy(
+        &self,
+        strategy_id: Uuid,
+    ) -> Result<StrategyTestResult, sqlx::Error> {
+        let strategy = self
+            .get(strategy_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+
         let start = std::time::Instant::now();
         let mut passed = true;
         let mut details = serde_json::json!({
@@ -275,9 +318,19 @@ impl DeploymentStrategyStore {
         })
     }
 
-    pub async fn compare_strategies(&self, strategy_a_id: Uuid, strategy_b_id: Uuid) -> Result<StrategyComparison, sqlx::Error> {
-        let strategy_a = self.get(strategy_a_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
-        let strategy_b = self.get(strategy_b_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+    pub async fn compare_strategies(
+        &self,
+        strategy_a_id: Uuid,
+        strategy_b_id: Uuid,
+    ) -> Result<StrategyComparison, sqlx::Error> {
+        let strategy_a = self
+            .get(strategy_a_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let strategy_b = self
+            .get(strategy_b_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let mut metrics = Vec::new();
         let mut a_score = 0.0;
@@ -300,10 +353,18 @@ impl DeploymentStrategyStore {
             metric_name: "complexity".to_string(),
             strategy_a_value: complexity_a,
             strategy_b_value: complexity_b,
-            winner: if complexity_a < complexity_b { "a".to_string() } else { "b".to_string() },
+            winner: if complexity_a < complexity_b {
+                "a".to_string()
+            } else {
+                "b".to_string()
+            },
         });
 
-        if complexity_a < complexity_b { a_score += 1.0; } else { b_score += 1.0; }
+        if complexity_a < complexity_b {
+            a_score += 1.0;
+        } else {
+            b_score += 1.0;
+        }
 
         let risk_a = match strategy_a.strategy_type {
             StrategyType::Rolling => 0.3,
@@ -322,10 +383,18 @@ impl DeploymentStrategyStore {
             metric_name: "risk".to_string(),
             strategy_a_value: risk_a,
             strategy_b_value: risk_b,
-            winner: if risk_a < risk_b { "a".to_string() } else { "b".to_string() },
+            winner: if risk_a < risk_b {
+                "a".to_string()
+            } else {
+                "b".to_string()
+            },
         });
 
-        if risk_a < risk_b { a_score += 1.0; } else { b_score += 1.0; }
+        if risk_a < risk_b {
+            a_score += 1.0;
+        } else {
+            b_score += 1.0;
+        }
 
         let recommendation = if a_score > b_score {
             format!("Strategy A ({}) is recommended", strategy_a.name)

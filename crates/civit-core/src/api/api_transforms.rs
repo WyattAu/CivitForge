@@ -84,16 +84,18 @@ pub async fn list_transforms(
         Ok(rows) => {
             let transforms: Vec<ApiTransform> = rows
                 .into_iter()
-                .map(|(id, route, request_transform, response_transform, enabled, created_at)| {
-                    ApiTransform {
-                        id: id.to_string(),
-                        route,
-                        request_transform,
-                        response_transform,
-                        enabled,
-                        created_at: created_at.to_rfc3339(),
-                    }
-                })
+                .map(
+                    |(id, route, request_transform, response_transform, enabled, created_at)| {
+                        ApiTransform {
+                            id: id.to_string(),
+                            route,
+                            request_transform,
+                            response_transform,
+                            enabled,
+                            created_at: created_at.to_rfc3339(),
+                        }
+                    },
+                )
                 .collect();
             (StatusCode::OK, Json(transforms)).into_response()
         }
@@ -298,41 +300,41 @@ pub fn apply_request_transform(
     body: &mut serde_json::Value,
 ) {
     if let Some(header_transforms) = transform.get("headers")
-        && let Some(obj) = header_transforms.as_object() {
-            for (key, value) in obj {
-                if let Some(val_str) = value.as_str()
-                    && let Ok(header_value) = axum::http::HeaderValue::from_str(val_str) {
-                        headers.insert(
-                            axum::http::HeaderName::from_bytes(key.as_bytes()).unwrap_or_else(|_| {
-                                axum::http::HeaderName::from_static("x-transform")
-                            }),
-                            header_value,
-                        );
-                    }
+        && let Some(obj) = header_transforms.as_object()
+    {
+        for (key, value) in obj {
+            if let Some(val_str) = value.as_str()
+                && let Ok(header_value) = axum::http::HeaderValue::from_str(val_str)
+            {
+                headers.insert(
+                    axum::http::HeaderName::from_bytes(key.as_bytes())
+                        .unwrap_or_else(|_| axum::http::HeaderName::from_static("x-transform")),
+                    header_value,
+                );
             }
         }
+    }
 
     if let Some(body_transform) = transform.get("body")
         && let Some(merge_obj) = body_transform.as_object()
-            && let Some(body_obj) = body.as_object_mut() {
-                for (key, value) in merge_obj {
-                    body_obj.insert(key.clone(), value.clone());
-                }
-            }
+        && let Some(body_obj) = body.as_object_mut()
+    {
+        for (key, value) in merge_obj {
+            body_obj.insert(key.clone(), value.clone());
+        }
+    }
 }
 
 /// Apply response transformation to body
-pub fn apply_response_transform(
-    transform: &serde_json::Value,
-    body: &mut serde_json::Value,
-) {
+pub fn apply_response_transform(transform: &serde_json::Value, body: &mut serde_json::Value) {
     if let Some(body_transform) = transform.get("body")
         && let Some(merge_obj) = body_transform.as_object()
-            && let Some(body_obj) = body.as_object_mut() {
-                for (key, value) in merge_obj {
-                    body_obj.insert(key.clone(), value.clone());
-                }
-            }
+        && let Some(body_obj) = body.as_object_mut()
+    {
+        for (key, value) in merge_obj {
+            body_obj.insert(key.clone(), value.clone());
+        }
+    }
 }
 
 pub fn transform_routes() -> axum::Router<AppState> {
@@ -386,20 +388,18 @@ async fn get_transform(
     .await;
 
     match row {
-        Ok(Some((id, route, request_transform, response_transform, enabled, created_at))) => {
-            (
-                StatusCode::OK,
-                Json(ApiTransform {
-                    id: id.to_string(),
-                    route,
-                    request_transform,
-                    response_transform,
-                    enabled,
-                    created_at: created_at.to_rfc3339(),
-                }),
-            )
-                .into_response()
-        }
+        Ok(Some((id, route, request_transform, response_transform, enabled, created_at))) => (
+            StatusCode::OK,
+            Json(ApiTransform {
+                id: id.to_string(),
+                route,
+                request_transform,
+                response_transform,
+                enabled,
+                created_at: created_at.to_rfc3339(),
+            }),
+        )
+            .into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("transform not found".into()).error_response()),

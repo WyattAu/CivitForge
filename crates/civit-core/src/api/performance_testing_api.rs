@@ -4,11 +4,11 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, patch, post},
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -195,7 +195,12 @@ async fn record_alert_trigger(
 ) -> impl IntoResponse {
     match state
         .db
-        .record_performance_test_alert_v21(alert_id, &req.metric_name, req.metric_value, req.threshold)
+        .record_performance_test_alert_v21(
+            alert_id,
+            &req.metric_name,
+            req.metric_value,
+            req.threshold,
+        )
         .await
     {
         Ok(history) => (
@@ -256,7 +261,11 @@ async fn get_alert_analytics(
     Path(alert_id): Path<Uuid>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
-    match state.db.get_performance_test_alert_analytics_v21(alert_id).await {
+    match state
+        .db
+        .get_performance_test_alert_analytics_v21(alert_id)
+        .await
+    {
         Ok((trigger_count, avg_value, max_value)) => (
             StatusCode::OK,
             Json(AlertAnalyticsResponse {
@@ -280,7 +289,11 @@ async fn get_alert_notification_config(
     Path(alert_id): Path<Uuid>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
-    match state.db.get_performance_test_alert_notification_config_v21(alert_id).await {
+    match state
+        .db
+        .get_performance_test_alert_notification_config_v21(alert_id)
+        .await
+    {
         Ok(Some((alert_type, enabled, last_triggered_at))) => (
             StatusCode::OK,
             Json(AlertNotificationConfigResponse {
@@ -373,10 +386,8 @@ mod tests {
 
     #[test]
     fn test_update_alert_request() {
-        let req: UpdateAlertRequest = serde_json::from_str(
-            r#"{"threshold": 75.0, "enabled": false}"#,
-        )
-        .unwrap();
+        let req: UpdateAlertRequest =
+            serde_json::from_str(r#"{"threshold": 75.0, "enabled": false}"#).unwrap();
         assert_eq!(req.threshold, Some(75.0));
         assert_eq!(req.enabled, Some(false));
     }

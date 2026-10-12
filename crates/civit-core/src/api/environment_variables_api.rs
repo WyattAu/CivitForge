@@ -4,13 +4,13 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use crate::error::CoreError;
 use crate::environment_variables::{
     CreateVariableRequest, EnvironmentVariablesService, UpdateVariableRequest,
 };
+use crate::error::CoreError;
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
-use axum::routing::{get, delete};
+use axum::routing::{delete, get};
 use axum::{Json, Router};
 use uuid::Uuid;
 
@@ -22,7 +22,9 @@ pub fn environment_variables_routes() -> Router<AppState> {
         )
         .route(
             "/api/v2/repos/{owner}/{repo}/environments/{env_id}/variables/{var_name}",
-            get(get_variable_v3).put(update_variable_v3).delete(delete_variable_v3),
+            get(get_variable_v3)
+                .put(update_variable_v3)
+                .delete(delete_variable_v3),
         )
         .route(
             "/api/v2/repos/{owner}/{repo}/environments/{env_id}/inheritance",
@@ -60,8 +62,7 @@ async fn resolve_repo_id(
             Err(e) => {
                 return Err((
                     axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response())
-                        .into_response(),
+                    Json(CoreError::Database(e.to_string()).error_response()).into_response(),
                 ));
             }
         }
@@ -84,8 +85,7 @@ async fn resolve_repo_id(
         )),
         Err(e) => Err((
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CoreError::Database(e.to_string()).error_response())
-                .into_response(),
+            Json(CoreError::Database(e.to_string()).error_response()).into_response(),
         )),
     }
 }
@@ -163,8 +163,10 @@ pub async fn create_variable_v3(
                 (
                     axum::http::StatusCode::CONFLICT,
                     Json(
-                        CoreError::BadRequest("variable name already exists in this environment".into())
-                            .error_response(),
+                        CoreError::BadRequest(
+                            "variable name already exists in this environment".into(),
+                        )
+                        .error_response(),
                     ),
                 )
                     .into_response()
@@ -232,13 +234,14 @@ pub async fn update_variable_v3(
 
     // Validate variable value if provided
     if let Some(ref value) = req.value
-        && let Err(e) = EnvironmentVariablesService::validate_variable_value(value).await {
-            return (
-                axum::http::StatusCode::BAD_REQUEST,
-                Json(CoreError::BadRequest(e).error_response()),
-            )
-                .into_response();
-        }
+        && let Err(e) = EnvironmentVariablesService::validate_variable_value(value).await
+    {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(CoreError::BadRequest(e).error_response()),
+        )
+            .into_response();
+    }
 
     let service = EnvironmentVariablesService::new(pool.clone());
     match service.update_variable(eid, &var_name, req).await {
@@ -336,7 +339,10 @@ pub async fn add_inheritance_v3(
             Err(_) => {
                 return (
                     axum::http::StatusCode::BAD_REQUEST,
-                    Json(CoreError::BadRequest("invalid parent environment ID".into()).error_response()),
+                    Json(
+                        CoreError::BadRequest("invalid parent environment ID".into())
+                            .error_response(),
+                    ),
                 )
                     .into_response();
             }
@@ -383,7 +389,9 @@ pub async fn remove_inheritance_v3(
         Err(_) => {
             return (
                 axum::http::StatusCode::BAD_REQUEST,
-                Json(CoreError::BadRequest("invalid parent environment ID".into()).error_response()),
+                Json(
+                    CoreError::BadRequest("invalid parent environment ID".into()).error_response(),
+                ),
             )
                 .into_response();
         }
@@ -411,7 +419,8 @@ mod tests {
 
     #[test]
     fn test_create_variable_request_deserialize() {
-        let json = r#"{"name": "DATABASE_URL", "value": "postgres://localhost/mydb", "encrypted": false}"#;
+        let json =
+            r#"{"name": "DATABASE_URL", "value": "postgres://localhost/mydb", "encrypted": false}"#;
         let req: CreateVariableRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.name, "DATABASE_URL");
         assert_eq!(req.value, "postgres://localhost/mydb");

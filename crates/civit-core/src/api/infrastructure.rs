@@ -1,9 +1,9 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
-    Json, Router,
 };
 use uuid::Uuid;
 
@@ -18,7 +18,9 @@ pub fn infrastructure_routes() -> Router<AppState> {
         )
         .route(
             "/api/v1/infrastructure/templates/{id}",
-            get(get_template).patch(update_template).delete(delete_template),
+            get(get_template)
+                .patch(update_template)
+                .delete(delete_template),
         )
         .route(
             "/api/v1/infrastructure/templates/{id}/deploy",
@@ -49,10 +51,7 @@ async fn create_template(
     }
 }
 
-async fn get_template(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn get_template(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::infrastructure::InfrastructureStore::new(state.db.pool().clone());
     match store.get_template(id).await {
         Ok(Some(template)) => Json(template).into_response(),
@@ -93,10 +92,7 @@ async fn update_template(
     }
 }
 
-async fn delete_template(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn delete_template(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::infrastructure::InfrastructureStore::new(state.db.pool().clone());
     match store.delete_template(id).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
@@ -125,10 +121,7 @@ async fn deploy_template(
     }
 }
 
-async fn get_deployment(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn get_deployment(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::infrastructure::InfrastructureStore::new(state.db.pool().clone());
     match store.get_deployment(id).await {
         Ok(Some(deployment)) => Json(deployment).into_response(),

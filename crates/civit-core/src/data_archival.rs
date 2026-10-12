@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArchiveConfig {
@@ -88,12 +88,7 @@ impl ArchiveManager for InMemoryArchiveManager {
         let file_path = format!("/{}/{}.tar.gz", "/var/lib/civitforge/archives", id);
 
         let mut archives = self.archives.lock();
-        archives.push((
-            id.clone(),
-            request.archive_type.clone(),
-            1024,
-            Utc::now(),
-        ));
+        archives.push((id.clone(), request.archive_type.clone(), 1024, Utc::now()));
 
         Ok(ArchiveResult {
             archive_id: id,

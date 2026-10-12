@@ -2,12 +2,11 @@
 
 use crate::api::AppState;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, patch, post},
-    Json,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -116,7 +115,13 @@ async fn create_residency_audit(
     .bind(&input.audit_type)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(audit.into())))
 }
@@ -130,7 +135,13 @@ async fn list_residency_audits(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(audits.into_iter().map(|a| a.into()).collect()))
 }
@@ -140,7 +151,10 @@ async fn update_residency_audit_findings(
     Path(id): Path<Uuid>,
     Json(input): Json<serde_json::Value>,
 ) -> Result<Json<ResidencyAuditResponse>, Response> {
-    let findings = input.get("findings").cloned().unwrap_or(serde_json::json!([]));
+    let findings = input
+        .get("findings")
+        .cloned()
+        .unwrap_or(serde_json::json!([]));
     let score = input.get("score").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
 
     let audit = sqlx::query_as::<_, ResidencyAudit>(
@@ -152,8 +166,20 @@ async fn update_residency_audit_findings(
     .bind(score)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "audit not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "audit not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(audit.into()))
 }
@@ -171,7 +197,13 @@ async fn create_residency_migration(
     .bind(&input.target_region)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(migration.into())))
 }
@@ -185,7 +217,13 @@ async fn list_residency_migrations(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(migrations.into_iter().map(|m| m.into()).collect()))
 }
@@ -202,8 +240,20 @@ async fn complete_residency_migration(
     .bind(id)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "migration not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "migration not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(migration.into()))
 }
@@ -211,12 +261,10 @@ async fn complete_residency_migration(
 async fn get_residency_compliance(
     State(state): State<AppState>,
 ) -> Result<Json<ResidencyComplianceResponse>, Response> {
-    let total_rules = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM data_residency_rules"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
+    let total_rules = sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM data_residency_rules"#)
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap_or(0);
 
     let enabled_rules = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM data_residency_rules WHERE enabled = true"#,
@@ -225,12 +273,11 @@ async fn get_residency_compliance(
     .await
     .unwrap_or(0);
 
-    let total_violations = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM data_residency_violations"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
+    let total_violations =
+        sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM data_residency_violations"#)
+            .fetch_one(state.db.pool())
+            .await
+            .unwrap_or(0);
 
     let resolved_violations = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM data_residency_migrations WHERE status = 'completed'"#,
@@ -375,7 +422,13 @@ async fn generate_report(
     .bind(&input.report_type)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(report.into())))
 }
@@ -390,7 +443,13 @@ async fn get_reports(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(reports.into_iter().map(|r| r.into()).collect()))
 }
@@ -407,7 +466,13 @@ async fn track_compliance(
     .bind(input.rule_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(compliance.into())))
 }
@@ -427,8 +492,20 @@ async fn update_compliance_status(
     .bind(&input.status)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "compliance entry not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "compliance entry not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(compliance.into()))
 }
@@ -446,7 +523,13 @@ async fn get_compliance_by_rule(
     .bind(rule_id)
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(entries.into_iter().map(|c| c.into()).collect()))
 }
@@ -464,7 +547,13 @@ async fn resolve_violation(
     .bind(violation_id)
     .execute(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(ViolationResolutionResponse {
         violation_id,
@@ -477,12 +566,10 @@ async fn resolve_violation(
 async fn get_residency_compliance_summary(
     State(state): State<AppState>,
 ) -> Result<Json<ResidencyComplianceSummaryResponse>, Response> {
-    let total_rules = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM data_residency_rules"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
+    let total_rules = sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM data_residency_rules"#)
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap_or(0);
 
     let enabled_rules = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM data_residency_rules WHERE enabled = true"#,
@@ -491,12 +578,11 @@ async fn get_residency_compliance_summary(
     .await
     .unwrap_or(0);
 
-    let total_violations = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM data_residency_violations"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
+    let total_violations =
+        sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM data_residency_violations"#)
+            .fetch_one(state.db.pool())
+            .await
+            .unwrap_or(0);
 
     let resolved_violations = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM data_residency_violations WHERE status = 'resolved'"#,
@@ -723,7 +809,13 @@ async fn run_compliance_check(
     .bind(&input.check_type)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(row.into())))
 }
@@ -742,7 +834,13 @@ async fn get_compliance_checks(
     .bind(&region)
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(rows.into_iter().map(|r| r.into()).collect()))
 }
@@ -771,7 +869,13 @@ async fn get_region_analytics(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let mut analytics = Vec::new();
     for row in rows {
@@ -797,7 +901,13 @@ async fn get_region_analytics(
         .bind(&row.source_region)
         .fetch_one(state.db.pool())
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response()
+        })?;
 
         let compliance_score = if total_checks.0 > 0 {
             (passed_checks.0 as f64 / total_checks.0 as f64) * 100.0
@@ -827,42 +937,77 @@ async fn generate_compliance_report(
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
-    let total_transfers: (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let total_transfers: (i64,) =
+        sqlx::query_as(r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21"#)
+            .fetch_one(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     let pending_transfers: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21 WHERE status = 'pending'"#,
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let failed_transfers: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21 WHERE status = 'failed'"#,
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let checks_passed: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM data_residency_compliance_checks_v21 WHERE result = 'passed'"#,
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let checks_failed: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM data_residency_compliance_checks_v21 WHERE result = 'failed'"#,
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let total_checks = checks_passed.0 + checks_failed.0;
     let overall_compliance_score = if total_checks > 0 {
@@ -897,42 +1042,135 @@ async fn generate_compliance_report(
 pub fn data_residency_routes() -> Router<AppState> {
     Router::new()
         // v2 routes
-        .route("/api/v1/data-residency/audits", post(create_residency_audit).get(list_residency_audits))
-        .route("/api/v1/data-residency/audits/{id}", patch(update_residency_audit_findings))
-        .route("/api/v1/data-residency/migrations", post(create_residency_migration).get(list_residency_migrations))
-        .route("/api/v1/data-residency/migrations/{id}/complete", post(complete_residency_migration))
-        .route("/api/v1/data-residency/compliance", get(get_residency_compliance))
+        .route(
+            "/api/v1/data-residency/audits",
+            post(create_residency_audit).get(list_residency_audits),
+        )
+        .route(
+            "/api/v1/data-residency/audits/{id}",
+            patch(update_residency_audit_findings),
+        )
+        .route(
+            "/api/v1/data-residency/migrations",
+            post(create_residency_migration).get(list_residency_migrations),
+        )
+        .route(
+            "/api/v1/data-residency/migrations/{id}/complete",
+            post(complete_residency_migration),
+        )
+        .route(
+            "/api/v1/data-residency/compliance",
+            get(get_residency_compliance),
+        )
         // v5 routes
-        .route("/api/v1/data-residency-v5/reports", post(generate_report).get(get_reports))
-        .route("/api/v1/data-residency-v5/compliance", post(track_compliance).get(get_residency_compliance_summary))
-        .route("/api/v1/data-residency-v5/compliance/{compliance_id}", patch(update_compliance_status))
-        .route("/api/v1/data-residency-v5/compliance/rule/{rule_id}", get(get_compliance_by_rule))
-        .route("/api/v1/data-residency-v5/violations/{violation_id}/resolve", post(resolve_violation))
+        .route(
+            "/api/v1/data-residency-v5/reports",
+            post(generate_report).get(get_reports),
+        )
+        .route(
+            "/api/v1/data-residency-v5/compliance",
+            post(track_compliance).get(get_residency_compliance_summary),
+        )
+        .route(
+            "/api/v1/data-residency-v5/compliance/{compliance_id}",
+            patch(update_compliance_status),
+        )
+        .route(
+            "/api/v1/data-residency-v5/compliance/rule/{rule_id}",
+            get(get_compliance_by_rule),
+        )
+        .route(
+            "/api/v1/data-residency-v5/violations/{violation_id}/resolve",
+            post(resolve_violation),
+        )
         // v8 routes
-        .route("/api/v1/data-residency-v8/reports", post(generate_report).get(get_reports))
-        .route("/api/v1/data-residency-v8/compliance", post(track_compliance).get(get_residency_compliance_summary))
-        .route("/api/v1/data-residency-v8/compliance/{compliance_id}", patch(update_compliance_status))
-        .route("/api/v1/data-residency-v8/compliance/rule/{rule_id}", get(get_compliance_by_rule))
-        .route("/api/v1/data-residency-v8/violations/{violation_id}/resolve", post(resolve_violation))
+        .route(
+            "/api/v1/data-residency-v8/reports",
+            post(generate_report).get(get_reports),
+        )
+        .route(
+            "/api/v1/data-residency-v8/compliance",
+            post(track_compliance).get(get_residency_compliance_summary),
+        )
+        .route(
+            "/api/v1/data-residency-v8/compliance/{compliance_id}",
+            patch(update_compliance_status),
+        )
+        .route(
+            "/api/v1/data-residency-v8/compliance/rule/{rule_id}",
+            get(get_compliance_by_rule),
+        )
+        .route(
+            "/api/v1/data-residency-v8/violations/{violation_id}/resolve",
+            post(resolve_violation),
+        )
         // v9 routes
-        .route("/api/v1/data-residency-v9/reports", post(generate_report).get(get_reports))
-        .route("/api/v1/data-residency-v9/compliance", post(track_compliance).get(get_residency_compliance_summary))
-        .route("/api/v1/data-residency-v9/compliance/{compliance_id}", patch(update_compliance_status))
-        .route("/api/v1/data-residency-v9/compliance/rule/{rule_id}", get(get_compliance_by_rule))
-        .route("/api/v1/data-residency-v9/violations/{violation_id}/resolve", post(resolve_violation))
+        .route(
+            "/api/v1/data-residency-v9/reports",
+            post(generate_report).get(get_reports),
+        )
+        .route(
+            "/api/v1/data-residency-v9/compliance",
+            post(track_compliance).get(get_residency_compliance_summary),
+        )
+        .route(
+            "/api/v1/data-residency-v9/compliance/{compliance_id}",
+            patch(update_compliance_status),
+        )
+        .route(
+            "/api/v1/data-residency-v9/compliance/rule/{rule_id}",
+            get(get_compliance_by_rule),
+        )
+        .route(
+            "/api/v1/data-residency-v9/violations/{violation_id}/resolve",
+            post(resolve_violation),
+        )
         // v11 routes
-        .route("/api/v1/data-residency-v11/reports", post(generate_report).get(get_reports))
-        .route("/api/v1/data-residency-v11/compliance", post(track_compliance).get(get_residency_compliance_summary))
-        .route("/api/v1/data-residency-v11/compliance/{compliance_id}", patch(update_compliance_status))
-        .route("/api/v1/data-residency-v11/compliance/rule/{rule_id}", get(get_compliance_by_rule))
-        .route("/api/v1/data-residency-v11/violations/{violation_id}/resolve", post(resolve_violation))
+        .route(
+            "/api/v1/data-residency-v11/reports",
+            post(generate_report).get(get_reports),
+        )
+        .route(
+            "/api/v1/data-residency-v11/compliance",
+            post(track_compliance).get(get_residency_compliance_summary),
+        )
+        .route(
+            "/api/v1/data-residency-v11/compliance/{compliance_id}",
+            patch(update_compliance_status),
+        )
+        .route(
+            "/api/v1/data-residency-v11/compliance/rule/{rule_id}",
+            get(get_compliance_by_rule),
+        )
+        .route(
+            "/api/v1/data-residency-v11/violations/{violation_id}/resolve",
+            post(resolve_violation),
+        )
         // v12 routes
-        .route("/api/v1/data-residency-v12/transfer-requests", post(create_transfer_request).get(get_transfer_requests))
-        .route("/api/v1/data-residency-v12/transfer-requests/{request_id}/approve/{approved_by}", post(approve_transfer_request))
-        .route("/api/v1/data-residency-v12/compliance-checks", post(run_compliance_check))
-        .route("/api/v1/data-residency-v12/compliance-checks/{region}", get(get_compliance_checks))
-        .route("/api/v1/data-residency-v12/region-analytics", get(get_region_analytics))
-        .route("/api/v1/data-residency-v12/compliance-report", get(generate_compliance_report))
+        .route(
+            "/api/v1/data-residency-v12/transfer-requests",
+            post(create_transfer_request).get(get_transfer_requests),
+        )
+        .route(
+            "/api/v1/data-residency-v12/transfer-requests/{request_id}/approve/{approved_by}",
+            post(approve_transfer_request),
+        )
+        .route(
+            "/api/v1/data-residency-v12/compliance-checks",
+            post(run_compliance_check),
+        )
+        .route(
+            "/api/v1/data-residency-v12/compliance-checks/{region}",
+            get(get_compliance_checks),
+        )
+        .route(
+            "/api/v1/data-residency-v12/region-analytics",
+            get(get_region_analytics),
+        )
+        .route(
+            "/api/v1/data-residency-v12/compliance-report",
+            get(generate_compliance_report),
+        )
 }
 
 #[cfg(test)]

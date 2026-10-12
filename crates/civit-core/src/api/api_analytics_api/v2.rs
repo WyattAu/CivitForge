@@ -2,18 +2,11 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use crate::api::auth::require_admin;
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiAnalyticV2Response {
@@ -99,25 +92,38 @@ pub async fn list_api_analytics_v2(
     }
 
     let result = if let Some(endpoint) = &query.endpoint {
-        state.db.get_api_analytics_v2_by_endpoint(endpoint, query.limit).await
+        state
+            .db
+            .get_api_analytics_v2_by_endpoint(endpoint, query.limit)
+            .await
     } else {
-        state.db.get_api_analytics_v2(query.limit, query.offset).await
+        state
+            .db
+            .get_api_analytics_v2(query.limit, query.offset)
+            .await
     };
 
     match result {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticV2Response> = analytics.iter().map(|a| ApiAnalyticV2Response {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                created_at: a.created_at,
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"analytics": response, "total": response.len()}))).into_response()
+            let response: Vec<ApiAnalyticV2Response> = analytics
+                .iter()
+                .map(|a| ApiAnalyticV2Response {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    created_at: a.created_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"analytics": response, "total": response.len()})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -139,9 +145,7 @@ pub async fn get_api_analytics_v2_summary(
     let since = Utc::now() - chrono::Duration::hours(query.hours);
 
     match state.db.get_api_analytics_v2_summary(since).await {
-        Ok(summary) => {
-            (StatusCode::OK, Json(summary)).into_response()
-        }
+        Ok(summary) => (StatusCode::OK, Json(summary)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": e.to_string()})),
@@ -163,10 +167,15 @@ pub async fn get_api_analytics_v2_errors(
 
     match state.db.get_api_analytics_v2_error_breakdown(since).await {
         Ok(errors) => {
-            let response: Vec<ErrorBreakdownItem> = errors.iter().filter_map(|e| {
-                serde_json::from_value(e.clone()).ok()
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"errors": response}))).into_response()
+            let response: Vec<ErrorBreakdownItem> = errors
+                .iter()
+                .filter_map(|e| serde_json::from_value(e.clone()).ok())
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"errors": response})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -210,7 +219,10 @@ pub async fn get_analytics_dashboard(
     };
 
     let error_breakdown = match errors_result {
-        Ok(e) => e.iter().filter_map(|v| serde_json::from_value(v.clone()).ok()).collect(),
+        Ok(e) => e
+            .iter()
+            .filter_map(|v| serde_json::from_value(v.clone()).ok())
+            .collect(),
         Err(_) => vec![],
     };
 
@@ -227,9 +239,18 @@ pub async fn get_analytics_dashboard(
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/admin/analytics/v2", get(list_api_analytics_v2))
-        .route("/api/v1/admin/analytics/v2/summary", get(get_api_analytics_v2_summary))
-        .route("/api/v1/admin/analytics/v2/errors", get(get_api_analytics_v2_errors))
-        .route("/api/v1/admin/analytics/v2/dashboard", get(get_analytics_dashboard))
+        .route(
+            "/api/v1/admin/analytics/v2/summary",
+            get(get_api_analytics_v2_summary),
+        )
+        .route(
+            "/api/v1/admin/analytics/v2/errors",
+            get(get_api_analytics_v2_errors),
+        )
+        .route(
+            "/api/v1/admin/analytics/v2/dashboard",
+            get(get_analytics_dashboard),
+        )
 }
 
 #[cfg(test)]

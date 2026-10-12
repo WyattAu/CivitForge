@@ -2,12 +2,11 @@
 
 use crate::api::AppState;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{delete, get, patch, post},
-    Json,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -135,7 +134,13 @@ async fn rotate_key(
     .bind(input.reason.unwrap_or_else(|| "scheduled".to_string()))
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(rotation.into())))
 }
@@ -149,7 +154,13 @@ async fn list_key_rotations(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(rotations.into_iter().map(|r| r.into()).collect()))
 }
@@ -169,7 +180,13 @@ async fn log_audit_event_v3(
     .bind(input.details.unwrap_or(serde_json::json!({})))
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(log.into())))
 }
@@ -183,7 +200,13 @@ async fn list_audit_logs_v3(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(logs.into_iter().map(|l| l.into()).collect()))
 }
@@ -209,8 +232,20 @@ async fn get_key_lifecycle_v3(
     .bind(key_id)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "key not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "key not found"})),
+        )
+            .into_response()
+    })?;
 
     let now = Utc::now();
     let days_since_creation = (now - key.created_at).num_days();
@@ -234,16 +269,12 @@ async fn get_compliance_report(
     State(state): State<AppState>,
     Json(input): Json<ComplianceReportRequest>,
 ) -> Result<Json<ComplianceReportResponse>, Response> {
-    let _key_filter = input.key_id
-        .map(|_| "WHERE key_id = $1")
-        .unwrap_or("");
+    let _key_filter = input.key_id.map(|_| "WHERE key_id = $1").unwrap_or("");
 
-    let total_keys = sqlx::query_scalar::<_, i64>(
-        r#"SELECT COUNT(*) FROM encryption_keys"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
+    let total_keys = sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*) FROM encryption_keys"#)
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap_or(0);
 
     let active_keys = sqlx::query_scalar::<_, i64>(
         r#"SELECT COUNT(*) FROM encryption_keys WHERE enabled = true"#,
@@ -392,7 +423,13 @@ async fn create_key_version(
     .bind(key_material)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(version.into())))
 }
@@ -410,7 +447,13 @@ async fn get_key_versions(
     .bind(key_id)
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(versions.into_iter().map(|v| v.into()).collect()))
 }
@@ -427,7 +470,13 @@ async fn create_compliance_check(
     .bind(&input.check_type)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(check.into())))
 }
@@ -449,8 +498,20 @@ async fn update_compliance_check(
     .bind(input.score)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "check not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "check not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(check.into()))
 }
@@ -465,7 +526,13 @@ async fn get_compliance_checks(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(checks.into_iter().map(|c| c.into()).collect()))
 }
@@ -491,31 +558,58 @@ async fn get_key_lifecycle_v6(
     .bind(key_id)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "key not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "key not found"})),
+        )
+            .into_response()
+    })?;
 
-    let _versions_count: (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(*) FROM encryption_key_versions_v13 WHERE key_id = $1"#,
-    )
-    .bind(key_id)
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let _versions_count: (i64,) =
+        sqlx::query_as(r#"SELECT COUNT(*) FROM encryption_key_versions_v13 WHERE key_id = $1"#)
+            .bind(key_id)
+            .fetch_one(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
-    let _compliance_score: (i32,) = sqlx::query_as(
-        r#"SELECT COALESCE(AVG(score), 0) FROM encryption_compliance_checks_v13"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let _compliance_score: (i32,) =
+        sqlx::query_as(r#"SELECT COALESCE(AVG(score), 0) FROM encryption_compliance_checks_v13"#)
+            .fetch_one(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
-    let _latest_version: Option<(Option<i32>,)> = sqlx::query_as(
-        r#"SELECT MAX(version) FROM encryption_key_versions_v13 WHERE key_id = $1"#,
-    )
-    .bind(key_id)
-    .fetch_optional(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let _latest_version: Option<(Option<i32>,)> =
+        sqlx::query_as(r#"SELECT MAX(version) FROM encryption_key_versions_v13 WHERE key_id = $1"#)
+            .bind(key_id)
+            .fetch_optional(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     let now = Utc::now();
     let days_since_creation = (now - key.created_at).num_days();
@@ -539,14 +633,25 @@ async fn log_audit_event_v6(
     State(state): State<AppState>,
     Json(input): Json<serde_json::Value>,
 ) -> Result<(StatusCode, Json<serde_json::Value>), Response> {
-    let key_id: Uuid = input.get("key_id")
+    let key_id: Uuid = input
+        .get("key_id")
         .and_then(|v| v.as_str())
         .and_then(|s| s.parse().ok())
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "invalid key_id"}))).into_response())?;
-    let action = input.get("action")
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "invalid key_id"})),
+            )
+                .into_response()
+        })?;
+    let action = input
+        .get("action")
         .and_then(|v| v.as_str())
         .unwrap_or("unknown");
-    let details = input.get("details").cloned().unwrap_or(serde_json::json!({}));
+    let details = input
+        .get("details")
+        .cloned()
+        .unwrap_or(serde_json::json!({}));
 
     let log = sqlx::query_as::<_, (Uuid, Uuid, String, serde_json::Value, DateTime<Utc>)>(
         r#"INSERT INTO encryption_audit_logs (key_id, action, details)
@@ -558,15 +663,24 @@ async fn log_audit_event_v6(
     .bind(&details)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
-    Ok((StatusCode::CREATED, Json(serde_json::json!({
-        "id": log.0,
-        "key_id": log.1,
-        "action": log.2,
-        "details": log.3,
-        "created_at": log.4.to_rfc3339(),
-    }))))
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "id": log.0,
+            "key_id": log.1,
+            "action": log.2,
+            "details": log.3,
+            "created_at": log.4.to_rfc3339(),
+        })),
+    ))
 }
 
 async fn list_audit_logs_v6(
@@ -578,7 +692,13 @@ async fn list_audit_logs_v6(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let result: Vec<serde_json::Value> = logs
         .into_iter()
@@ -754,7 +874,13 @@ async fn revoke_access(
     .bind(principal_id)
     .execute(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     if result.rows_affected() > 0 {
         Ok(StatusCode::OK)
@@ -816,7 +942,13 @@ async fn get_audit_logs_v13(
     .bind(key_id)
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(rows.into_iter().map(|r| r.into()).collect()))
 }
@@ -831,22 +963,37 @@ async fn get_key_usage_analytics(
         name: String,
     }
 
-    let key = sqlx::query_as::<_, KeyInfo>(
-        r#"SELECT id, name FROM encryption_keys WHERE id = $1"#,
-    )
-    .bind(key_id)
-    .fetch_optional(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "key not found"}))).into_response())?;
+    let key = sqlx::query_as::<_, KeyInfo>(r#"SELECT id, name FROM encryption_keys WHERE id = $1"#)
+        .bind(key_id)
+        .fetch_optional(state.db.pool())
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response()
+        })?
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "key not found"})),
+            )
+                .into_response()
+        })?;
 
-    let total_ops: (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(*) FROM encryption_audit_log_v21 WHERE key_id = $1"#,
-    )
-    .bind(key_id)
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let total_ops: (i64,) =
+        sqlx::query_as(r#"SELECT COUNT(*) FROM encryption_audit_log_v21 WHERE key_id = $1"#)
+            .bind(key_id)
+            .fetch_one(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     let successful_ops: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM encryption_audit_log_v21 WHERE key_id = $1 AND success = true"#,
@@ -854,7 +1001,13 @@ async fn get_key_usage_analytics(
     .bind(key_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let failed_ops: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM encryption_audit_log_v21 WHERE key_id = $1 AND success = false"#,
@@ -862,7 +1015,13 @@ async fn get_key_usage_analytics(
     .bind(key_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let unique_principals: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(DISTINCT principal_id) FROM encryption_audit_log_v21 WHERE key_id = $1"#,
@@ -870,15 +1029,26 @@ async fn get_key_usage_analytics(
     .bind(key_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
-    let last_op: Option<(Option<DateTime<Utc>>,)> = sqlx::query_as(
-        r#"SELECT MAX(created_at) FROM encryption_audit_log_v21 WHERE key_id = $1"#,
-    )
-    .bind(key_id)
-    .fetch_optional(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let last_op: Option<(Option<DateTime<Utc>>,)> =
+        sqlx::query_as(r#"SELECT MAX(created_at) FROM encryption_audit_log_v21 WHERE key_id = $1"#)
+            .bind(key_id)
+            .fetch_optional(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     Ok(Json(KeyUsageAnalyticsResponseV23 {
         key_id: key.id,
@@ -895,19 +1065,28 @@ async fn get_key_usage_analytics(
 async fn generate_compliance_report_v13(
     State(state): State<AppState>,
 ) -> Result<Json<ComplianceReportResponseV23>, Response> {
-    let total_keys: (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(*) FROM encryption_keys"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let total_keys: (i64,) = sqlx::query_as(r#"SELECT COUNT(*) FROM encryption_keys"#)
+        .fetch_one(state.db.pool())
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response()
+        })?;
 
-    let keys_with_acl: (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(DISTINCT key_id) FROM encryption_key_access_control_v21"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let keys_with_acl: (i64,) =
+        sqlx::query_as(r#"SELECT COUNT(DISTINCT key_id) FROM encryption_key_access_control_v21"#)
+            .fetch_one(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     let expired_permissions: (i64,) = sqlx::query_as(
         r#"SELECT COUNT(*) FROM encryption_key_access_control_v21
@@ -915,14 +1094,25 @@ async fn generate_compliance_report_v13(
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
-    let total_audit_entries: (i64,) = sqlx::query_as(
-        r#"SELECT COUNT(*) FROM encryption_audit_log_v21"#,
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let total_audit_entries: (i64,) =
+        sqlx::query_as(r#"SELECT COUNT(*) FROM encryption_audit_log_v21"#)
+            .fetch_one(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     let keys_without_acl = total_keys.0 - keys_with_acl.0;
     let compliance_score = if total_keys.0 > 0 {
@@ -959,38 +1149,116 @@ pub fn encryption_routes() -> Router<AppState> {
         // v3 routes
         .route("/api/v1/encryption/rotate", post(rotate_key))
         .route("/api/v1/encryption/rotations", get(list_key_rotations))
-        .route("/api/v1/encryption/audit-log", post(log_audit_event_v3).get(list_audit_logs_v3))
-        .route("/api/v1/encryption/key-lifecycle/{key_id}", get(get_key_lifecycle_v3))
-        .route("/api/v1/encryption/compliance-report", post(get_compliance_report))
+        .route(
+            "/api/v1/encryption/audit-log",
+            post(log_audit_event_v3).get(list_audit_logs_v3),
+        )
+        .route(
+            "/api/v1/encryption/key-lifecycle/{key_id}",
+            get(get_key_lifecycle_v3),
+        )
+        .route(
+            "/api/v1/encryption/compliance-report",
+            post(get_compliance_report),
+        )
         // v6 routes
-        .route("/api/v1/encryption-v6/key-versions", post(create_key_version))
-        .route("/api/v1/encryption-v6/key-versions/{key_id}", get(get_key_versions))
-        .route("/api/v1/encryption-v6/compliance-checks", post(create_compliance_check).get(get_compliance_checks))
-        .route("/api/v1/encryption-v6/compliance-checks/{check_id}", patch(update_compliance_check))
-        .route("/api/v1/encryption-v6/key-lifecycle/{key_id}", get(get_key_lifecycle_v6))
-        .route("/api/v1/encryption-v6/audit-log", post(log_audit_event_v6).get(list_audit_logs_v6))
+        .route(
+            "/api/v1/encryption-v6/key-versions",
+            post(create_key_version),
+        )
+        .route(
+            "/api/v1/encryption-v6/key-versions/{key_id}",
+            get(get_key_versions),
+        )
+        .route(
+            "/api/v1/encryption-v6/compliance-checks",
+            post(create_compliance_check).get(get_compliance_checks),
+        )
+        .route(
+            "/api/v1/encryption-v6/compliance-checks/{check_id}",
+            patch(update_compliance_check),
+        )
+        .route(
+            "/api/v1/encryption-v6/key-lifecycle/{key_id}",
+            get(get_key_lifecycle_v6),
+        )
+        .route(
+            "/api/v1/encryption-v6/audit-log",
+            post(log_audit_event_v6).get(list_audit_logs_v6),
+        )
         // v9 routes
-        .route("/api/v1/encryption-v9/key-versions", post(create_key_version))
-        .route("/api/v1/encryption-v9/key-versions/{key_id}", get(get_key_versions))
-        .route("/api/v1/encryption-v9/compliance-checks", post(create_compliance_check).get(get_compliance_checks))
-        .route("/api/v1/encryption-v9/compliance-checks/{check_id}", patch(update_compliance_check))
-        .route("/api/v1/encryption-v9/key-lifecycle/{key_id}", get(get_key_lifecycle_v6))
-        .route("/api/v1/encryption-v9/audit-log", post(log_audit_event_v6).get(list_audit_logs_v6))
+        .route(
+            "/api/v1/encryption-v9/key-versions",
+            post(create_key_version),
+        )
+        .route(
+            "/api/v1/encryption-v9/key-versions/{key_id}",
+            get(get_key_versions),
+        )
+        .route(
+            "/api/v1/encryption-v9/compliance-checks",
+            post(create_compliance_check).get(get_compliance_checks),
+        )
+        .route(
+            "/api/v1/encryption-v9/compliance-checks/{check_id}",
+            patch(update_compliance_check),
+        )
+        .route(
+            "/api/v1/encryption-v9/key-lifecycle/{key_id}",
+            get(get_key_lifecycle_v6),
+        )
+        .route(
+            "/api/v1/encryption-v9/audit-log",
+            post(log_audit_event_v6).get(list_audit_logs_v6),
+        )
         // v10 routes
-        .route("/api/v1/encryption-v10/key-versions", post(create_key_version))
-        .route("/api/v1/encryption-v10/key-versions/{key_id}", get(get_key_versions))
-        .route("/api/v1/encryption-v10/compliance-checks", post(create_compliance_check).get(get_compliance_checks))
-        .route("/api/v1/encryption-v10/compliance-checks/{check_id}", patch(update_compliance_check))
-        .route("/api/v1/encryption-v10/key-lifecycle/{key_id}", get(get_key_lifecycle_v6))
-        .route("/api/v1/encryption-v10/audit-log", post(log_audit_event_v6).get(list_audit_logs_v6))
+        .route(
+            "/api/v1/encryption-v10/key-versions",
+            post(create_key_version),
+        )
+        .route(
+            "/api/v1/encryption-v10/key-versions/{key_id}",
+            get(get_key_versions),
+        )
+        .route(
+            "/api/v1/encryption-v10/compliance-checks",
+            post(create_compliance_check).get(get_compliance_checks),
+        )
+        .route(
+            "/api/v1/encryption-v10/compliance-checks/{check_id}",
+            patch(update_compliance_check),
+        )
+        .route(
+            "/api/v1/encryption-v10/key-lifecycle/{key_id}",
+            get(get_key_lifecycle_v6),
+        )
+        .route(
+            "/api/v1/encryption-v10/audit-log",
+            post(log_audit_event_v6).get(list_audit_logs_v6),
+        )
         // v13 routes
         .route("/api/v1/encryption-v13/access-control", post(grant_access))
-        .route("/api/v1/encryption-v13/access-control/{key_id}", get(get_access_control))
-        .route("/api/v1/encryption-v13/access-control/{key_id}/{principal_type}/{principal_id}", delete(revoke_access))
+        .route(
+            "/api/v1/encryption-v13/access-control/{key_id}",
+            get(get_access_control),
+        )
+        .route(
+            "/api/v1/encryption-v13/access-control/{key_id}/{principal_type}/{principal_id}",
+            delete(revoke_access),
+        )
         .route("/api/v1/encryption-v13/audit-log", post(log_audit_v13))
-        .route("/api/v1/encryption-v13/audit-log/{key_id}", get(get_audit_logs_v13))
-        .route("/api/v1/encryption-v13/usage-analytics/{key_id}", get(get_key_usage_analytics))
-        .route("/api/v1/encryption-v13/compliance-report", get(generate_compliance_report_v13))
+        .route(
+            "/api/v1/encryption-v13/audit-log/{key_id}",
+            get(get_audit_logs_v13),
+        )
+        .route(
+            "/api/v1/encryption-v13/usage-analytics/{key_id}",
+            get(get_key_usage_analytics),
+        )
+        .route(
+            "/api/v1/encryption-v13/compliance-report",
+            get(generate_compliance_report_v13),
+        )
 }
 
 #[cfg(test)]

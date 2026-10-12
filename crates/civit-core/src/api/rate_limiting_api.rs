@@ -9,14 +9,7 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -49,10 +42,18 @@ pub struct CreateRateLimitTierQuotaRequest {
     pub enabled: bool,
 }
 
-fn default_rps() -> i32 { 10 }
-fn default_rpd() -> i32 { 10000 }
-fn default_burst() -> i32 { 50 }
-fn default_true() -> bool { true }
+fn default_rps() -> i32 {
+    10
+}
+fn default_rpd() -> i32 {
+    10000
+}
+fn default_burst() -> i32 {
+    50
+}
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct UpdateRateLimitTierQuotaRequest {
@@ -229,15 +230,18 @@ pub async fn list_rate_limit_tier_quotas(
     let _ = auth;
     match state.db.list_rate_limit_tier_quotas_v21().await {
         Ok(quotas) => {
-            let response: Vec<RateLimitTierQuotaResponse> = quotas.iter().map(|q| RateLimitTierQuotaResponse {
-                id: q.id,
-                tier: q.tier.clone(),
-                requests_per_second: q.requests_per_second,
-                requests_per_day: q.requests_per_day,
-                burst_size: q.burst_size,
-                enabled: q.enabled,
-                created_at: q.created_at,
-            }).collect();
+            let response: Vec<RateLimitTierQuotaResponse> = quotas
+                .iter()
+                .map(|q| RateLimitTierQuotaResponse {
+                    id: q.id,
+                    tier: q.tier.clone(),
+                    requests_per_second: q.requests_per_second,
+                    requests_per_day: q.requests_per_day,
+                    burst_size: q.burst_size,
+                    enabled: q.enabled,
+                    created_at: q.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -284,13 +288,17 @@ pub async fn create_rate_limit_tier_quota(
     Json(req): Json<CreateRateLimitTierQuotaRequest>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_rate_limit_tier_quota_v21(
-        &req.tier,
-        req.requests_per_second,
-        req.requests_per_day,
-        req.burst_size,
-        req.enabled,
-    ).await {
+    match state
+        .db
+        .create_rate_limit_tier_quota_v21(
+            &req.tier,
+            req.requests_per_second,
+            req.requests_per_day,
+            req.burst_size,
+            req.enabled,
+        )
+        .await
+    {
         Ok(quota) => {
             let response = RateLimitTierQuotaResponse {
                 id: quota.id,
@@ -318,13 +326,17 @@ pub async fn update_rate_limit_tier_quota(
     Json(req): Json<UpdateRateLimitTierQuotaRequest>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.update_rate_limit_tier_quota_v21(
-        &tier,
-        req.requests_per_second,
-        req.requests_per_day,
-        req.burst_size,
-        req.enabled,
-    ).await {
+    match state
+        .db
+        .update_rate_limit_tier_quota_v21(
+            &tier,
+            req.requests_per_second,
+            req.requests_per_day,
+            req.burst_size,
+            req.enabled,
+        )
+        .await
+    {
         Ok(quota) => {
             let response = RateLimitTierQuotaResponse {
                 id: quota.id,
@@ -354,17 +366,24 @@ pub async fn get_usage_analytics(
     auth: AuthUser,
 ) -> impl IntoResponse {
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
-    match state.db.get_rate_limit_usage_analytics_v21_by_user(user_id).await {
+    match state
+        .db
+        .get_rate_limit_usage_analytics_v21_by_user(user_id)
+        .await
+    {
         Ok(analytics) => {
-            let response: Vec<RateLimitUsageAnalyticsResponse> = analytics.iter().map(|a| RateLimitUsageAnalyticsResponse {
-                id: a.id,
-                user_id: a.user_id,
-                tier: a.tier.clone(),
-                requests_used: a.requests_used,
-                period_start: a.period_start,
-                period_end: a.period_end,
-                created_at: a.created_at,
-            }).collect();
+            let response: Vec<RateLimitUsageAnalyticsResponse> = analytics
+                .iter()
+                .map(|a| RateLimitUsageAnalyticsResponse {
+                    id: a.id,
+                    user_id: a.user_id,
+                    tier: a.tier.clone(),
+                    requests_used: a.requests_used,
+                    period_start: a.period_start,
+                    period_end: a.period_end,
+                    created_at: a.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -393,21 +412,21 @@ pub async fn get_capacity_planning() -> impl IntoResponse {
 // Overages (v4)
 // ---------------------------------------------------------------------------
 
-pub async fn get_user_overages(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn get_user_overages(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
     match state.db.get_user_overages(user_id).await {
         Ok(overages) => {
-            let response: Vec<RateLimitOverageResponse> = overages.iter().map(|o| RateLimitOverageResponse {
-                id: o.id,
-                user_id: o.user_id,
-                tier_id: o.tier_id,
-                period_start: o.period_start,
-                overage_count: o.overage_count,
-                overage_cost_cents: o.overage_cost_cents,
-            }).collect();
+            let response: Vec<RateLimitOverageResponse> = overages
+                .iter()
+                .map(|o| RateLimitOverageResponse {
+                    id: o.id,
+                    user_id: o.user_id,
+                    tier_id: o.tier_id,
+                    period_start: o.period_start,
+                    overage_count: o.overage_count,
+                    overage_cost_cents: o.overage_cost_cents,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -428,11 +447,12 @@ pub async fn get_user_cost_tracking(
 ) -> impl IntoResponse {
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
     match state.db.get_user_overages(user_id).await {
-        Ok(overages) => {
-            match state.db.get_user_rate_limit_alerts(user_id).await {
-                Ok(alerts) => {
-                    let total_cents: i32 = overages.iter().map(|o| o.overage_cost_cents).sum();
-                    let alert_responses: Vec<RateLimitAlertResponse> = alerts.iter().map(|a| RateLimitAlertResponse {
+        Ok(overages) => match state.db.get_user_rate_limit_alerts(user_id).await {
+            Ok(alerts) => {
+                let total_cents: i32 = overages.iter().map(|o| o.overage_cost_cents).sum();
+                let alert_responses: Vec<RateLimitAlertResponse> = alerts
+                    .iter()
+                    .map(|a| RateLimitAlertResponse {
                         id: a.id,
                         user_id: a.user_id,
                         tier_id: a.tier_id,
@@ -441,23 +461,26 @@ pub async fn get_user_cost_tracking(
                         current_usage: a.current_usage,
                         triggered_at: a.triggered_at,
                         acknowledged: a.acknowledged,
-                    }).collect();
-                    let response = CostTrackingResponse {
-                        user_id,
-                        total_overage_cents: total_cents,
-                        current_period_overage_cents: overages.first().map(|o| o.overage_cost_cents).unwrap_or(0),
-                        overage_count: overages.len() as i64,
-                        alerts: alert_responses,
-                    };
-                    (StatusCode::OK, Json(response)).into_response()
-                }
-                Err(e) => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({"error": e.to_string()})),
-                )
-                    .into_response(),
+                    })
+                    .collect();
+                let response = CostTrackingResponse {
+                    user_id,
+                    total_overage_cents: total_cents,
+                    current_period_overage_cents: overages
+                        .first()
+                        .map(|o| o.overage_cost_cents)
+                        .unwrap_or(0),
+                    overage_count: overages.len() as i64,
+                    alerts: alert_responses,
+                };
+                (StatusCode::OK, Json(response)).into_response()
             }
-        }
+            Err(e) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": e.to_string()})),
+            )
+                .into_response(),
+        },
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": e.to_string()})),
@@ -507,10 +530,7 @@ pub async fn get_limit_enforcement(
 // Rate limit check (v2)
 // ---------------------------------------------------------------------------
 
-pub async fn check_rate_limit(
-    State(_state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn check_rate_limit(State(_state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     let _user_id = auth.user_id;
     let response = RateLimitCheckResponse {
         allowed: true,
@@ -526,10 +546,7 @@ pub async fn check_rate_limit(
 // User usage (v2)
 // ---------------------------------------------------------------------------
 
-pub async fn get_user_usage(
-    State(_state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn get_user_usage(State(_state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
     let response = RateLimitUsageResponse {
         user_id,
@@ -613,7 +630,11 @@ pub async fn check_feature_access(
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
     match state.db.check_feature_access(user_id, &feature).await {
         Ok((enabled, tier)) => {
-            let response = FeatureCheckResponse { feature, enabled, tier };
+            let response = FeatureCheckResponse {
+                feature,
+                enabled,
+                tier,
+            };
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -635,16 +656,21 @@ pub async fn get_user_rate_limit_alerts(
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
     match state.db.get_user_rate_limit_alerts(user_id).await {
         Ok(alerts) => {
-            let response: Vec<serde_json::Value> = alerts.iter().map(|a| serde_json::json!({
-                "id": a.id,
-                "user_id": a.user_id,
-                "tier_id": a.tier_id,
-                "alert_type": a.alert_type,
-                "threshold_percent": a.threshold_percent,
-                "current_usage": a.current_usage,
-                "triggered_at": a.triggered_at,
-                "acknowledged": a.acknowledged,
-            })).collect();
+            let response: Vec<serde_json::Value> = alerts
+                .iter()
+                .map(|a| {
+                    serde_json::json!({
+                        "id": a.id,
+                        "user_id": a.user_id,
+                        "tier_id": a.tier_id,
+                        "alert_type": a.alert_type,
+                        "threshold_percent": a.threshold_percent,
+                        "current_usage": a.current_usage,
+                        "triggered_at": a.triggered_at,
+                        "acknowledged": a.acknowledged,
+                    })
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -661,7 +687,11 @@ pub async fn create_rate_limit_alert(
     Json(req): Json<CreateRateLimitAlertRequest>,
 ) -> impl IntoResponse {
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
-    match state.db.create_rate_limit_alert_v11_for_v14(user_id, req.tier_id, &req.alert_type, req.threshold).await {
+    match state
+        .db
+        .create_rate_limit_alert_v11_for_v14(user_id, req.tier_id, &req.alert_type, req.threshold)
+        .await
+    {
         Ok(alert) => {
             let response = RateLimitAlertListEntry {
                 id: alert.id,
@@ -705,27 +735,54 @@ pub async fn get_alert_analytics() -> impl IntoResponse {
 pub fn routes() -> Router<AppState> {
     Router::new()
         // Quota management (v21)
-        .route("/api/v21/rate-limits/quotas", get(list_rate_limit_tier_quotas).post(create_rate_limit_tier_quota))
-        .route("/api/v21/rate-limits/quotas/{tier}", get(get_rate_limit_tier_quota).put(update_rate_limit_tier_quota))
+        .route(
+            "/api/v21/rate-limits/quotas",
+            get(list_rate_limit_tier_quotas).post(create_rate_limit_tier_quota),
+        )
+        .route(
+            "/api/v21/rate-limits/quotas/{tier}",
+            get(get_rate_limit_tier_quota).put(update_rate_limit_tier_quota),
+        )
         .route("/api/v21/rate-limits/usage", get(get_usage_analytics))
-        .route("/api/v21/rate-limits/adjustments", get(get_dynamic_adjustments))
+        .route(
+            "/api/v21/rate-limits/adjustments",
+            get(get_dynamic_adjustments),
+        )
         .route("/api/v21/rate-limits/capacity", get(get_capacity_planning))
         // Legacy v2 endpoints
         .route("/api/v2/rate-limits/check", get(check_rate_limit))
         .route("/api/v2/rate-limits/usage", get(get_user_usage))
-        .route("/api/v2/rate-limits/dashboard", get(get_rate_limit_dashboard))
+        .route(
+            "/api/v2/rate-limits/dashboard",
+            get(get_rate_limit_dashboard),
+        )
         // Legacy v3 endpoints
         .route("/api/v3/rate-limits/quota", get(get_quota_management))
-        .route("/api/v3/rate-limits/features/{feature}", get(check_feature_access))
+        .route(
+            "/api/v3/rate-limits/features/{feature}",
+            get(check_feature_access),
+        )
         // Legacy v4 endpoints
         .route("/api/v4/rate-limits/overages", get(get_user_overages))
         .route("/api/v4/rate-limits/costs", get(get_user_cost_tracking))
-        .route("/api/v4/rate-limits/enforcement", get(get_limit_enforcement))
+        .route(
+            "/api/v4/rate-limits/enforcement",
+            get(get_limit_enforcement),
+        )
         // Alert endpoints (v6+)
-        .route("/api/v6/rate-limits/alerts", get(get_user_rate_limit_alerts).post(create_rate_limit_alert))
+        .route(
+            "/api/v6/rate-limits/alerts",
+            get(get_user_rate_limit_alerts).post(create_rate_limit_alert),
+        )
         .route("/api/v6/rate-limits/alerts/history", get(get_alert_history))
-        .route("/api/v6/rate-limits/alerts/notifications", get(get_alert_notifications))
-        .route("/api/v6/rate-limits/alerts/analytics", get(get_alert_analytics))
+        .route(
+            "/api/v6/rate-limits/alerts/notifications",
+            get(get_alert_notifications),
+        )
+        .route(
+            "/api/v6/rate-limits/alerts/analytics",
+            get(get_alert_analytics),
+        )
 }
 
 #[cfg(test)]

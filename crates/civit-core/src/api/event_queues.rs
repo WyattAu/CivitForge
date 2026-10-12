@@ -130,7 +130,10 @@ pub async fn enqueue_message(
     let pool = state.db.pool();
     let queue_service = crate::event_queues::EventQueueService::new();
 
-    match queue_service.enqueue_message(pool, &queue_name, req.payload).await {
+    match queue_service
+        .enqueue_message(pool, &queue_name, req.payload)
+        .await
+    {
         Ok(message) => (
             StatusCode::CREATED,
             Json(EventQueueMessageResponse {
@@ -199,11 +202,7 @@ pub async fn complete_message(
     let queue_service = crate::event_queues::EventQueueService::new();
 
     match queue_service.complete_message(pool, &message_id).await {
-        Ok(true) => (
-            StatusCode::OK,
-            Json(json!({"status": "completed"})),
-        )
-            .into_response(),
+        Ok(true) => (StatusCode::OK, Json(json!({"status": "completed"}))).into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("message not found".into()).error_response()),
@@ -231,11 +230,7 @@ pub async fn fail_message(
         .unwrap_or("unknown error");
 
     match queue_service.fail_message(pool, &message_id, error).await {
-        Ok(true) => (
-            StatusCode::OK,
-            Json(json!({"status": "failed"})),
-        )
-            .into_response(),
+        Ok(true) => (StatusCode::OK, Json(json!({"status": "failed"}))).into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("message not found".into()).error_response()),
@@ -258,11 +253,7 @@ pub async fn retry_messages(
     let queue_service = crate::event_queues::EventQueueService::new();
 
     match queue_service.retry_messages(pool, &queue_name).await {
-        Ok(count) => (
-            StatusCode::OK,
-            Json(json!({"retried": count})),
-        )
-            .into_response(),
+        Ok(count) => (StatusCode::OK, Json(json!({"retried": count}))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -302,14 +293,8 @@ pub async fn get_queue_stats(
 
 pub fn event_queue_routes() -> axum::Router<AppState> {
     axum::Router::new()
-        .route(
-            "/api/v1/event-queues",
-            post(create_event_queue),
-        )
-        .route(
-            "/api/v1/event-queues/{queue_name}",
-            get(get_event_queue),
-        )
+        .route("/api/v1/event-queues", post(create_event_queue))
+        .route("/api/v1/event-queues/{queue_name}", get(get_event_queue))
         .route(
             "/api/v1/event-queues/{queue_name}/messages",
             post(enqueue_message).get(dequeue_messages),

@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
-pub mod types;
 pub mod store;
+pub mod types;
 
 pub use store::DeploymentStrategyStore;
 pub use types::{
-    DeploymentStrategy, StrategyType, CreateStrategyRequest, UpdateStrategyRequest,
-    StrategyConfig, CreateStrategyConfigRequest, StrategyLog, CreateStrategyLogRequest,
-    StrategyTestResult, StrategyComparison, StrategyComparisonMetric,
+    CreateStrategyConfigRequest, CreateStrategyLogRequest, CreateStrategyRequest,
+    DeploymentStrategy, StrategyComparison, StrategyComparisonMetric, StrategyConfig, StrategyLog,
+    StrategyTestResult, StrategyType, UpdateStrategyRequest,
 };

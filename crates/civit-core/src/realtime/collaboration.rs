@@ -98,7 +98,13 @@ impl LiveCollaborationService {
         user_id: Uuid,
         resource_type: &str,
         resource_id: Uuid,
-    ) -> Result<(CollaborationSession, tokio::sync::mpsc::UnboundedReceiver<CollaborativeChange>), sqlx::Error> {
+    ) -> Result<
+        (
+            CollaborationSession,
+            tokio::sync::mpsc::UnboundedReceiver<CollaborativeChange>,
+        ),
+        sqlx::Error,
+    > {
         let existing = sqlx::query_as::<_, CollaborationSession>(
             "SELECT id, resource_type, resource_id, user_id, cursor_position, last_active, created_at \
              FROM live_collaboration_sessions \
@@ -209,10 +215,7 @@ impl LiveCollaborationService {
         Ok(())
     }
 
-    pub async fn broadcast_change(
-        &self,
-        change: CollaborativeChange,
-    ) -> usize {
+    pub async fn broadcast_change(&self, change: CollaborativeChange) -> usize {
         let resource_key = Self::resource_key(&change.resource_type, change.resource_id);
         let resource_sessions = self.resource_sessions.read().await;
 
@@ -223,13 +226,14 @@ impl LiveCollaborationService {
 
                 for session_id in session_ids {
                     if let Some(entry) = sessions.get(session_id)
-                        && entry.session.user_id != change.user_id {
-                            for sender in &entry.senders {
-                                if sender.send(change.clone()).is_ok() {
-                                    sent += 1;
-                                }
+                        && entry.session.user_id != change.user_id
+                    {
+                        for sender in &entry.senders {
+                            if sender.send(change.clone()).is_ok() {
+                                sent += 1;
                             }
                         }
+                    }
                 }
 
                 sent
@@ -315,7 +319,9 @@ impl LiveCollaborationService {
     ) -> ConflictResolution {
         let resolved = matches!(
             resolution,
-            ResolutionType::AutoMerge | ResolutionType::LastWriteWins | ResolutionType::OperationalTransform
+            ResolutionType::AutoMerge
+                | ResolutionType::LastWriteWins
+                | ResolutionType::OperationalTransform
         );
 
         ConflictResolution {
@@ -419,8 +425,14 @@ mod tests {
     fn test_resolution_type_variants() {
         assert_eq!(ResolutionType::AutoMerge, ResolutionType::AutoMerge);
         assert_eq!(ResolutionType::LastWriteWins, ResolutionType::LastWriteWins);
-        assert_eq!(ResolutionType::OperationalTransform, ResolutionType::OperationalTransform);
-        assert_eq!(ResolutionType::ManualResolution, ResolutionType::ManualResolution);
+        assert_eq!(
+            ResolutionType::OperationalTransform,
+            ResolutionType::OperationalTransform
+        );
+        assert_eq!(
+            ResolutionType::ManualResolution,
+            ResolutionType::ManualResolution
+        );
     }
 
     #[test]

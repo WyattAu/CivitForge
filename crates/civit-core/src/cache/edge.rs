@@ -264,10 +264,10 @@ impl Default for EdgeCacheManager {
     }
 }
 
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
-use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EdgeCacheEntry {

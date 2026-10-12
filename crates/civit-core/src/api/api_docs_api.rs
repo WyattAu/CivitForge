@@ -12,16 +12,9 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
@@ -237,24 +230,27 @@ pub async fn list_api_docs(
     let _ = auth;
     match state.db.list_api_docs_v22(query.limit, query.offset).await {
         Ok(docs) => {
-            let response: Vec<ApiDocResponse> = docs.iter().map(|d| ApiDocResponse {
-                id: d.id,
-                endpoint: d.endpoint.clone(),
-                method: d.method.clone(),
-                version: d.version.clone(),
-                summary: d.summary.clone(),
-                description: d.description.clone(),
-                parameters: d.parameters.clone(),
-                request_body: d.request_body.clone(),
-                responses: d.responses.clone(),
-                examples: d.examples.clone(),
-                tags: d.tags.clone(),
-                deprecated: d.deprecated,
-                changelog: d.changelog.clone(),
-                security_schemes: d.security_schemes.clone(),
-                rate_limits: d.rate_limits.clone(),
-                created_at: d.created_at,
-            }).collect();
+            let response: Vec<ApiDocResponse> = docs
+                .iter()
+                .map(|d| ApiDocResponse {
+                    id: d.id,
+                    endpoint: d.endpoint.clone(),
+                    method: d.method.clone(),
+                    version: d.version.clone(),
+                    summary: d.summary.clone(),
+                    description: d.description.clone(),
+                    parameters: d.parameters.clone(),
+                    request_body: d.request_body.clone(),
+                    responses: d.responses.clone(),
+                    examples: d.examples.clone(),
+                    tags: d.tags.clone(),
+                    deprecated: d.deprecated,
+                    changelog: d.changelog.clone(),
+                    security_schemes: d.security_schemes.clone(),
+                    rate_limits: d.rate_limits.clone(),
+                    created_at: d.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -269,7 +265,11 @@ pub async fn get_api_doc_for_endpoint(
     State(state): State<AppState>,
     axum::extract::Path((endpoint, method, version)): axum::extract::Path<(String, String, String)>,
 ) -> impl IntoResponse {
-    match state.db.get_api_docs_v22_for_endpoint(&endpoint, &method, &version).await {
+    match state
+        .db
+        .get_api_docs_v22_for_endpoint(&endpoint, &method, &version)
+        .await
+    {
         Ok(Some(doc)) => {
             let response = ApiDocResponse {
                 id: doc.id,
@@ -310,22 +310,26 @@ pub async fn create_api_doc(
     Json(req): Json<CreateApiDocRequest>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_api_docs_v22(
-        &req.endpoint,
-        &req.method,
-        &req.version,
-        &req.summary,
-        &req.description,
-        &req.parameters,
-        req.request_body.as_ref(),
-        &req.responses,
-        &req.examples,
-        &req.tags,
-        req.deprecated,
-        &req.changelog,
-        &req.security_schemes,
-        &req.rate_limits,
-    ).await {
+    match state
+        .db
+        .create_api_docs_v22(
+            &req.endpoint,
+            &req.method,
+            &req.version,
+            &req.summary,
+            &req.description,
+            &req.parameters,
+            req.request_body.as_ref(),
+            &req.responses,
+            &req.examples,
+            &req.tags,
+            req.deprecated,
+            &req.changelog,
+            &req.security_schemes,
+            &req.rate_limits,
+        )
+        .await
+    {
         Ok(doc) => {
             let response = ApiDocResponse {
                 id: doc.id,
@@ -359,16 +363,16 @@ pub async fn create_api_doc(
 // v2: OpenAPI spec generation
 // ---------------------------------------------------------------------------
 
-pub async fn generate_openapi_spec(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn generate_openapi_spec(State(state): State<AppState>) -> impl IntoResponse {
     match state.db.list_api_docs_v2(1000, 0).await {
         Ok(docs) => {
             let mut paths = serde_json::Map::new();
             let mut tags = std::collections::HashSet::new();
 
             for doc in &docs {
-                let path_entry = paths.entry(&doc.endpoint).or_insert_with(|| serde_json::json!({}));
+                let path_entry = paths
+                    .entry(&doc.endpoint)
+                    .or_insert_with(|| serde_json::json!({}));
                 let method_lower = doc.method.to_lowercase();
 
                 let mut operation = serde_json::json!({
@@ -649,16 +653,32 @@ pub async fn get_rate_limit_documentation(
     State(state): State<AppState>,
     axum::extract::Path((endpoint, method)): axum::extract::Path<(String, String)>,
 ) -> impl IntoResponse {
-    match state.db.get_api_docs_v22_for_endpoint(&endpoint, &method, "v22").await {
+    match state
+        .db
+        .get_api_docs_v22_for_endpoint(&endpoint, &method, "v22")
+        .await
+    {
         Ok(Some(doc)) => {
             let rate_limits: Vec<RateLimitDoc> = if let Some(obj) = doc.rate_limits.as_object() {
-                obj.iter().map(|(tier, data)| RateLimitDoc {
-                    tier: tier.clone(),
-                    rate_limit: data.get("rate_limit").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                    burst_limit: data.get("burst_limit").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                    monthly_quota: data.get("monthly_quota").and_then(|v| v.as_i64()).map(|v| v as i32),
-                    price_cents: data.get("price_cents").and_then(|v| v.as_i64()).unwrap_or(0) as i32,
-                }).collect()
+                obj.iter()
+                    .map(|(tier, data)| RateLimitDoc {
+                        tier: tier.clone(),
+                        rate_limit: data.get("rate_limit").and_then(|v| v.as_i64()).unwrap_or(0)
+                            as i32,
+                        burst_limit: data
+                            .get("burst_limit")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32,
+                        monthly_quota: data
+                            .get("monthly_quota")
+                            .and_then(|v| v.as_i64())
+                            .map(|v| v as i32),
+                        price_cents: data
+                            .get("price_cents")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32,
+                    })
+                    .collect()
             } else {
                 vec![]
             };
@@ -683,13 +703,48 @@ pub async fn get_rate_limit_documentation(
 
 pub async fn get_error_code_documentation() -> impl IntoResponse {
     let error_codes: Vec<ErrorCodeDoc> = vec![
-        ErrorCodeDoc { code: 400, name: "Bad Request".into(), description: "Invalid request parameters".into(), resolution: "Check request body and parameters".into() },
-        ErrorCodeDoc { code: 401, name: "Unauthorized".into(), description: "Authentication required".into(), resolution: "Provide valid authentication credentials".into() },
-        ErrorCodeDoc { code: 403, name: "Forbidden".into(), description: "Insufficient permissions".into(), resolution: "Request appropriate access level".into() },
-        ErrorCodeDoc { code: 404, name: "Not Found".into(), description: "Resource not found".into(), resolution: "Verify resource exists and you have access".into() },
-        ErrorCodeDoc { code: 429, name: "Rate Limited".into(), description: "Too many requests".into(), resolution: "Implement exponential backoff".into() },
-        ErrorCodeDoc { code: 500, name: "Internal Error".into(), description: "Server error".into(), resolution: "Contact support if persistent".into() },
-        ErrorCodeDoc { code: 503, name: "Service Unavailable".into(), description: "Service temporarily unavailable".into(), resolution: "Retry after backoff period".into() },
+        ErrorCodeDoc {
+            code: 400,
+            name: "Bad Request".into(),
+            description: "Invalid request parameters".into(),
+            resolution: "Check request body and parameters".into(),
+        },
+        ErrorCodeDoc {
+            code: 401,
+            name: "Unauthorized".into(),
+            description: "Authentication required".into(),
+            resolution: "Provide valid authentication credentials".into(),
+        },
+        ErrorCodeDoc {
+            code: 403,
+            name: "Forbidden".into(),
+            description: "Insufficient permissions".into(),
+            resolution: "Request appropriate access level".into(),
+        },
+        ErrorCodeDoc {
+            code: 404,
+            name: "Not Found".into(),
+            description: "Resource not found".into(),
+            resolution: "Verify resource exists and you have access".into(),
+        },
+        ErrorCodeDoc {
+            code: 429,
+            name: "Rate Limited".into(),
+            description: "Too many requests".into(),
+            resolution: "Implement exponential backoff".into(),
+        },
+        ErrorCodeDoc {
+            code: 500,
+            name: "Internal Error".into(),
+            description: "Server error".into(),
+            resolution: "Contact support if persistent".into(),
+        },
+        ErrorCodeDoc {
+            code: 503,
+            name: "Service Unavailable".into(),
+            description: "Service temporarily unavailable".into(),
+            resolution: "Retry after backoff period".into(),
+        },
     ];
     (StatusCode::OK, Json(error_codes)).into_response()
 }
@@ -700,12 +755,42 @@ pub async fn get_error_code_documentation() -> impl IntoResponse {
 
 pub async fn get_sdk_generation_info() -> impl IntoResponse {
     let sdks: Vec<SdkGenerationInfo> = vec![
-        SdkGenerationInfo { language: "rust".into(), version: "0.22.0".into(), package_url: "https://crates.io/crates/civitforge-sdk".into(), generated_at: Utc::now() },
-        SdkGenerationInfo { language: "python".into(), version: "0.22.0".into(), package_url: "https://pypi.org/project/civitforge-sdk/".into(), generated_at: Utc::now() },
-        SdkGenerationInfo { language: "javascript".into(), version: "0.22.0".into(), package_url: "https://www.npmjs.com/package/civitforge-sdk".into(), generated_at: Utc::now() },
-        SdkGenerationInfo { language: "go".into(), version: "0.22.0".into(), package_url: "https://pkg.go.dev/github.com/civitforge/sdk-go".into(), generated_at: Utc::now() },
-        SdkGenerationInfo { language: "java".into(), version: "0.22.0".into(), package_url: "https://central.sonatype.com/artifact/io.github.civitforge/sdk".into(), generated_at: Utc::now() },
-        SdkGenerationInfo { language: "typescript".into(), version: "0.22.0".into(), package_url: "https://www.npmjs.com/package/@civitforge/sdk-ts".into(), generated_at: Utc::now() },
+        SdkGenerationInfo {
+            language: "rust".into(),
+            version: "0.22.0".into(),
+            package_url: "https://crates.io/crates/civitforge-sdk".into(),
+            generated_at: Utc::now(),
+        },
+        SdkGenerationInfo {
+            language: "python".into(),
+            version: "0.22.0".into(),
+            package_url: "https://pypi.org/project/civitforge-sdk/".into(),
+            generated_at: Utc::now(),
+        },
+        SdkGenerationInfo {
+            language: "javascript".into(),
+            version: "0.22.0".into(),
+            package_url: "https://www.npmjs.com/package/civitforge-sdk".into(),
+            generated_at: Utc::now(),
+        },
+        SdkGenerationInfo {
+            language: "go".into(),
+            version: "0.22.0".into(),
+            package_url: "https://pkg.go.dev/github.com/civitforge/sdk-go".into(),
+            generated_at: Utc::now(),
+        },
+        SdkGenerationInfo {
+            language: "java".into(),
+            version: "0.22.0".into(),
+            package_url: "https://central.sonatype.com/artifact/io.github.civitforge/sdk".into(),
+            generated_at: Utc::now(),
+        },
+        SdkGenerationInfo {
+            language: "typescript".into(),
+            version: "0.22.0".into(),
+            package_url: "https://www.npmjs.com/package/@civitforge/sdk-ts".into(),
+            generated_at: Utc::now(),
+        },
     ];
     (StatusCode::OK, Json(sdks)).into_response()
 }
@@ -718,11 +803,31 @@ pub async fn get_api_changelog() -> impl IntoResponse {
     let changelog = ApiChangelog {
         version: "v23".into(),
         changes: vec![
-            ChangelogEntry { change_type: "added".into(), endpoint: "/api/documentation".into(), description: "Consolidated documentation endpoint".into() },
-            ChangelogEntry { change_type: "added".into(), endpoint: "/api/documentation/openapi".into(), description: "OpenAPI 3.0 spec generation".into() },
-            ChangelogEntry { change_type: "added".into(), endpoint: "/api/documentation/playground".into(), description: "Interactive API playground".into() },
-            ChangelogEntry { change_type: "added".into(), endpoint: "/api/documentation/breaking-changes".into(), description: "Breaking change detection".into() },
-            ChangelogEntry { change_type: "added".into(), endpoint: "/api/documentation/migration-guide".into(), description: "Migration guide generation".into() },
+            ChangelogEntry {
+                change_type: "added".into(),
+                endpoint: "/api/documentation".into(),
+                description: "Consolidated documentation endpoint".into(),
+            },
+            ChangelogEntry {
+                change_type: "added".into(),
+                endpoint: "/api/documentation/openapi".into(),
+                description: "OpenAPI 3.0 spec generation".into(),
+            },
+            ChangelogEntry {
+                change_type: "added".into(),
+                endpoint: "/api/documentation/playground".into(),
+                description: "Interactive API playground".into(),
+            },
+            ChangelogEntry {
+                change_type: "added".into(),
+                endpoint: "/api/documentation/breaking-changes".into(),
+                description: "Breaking change detection".into(),
+            },
+            ChangelogEntry {
+                change_type: "added".into(),
+                endpoint: "/api/documentation/migration-guide".into(),
+                description: "Migration guide generation".into(),
+            },
         ],
         released_at: Utc::now(),
     };
@@ -737,10 +842,12 @@ pub async fn get_security_schemes(
     State(state): State<AppState>,
     axum::extract::Path((endpoint, method)): axum::extract::Path<(String, String)>,
 ) -> impl IntoResponse {
-    match state.db.get_api_docs_v22_for_endpoint(&endpoint, &method, "v22").await {
-        Ok(Some(doc)) => {
-            (StatusCode::OK, Json(doc.security_schemes)).into_response()
-        }
+    match state
+        .db
+        .get_api_docs_v22_for_endpoint(&endpoint, &method, "v22")
+        .await
+    {
+        Ok(Some(doc)) => (StatusCode::OK, Json(doc.security_schemes)).into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(serde_json::json!({"error": "Endpoint documentation not found"})),
@@ -758,7 +865,11 @@ pub async fn get_oauth_flows(
     State(state): State<AppState>,
     axum::extract::Path((endpoint, method)): axum::extract::Path<(String, String)>,
 ) -> impl IntoResponse {
-    match state.db.get_api_docs_v22_for_endpoint(&endpoint, &method, "v22").await {
+    match state
+        .db
+        .get_api_docs_v22_for_endpoint(&endpoint, &method, "v22")
+        .await
+    {
         Ok(Some(_doc)) => {
             let flows = serde_json::json!({
                 "authorization_code": {
@@ -816,16 +927,19 @@ pub async fn list_api_doc_examples(
     let _ = auth;
     match state.db.list_api_doc_examples_v21(endpoint_id).await {
         Ok(examples) => {
-            let response: Vec<ApiDocExampleResponse> = examples.iter().map(|e| ApiDocExampleResponse {
-                id: e.id,
-                endpoint_id: e.endpoint_id,
-                title: e.title.clone(),
-                language: e.language.clone(),
-                request_example: e.request_example.clone(),
-                response_example: e.response_example.clone(),
-                description: e.description.clone(),
-                created_at: e.created_at,
-            }).collect();
+            let response: Vec<ApiDocExampleResponse> = examples
+                .iter()
+                .map(|e| ApiDocExampleResponse {
+                    id: e.id,
+                    endpoint_id: e.endpoint_id,
+                    title: e.title.clone(),
+                    language: e.language.clone(),
+                    request_example: e.request_example.clone(),
+                    response_example: e.response_example.clone(),
+                    description: e.description.clone(),
+                    created_at: e.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -842,14 +956,18 @@ pub async fn create_api_doc_example(
     Json(req): Json<CreateApiDocExampleRequest>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_api_doc_example_v21(
-        req.endpoint_id,
-        &req.title,
-        &req.language,
-        &req.request_example,
-        &req.response_example,
-        &req.description,
-    ).await {
+    match state
+        .db
+        .create_api_doc_example_v21(
+            req.endpoint_id,
+            &req.title,
+            &req.language,
+            &req.request_example,
+            &req.response_example,
+            &req.description,
+        )
+        .await
+    {
         Ok(example) => {
             let response = ApiDocExampleResponse {
                 id: example.id,
@@ -883,14 +1001,17 @@ pub async fn list_api_doc_changelogs(
     let _ = auth;
     match state.db.list_api_doc_changelogs_v21(endpoint_id).await {
         Ok(changelogs) => {
-            let response: Vec<ApiDocChangelogResponse> = changelogs.iter().map(|c| ApiDocChangelogResponse {
-                id: c.id,
-                endpoint_id: c.endpoint_id,
-                version: c.version.clone(),
-                change_type: c.change_type.clone(),
-                description: c.description.clone(),
-                created_at: c.created_at,
-            }).collect();
+            let response: Vec<ApiDocChangelogResponse> = changelogs
+                .iter()
+                .map(|c| ApiDocChangelogResponse {
+                    id: c.id,
+                    endpoint_id: c.endpoint_id,
+                    version: c.version.clone(),
+                    change_type: c.change_type.clone(),
+                    description: c.description.clone(),
+                    created_at: c.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -907,12 +1028,16 @@ pub async fn create_api_doc_changelog(
     Json(req): Json<CreateApiDocChangelogRequest>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_api_doc_changelog_v21(
-        req.endpoint_id,
-        &req.version,
-        &req.change_type,
-        &req.description,
-    ).await {
+    match state
+        .db
+        .create_api_doc_changelog_v21(
+            req.endpoint_id,
+            &req.version,
+            &req.change_type,
+            &req.description,
+        )
+        .await
+    {
         Ok(changelog) => {
             let response = ApiDocChangelogResponse {
                 id: changelog.id,
@@ -939,28 +1064,64 @@ pub async fn create_api_doc_changelog(
 pub fn api_docs_routes() -> Router<AppState> {
     Router::new()
         // Core CRUD
-        .route("/api/documentation", get(list_api_docs).post(create_api_doc))
-        .route("/api/documentation/{endpoint}/{method}/{version}", get(get_api_doc_for_endpoint))
+        .route(
+            "/api/documentation",
+            get(list_api_docs).post(create_api_doc),
+        )
+        .route(
+            "/api/documentation/{endpoint}/{method}/{version}",
+            get(get_api_doc_for_endpoint),
+        )
         // v2: OpenAPI + playground
         .route("/api/documentation/openapi", get(generate_openapi_spec))
         .route("/api/documentation/playground", get(get_api_playground))
         // v4/v23: Breaking changes + migration
-        .route("/api/documentation/breaking-changes", get(detect_breaking_changes))
-        .route("/api/documentation/migration-guide/{from_version}/{to_version}", get(get_migration_guide))
+        .route(
+            "/api/documentation/breaking-changes",
+            get(detect_breaking_changes),
+        )
+        .route(
+            "/api/documentation/migration-guide/{from_version}/{to_version}",
+            get(get_migration_guide),
+        )
         // v4: Compatibility matrix
-        .route("/api/documentation/compatibility-matrix", get(get_compatibility_matrix))
+        .route(
+            "/api/documentation/compatibility-matrix",
+            get(get_compatibility_matrix),
+        )
         // v8+: Rate limits, error codes, SDKs, changelog
-        .route("/api/documentation/{endpoint}/{method}/rate-limits", get(get_rate_limit_documentation))
-        .route("/api/documentation/error-codes", get(get_error_code_documentation))
+        .route(
+            "/api/documentation/{endpoint}/{method}/rate-limits",
+            get(get_rate_limit_documentation),
+        )
+        .route(
+            "/api/documentation/error-codes",
+            get(get_error_code_documentation),
+        )
         .route("/api/documentation/sdks", get(get_sdk_generation_info))
         .route("/api/documentation/changelog", get(get_api_changelog))
         // v5: Security schemes, OAuth flows, API keys
-        .route("/api/documentation/{endpoint}/{method}/security-schemes", get(get_security_schemes))
-        .route("/api/documentation/{endpoint}/{method}/oauth-flows", get(get_oauth_flows))
-        .route("/api/documentation/{endpoint}/{method}/api-keys", get(get_api_key_documentation))
+        .route(
+            "/api/documentation/{endpoint}/{method}/security-schemes",
+            get(get_security_schemes),
+        )
+        .route(
+            "/api/documentation/{endpoint}/{method}/oauth-flows",
+            get(get_oauth_flows),
+        )
+        .route(
+            "/api/documentation/{endpoint}/{method}/api-keys",
+            get(get_api_key_documentation),
+        )
         // v23: Examples + changelogs per endpoint
-        .route("/api/documentation/examples/{endpoint_id}", get(list_api_doc_examples).post(create_api_doc_example))
-        .route("/api/documentation/changelogs/{endpoint_id}", get(list_api_doc_changelogs).post(create_api_doc_changelog))
+        .route(
+            "/api/documentation/examples/{endpoint_id}",
+            get(list_api_doc_examples).post(create_api_doc_example),
+        )
+        .route(
+            "/api/documentation/changelogs/{endpoint_id}",
+            get(list_api_doc_changelogs).post(create_api_doc_changelog),
+        )
 }
 
 #[cfg(test)]
@@ -1056,7 +1217,8 @@ mod tests {
             endpoint_id: Uuid::nil(),
             title: "List Repos".into(),
             language: "curl".into(),
-            request_example: "curl -H 'Authorization: Bearer token' https://api.example.com/repos".into(),
+            request_example: "curl -H 'Authorization: Bearer token' https://api.example.com/repos"
+                .into(),
             response_example: r#"{"repos": []}"#.into(),
             description: "Example for listing repositories".into(),
             created_at: Utc::now(),

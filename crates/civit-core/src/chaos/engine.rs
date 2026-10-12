@@ -12,7 +12,10 @@ impl ChaosEngine {
         Self { pool }
     }
 
-    pub async fn create_experiment(&self, req: CreateExperimentRequest) -> Result<ChaosExperiment, sqlx::Error> {
+    pub async fn create_experiment(
+        &self,
+        req: CreateExperimentRequest,
+    ) -> Result<ChaosExperiment, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let params = req.parameters.unwrap_or(serde_json::json!({}));
@@ -91,14 +94,12 @@ impl ChaosEngine {
 
     pub async fn start_experiment(&self, id: Uuid) -> Result<ChaosExperiment, sqlx::Error> {
         let now = Utc::now();
-        sqlx::query(
-            r#"UPDATE chaos_experiments SET status = $1, started_at = $2 WHERE id = $3"#,
-        )
-        .bind(ExperimentStatus::Running.to_string())
-        .bind(now)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query(r#"UPDATE chaos_experiments SET status = $1, started_at = $2 WHERE id = $3"#)
+            .bind(ExperimentStatus::Running.to_string())
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         self.get_experiment(id)
             .await?
@@ -117,14 +118,12 @@ impl ChaosEngine {
             ExperimentStatus::Failed
         };
 
-        sqlx::query(
-            r#"UPDATE chaos_experiments SET status = $1, completed_at = $2 WHERE id = $3"#,
-        )
-        .bind(status.to_string())
-        .bind(now)
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query(r#"UPDATE chaos_experiments SET status = $1, completed_at = $2 WHERE id = $3"#)
+            .bind(status.to_string())
+            .bind(now)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         self.get_experiment(id)
             .await?
@@ -132,13 +131,11 @@ impl ChaosEngine {
     }
 
     pub async fn cancel_experiment(&self, id: Uuid) -> Result<ChaosExperiment, sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE chaos_experiments SET status = $1 WHERE id = $2"#,
-        )
-        .bind(ExperimentStatus::Cancelled.to_string())
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query(r#"UPDATE chaos_experiments SET status = $1 WHERE id = $2"#)
+            .bind(ExperimentStatus::Cancelled.to_string())
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         self.get_experiment(id)
             .await?
@@ -181,10 +178,7 @@ impl ChaosEngine {
         })
     }
 
-    pub async fn get_results(
-        &self,
-        experiment_id: Uuid,
-    ) -> Result<Vec<ChaosResult>, sqlx::Error> {
+    pub async fn get_results(&self, experiment_id: Uuid) -> Result<Vec<ChaosResult>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ChaosResultRow>(
             r#"SELECT id, experiment_id, metric_name, metric_value, baseline_value, impact, created_at
                FROM chaos_results WHERE experiment_id = $1 ORDER BY created_at"#,
@@ -295,7 +289,10 @@ impl From<ChaosExperimentRow> for ChaosExperiment {
             id: row.id,
             name: row.name,
             description: row.description,
-            experiment_type: row.experiment_type.parse().unwrap_or(ExperimentType::LatencyInjection),
+            experiment_type: row
+                .experiment_type
+                .parse()
+                .unwrap_or(ExperimentType::LatencyInjection),
             target: row.target,
             parameters: row.parameters,
             status: row.status.parse().unwrap_or(ExperimentStatus::Pending),

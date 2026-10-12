@@ -197,7 +197,10 @@ impl MultiRegionService {
         Ok(row)
     }
 
-    pub async fn get_region_config(&self, region: &str) -> Result<Option<RegionConfig>, sqlx::Error> {
+    pub async fn get_region_config(
+        &self,
+        region: &str,
+    ) -> Result<Option<RegionConfig>, sqlx::Error> {
         let row = sqlx::query_as::<_, RegionConfig>(
             "SELECT * FROM multi_region_configs WHERE region = $1",
         )
@@ -208,11 +211,10 @@ impl MultiRegionService {
     }
 
     pub async fn list_region_configs(&self) -> Result<Vec<RegionConfig>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, RegionConfig>(
-            "SELECT * FROM multi_region_configs ORDER BY region",
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows =
+            sqlx::query_as::<_, RegionConfig>("SELECT * FROM multi_region_configs ORDER BY region")
+                .fetch_all(&self.pool)
+                .await?;
         Ok(rows)
     }
 
@@ -512,10 +514,7 @@ impl MultiRegionService {
         })
     }
 
-    pub async fn get_best_region(
-        &self,
-        client_region: &str,
-    ) -> Result<String, sqlx::Error> {
+    pub async fn get_best_region(&self, client_region: &str) -> Result<String, sqlx::Error> {
         let routes = sqlx::query_as::<_, LatencyRoute>(
             r#"SELECT source_region, target_region, latency_ms, last_measured_at, healthy
                FROM multi_region_latency_routes

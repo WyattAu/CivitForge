@@ -227,12 +227,11 @@ impl EventQueueService {
             }
         };
 
-        let total: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*)::bigint FROM event_queue_messages WHERE queue_id = $1",
-        )
-        .bind(queue.id)
-        .fetch_one(pool)
-        .await?;
+        let total: (i64,) =
+            sqlx::query_as("SELECT COUNT(*)::bigint FROM event_queue_messages WHERE queue_id = $1")
+                .bind(queue.id)
+                .fetch_one(pool)
+                .await?;
 
         let pending: (i64,) = sqlx::query_as(
             "SELECT COUNT(*)::bigint FROM event_queue_messages WHERE queue_id = $1 AND status = 'pending'",
@@ -276,7 +275,12 @@ impl EventQueueService {
         &self,
         pool: sqlx::PgPool,
         queue_name: String,
-        handler: impl Fn(EventQueueMessage) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send>> + Send + Sync + 'static,
+        handler: impl Fn(
+            EventQueueMessage,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send>>
+        + Send
+        + Sync
+        + 'static,
     ) {
         let _max_retries = self.max_retries;
 
@@ -308,14 +312,14 @@ impl EventQueueService {
                     let success = handler(message.clone()).await;
 
                     if success {
-                let _ = sqlx::query(
-                    "UPDATE event_queue_messages \
+                        let _ = sqlx::query(
+                            "UPDATE event_queue_messages \
                      SET status = 'completed', processed_at = NOW() \
                      WHERE id = $1",
-                )
-                .bind(message.id)
-                .execute(&pool)
-                .await;
+                        )
+                        .bind(message.id)
+                        .execute(&pool)
+                        .await;
                     } else {
                         let new_attempts = message.attempts + 1;
                         let new_status = if new_attempts >= message.max_attempts {

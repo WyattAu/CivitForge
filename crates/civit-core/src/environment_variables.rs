@@ -321,10 +321,7 @@ impl EnvironmentVariablesService {
         }
 
         // Check for valid identifier: letters, digits, underscores
-        if !name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_')
-        {
+        if !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
             return Err(
                 "Variable name can only contain letters, digits, and underscores".to_string(),
             );
@@ -332,9 +329,11 @@ impl EnvironmentVariablesService {
 
         // Must start with letter or underscore
         if let Some(first) = name.chars().next()
-            && !first.is_alphabetic() && first != '_' {
-                return Err("Variable name must start with a letter or underscore".to_string());
-            }
+            && !first.is_alphabetic()
+            && first != '_'
+        {
+            return Err("Variable name must start with a letter or underscore".to_string());
+        }
 
         Ok(())
     }
@@ -355,26 +354,66 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_variable_name_valid() {
-        assert!(EnvironmentVariablesService::validate_variable_name("MY_VAR").await.is_ok());
-        assert!(EnvironmentVariablesService::validate_variable_name("_private").await.is_ok());
-        assert!(EnvironmentVariablesService::validate_variable_name("var123").await.is_ok());
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("MY_VAR")
+                .await
+                .is_ok()
+        );
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("_private")
+                .await
+                .is_ok()
+        );
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("var123")
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
     async fn test_validate_variable_name_invalid() {
-        assert!(EnvironmentVariablesService::validate_variable_name("").await.is_err());
-        assert!(EnvironmentVariablesService::validate_variable_name("123VAR").await.is_err());
-        assert!(EnvironmentVariablesService::validate_variable_name("my-var").await.is_err());
-        assert!(EnvironmentVariablesService::validate_variable_name("my var").await.is_err());
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("")
+                .await
+                .is_err()
+        );
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("123VAR")
+                .await
+                .is_err()
+        );
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("my-var")
+                .await
+                .is_err()
+        );
+        assert!(
+            EnvironmentVariablesService::validate_variable_name("my var")
+                .await
+                .is_err()
+        );
     }
 
     #[tokio::test]
     async fn test_validate_variable_value() {
-        assert!(EnvironmentVariablesService::validate_variable_value("hello").await.is_ok());
-        assert!(EnvironmentVariablesService::validate_variable_value("").await.is_ok());
+        assert!(
+            EnvironmentVariablesService::validate_variable_value("hello")
+                .await
+                .is_ok()
+        );
+        assert!(
+            EnvironmentVariablesService::validate_variable_value("")
+                .await
+                .is_ok()
+        );
 
         let long_value = "x".repeat(1024 * 1024 + 1);
-        assert!(EnvironmentVariablesService::validate_variable_value(&long_value).await.is_err());
+        assert!(
+            EnvironmentVariablesService::validate_variable_value(&long_value)
+                .await
+                .is_err()
+        );
     }
 
     #[test]

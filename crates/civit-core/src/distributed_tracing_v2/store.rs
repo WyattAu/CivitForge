@@ -101,10 +101,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRule>, sqlx::Error> {
+    pub async fn get_rule(&self, id: Uuid) -> Result<Option<SamplingRule>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleRow>(
             r#"SELECT id, service_name, endpoint, sample_rate, enabled, created_at
              FROM trace_sampling_rules WHERE id = $1"#,
@@ -152,10 +149,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -221,9 +215,7 @@ impl DistributedTracingV2Service {
         })
     }
 
-    pub async fn get_sampling_stats(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -313,10 +305,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV2>, sqlx::Error> {
+    pub async fn get_rule_v2(&self, id: Uuid) -> Result<Option<SamplingRuleV2>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV2Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, enabled, created_at
              FROM trace_sampling_rules_v2 WHERE id = $1"#,
@@ -366,10 +355,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v2(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v2 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -404,9 +390,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v2(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v2(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -502,10 +486,7 @@ impl DistributedTracingV2Service {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn delete_dependency(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dependency(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_dependencies WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -514,9 +495,7 @@ impl DistributedTracingV2Service {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_dependency_stats(
-        &self,
-    ) -> Result<TraceDependencyStats, sqlx::Error> {
+    pub async fn get_dependency_stats(&self) -> Result<TraceDependencyStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -680,10 +659,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v3(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV3>, sqlx::Error> {
+    pub async fn get_rule_v3(&self, id: Uuid) -> Result<Option<SamplingRuleV3>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV3Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v3 WHERE id = $1"#,
@@ -735,10 +711,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v3(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v3(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v3 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -773,9 +746,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v3(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v3(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -829,9 +800,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_service_map(
-        &self,
-    ) -> Result<ServiceMap, sqlx::Error> {
+    pub async fn get_service_map(&self) -> Result<ServiceMap, sqlx::Error> {
         let rows = sqlx::query_as::<_, ServiceMapEntryRow>(
             r#"SELECT id, service_name, endpoint, call_count, avg_duration_ms, error_rate, last_updated_at
              FROM trace_service_map
@@ -854,9 +823,7 @@ impl DistributedTracingV2Service {
         })
     }
 
-    pub async fn get_dependencies(
-        &self,
-    ) -> Result<DependencyAnalysis, sqlx::Error> {
+    pub async fn get_dependencies(&self) -> Result<DependencyAnalysis, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct DependencyRow {
             from_service: String,
@@ -907,9 +874,7 @@ impl DistributedTracingV2Service {
         })
     }
 
-    pub async fn get_capacity_planning(
-        &self,
-    ) -> Result<Vec<CapacityPlanningData>, sqlx::Error> {
+    pub async fn get_capacity_planning(&self) -> Result<Vec<CapacityPlanningData>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct CapacityRow {
             service_name: String,
@@ -964,10 +929,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v4(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV4>, sqlx::Error> {
+    pub async fn get_rule_v4(&self, id: Uuid) -> Result<Option<SamplingRuleV4>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV4Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v4 WHERE id = $1"#,
@@ -1019,10 +981,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v4(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v4(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v4 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1057,9 +1016,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v4(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v4(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -1106,9 +1063,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_service_dependencies(
-        &self,
-    ) -> Result<ServiceDependencyGraph, sqlx::Error> {
+    pub async fn get_service_dependencies(&self) -> Result<ServiceDependencyGraph, sqlx::Error> {
         let rows = sqlx::query_as::<_, TraceServiceDependencyRow>(
             r#"SELECT id, service_name, depends_on_service, call_count, avg_duration_ms, error_rate, last_updated_at
              FROM trace_service_dependencies
@@ -1176,10 +1131,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1210,10 +1162,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v5(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV5>, sqlx::Error> {
+    pub async fn get_rule_v5(&self, id: Uuid) -> Result<Option<SamplingRuleV5>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV5Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v5 WHERE id = $1"#,
@@ -1262,10 +1211,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v5(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v5(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v5 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1298,9 +1244,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v5(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v5(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -1409,10 +1353,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v2(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v2 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1528,7 +1469,11 @@ impl DistributedTracingV2Service {
                 recommended_capacity: r.current_load * 2.0,
                 bottleneck_endpoints: r.bottleneck_endpoints,
                 growth_rate: 0.5,
-                time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                time_to_capacity_hours: if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 0.5)) * 24.0
+                } else {
+                    f64::INFINITY
+                },
             })
             .collect())
     }
@@ -1555,10 +1500,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v6(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV6>, sqlx::Error> {
+    pub async fn get_rule_v6(&self, id: Uuid) -> Result<Option<SamplingRuleV6>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV6Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v6 WHERE id = $1"#,
@@ -1607,10 +1549,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v6(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v6(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v6 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1643,9 +1582,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v6(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v6(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -1754,10 +1691,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v3(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v3(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v3 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1870,7 +1804,11 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
                 CapacityPlanningDataV3 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -1878,7 +1816,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                 }
             })
@@ -1907,10 +1849,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v7(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV7>, sqlx::Error> {
+    pub async fn get_rule_v7(&self, id: Uuid) -> Result<Option<SamplingRuleV7>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV7Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v7 WHERE id = $1"#,
@@ -1959,10 +1898,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v7(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v7(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v7 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1995,9 +1931,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v7(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v7(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -2106,10 +2040,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v4(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v4(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v4 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2222,8 +2153,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV4 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -2231,7 +2170,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -2261,10 +2204,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV8>, sqlx::Error> {
+    pub async fn get_rule_v8(&self, id: Uuid) -> Result<Option<SamplingRuleV8>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV8Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v8 WHERE id = $1"#,
@@ -2313,10 +2253,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v8(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v8 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2350,9 +2287,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v8(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v8(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -2461,10 +2396,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v5(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v5(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v5 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2577,8 +2509,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV5 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -2586,7 +2526,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -2616,10 +2560,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v9(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV9>, sqlx::Error> {
+    pub async fn get_rule_v9(&self, id: Uuid) -> Result<Option<SamplingRuleV9>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV9Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v9 WHERE id = $1"#,
@@ -2668,10 +2609,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v9(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v9(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v9 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2704,9 +2642,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v9(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v9(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -2815,10 +2751,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v6(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v6(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v6 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2931,8 +2864,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV6 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -2940,7 +2881,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -2970,10 +2915,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v10(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV10>, sqlx::Error> {
+    pub async fn get_rule_v10(&self, id: Uuid) -> Result<Option<SamplingRuleV10>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV10Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v10 WHERE id = $1"#,
@@ -3022,10 +2964,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v10(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v10(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v10 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3058,9 +2997,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v10(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v10(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -3169,10 +3106,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v7(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v7(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v7 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3285,8 +3219,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV7 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -3294,7 +3236,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -3324,10 +3270,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v11(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV11>, sqlx::Error> {
+    pub async fn get_rule_v11(&self, id: Uuid) -> Result<Option<SamplingRuleV11>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV11Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v11 WHERE id = $1"#,
@@ -3376,10 +3319,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v11(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v11(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v11 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3412,9 +3352,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v11(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v11(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -3523,10 +3461,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v8(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v8 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3615,8 +3550,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV8 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -3624,7 +3567,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -3654,10 +3601,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v12(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV12>, sqlx::Error> {
+    pub async fn get_rule_v12(&self, id: Uuid) -> Result<Option<SamplingRuleV12>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV12Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v12 WHERE id = $1"#,
@@ -3706,10 +3650,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v12(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v12(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v12 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3742,9 +3683,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v12(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v12(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -3853,10 +3792,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v9(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v9(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v9 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4464,10 +4400,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v13(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v13(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v13 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4564,10 +4497,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v10(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v10 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4807,10 +4737,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v14(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV14>, sqlx::Error> {
+    pub async fn get_rule_v14(&self, id: Uuid) -> Result<Option<SamplingRuleV14>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV14Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v14 WHERE id = $1"#,
@@ -4859,10 +4786,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v14(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v14(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v14 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4895,9 +4819,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v14(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v14(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -5006,10 +4928,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v11(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v11(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v11 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5125,7 +5044,11 @@ impl DistributedTracingV2Service {
                 recommended_capacity: r.current_load * 2.0,
                 bottleneck_endpoints: r.bottleneck_endpoints,
                 growth_rate: 0.5,
-                time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                time_to_capacity_hours: if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 0.5)) * 24.0
+                } else {
+                    f64::INFINITY
+                },
                 utilization_score: 0.0,
                 recommended_replicas: 2,
             })
@@ -5206,10 +5129,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v15(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v15(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v15 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5373,7 +5293,11 @@ impl DistributedTracingV2Service {
                 recommended_capacity: r.current_load * 2.0,
                 bottleneck_endpoints: r.bottleneck_endpoints,
                 growth_rate: 0.5,
-                time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                time_to_capacity_hours: if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 0.5)) * 24.0
+                } else {
+                    f64::INFINITY
+                },
                 utilization_score: 0.0,
                 recommended_replicas: 2,
             })
@@ -5454,10 +5378,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v16(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v16(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v16 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5490,9 +5411,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v16(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v16(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -5601,10 +5520,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v13(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v13(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v13 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5720,7 +5636,11 @@ impl DistributedTracingV2Service {
                 recommended_capacity: r.current_load * 2.0,
                 bottleneck_endpoints: r.bottleneck_endpoints,
                 growth_rate: 0.5,
-                time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                time_to_capacity_hours: if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 0.5)) * 24.0
+                } else {
+                    f64::INFINITY
+                },
                 utilization_score: 0.0,
                 recommended_replicas: 2,
             })
@@ -5749,10 +5669,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v17(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV17>, sqlx::Error> {
+    pub async fn get_rule_v17(&self, id: Uuid) -> Result<Option<SamplingRuleV17>, sqlx::Error> {
         let row = sqlx::query_as::<_, SamplingRuleV17Row>(
             r#"SELECT id, service_name, endpoint, sample_rate, max_traces_per_second, priority, enabled, created_at
              FROM trace_sampling_rules_v17 WHERE id = $1"#,
@@ -5801,10 +5718,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v17(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v17(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v17 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5837,9 +5751,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v17(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v17(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -5948,10 +5860,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v14(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v14(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v14 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6067,7 +5976,11 @@ impl DistributedTracingV2Service {
                 recommended_capacity: r.current_load * 2.0,
                 bottleneck_endpoints: r.bottleneck_endpoints,
                 growth_rate: 0.5,
-                time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                time_to_capacity_hours: if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 0.5)) * 24.0
+                } else {
+                    f64::INFINITY
+                },
                 utilization_score: 0.0,
                 recommended_replicas: 2,
             })
@@ -6254,10 +6167,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v18(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v18(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v18 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6290,9 +6200,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v18(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v18(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -6405,10 +6313,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v15(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v15(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v15 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6521,8 +6426,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV15 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -6530,7 +6443,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -6585,10 +6502,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_rule_v19(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<SamplingRuleV19>, sqlx::Error> {
+    pub async fn get_rule_v19(&self, id: Uuid) -> Result<Option<SamplingRuleV19>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct SamplingRuleV19Row {
             id: uuid::Uuid,
@@ -6712,10 +6626,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v19(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v19(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v19 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6760,9 +6671,7 @@ impl DistributedTracingV2Service {
         }
     }
 
-    pub async fn get_sampling_stats_v19(
-        &self,
-    ) -> Result<SamplingRuleStats, sqlx::Error> {
+    pub async fn get_sampling_stats_v19(&self) -> Result<SamplingRuleStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total: i64,
@@ -6963,10 +6872,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_service_dependency_v16(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_service_dependency_v16(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_service_dependencies_v16 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -7079,8 +6985,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV16 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -7088,7 +7002,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -7182,9 +7100,7 @@ impl DistributedTracingV2Service {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_rules_v20(
-        &self,
-    ) -> Result<Vec<SamplingRuleV20>, sqlx::Error> {
+    pub async fn list_rules_v20(&self) -> Result<Vec<SamplingRuleV20>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct SamplingRuleV20Row {
             id: uuid::Uuid,
@@ -7272,10 +7188,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn delete_rule_v20(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_rule_v20(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM trace_sampling_rules_v20 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -7370,9 +7283,7 @@ impl DistributedTracingV2Service {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_dependency_graph_v17(
-        &self,
-    ) -> Result<ServiceDependencyGraphV17, sqlx::Error> {
+    pub async fn get_dependency_graph_v17(&self) -> Result<ServiceDependencyGraphV17, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct TraceServiceDependencyV17Row {
             id: uuid::Uuid,
@@ -7508,8 +7419,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV17 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -7517,7 +7436,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }
@@ -7572,9 +7495,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn list_rules_v21(
-        &self,
-    ) -> Result<Vec<SamplingRuleV21>, sqlx::Error> {
+    pub async fn list_rules_v21(&self) -> Result<Vec<SamplingRuleV21>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct SamplingRuleV21Row {
             id: uuid::Uuid,
@@ -7658,9 +7579,7 @@ impl DistributedTracingV2Service {
         Ok(row.into())
     }
 
-    pub async fn get_dependency_graph_v18(
-        &self,
-    ) -> Result<ServiceDependencyGraphV18, sqlx::Error> {
+    pub async fn get_dependency_graph_v18(&self) -> Result<ServiceDependencyGraphV18, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct TraceServiceDependencyV18Row {
             id: uuid::Uuid,
@@ -7796,8 +7715,16 @@ impl DistributedTracingV2Service {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let utilization = if r.current_load > 0.0 { (r.current_load / (r.current_load * 2.0)).min(1.0) } else { 0.0 };
-                let recommended_replicas = if r.current_load > 0.0 { ((r.current_load * 2.0) / 1000.0).ceil() as i32 } else { 1 };
+                let utilization = if r.current_load > 0.0 {
+                    (r.current_load / (r.current_load * 2.0)).min(1.0)
+                } else {
+                    0.0
+                };
+                let recommended_replicas = if r.current_load > 0.0 {
+                    ((r.current_load * 2.0) / 1000.0).ceil() as i32
+                } else {
+                    1
+                };
                 CapacityPlanningDataV18 {
                     service_name: r.service_name,
                     current_load: r.current_load,
@@ -7805,7 +7732,11 @@ impl DistributedTracingV2Service {
                     recommended_capacity: r.current_load * 2.0,
                     bottleneck_endpoints: r.bottleneck_endpoints,
                     growth_rate: 0.5,
-                    time_to_capacity_hours: if r.current_load > 0.0 { (r.current_load / (r.current_load * 0.5)) * 24.0 } else { f64::INFINITY },
+                    time_to_capacity_hours: if r.current_load > 0.0 {
+                        (r.current_load / (r.current_load * 0.5)) * 24.0
+                    } else {
+                        f64::INFINITY
+                    },
                     utilization_score: utilization,
                     recommended_replicas,
                 }

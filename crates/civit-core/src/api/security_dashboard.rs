@@ -3,8 +3,7 @@
 use crate::api::AppState;
 use crate::error::CoreError;
 use axum::{
-    Router,
-    Json,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -70,11 +69,7 @@ pub struct TriggerScanRequest {
     pub scan_type: String,
 }
 
-async fn get_repo_id(
-    state: &AppState,
-    owner: &str,
-    name: &str,
-) -> Result<Uuid, CoreError> {
+async fn get_repo_id(state: &AppState, owner: &str, name: &str) -> Result<Uuid, CoreError> {
     let result = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM repositories WHERE owner_id = (SELECT id FROM users WHERE username = $1) AND name = $2",
     )
@@ -233,7 +228,21 @@ pub async fn list_findings(
         }
     };
 
-    let result = sqlx::query_as::<_, (String, String, String, String, String, String, Option<String>, Option<i32>, String, String)>(
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<i32>,
+            String,
+            String,
+        ),
+    >(
         r#"SELECT sf.id::text, sf.scan_id::text, sf.severity, sf.category, sf.title, sf.description,
                   sf.file_path, sf.line_number, sf.recommendation, sf.created_at::text
            FROM security_findings sf
@@ -263,7 +272,11 @@ pub async fn list_findings(
                 })
                 .collect();
             let total = findings.len();
-            (StatusCode::OK, Json(FindingListResponse { findings, total })).into_response()
+            (
+                StatusCode::OK,
+                Json(FindingListResponse { findings, total }),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -299,13 +312,12 @@ pub async fn security_dashboard(
         }
     };
 
-    let total_scans: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM security_scans WHERE repo_id = $1",
-    )
-    .bind(repo_id)
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
+    let total_scans: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM security_scans WHERE repo_id = $1")
+            .bind(repo_id)
+            .fetch_one(state.db.pool())
+            .await
+            .unwrap_or(0);
 
     let completed_scans: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM security_scans WHERE repo_id = $1 AND status = 'completed'",

@@ -5,12 +5,11 @@
 use crate::api::AppState;
 use crate::error::CoreError;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -58,11 +57,7 @@ pub struct ComplianceHistoryResponse {
     pub total: usize,
 }
 
-async fn get_repo_id(
-    pool: &sqlx::PgPool,
-    owner: &str,
-    name: &str,
-) -> Option<Uuid> {
+async fn get_repo_id(pool: &sqlx::PgPool, owner: &str, name: &str) -> Option<Uuid> {
     sqlx::query_scalar::<_, Uuid>(
         "SELECT r.id FROM repositories r JOIN users u ON r.owner_id = u.id WHERE u.username = $1 AND r.name = $2",
     )
@@ -74,7 +69,11 @@ async fn get_repo_id(
     .flatten()
 }
 
-fn generate_findings_for_type(report_type: &str, _repo_id: Uuid, _pool: &sqlx::PgPool) -> Vec<ComplianceFinding> {
+fn generate_findings_for_type(
+    report_type: &str,
+    _repo_id: Uuid,
+    _pool: &sqlx::PgPool,
+) -> Vec<ComplianceFinding> {
     let mut findings = Vec::new();
 
     match report_type {
@@ -98,7 +97,8 @@ fn generate_findings_for_type(report_type: &str, _repo_id: Uuid, _pool: &sqlx::P
                 severity: "info".into(),
                 title: "Encryption at rest".into(),
                 description: "Repository data stored on disk should use encrypted volumes".into(),
-                recommendation: "Enable LUKS or cloud-provider encryption for storage volumes".into(),
+                recommendation: "Enable LUKS or cloud-provider encryption for storage volumes"
+                    .into(),
             });
         }
         "GDPR" => {
@@ -337,7 +337,10 @@ pub async fn get_latest_compliance_report(
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(CoreError::NotFound("no compliance report found for this repository".into()).error_response()),
+            Json(
+                CoreError::NotFound("no compliance report found for this repository".into())
+                    .error_response(),
+            ),
         )
             .into_response(),
         Err(e) => (

@@ -2,16 +2,9 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,22 +117,29 @@ pub async fn list_api_analytics_v5(
     axum::extract::Query(query): axum::extract::Query<AnalyticsV5Query>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.list_api_analytics_v5(query.limit, query.offset).await {
+    match state
+        .db
+        .list_api_analytics_v5(query.limit, query.offset)
+        .await
+    {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticV5Response> = analytics.iter().map(|a| ApiAnalyticV5Response {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                cache_hit: a.cache_hit,
-                region: a.region.clone(),
-                user_agent: a.user_agent.clone(),
-                created_at: a.created_at,
-            }).collect();
+            let response: Vec<ApiAnalyticV5Response> = analytics
+                .iter()
+                .map(|a| ApiAnalyticV5Response {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    cache_hit: a.cache_hit,
+                    region: a.region.clone(),
+                    user_agent: a.user_agent.clone(),
+                    created_at: a.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -156,18 +156,22 @@ pub async fn create_api_analytic_v5(
     Json(req): Json<CreateApiAnalyticV5Request>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_api_analytic_v5(
-        &req.endpoint,
-        &req.method,
-        req.status_code,
-        req.response_time_ms,
-        req.user_id,
-        req.request_size_bytes,
-        req.response_size_bytes,
-        req.cache_hit,
-        &req.region,
-        req.user_agent.as_deref(),
-    ).await {
+    match state
+        .db
+        .create_api_analytic_v5(
+            &req.endpoint,
+            &req.method,
+            req.status_code,
+            req.response_time_ms,
+            req.user_id,
+            req.request_size_bytes,
+            req.response_size_bytes,
+            req.cache_hit,
+            &req.region,
+            req.user_agent.as_deref(),
+        )
+        .await
+    {
         Ok(analytic) => {
             let response = ApiAnalyticV5Response {
                 id: analytic.id,
@@ -200,12 +204,15 @@ pub async fn get_user_agent_analysis(
     let _ = auth;
     match state.db.get_user_agent_analysis().await {
         Ok(analysis) => {
-            let response: Vec<UserAgentAnalysis> = analysis.iter().map(|a| UserAgentAnalysis {
-                user_agent: a.0.clone(),
-                request_count: a.1,
-                avg_response_time_ms: a.2,
-                error_rate: a.3,
-            }).collect();
+            let response: Vec<UserAgentAnalysis> = analysis
+                .iter()
+                .map(|a| UserAgentAnalysis {
+                    user_agent: a.0.clone(),
+                    request_count: a.1,
+                    avg_response_time_ms: a.2,
+                    error_rate: a.3,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -223,13 +230,16 @@ pub async fn get_geographic_analytics(
     let _ = auth;
     match state.db.get_geographic_analytics().await {
         Ok(analytics) => {
-            let response: Vec<GeographicAnalytics> = analytics.iter().map(|a| GeographicAnalytics {
-                region: a.0.clone(),
-                request_count: a.1,
-                avg_response_time_ms: a.2,
-                error_rate: a.3,
-                unique_users: a.4,
-            }).collect();
+            let response: Vec<GeographicAnalytics> = analytics
+                .iter()
+                .map(|a| GeographicAnalytics {
+                    region: a.0.clone(),
+                    request_count: a.1,
+                    avg_response_time_ms: a.2,
+                    error_rate: a.3,
+                    unique_users: a.4,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -247,14 +257,17 @@ pub async fn get_performance_optimization(
     let _ = auth;
     match state.db.get_performance_optimization().await {
         Ok(optimizations) => {
-            let response: Vec<PerformanceOptimization> = optimizations.iter().map(|o| PerformanceOptimization {
-                endpoint: o.0.clone(),
-                method: o.1.clone(),
-                avg_response_time_ms: o.2,
-                p95_response_time_ms: o.3,
-                cache_hit_rate: o.4,
-                optimization_suggestions: o.5.clone(),
-            }).collect();
+            let response: Vec<PerformanceOptimization> = optimizations
+                .iter()
+                .map(|o| PerformanceOptimization {
+                    endpoint: o.0.clone(),
+                    method: o.1.clone(),
+                    avg_response_time_ms: o.2,
+                    p95_response_time_ms: o.3,
+                    cache_hit_rate: o.4,
+                    optimization_suggestions: o.5.clone(),
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -265,10 +278,7 @@ pub async fn get_performance_optimization(
     }
 }
 
-pub async fn get_cost_analysis(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn get_cost_analysis(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     let _ = auth;
     match state.db.get_cost_analysis().await {
         Ok(analysis) => {
@@ -277,16 +287,24 @@ pub async fn get_cost_analysis(
                 total_request_bytes: analysis.1,
                 total_response_bytes: analysis.2,
                 estimated_cost_cents: analysis.3,
-                cost_by_region: analysis.4.into_iter().map(|(region, requests, cost)| RegionCost {
-                    region,
-                    requests,
-                    cost_cents: cost,
-                }).collect(),
-                cost_by_user_agent: analysis.5.into_iter().map(|(ua, requests, cost)| UserAgentCost {
-                    user_agent: ua,
-                    requests,
-                    cost_cents: cost,
-                }).collect(),
+                cost_by_region: analysis
+                    .4
+                    .into_iter()
+                    .map(|(region, requests, cost)| RegionCost {
+                        region,
+                        requests,
+                        cost_cents: cost,
+                    })
+                    .collect(),
+                cost_by_user_agent: analysis
+                    .5
+                    .into_iter()
+                    .map(|(ua, requests, cost)| UserAgentCost {
+                        user_agent: ua,
+                        requests,
+                        cost_cents: cost,
+                    })
+                    .collect(),
             };
             (StatusCode::OK, Json(response)).into_response()
         }
@@ -300,10 +318,22 @@ pub async fn get_cost_analysis(
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v5/analytics", get(list_api_analytics_v5).post(create_api_analytic_v5))
-        .route("/api/v5/analytics/user-agents", get(get_user_agent_analysis))
-        .route("/api/v5/analytics/geographic", get(get_geographic_analytics))
-        .route("/api/v5/analytics/performance", get(get_performance_optimization))
+        .route(
+            "/api/v5/analytics",
+            get(list_api_analytics_v5).post(create_api_analytic_v5),
+        )
+        .route(
+            "/api/v5/analytics/user-agents",
+            get(get_user_agent_analysis),
+        )
+        .route(
+            "/api/v5/analytics/geographic",
+            get(get_geographic_analytics),
+        )
+        .route(
+            "/api/v5/analytics/performance",
+            get(get_performance_optimization),
+        )
         .route("/api/v5/analytics/cost", get(get_cost_analysis))
 }
 

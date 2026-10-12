@@ -6,7 +6,7 @@
 //! All tests create unique resources and clean up after themselves.
 
 use reqwest::{Client, StatusCode};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::time::Duration;
 
 const DEFAULT_BASE_URL: &str = "http://192.168.1.191:8080";
@@ -79,11 +79,7 @@ where
     unreachable!()
 }
 
-async fn api_post(
-    url: &str,
-    body: Value,
-    token: Option<&str>,
-) -> (StatusCode, Value) {
+async fn api_post(url: &str, body: Value, token: Option<&str>) -> (StatusCode, Value) {
     let url = url.to_string();
     let body_str = body.to_string();
     let token = token.map(|s| s.to_string());
@@ -199,7 +195,12 @@ async fn api_delete(url: &str, token: Option<&str>) -> StatusCode {
     .await
 }
 
-async fn api_post_form(url: &str, body: &str, content_type: &str, token: Option<&str>) -> (StatusCode, Value) {
+async fn api_post_form(
+    url: &str,
+    body: &str,
+    content_type: &str,
+    token: Option<&str>,
+) -> (StatusCode, Value) {
     let url = url.to_string();
     let body_str = body.to_string();
     let ct = content_type.to_string();
@@ -370,18 +371,29 @@ async fn test_oauth2_flow() {
     )
     .await;
     println!("[OAUTH REGISTER CLIENT] status={status} body={resp}");
-    if status.is_server_error() || status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN {
-        println!("[OAUTH REGISTER CLIENT] endpoint not available or requires admin, skipping OAuth flow");
+    if status.is_server_error()
+        || status == StatusCode::UNAUTHORIZED
+        || status == StatusCode::FORBIDDEN
+    {
+        println!(
+            "[OAUTH REGISTER CLIENT] endpoint not available or requires admin, skipping OAuth flow"
+        );
         return;
     }
-    assert_eq!(status, StatusCode::CREATED, "oauth client registration failed: {status}");
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "oauth client registration failed: {status}"
+    );
     let client_id = resp["client_id"].as_str().unwrap().to_string();
 
     // OAuth authorize (returns a redirect with code, we just check it doesn't error)
     let url = format!(
         "{base}/api/v1/oauth/authorize?client_id={client_id}&redirect_uri=http://localhost:9999/callback&response_type=code&code_challenge=test_challenge&code_challenge_method=S256"
     );
-    let req = client().get(&url).header("authorization", format!("Bearer {token}"));
+    let req = client()
+        .get(&url)
+        .header("authorization", format!("Bearer {token}"));
     let resp = req.send().await.unwrap();
     let status = resp.status();
     let text = resp.text().await.unwrap_or_default();
@@ -403,18 +415,18 @@ async fn test_oauth2_flow() {
     .await;
     println!("[OAUTH TOKEN] status={status} body={resp}");
     // We expect this to fail with the dummy code, but the endpoint should be reachable
-    assert_ne!(status, StatusCode::NOT_FOUND, "oauth token endpoint not found");
+    assert_ne!(
+        status,
+        StatusCode::NOT_FOUND,
+        "oauth token endpoint not found"
+    );
 }
 
 // ---------------------------------------------------------------------------
 // 2. Repository Operations
 // ---------------------------------------------------------------------------
 
-async fn create_repo_helper(
-    token: &str,
-    owner: &str,
-    name: &str,
-) -> Value {
+async fn create_repo_helper(token: &str, owner: &str, name: &str) -> Value {
     let base = base_url();
     let url = format!("{base}/api/v1/repos");
     let body = json!({
@@ -443,7 +455,7 @@ async fn test_repo_crud() {
     let (token, _) = register_and_login(&username, &email).await;
 
     // Create
-    let json =     create_repo_helper(&token, &username, &repo_name).await;
+    let json = create_repo_helper(&token, &username, &repo_name).await;
     assert_eq!(json["name"], repo_name);
     println!("[REPO CREATE] OK name={repo_name}");
 
@@ -622,35 +634,20 @@ async fn test_issue_crud() {
 
     // Add comment
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/issues/{issue_number}/comments");
-    let (status, json) = api_post(
-        &url,
-        json!({"body": "Nice work!"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_post(&url, json!({"body": "Nice work!"}), Some(&token)).await;
     println!("[ISSUE COMMENT] status={status} body={}", json["body"]);
     assert_eq!(status, StatusCode::CREATED);
 
     // Close issue
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/issues/{issue_number}");
-    let (status, json) = api_patch(
-        &url,
-        json!({"state": "closed"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_patch(&url, json!({"state": "closed"}), Some(&token)).await;
     println!("[ISSUE CLOSE] status={status} state={}", json["status"]);
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["status"], "closed");
 
     // Reopen issue
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/issues/{issue_number}");
-    let (status, json) = api_patch(
-        &url,
-        json!({"state": "open"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_patch(&url, json!({"state": "open"}), Some(&token)).await;
     println!("[ISSUE REOPEN] status={status} state={}", json["status"]);
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["status"], "open");
@@ -676,12 +673,7 @@ async fn test_issue_pin_lock() {
 
     // Create issue (may fail on server-side if repo has no commits)
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/issues");
-    let (_, json) = api_post(
-        &url,
-        json!({"title": "Pinnable issue"}),
-        Some(&token),
-    )
-    .await;
+    let (_, json) = api_post(&url, json!({"title": "Pinnable issue"}), Some(&token)).await;
     let number = match json["number"].as_i64() {
         Some(n) => n,
         None => {
@@ -777,7 +769,8 @@ async fn test_pr_review_and_merge() {
     let repo_name = format!("mergerepo-{id}");
     let base = base_url();
 
-    let (owner_token, owner_json) = register_and_login(&owner, &format!("{owner}@test.example")).await;
+    let (owner_token, owner_json) =
+        register_and_login(&owner, &format!("{owner}@test.example")).await;
     let owner_id = owner_json["user"]["id"].as_str().unwrap_or("");
     let (_rev_token, _) = register_and_login(&reviewer, &format!("{reviewer}@test.example")).await;
 
@@ -798,25 +791,20 @@ async fn test_pr_review_and_merge() {
     let pr_number = json["number"].as_i64().unwrap();
 
     // Submit review (may fail on server-side with 500 if branches don't exist)
-    let url = format!("{base}/api/v1/repos/{owner}/{repo_name}/pulls/{pr_number}/reviews/{owner_id}");
-    let (status, json) = api_post(
-        &url,
-        json!({"status": "approved"}),
-        Some(&owner_token),
-    )
-    .await;
+    let url =
+        format!("{base}/api/v1/repos/{owner}/{repo_name}/pulls/{pr_number}/reviews/{owner_id}");
+    let (status, json) = api_post(&url, json!({"status": "approved"}), Some(&owner_token)).await;
     println!("[PR REVIEW] status={status} body={json}");
     assert_ne!(status, StatusCode::NOT_FOUND, "review endpoint not found");
-    assert_ne!(status, StatusCode::METHOD_NOT_ALLOWED, "review method not allowed");
+    assert_ne!(
+        status,
+        StatusCode::METHOD_NOT_ALLOWED,
+        "review method not allowed"
+    );
 
     // Merge PR
     let url = format!("{base}/api/v1/repos/{owner}/{repo_name}/pulls/{pr_number}/merge");
-    let (status, json) = api_post(
-        &url,
-        json!({"strategy": "merge"}),
-        Some(&owner_token),
-    )
-    .await;
+    let (status, json) = api_post(&url, json!({"strategy": "merge"}), Some(&owner_token)).await;
     println!("[PR MERGE] status={status} body={json}");
     // Merge may fail if branches don't exist in a real git repo; we check the endpoint exists
     assert_ne!(status, StatusCode::NOT_FOUND, "merge endpoint not found");
@@ -1053,7 +1041,11 @@ async fn test_admin_site_settings() {
     .await;
     println!("[ADMIN UPDATE SETTINGS] status={status} body={json}");
     // May be 403 if user is not admin; that's acceptable
-    assert_ne!(status, StatusCode::NOT_FOUND, "admin settings endpoint not found");
+    assert_ne!(
+        status,
+        StatusCode::NOT_FOUND,
+        "admin settings endpoint not found"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1163,12 +1155,7 @@ async fn test_labels_and_milestones() {
 
     // Create milestone
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/milestones");
-    let (status, json) = api_post(
-        &url,
-        json!({"title": "v1.0 Release"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_post(&url, json!({"title": "v1.0 Release"}), Some(&token)).await;
     println!("[MILESTONE CREATE] status={status} title={}", json["title"]);
     assert_eq!(status, StatusCode::CREATED);
 
@@ -1279,12 +1266,7 @@ async fn test_environments_and_deployments() {
 
     // Create environment (POST may not be registered on all server builds)
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/environments");
-    let (status, json) = api_post(
-        &url,
-        json!({"name": "production"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_post(&url, json!({"name": "production"}), Some(&token)).await;
     println!("[ENV CREATE] status={status} name={}", json["name"]);
     if status == StatusCode::NOT_FOUND || status == StatusCode::METHOD_NOT_ALLOWED {
         println!("[ENV CREATE] endpoint not available, skipping environment/deployment tests");
@@ -1306,12 +1288,7 @@ async fn test_environments_and_deployments() {
 
     // Create deployment (may not be registered on all server builds)
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/deployments");
-    let (status, json) = api_post(
-        &url,
-        json!({"sha": "abc123def456"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_post(&url, json!({"sha": "abc123def456"}), Some(&token)).await;
     println!("[DEPLOY CREATE] status={status} sha={}", json["sha"]);
     if status == StatusCode::NOT_FOUND || status == StatusCode::METHOD_NOT_ALLOWED {
         println!("[DEPLOY CREATE] endpoint not available, skipping deployment tests");
@@ -1334,12 +1311,7 @@ async fn test_environments_and_deployments() {
 
     // Update deployment status
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/deployments/{dep_id}/status");
-    let (status, json) = api_patch(
-        &url,
-        json!({"status": "success"}),
-        Some(&token),
-    )
-    .await;
+    let (status, json) = api_patch(&url, json!({"status": "success"}), Some(&token)).await;
     println!("[DEPLOY STATUS] status={status} body={json}");
     assert_eq!(status, StatusCode::OK);
 
@@ -1382,7 +1354,10 @@ async fn test_branch_protection() {
         Some(&token),
     )
     .await;
-    println!("[BP SET] status={status} pattern={}", json["branch_pattern"]);
+    println!(
+        "[BP SET] status={status} pattern={}",
+        json["branch_pattern"]
+    );
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["branch_pattern"], "main");
 
@@ -1426,12 +1401,7 @@ async fn test_merge_queue() {
 
     // Add to merge queue
     let url = format!("{base}/api/v1/repos/{username}/{repo_name}/merge-queue");
-    let (status, _) = api_post(
-        &url,
-        json!({"pr_number": pr_number}),
-        Some(&token),
-    )
-    .await;
+    let (status, _) = api_post(&url, json!({"pr_number": pr_number}), Some(&token)).await;
     println!("[MQ ADD] status={status}");
     assert_eq!(status, StatusCode::CREATED);
 

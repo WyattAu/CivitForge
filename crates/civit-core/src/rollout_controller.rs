@@ -90,18 +90,16 @@ impl RolloutControllerConfig {
     ///
     /// # Errors
     /// Same contract as [`Self::from_env`].
-    pub fn from_lookup(
-        get: impl Fn(&str) -> Option<String>,
-    ) -> std::result::Result<Self, String> {
-        let parse =
-            |name: &str, default: u64| -> std::result::Result<u64, String> {
-                match get(name) {
-                    None => Ok(default),
-                    Some(raw) => raw.trim().parse::<u64>().map_err(|_| {
-                        format!("{name} must be a non-negative integer, got {raw:?}")
-                    }),
-                }
-            };
+    pub fn from_lookup(get: impl Fn(&str) -> Option<String>) -> std::result::Result<Self, String> {
+        let parse = |name: &str, default: u64| -> std::result::Result<u64, String> {
+            match get(name) {
+                None => Ok(default),
+                Some(raw) => raw
+                    .trim()
+                    .parse::<u64>()
+                    .map_err(|_| format!("{name} must be a non-negative integer, got {raw:?}")),
+            }
+        };
 
         let tick_secs = parse("CIVIT_ROLLOUT_TICK_SECS", 60)?;
         if tick_secs == 0 {
@@ -218,7 +216,10 @@ impl RolloutController {
     /// Returns `Err` only when the flag list cannot be read. A per-flag
     /// failure is logged and skipped: one broken flag must not stop the
     /// others from being gated.
-    pub async fn tick_once(&self, window: &civit_telemetry::HealthWindow) -> Result<Vec<Observation>> {
+    pub async fn tick_once(
+        &self,
+        window: &civit_telemetry::HealthWindow,
+    ) -> Result<Vec<Observation>> {
         let flags = self.db.list_in_flight_rollout_flags().await?;
         let snapshot = window.snapshot();
         let mut out = Vec::with_capacity(flags.len());
@@ -260,7 +261,11 @@ impl RolloutController {
             ),
             None => {
                 let started = self.db.start_flag_rollout(flag.id).await?;
-                (started.stage_index.max(0) as usize, 0, started.stage_started_at)
+                (
+                    started.stage_index.max(0) as usize,
+                    0,
+                    started.stage_started_at,
+                )
             }
         };
 
@@ -295,9 +300,7 @@ impl RolloutController {
                 // again in this reimplementation.
                 if restored.advance().is_err() {
                     // Gate complete: the rollout is finished, not promoted.
-                    self.db
-                        .set_feature_flag_percentage(flag.id, 100)
-                        .await?;
+                    self.db.set_feature_flag_percentage(flag.id, 100).await?;
                     self.persist(
                         flag,
                         "completed",
@@ -337,7 +340,11 @@ impl RolloutController {
                 restored.restart();
                 (0, restored.stage_index(), restored.consecutive_failures())
             }
-            Decision::Hold => (percentage_before, restored.stage_index(), restored.consecutive_failures()),
+            Decision::Hold => (
+                percentage_before,
+                restored.stage_index(),
+                restored.consecutive_failures(),
+            ),
         };
 
         self.persist(
@@ -435,9 +442,7 @@ mod tests {
 
     /// Lookup table for tests; no process-env mutation, so parallel tests
     /// cannot interfere and `forbid(unsafe_code)` stays intact.
-    fn lookup_of(
-        vars: &[(&'static str, &'static str)],
-    ) -> impl Fn(&str) -> Option<String> {
+    fn lookup_of(vars: &[(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
         move |name: &str| {
             vars.iter()
                 .find(|(k, _)| *k == name)

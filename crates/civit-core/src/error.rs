@@ -163,12 +163,17 @@ impl error_classify::AppError for CoreError {
     fn recovery_class(&self) -> error_classify::RecoveryClass {
         match self {
             // Transient — retry with backoff may succeed
-            Self::Database(_) | Self::Git(_) | Self::Io(_) | Self::Search(_)
-            | Self::TooManyRequests(_) | Self::Federation(_) => {
-                error_classify::RecoveryClass::Retryable
-            }
+            Self::Database(_)
+            | Self::Git(_)
+            | Self::Io(_)
+            | Self::Search(_)
+            | Self::TooManyRequests(_)
+            | Self::Federation(_) => error_classify::RecoveryClass::Retryable,
             // User must act
-            Self::Auth(_) | Self::Forbidden(_) | Self::Jwt(_) | Self::BadRequest(_)
+            Self::Auth(_)
+            | Self::Forbidden(_)
+            | Self::Jwt(_)
+            | Self::BadRequest(_)
             | Self::Json(_) => error_classify::RecoveryClass::UserAction,
             // Permanent
             Self::NotFound(_) => error_classify::RecoveryClass::Permanent,

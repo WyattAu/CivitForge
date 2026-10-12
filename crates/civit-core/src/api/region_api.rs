@@ -5,12 +5,11 @@ use crate::api::auth::{AuthUser, require_admin};
 use crate::error::CoreError;
 use crate::multi_region::MultiRegionService;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -108,10 +107,7 @@ pub fn region_routes() -> Router<AppState> {
         .route("/api/v1/regions/replication", get(get_replication_status))
 }
 
-pub async fn list_regions(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-) -> Response {
+pub async fn list_regions(State(state): State<AppState>, _auth: AuthUser) -> Response {
     let pool = state.db.pool().clone();
     let svc = MultiRegionService::new(pool);
 
@@ -254,10 +250,7 @@ pub async fn trigger_failover(
     }
 }
 
-pub async fn get_replication_status(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-) -> Response {
+pub async fn get_replication_status(State(state): State<AppState>, _auth: AuthUser) -> Response {
     let pool = state.db.pool().clone();
     let svc = MultiRegionService::new(pool);
 

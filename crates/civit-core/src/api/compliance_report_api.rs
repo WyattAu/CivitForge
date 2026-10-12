@@ -237,10 +237,7 @@ async fn list_frameworks(
 
     let total = frameworks.len() as u32;
 
-    Ok(Json(FrameworksListResponse {
-        frameworks,
-        total,
-    }))
+    Ok(Json(FrameworksListResponse { frameworks, total }))
 }
 
 async fn schedule_report(
@@ -251,15 +248,13 @@ async fn schedule_report(
     if !valid_frameworks.contains(&req.framework.to_uppercase().as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(
-                serde_json::json!({
-                    "error": format!(
-                        "invalid framework: {}, must be one of {}",
-                        req.framework,
-                        valid_frameworks.join(", ")
-                    )
-                }),
-            ),
+            Json(serde_json::json!({
+                "error": format!(
+                    "invalid framework: {}, must be one of {}",
+                    req.framework,
+                    valid_frameworks.join(", ")
+                )
+            })),
         ));
     }
 
@@ -267,15 +262,13 @@ async fn schedule_report(
     if !valid_frequencies.contains(&req.frequency.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(
-                serde_json::json!({
-                    "error": format!(
-                        "invalid frequency: {}, must be one of {}",
-                        req.frequency,
-                        valid_frequencies.join(", ")
-                    )
-                }),
-            ),
+            Json(serde_json::json!({
+                "error": format!(
+                    "invalid frequency: {}, must be one of {}",
+                    req.frequency,
+                    valid_frequencies.join(", ")
+                )
+            })),
         ));
     }
 
@@ -283,15 +276,13 @@ async fn schedule_report(
     if !valid_distributions.contains(&req.distribution_method.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(
-                serde_json::json!({
-                    "error": format!(
-                        "invalid distribution_method: {}, must be one of {}",
-                        req.distribution_method,
-                        valid_distributions.join(", ")
-                    )
-                }),
-            ),
+            Json(serde_json::json!({
+                "error": format!(
+                    "invalid distribution_method: {}, must be one of {}",
+                    req.distribution_method,
+                    valid_distributions.join(", ")
+                )
+            })),
         ));
     }
 
@@ -328,18 +319,12 @@ async fn list_schedules(
 pub fn compliance_report_api_routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/compliance/report", get(generate_compliance_report))
-        .route(
-            "/api/v1/compliance/evidence",
-            get(collect_evidence),
-        )
+        .route("/api/v1/compliance/evidence", get(collect_evidence))
         .route(
             "/api/v1/compliance/schedule",
             post(schedule_report).get(list_schedules),
         )
-        .route(
-            "/api/v1/compliance/frameworks",
-            get(list_frameworks),
-        )
+        .route("/api/v1/compliance/frameworks", get(list_frameworks))
 }
 
 #[cfg(test)]

@@ -4,11 +4,11 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -264,12 +264,12 @@ async fn get_performance_alerts(
     Path(suite_id): Path<Uuid>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
-    match state.db.get_test_suite_performance_alerts_v21(suite_id).await {
-        Ok(alerts) => (
-            StatusCode::OK,
-            Json(PerformanceAlertResponse { alerts }),
-        )
-            .into_response(),
+    match state
+        .db
+        .get_test_suite_performance_alerts_v21(suite_id)
+        .await
+    {
+        Ok(alerts) => (StatusCode::OK, Json(PerformanceAlertResponse { alerts })).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(CoreError::Database(e.to_string()).error_response()),
@@ -509,10 +509,9 @@ mod tests {
 
     #[test]
     fn test_record_metric_request() {
-        let req: RecordMetricRequest = serde_json::from_str(
-            r#"{"metric_name": "test_duration", "metric_value": 42.5}"#,
-        )
-        .unwrap();
+        let req: RecordMetricRequest =
+            serde_json::from_str(r#"{"metric_name": "test_duration", "metric_value": 42.5}"#)
+                .unwrap();
         assert_eq!(req.metric_name, "test_duration");
         assert_eq!(req.metric_value, 42.5);
     }

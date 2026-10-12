@@ -5,16 +5,9 @@
 
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,22 +75,27 @@ pub struct ChangelogSections {
     pub security: Vec<String>,
 }
 
-pub async fn list_api_versions(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn list_api_versions(State(state): State<AppState>) -> impl IntoResponse {
     match state.db.list_api_versions().await {
         Ok(versions) => {
-            let response: Vec<ApiVersionResponse> = versions.iter().map(|v| ApiVersionResponse {
-                id: v.id,
-                version: v.version.clone(),
-                status: v.status.clone(),
-                release_date: v.release_date,
-                deprecation_date: v.deprecation_date,
-                sunset_date: v.sunset_date,
-                changelog: v.changelog.clone(),
-                created_at: v.created_at,
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"versions": response}))).into_response()
+            let response: Vec<ApiVersionResponse> = versions
+                .iter()
+                .map(|v| ApiVersionResponse {
+                    id: v.id,
+                    version: v.version.clone(),
+                    status: v.status.clone(),
+                    release_date: v.release_date,
+                    deprecation_date: v.deprecation_date,
+                    sunset_date: v.sunset_date,
+                    changelog: v.changelog.clone(),
+                    created_at: v.created_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"versions": response})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -142,7 +140,11 @@ pub async fn create_api_version(
         return rejection.into_response();
     }
 
-    match state.db.create_api_version(&req.version, &req.status, &req.changelog).await {
+    match state
+        .db
+        .create_api_version(&req.version, &req.status, &req.changelog)
+        .await
+    {
         Ok(v) => {
             let response = ApiVersionResponse {
                 id: v.id,
@@ -174,7 +176,11 @@ pub async fn deprecate_api_version(
         return rejection.into_response();
     }
 
-    match state.db.deprecate_api_version(&version, req.deprecation_date, req.sunset_date).await {
+    match state
+        .db
+        .deprecate_api_version(&version, req.deprecation_date, req.sunset_date)
+        .await
+    {
         Ok(v) => {
             let response = ApiVersionResponse {
                 id: v.id,
@@ -240,11 +246,23 @@ pub async fn get_version_changelog(
 
 pub fn api_version_routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/versions", get(list_api_versions).post(create_api_version))
+        .route(
+            "/api/v1/versions",
+            get(list_api_versions).post(create_api_version),
+        )
         .route("/api/v1/versions/{version}", get(get_api_version))
-        .route("/api/v1/versions/{version}/deprecate", get(deprecate_api_version))
-        .route("/api/v1/versions/migration-guide/{from}/{to}", get(get_migration_guide))
-        .route("/api/v1/versions/{version}/changelog", get(get_version_changelog))
+        .route(
+            "/api/v1/versions/{version}/deprecate",
+            get(deprecate_api_version),
+        )
+        .route(
+            "/api/v1/versions/migration-guide/{from}/{to}",
+            get(get_migration_guide),
+        )
+        .route(
+            "/api/v1/versions/{version}/changelog",
+            get(get_version_changelog),
+        )
 }
 
 #[cfg(test)]

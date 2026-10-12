@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
 use chrono::{DateTime, Utc};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use parking_lot::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FeatureFlag {
@@ -61,8 +61,7 @@ impl FeatureFlagService {
     /// # Errors
     /// Returns an error string when the key is not a valid flag name.
     pub fn set_flag(&self, flag: FeatureFlag) -> Result<(), String> {
-        flag_kit::FlagName::new(flag.key.clone())
-            .map_err(|e| format!("invalid flag key: {e}"))?;
+        flag_kit::FlagName::new(flag.key.clone()).map_err(|e| format!("invalid flag key: {e}"))?;
         let mut flags = self.flags.lock();
         flags.insert(flag.key.clone(), flag);
         Ok(())
@@ -133,8 +132,6 @@ impl Default for FeatureFlagService {
     }
 }
 
-
-
 #[cfg(test)]
 fn test_flag(key: &str, name: &str, enabled: bool) -> FeatureFlag {
     FeatureFlag {
@@ -197,7 +194,8 @@ mod tests {
     #[test]
     fn test_is_enabled_false() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("off_flag", "Off Flag", false)).unwrap();
+        svc.set_flag(test_flag("off_flag", "Off Flag", false))
+            .unwrap();
         let ctx = EvaluationContext::new("user1");
         assert!(!svc.is_enabled("off_flag", &ctx));
     }
@@ -276,7 +274,8 @@ mod tests {
     #[test]
     fn test_get_variant_none() {
         let svc = FeatureFlagService::new();
-        svc.set_flag(test_flag("no_variant", "No Variant", true)).unwrap();
+        svc.set_flag(test_flag("no_variant", "No Variant", true))
+            .unwrap();
         let ctx = EvaluationContext::new("user1");
         assert_eq!(svc.get_variant("no_variant", &ctx), None);
     }

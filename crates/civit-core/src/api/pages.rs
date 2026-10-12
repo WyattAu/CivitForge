@@ -421,11 +421,7 @@ pub async fn update_deployment_status(
         );
     }
 
-    match state
-        .db
-        .update_pages_deployment_status(did, &req.sha)
-        .await
-    {
+    match state.db.update_pages_deployment_status(did, &req.sha).await {
         Ok(deployment) => {
             let resp = PagesDeploymentResponse {
                 id: deployment.id,
@@ -452,9 +448,7 @@ pub fn pages_routes() -> Router<AppState> {
     Router::new()
         .route(
             "/api/v1/repos/{owner}/{name}/pages",
-            get(get_pages)
-                .post(enable_pages)
-                .delete(disable_pages),
+            get(get_pages).post(enable_pages).delete(disable_pages),
         )
         .route(
             "/api/v1/repos/{owner}/{name}/pages/custom-domain",
@@ -480,7 +474,8 @@ mod tests {
 
     #[test]
     fn test_enable_pages_request_deserialize() {
-        let json = r#"{"url":"https://example.pages.dev","branch":"main","path":"/docs","public":true}"#;
+        let json =
+            r#"{"url":"https://example.pages.dev","branch":"main","path":"/docs","public":true}"#;
         let req: EnablePagesRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.url, "https://example.pages.dev");
         assert_eq!(req.branch, "main");

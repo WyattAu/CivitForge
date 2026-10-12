@@ -288,8 +288,10 @@ pub async fn list_sso_group_mappings(
     .await
     .unwrap_or_default();
 
-    let out: Vec<SsoGroupMappingResponse> =
-        rows.into_iter().map(SsoGroupMappingResponse::from).collect();
+    let out: Vec<SsoGroupMappingResponse> = rows
+        .into_iter()
+        .map(SsoGroupMappingResponse::from)
+        .collect();
     (StatusCode::OK, Json(out)).into_response()
 }
 
@@ -307,11 +309,10 @@ pub async fn create_sso_group_mapping(
     if !valid_roles.contains(&req.civitforge_role.as_str()) {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::Config(format!(
-                "invalid role: must be one of {:?}",
-                valid_roles
-            ))
-            .error_response()),
+            Json(
+                CoreError::Config(format!("invalid role: must be one of {:?}", valid_roles))
+                    .error_response(),
+            ),
         )
             .into_response();
     }
@@ -392,14 +393,8 @@ pub fn sso_routes() -> Router<AppState> {
             "/api/v1/admin/sessions",
             get(list_active_sessions).delete(revoke_all_sessions),
         )
-        .route(
-            "/api/v1/admin/sessions/{id}",
-            delete(revoke_session),
-        )
-        .route(
-            "/api/v1/admin/login-history",
-            get(list_login_history),
-        )
+        .route("/api/v1/admin/sessions/{id}", delete(revoke_session))
+        .route("/api/v1/admin/login-history", get(list_login_history))
         .route(
             "/api/v1/admin/sso-group-mappings",
             get(list_sso_group_mappings).post(create_sso_group_mapping),

@@ -5,9 +5,7 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
-use crate::pipeline_secrets::{
-    CreateSecretRequest, PipelineSecretsService, UpdateSecretRequest,
-};
+use crate::pipeline_secrets::{CreateSecretRequest, PipelineSecretsService, UpdateSecretRequest};
 use axum::extract::{Path, State};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -22,7 +20,9 @@ pub fn pipeline_secrets_v2_routes() -> Router<AppState> {
         )
         .route(
             "/api/v2/repos/{owner}/{repo}/secrets/{secret_name}",
-            get(get_secret_v2).put(update_secret_v2).delete(delete_secret_v2),
+            get(get_secret_v2)
+                .put(update_secret_v2)
+                .delete(delete_secret_v2),
         )
         .route(
             "/api/v2/repos/{owner}/{repo}/secrets/{secret_name}/rotate",
@@ -119,7 +119,10 @@ pub async fn create_secret_v2(
     let encrypted_value = req.value.as_bytes().to_vec();
 
     let service = PipelineSecretsService::new(pool.clone());
-    match service.create_secret(repo_id, req, encrypted_value, user_id).await {
+    match service
+        .create_secret(repo_id, req, encrypted_value, user_id)
+        .await
+    {
         Ok(secret) => (axum::http::StatusCode::CREATED, Json(secret)).into_response(),
         Err(e) => {
             let msg = e.to_string();
@@ -127,8 +130,10 @@ pub async fn create_secret_v2(
                 (
                     axum::http::StatusCode::CONFLICT,
                     Json(
-                        CoreError::BadRequest("secret name already exists in this environment".into())
-                            .error_response(),
+                        CoreError::BadRequest(
+                            "secret name already exists in this environment".into(),
+                        )
+                        .error_response(),
                     ),
                 )
                     .into_response()
@@ -319,7 +324,14 @@ pub async fn rotate_secret_v2(
 
     let service = PipelineSecretsService::new(pool.clone());
     match service
-        .rotate_secret(repo_id, &secret_name, "all", encrypted_value, user_id, reason)
+        .rotate_secret(
+            repo_id,
+            &secret_name,
+            "all",
+            encrypted_value,
+            user_id,
+            reason,
+        )
         .await
     {
         Ok(secret) => (axum::http::StatusCode::OK, Json(secret)).into_response(),

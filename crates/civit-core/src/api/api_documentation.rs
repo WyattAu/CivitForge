@@ -5,16 +5,9 @@
 
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,24 +64,34 @@ pub async fn list_api_documentation(
     let result = if let Some(tag) = &query.tag {
         state.db.search_api_documentation_by_tag(tag).await
     } else {
-        state.db.list_api_documentation(query.limit, query.offset).await
+        state
+            .db
+            .list_api_documentation(query.limit, query.offset)
+            .await
     };
 
     match result {
         Ok(docs) => {
-            let response: Vec<ApiDocumentationResponse> = docs.iter().map(|d| ApiDocumentationResponse {
-                id: d.id,
-                endpoint: d.endpoint.clone(),
-                method: d.method.clone(),
-                summary: d.summary.clone(),
-                description: d.description.clone(),
-                parameters: d.parameters.clone(),
-                request_body: d.request_body.clone(),
-                responses: d.responses.clone(),
-                tags: d.tags.clone(),
-                created_at: d.created_at,
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"documentation": response, "total": response.len()}))).into_response()
+            let response: Vec<ApiDocumentationResponse> = docs
+                .iter()
+                .map(|d| ApiDocumentationResponse {
+                    id: d.id,
+                    endpoint: d.endpoint.clone(),
+                    method: d.method.clone(),
+                    summary: d.summary.clone(),
+                    description: d.description.clone(),
+                    parameters: d.parameters.clone(),
+                    request_body: d.request_body.clone(),
+                    responses: d.responses.clone(),
+                    tags: d.tags.clone(),
+                    created_at: d.created_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"documentation": response, "total": response.len()})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -135,16 +138,20 @@ pub async fn create_api_documentation(
         return rejection.into_response();
     }
 
-    match state.db.create_api_documentation(
-        &req.endpoint,
-        &req.method,
-        &req.summary,
-        &req.description,
-        req.parameters,
-        req.request_body,
-        req.responses,
-        &req.tags,
-    ).await {
+    match state
+        .db
+        .create_api_documentation(
+            &req.endpoint,
+            &req.method,
+            &req.summary,
+            &req.description,
+            req.parameters,
+            req.request_body,
+            req.responses,
+            &req.tags,
+        )
+        .await
+    {
         Ok(doc) => {
             let response = ApiDocumentationResponse {
                 id: doc.id,
@@ -279,8 +286,14 @@ pub async fn get_api_playground() -> impl IntoResponse {
 
 pub fn api_documentation_routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/documentation", get(list_api_documentation).post(create_api_documentation))
-        .route("/api/v1/documentation/{endpoint}/{method}", get(get_api_documentation_for_endpoint))
+        .route(
+            "/api/v1/documentation",
+            get(list_api_documentation).post(create_api_documentation),
+        )
+        .route(
+            "/api/v1/documentation/{endpoint}/{method}",
+            get(get_api_documentation_for_endpoint),
+        )
         .route("/api/v1/playground", get(get_api_playground))
 }
 

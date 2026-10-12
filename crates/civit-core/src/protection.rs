@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-use serde::{Deserialize, Serialize};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BranchProtectionRule {

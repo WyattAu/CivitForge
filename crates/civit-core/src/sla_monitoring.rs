@@ -324,7 +324,10 @@ pub fn compute_compliance_percentage(measurements: &[SlaHistoricalEntry]) -> f64
     if measurements.is_empty() {
         return 0.0;
     }
-    let met_count = measurements.iter().filter(|m| m.status == SlaStatus::Met).count();
+    let met_count = measurements
+        .iter()
+        .filter(|m| m.status == SlaStatus::Met)
+        .count();
     (met_count as f64 / measurements.len() as f64) * 100.0
 }
 
@@ -383,7 +386,10 @@ pub fn generate_dashboard_data(
     let overall_compliance = if current_statuses.is_empty() {
         0.0
     } else {
-        current_statuses.iter().map(|s| s.compliance_percentage).sum::<f64>()
+        current_statuses
+            .iter()
+            .map(|s| s.compliance_percentage)
+            .sum::<f64>()
             / current_statuses.len() as f64
     };
 
@@ -416,10 +422,8 @@ pub fn build_report(
     let mut sla_results = Vec::new();
 
     for sla in definitions {
-        let relevant: Vec<&SlaMeasurement> = measurements
-            .iter()
-            .filter(|m| m.sla_id == sla.id)
-            .collect();
+        let relevant: Vec<&SlaMeasurement> =
+            measurements.iter().filter(|m| m.sla_id == sla.id).collect();
 
         if relevant.is_empty() {
             continue;
@@ -464,8 +468,7 @@ pub fn build_report(
     let overall_compliance = if sla_results.is_empty() {
         0.0
     } else {
-        sla_results.iter().map(|r| r.uptime_percentage).sum::<f64>()
-            / sla_results.len() as f64
+        sla_results.iter().map(|r| r.uptime_percentage).sum::<f64>() / sla_results.len() as f64
     };
 
     let total_breaches: u32 = sla_results.iter().map(|r| r.breach_count).sum();
@@ -490,17 +493,26 @@ mod tests {
 
     #[test]
     fn test_sla_status_uptime_met() {
-        assert_eq!(compute_sla_status(99.9, 99.95, SlaMetricType::Uptime), SlaStatus::Met);
+        assert_eq!(
+            compute_sla_status(99.9, 99.95, SlaMetricType::Uptime),
+            SlaStatus::Met
+        );
     }
 
     #[test]
     fn test_sla_status_uptime_breached() {
-        assert_eq!(compute_sla_status(99.9, 99.5, SlaMetricType::Uptime), SlaStatus::Breached);
+        assert_eq!(
+            compute_sla_status(99.9, 99.5, SlaMetricType::Uptime),
+            SlaStatus::Breached
+        );
     }
 
     #[test]
     fn test_sla_status_uptime_at_risk() {
-        assert_eq!(compute_sla_status(99.9, 99.85, SlaMetricType::Uptime), SlaStatus::AtRisk);
+        assert_eq!(
+            compute_sla_status(99.9, 99.85, SlaMetricType::Uptime),
+            SlaStatus::AtRisk
+        );
     }
 
     #[test]

@@ -117,45 +117,50 @@ async fn authenticate_scim_token(state: &AppState, auth_header: &str) -> Result<
 // ---------------------------------------------------------------------------
 // GET /api/v1/scim/v2/Users
 // ---------------------------------------------------------------------------
-pub async fn scim_list_users(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn scim_list_users(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
 
     let pool = state.db.pool();
-    let rows: Vec<(Uuid, String, String, String, bool, chrono::DateTime<chrono::Utc>)> =
-        sqlx::query_as(
-            "SELECT id, username, email, display_name, banned, created_at
+    let rows: Vec<(
+        Uuid,
+        String,
+        String,
+        String,
+        bool,
+        chrono::DateTime<chrono::Utc>,
+    )> = sqlx::query_as(
+        "SELECT id, username, email, display_name, banned, created_at
              FROM users ORDER BY username LIMIT 1000",
-        )
-        .fetch_all(pool)
-        .await
-        .unwrap_or_default();
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
 
     let users: Vec<ScimUser> = rows
         .into_iter()
-        .map(|(id, username, email, display_name, active, created_at)| ScimUser {
-            schemas: vec!["urn:ietf:params:scim:schemas:core:2.0:User".into()],
-            id: Some(id.to_string()),
-            external_id: None,
-            user_name: username,
-            display_name: Some(display_name),
-            emails: Some(vec![ScimEmail {
-                value: email,
-                email_type: Some("work".into()),
-                primary: Some(true),
-            }]),
-            active: Some(!active), // banned = true means active = false
-            groups: None,
-            meta: Some(ScimMeta {
-                resource_type: "User".into(),
-                created: Some(created_at.to_rfc3339()),
-                last_modified: None,
-            }),
-        })
+        .map(
+            |(id, username, email, display_name, active, created_at)| ScimUser {
+                schemas: vec!["urn:ietf:params:scim:schemas:core:2.0:User".into()],
+                id: Some(id.to_string()),
+                external_id: None,
+                user_name: username,
+                display_name: Some(display_name),
+                emails: Some(vec![ScimEmail {
+                    value: email,
+                    email_type: Some("work".into()),
+                    primary: Some(true),
+                }]),
+                active: Some(!active), // banned = true means active = false
+                groups: None,
+                meta: Some(ScimMeta {
+                    resource_type: "User".into(),
+                    created: Some(created_at.to_rfc3339()),
+                    last_modified: None,
+                }),
+            },
+        )
         .collect();
 
     let resp = ScimListResponse {
@@ -289,13 +294,11 @@ pub async fn scim_update_user(
         .unwrap_or_else(|| scim_user.user_name.clone());
 
     let pool = state.db.pool();
-    let result = sqlx::query(
-        "UPDATE users SET display_name = $1 WHERE id = $2",
-    )
-    .bind(&display_name)
-    .bind(user_uuid)
-    .execute(pool)
-    .await;
+    let result = sqlx::query("UPDATE users SET display_name = $1 WHERE id = $2")
+        .bind(&display_name)
+        .bind(user_uuid)
+        .execute(pool)
+        .await;
 
     match result {
         Ok(_) => {
@@ -387,10 +390,7 @@ pub async fn scim_delete_user(
 // ---------------------------------------------------------------------------
 // GET /api/v1/scim/v2/Groups
 // ---------------------------------------------------------------------------
-pub async fn scim_list_groups(
-    State(_state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn scim_list_groups(State(_state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }

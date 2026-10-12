@@ -3,8 +3,7 @@
 use crate::api::AppState;
 use crate::error::CoreError;
 use axum::{
-    Json,
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -59,11 +58,7 @@ pub struct ScanDependenciesRequest {
     pub ecosystem: Option<String>,
 }
 
-async fn get_repo_id(
-    state: &AppState,
-    owner: &str,
-    name: &str,
-) -> Result<Uuid, CoreError> {
+async fn get_repo_id(state: &AppState, owner: &str, name: &str) -> Result<Uuid, CoreError> {
     let result = sqlx::query_scalar::<_, Uuid>(
         "SELECT id FROM repositories WHERE owner_id = (SELECT id FROM users WHERE username = $1) AND name = $2",
     )
@@ -79,7 +74,9 @@ async fn get_repo_id(
     }
 }
 
-fn scan_repo_dependencies(repo_path: &std::path::Path) -> Result<Vec<(String, String, String)>, String> {
+fn scan_repo_dependencies(
+    repo_path: &std::path::Path,
+) -> Result<Vec<(String, String, String)>, String> {
     let repo = gix::open(repo_path).map_err(|e| format!("git error: {e}"))?;
 
     let head_id = repo.head_id().map_err(|e| format!("git error: {e}"))?;
@@ -142,14 +139,30 @@ fn scan_repo_dependencies(repo_path: &std::path::Path) -> Result<Vec<(String, St
                     for line in content.lines() {
                         let line = line.trim();
                         if ecosystem == "cargo" && line.starts_with("name") {
-                            if let Some(name) = line.split('=').nth(1).map(|s| s.trim().trim_matches('"')) {
-                                deps.push((name.to_string(), "unknown".to_string(), ecosystem.to_string()));
+                            if let Some(name) =
+                                line.split('=').nth(1).map(|s| s.trim().trim_matches('"'))
+                            {
+                                deps.push((
+                                    name.to_string(),
+                                    "unknown".to_string(),
+                                    ecosystem.to_string(),
+                                ));
                             }
-                        } else if ecosystem == "npm" && line.contains("\"name\"")
-                            && let Some(name) = line.split(':').nth(1).map(|s| s.trim().trim_matches('"').trim_matches(','))
-                                && !name.starts_with('@') && name != "name" {
-                                    deps.push((name.to_string(), "unknown".to_string(), ecosystem.to_string()));
-                                }
+                        } else if ecosystem == "npm"
+                            && line.contains("\"name\"")
+                            && let Some(name) = line
+                                .split(':')
+                                .nth(1)
+                                .map(|s| s.trim().trim_matches('"').trim_matches(','))
+                            && !name.starts_with('@')
+                            && name != "name"
+                        {
+                            deps.push((
+                                name.to_string(),
+                                "unknown".to_string(),
+                                ecosystem.to_string(),
+                            ));
+                        }
                     }
                 }
             }
@@ -300,7 +313,10 @@ pub async fn list_dependencies(
                 .collect();
             let total = dependencies.len();
             let outdated_count = dependencies.iter().filter(|d| d.is_outdated).count();
-            let vulnerable_count = dependencies.iter().filter(|d| d.has_vulnerabilities).count();
+            let vulnerable_count = dependencies
+                .iter()
+                .filter(|d| d.has_vulnerabilities)
+                .count();
             (
                 StatusCode::OK,
                 Json(DependencyListResponse {
@@ -338,7 +354,19 @@ pub async fn list_vulnerabilities(
         }
     };
 
-    let result = sqlx::query_as::<_, (String, String, String, String, String, Option<String>, Option<String>, String)>(
+    let result = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            String,
+        ),
+    >(
         r#"SELECT va.id::text, va.dependency_id::text, va.severity, va.title, va.description,
                   va.url, va.patched_version, va.created_at::text
            FROM vulnerability_advisories va

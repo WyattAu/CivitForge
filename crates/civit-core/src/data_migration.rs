@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MigrationConfig {
@@ -211,9 +211,7 @@ mod tests {
     #[test]
     fn test_in_memory_create_plan() {
         let mgr = InMemoryMigrationManager::new();
-        let plan = mgr
-            .create_plan("source-db", "dest-db", "full")
-            .unwrap();
+        let plan = mgr.create_plan("source-db", "dest-db", "full").unwrap();
         assert_eq!(plan.source, "source-db");
         assert_eq!(plan.destination, "dest-db");
         assert_eq!(plan.migration_type, "full");
@@ -223,9 +221,7 @@ mod tests {
     #[test]
     fn test_in_memory_execute_migration() {
         let mgr = InMemoryMigrationManager::new();
-        let _plan = mgr
-            .create_plan("src", "dst", "full")
-            .unwrap();
+        let _plan = mgr.create_plan("src", "dst", "full").unwrap();
         let config = MigrationConfig::default();
         let progress = mgr.execute_migration("nonexistent", &config);
         assert!(progress.is_err());
@@ -234,9 +230,7 @@ mod tests {
     #[test]
     fn test_in_memory_rollback() {
         let mgr = InMemoryMigrationManager::new();
-        let _plan = mgr
-            .create_plan("src", "dst", "full")
-            .unwrap();
+        let _plan = mgr.create_plan("src", "dst", "full").unwrap();
         let rollback = mgr.rollback("nonexistent");
         assert!(rollback.is_err());
     }

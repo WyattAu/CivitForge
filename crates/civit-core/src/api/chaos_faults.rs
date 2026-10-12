@@ -19,14 +19,9 @@
 //!   by exactly the window the gate reads — injecting outside it would
 //!   prove nothing.
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
-use std::sync::atomic::{AtomicU64, Ordering};
+use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::api::AppState;
 
@@ -176,7 +171,9 @@ pub fn fault_routes() -> Router<AppState> {
     use axum::routing::{get, put};
     Router::new().route(
         "/api/v1/admin/chaos/faults",
-        get(get_fault_rate).put(set_fault_rate).delete(clear_fault_rate),
+        get(get_fault_rate)
+            .put(set_fault_rate)
+            .delete(clear_fault_rate),
     )
 }
 
@@ -229,8 +226,7 @@ mod tests {
     #[test]
     fn control_path_is_exempt_by_constant() {
         assert_eq!(
-            CONTROL_PATH,
-            "/api/v1/admin/chaos/faults",
+            CONTROL_PATH, "/api/v1/admin/chaos/faults",
             "route and exemption must not drift apart"
         );
     }
@@ -260,7 +256,10 @@ mod tests {
                     run = 0;
                 }
             }
-            assert_eq!(longest, 1, "rate {rate}: clustered failures, longest run {longest}");
+            assert_eq!(
+                longest, 1,
+                "rate {rate}: clustered failures, longest run {longest}"
+            );
         }
     }
 }

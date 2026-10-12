@@ -3,60 +3,66 @@
 pub mod activity;
 pub mod admin_dashboard;
 pub mod api_analytics_api;
-pub mod api_documentation;
 pub mod api_docs_api;
+pub mod api_documentation;
 pub mod api_gateway;
 pub mod api_transforms;
 pub mod api_versioning;
 pub mod artifact_serving;
 pub mod audit_admin;
-pub mod auth_routes;
+pub mod audit_api;
 pub mod auth;
+pub mod auth_routes;
 pub mod badges;
 pub mod boards;
 pub mod branch_protection;
-pub mod circuit_breaker;
 pub mod chaos;
 pub mod chaos_faults;
+pub mod circuit_breaker;
 pub mod code_browser;
+pub mod code_quality_rules_api;
 pub mod codeowners;
 pub mod compliance;
-pub mod deployment_strategy;
-pub mod infrastructure;
-pub mod service_mesh;
+pub mod compliance_report_api;
 pub mod data_export;
 pub mod data_export_api;
-pub mod region_api;
+pub mod data_residency_api;
+pub mod database_replication_api;
+pub mod dependencies;
 pub mod deploy_keys;
-pub mod deployments;
 pub mod deployment_history;
+pub mod deployment_strategy;
+pub mod deployments;
 pub mod diagnostics;
 pub mod discussions;
 pub mod edit;
+pub mod encryption_api;
+pub mod environment_variables_api;
 pub mod environments;
 pub mod error_reports;
 pub mod event_queues;
 pub mod events;
 pub mod feature_flags;
-pub mod ofrep;
 pub mod federation_routes;
 pub mod git_http;
 pub mod graphql;
 pub mod import;
-pub mod issues;
+pub mod infrastructure;
 pub mod issue_templates;
+pub mod issues;
 pub mod lfs;
 pub mod license_compliance;
 pub mod marketplace;
 pub mod maven;
 pub mod mentions;
-pub mod npm;
-pub mod observability;
 pub mod merge_queue;
 pub mod mirrors;
 pub mod monitoring;
 pub mod notifications;
+pub mod npm;
+pub mod observability;
 pub mod oci;
+pub mod ofrep;
 pub mod oidc;
 pub mod openapi_handler;
 pub mod orgs;
@@ -64,35 +70,39 @@ pub mod pages;
 pub mod password;
 pub mod performance;
 pub mod performance_metrics;
+pub mod performance_testing_api;
 pub mod pipeline_actions;
+pub mod pipeline_artifacts;
 pub mod pipeline_caches;
+pub mod pipeline_environments;
 pub mod pipeline_log_stream;
 pub mod pipeline_schedules;
 pub mod pipeline_secrets;
-pub mod pipeline_artifacts;
-pub mod pipeline_environments;
 pub mod pipeline_secrets_api;
-pub mod runners_api;
-pub mod environment_variables_api;
 pub mod pipelines;
 pub mod pr_templates;
 pub mod pull_requests;
+pub mod rate_limiting_api;
+pub mod region_api;
 pub mod releases;
 pub mod repos;
-pub mod rate_limiting_api;
 pub mod resilience;
 pub mod runners;
+pub mod runners_api;
 pub mod saml;
 pub mod scim;
 pub mod search;
 pub mod secret_scanning;
 pub mod security_dashboard;
-pub mod dependencies;
+pub mod service_mesh;
 pub mod site_settings;
+pub mod sla_api;
+pub mod sla_dashboard;
 pub mod slsa_dashboard;
-pub mod sso;
 pub mod ssh_keys;
+pub mod sso;
 pub mod teams;
+pub mod test_suite_management_api;
 pub mod tokens;
 pub mod usage_quotas;
 pub mod users;
@@ -100,16 +110,6 @@ pub mod users;
 pub mod webauthn;
 pub mod webhooks;
 pub mod wiki;
-pub mod test_suite_management_api;
-pub mod performance_testing_api;
-pub mod code_quality_rules_api;
-pub mod database_replication_api;
-pub mod data_residency_api;
-pub mod encryption_api;
-pub mod audit_api;
-pub mod sla_api;
-pub mod sla_dashboard;
-pub mod compliance_report_api;
 
 use crate::config::AppConfig;
 use crate::db::DbRepository;
@@ -120,8 +120,8 @@ use crate::middleware::rate_limit::{RateLimitConfig, RateLimiter, rate_limit_mid
 use crate::search::tantivy_index::CodeSearchIndex;
 use crate::wiki::WikiGitBackend;
 use axum::Router;
-use axum::extract::{Request, State};
 use axum::extract::ws::WebSocketUpgrade;
+use axum::extract::{Request, State};
 use axum::http::{HeaderName, HeaderValue, Method};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Json, Response};
@@ -161,7 +161,13 @@ pub fn create_router_with_telemetry(
             .collect::<Vec<_>>();
         CorsLayer::new()
             .allow_origin(AllowOrigin::list(origins))
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::PATCH])
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::PATCH,
+            ])
             .allow_headers(Any)
     };
 
@@ -301,18 +307,9 @@ pub fn create_router_with_telemetry(
             "/api/v1/auth/oidc/exchange",
             post(oidc::exchange_oidc_token),
         )
-        .route(
-            "/api/v1/oauth/authorize",
-            get(auth_routes::oauth_authorize),
-        )
-        .route(
-            "/api/v1/oauth/token",
-            post(auth_routes::oauth_token),
-        )
-        .route(
-            "/api/v1/oauth/refresh",
-            post(auth_routes::oauth_refresh),
-        )
+        .route("/api/v1/oauth/authorize", get(auth_routes::oauth_authorize))
+        .route("/api/v1/oauth/token", post(auth_routes::oauth_token))
+        .route("/api/v1/oauth/refresh", post(auth_routes::oauth_refresh))
         .route(
             "/api/v1/oauth/clients",
             post(auth_routes::oauth_register_client),
@@ -371,7 +368,10 @@ pub fn create_router_with_telemetry(
         .route("/api/v1/import/gitlab", post(import::import_gitlab))
         .route("/api/v1/import/forgejo", post(import::import_forgejo))
         .route("/api/v1/import/url", post(import::import_url))
-        .route("/api/v1/import/forgejo/bulk", post(import::import_forgejo_bulk))
+        .route(
+            "/api/v1/import/forgejo/bulk",
+            post(import::import_forgejo_bulk),
+        )
         .route("/api/v1/import/jobs", get(import::list_jobs))
         .route("/api/v1/import/jobs/{id}", get(import::get_job))
         .route(
@@ -555,7 +555,10 @@ fn observability_routes() -> axum::Router<AppState> {
 fn api_v2_routes() -> axum::Router<AppState> {
     Router::new()
         .route("/api/v2/health", get(health))
-        .route("/api/v2/repos", get(repos::list_repos).post(repos::create_repo))
+        .route(
+            "/api/v2/repos",
+            get(repos::list_repos).post(repos::create_repo),
+        )
         .route(
             "/api/v2/repos/{owner}/{name}",
             get(repos::get_repo)
@@ -570,7 +573,10 @@ fn api_v2_routes() -> axum::Router<AppState> {
         .route("/api/v2/auth/register", post(auth_routes::register))
         .route("/api/v2/auth/me", get(auth_routes::me))
         .route("/api/v2/auth/refresh", post(auth_routes::refresh))
-        .route("/api/v2/users", get(users::list_users).post(users::create_user))
+        .route(
+            "/api/v2/users",
+            get(users::list_users).post(users::create_user),
+        )
         .route(
             "/api/v2/users/{id}",
             get(users::get_user)
@@ -710,7 +716,13 @@ impl AppState {
             Err(e) => {
                 tracing::warn!("failed to init wiki git backend: {e}");
                 Arc::new(
-                    WikiGitBackend::new(tempfile::tempdir().expect("operation should succeed").path().to_path_buf()).expect("operation should succeed"),
+                    WikiGitBackend::new(
+                        tempfile::tempdir()
+                            .expect("operation should succeed")
+                            .path()
+                            .to_path_buf(),
+                    )
+                    .expect("operation should succeed"),
                 )
             }
         };

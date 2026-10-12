@@ -2,10 +2,10 @@
 
 use crate::error::Result;
 use chrono::{DateTime, Duration, Utc};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use parking_lot::Mutex;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

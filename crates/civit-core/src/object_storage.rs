@@ -126,10 +126,7 @@ impl ObjectStorageService {
         Ok(row.into())
     }
 
-    pub async fn get_bucket(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<ObjectStorageBucket>, sqlx::Error> {
+    pub async fn get_bucket(&self, id: Uuid) -> Result<Option<ObjectStorageBucket>, sqlx::Error> {
         let row = sqlx::query_as::<_, ObjectStorageBucketRow>(
             r#"SELECT id, name, region, endpoint, enabled, created_at
              FROM object_storage_buckets WHERE id = $1"#,
@@ -197,7 +194,12 @@ impl ObjectStorageService {
         )
         .bind(input.bucket_id)
         .bind(&input.key)
-        .bind(input.content_type.as_deref().unwrap_or("application/octet-stream"))
+        .bind(
+            input
+                .content_type
+                .as_deref()
+                .unwrap_or("application/octet-stream"),
+        )
         .bind(input.size_bytes.unwrap_or(0))
         .bind(&input.etag)
         .fetch_one(&self.pool)
@@ -238,11 +240,7 @@ impl ObjectStorageService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn delete_object(
-        &self,
-        bucket_id: Uuid,
-        key: &str,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_object(&self, bucket_id: Uuid, key: &str) -> Result<bool, sqlx::Error> {
         let result =
             sqlx::query("DELETE FROM object_storage_objects WHERE bucket_id = $1 AND key = $2")
                 .bind(bucket_id)

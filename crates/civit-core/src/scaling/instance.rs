@@ -118,12 +118,18 @@ impl InstanceManager {
         self.heartbeat_interval
     }
 
-    pub fn create_sticky_session(&self, user_id: Uuid, instance_id: Uuid, ttl: Duration) -> StickySession {
+    pub fn create_sticky_session(
+        &self,
+        user_id: Uuid,
+        instance_id: Uuid,
+        ttl: Duration,
+    ) -> StickySession {
         let session = StickySession {
             id: Uuid::new_v4(),
             user_id,
             instance_id,
-            expires_at: Utc::now() + chrono::Duration::from_std(ttl).unwrap_or(chrono::Duration::hours(1)),
+            expires_at: Utc::now()
+                + chrono::Duration::from_std(ttl).unwrap_or(chrono::Duration::hours(1)),
             created_at: Utc::now(),
         };
         self.sticky_sessions.insert(session.id, session.clone());
@@ -139,9 +145,11 @@ impl InstanceManager {
         if let Some(sessions) = self.user_sessions.get(&user_id) {
             for session_id in sessions.iter() {
                 if let Some(session) = self.sticky_sessions.get(session_id)
-                    && session.expires_at > now && session.instance_id == self.instance_id {
-                        return Some(session.instance_id);
-                    }
+                    && session.expires_at > now
+                    && session.instance_id == self.instance_id
+                {
+                    return Some(session.instance_id);
+                }
             }
         }
         None
@@ -158,9 +166,10 @@ impl InstanceManager {
         let count = expired.len();
         for id in &expired {
             if let Some(session) = self.sticky_sessions.remove(id)
-                && let Some(mut user_sessions) = self.user_sessions.get_mut(&session.1.user_id) {
-                    user_sessions.retain(|s| s != id);
-                }
+                && let Some(mut user_sessions) = self.user_sessions.get_mut(&session.1.user_id)
+            {
+                user_sessions.retain(|s| s != id);
+            }
         }
         count
     }

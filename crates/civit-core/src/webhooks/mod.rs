@@ -335,14 +335,14 @@ impl WebhookDispatcher {
         pool: &sqlx::PgPool,
         webhook_id: &str,
     ) -> Result<DeliveryStats, sqlx::Error> {
-        let webhook_uuid = Uuid::parse_str(webhook_id).map_err(|_| sqlx::Error::Decode("invalid webhook id".into()))?;
+        let webhook_uuid = Uuid::parse_str(webhook_id)
+            .map_err(|_| sqlx::Error::Decode("invalid webhook id".into()))?;
 
-        let total: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1",
-        )
-        .bind(webhook_uuid)
-        .fetch_one(pool)
-        .await?;
+        let total: (i64,) =
+            sqlx::query_as("SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1")
+                .bind(webhook_uuid)
+                .fetch_one(pool)
+                .await?;
 
         let successful: (i64,) = sqlx::query_as(
             "SELECT COUNT(*)::bigint FROM webhook_deliveries WHERE webhook_id = $1 AND status = 'delivered'",
@@ -448,14 +448,7 @@ impl WebhookDispatcher {
 
                 let status_str = final_status.as_str().to_string();
                 let _ = self
-                    .update_delivery_status(
-                        pool,
-                        &delivery_id,
-                        final_status,
-                        1,
-                        None,
-                        None,
-                    )
+                    .update_delivery_status(pool, &delivery_id, final_status, 1, None, None)
                     .await;
 
                 Ok(WebhookTestResult {

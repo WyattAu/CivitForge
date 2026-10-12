@@ -5,8 +5,7 @@ pub mod types;
 
 pub use store::QualityGateStore;
 pub use types::{
-    QualityGate, QualityGateCondition, QualityGateAction,
-    QualityGateResult, QualityGateFinding, FindingSeverity,
-    CreateQualityGateRequest, UpdateQualityGateRequest,
-    GateCheckResult, GateEnforcementResult,
+    CreateQualityGateRequest, FindingSeverity, GateCheckResult, GateEnforcementResult, QualityGate,
+    QualityGateAction, QualityGateCondition, QualityGateFinding, QualityGateResult,
+    UpdateQualityGateRequest,
 };

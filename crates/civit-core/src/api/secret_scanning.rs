@@ -90,7 +90,8 @@ fn secret_patterns() -> Vec<SecretPattern> {
         },
         SecretPattern {
             name: "Private Key (PEM)",
-            pattern: Regex::new(r"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----").expect("valid regex pattern"),
+            pattern: Regex::new(r"-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----")
+                .expect("valid regex pattern"),
         },
         SecretPattern {
             name: "JWT Token",

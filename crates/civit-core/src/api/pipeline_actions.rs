@@ -108,9 +108,7 @@ pub fn pipeline_action_routes() -> Router<AppState> {
         )
         .route(
             "/api/v1/pipeline-actions/{action_id}",
-            get(get_action)
-                .patch(update_action)
-                .delete(delete_action),
+            get(get_action).patch(update_action).delete(delete_action),
         )
         .route(
             "/api/v1/pipeline-actions/{action_id}/download",
@@ -156,10 +154,7 @@ pub fn pipeline_action_routes() -> Router<AppState> {
             "/api/v1/pipeline-categories",
             get(list_categories).post(create_category),
         )
-        .route(
-            "/api/v1/pipeline-categories/search",
-            get(search_categories),
-        )
+        .route("/api/v1/pipeline-categories/search", get(search_categories))
         .route(
             "/api/v1/pipeline-categories/{category_id}",
             get(get_category)
@@ -762,10 +757,7 @@ pub async fn get_analytics(
 // Category handlers
 // ---------------------------------------------------------------------------
 
-pub async fn list_categories(
-    State(state): State<AppState>,
-    _auth: AuthUser,
-) -> Response {
+pub async fn list_categories(State(state): State<AppState>, _auth: AuthUser) -> Response {
     let pool = state.db.pool();
     match categories::list_categories(pool).await {
         Ok(cats) => (StatusCode::OK, Json(cats)).into_response(),
@@ -783,7 +775,10 @@ pub async fn create_category(
     Json(req): Json<CreateCategoryRequest>,
 ) -> Response {
     let pool = state.db.pool();
-    let parent_id = req.parent_id.as_deref().and_then(|s| Uuid::parse_str(s).ok());
+    let parent_id = req
+        .parent_id
+        .as_deref()
+        .and_then(|s| Uuid::parse_str(s).ok());
     let description = req.description.unwrap_or_default();
 
     match categories::create_category(pool, &req.name, &description, parent_id).await {
@@ -793,7 +788,10 @@ pub async fn create_category(
             if msg.contains("duplicate key") || msg.contains("unique") {
                 (
                     StatusCode::CONFLICT,
-                    Json(CoreError::BadRequest("category name already exists".into()).error_response()),
+                    Json(
+                        CoreError::BadRequest("category name already exists".into())
+                            .error_response(),
+                    ),
                 )
                     .into_response()
             } else {
@@ -857,9 +855,19 @@ pub async fn update_category(
         }
     };
 
-    let parent_id = req.parent_id.map(|opt| opt.and_then(|s| Uuid::parse_str(&s).ok()));
+    let parent_id = req
+        .parent_id
+        .map(|opt| opt.and_then(|s| Uuid::parse_str(&s).ok()));
 
-    match categories::update_category(pool, cid, req.name.as_deref(), req.description.as_deref(), parent_id).await {
+    match categories::update_category(
+        pool,
+        cid,
+        req.name.as_deref(),
+        req.description.as_deref(),
+        parent_id,
+    )
+    .await
+    {
         Ok(cat) => (StatusCode::OK, Json(cat)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1504,8 +1512,7 @@ async fn resolve_repo_id_for_install(
             Err(e) => {
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response())
-                        .into_response(),
+                    Json(CoreError::Database(e.to_string()).error_response()).into_response(),
                 )
                     .into_response());
             }
@@ -1530,8 +1537,7 @@ async fn resolve_repo_id_for_install(
             .into_response()),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CoreError::Database(e.to_string()).error_response())
-                .into_response(),
+            Json(CoreError::Database(e.to_string()).error_response()).into_response(),
         )
             .into_response()),
     }
@@ -1592,7 +1598,9 @@ pub async fn install_action_to_repo(
         }
     };
 
-    match action_installations::install_action(pool, aid, repo_id, uid, &req.version, &req.config).await {
+    match action_installations::install_action(pool, aid, repo_id, uid, &req.version, &req.config)
+        .await
+    {
         Ok(installation) => (StatusCode::CREATED, Json(installation)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,

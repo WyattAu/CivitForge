@@ -10,9 +10,9 @@ use axum::response::IntoResponse;
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use chrono::Utc;
-use civit_ci::caches::{self, CacheEntryResponse, CacheListParams, CreateCacheRequest};
 use civit_ci::cache_eviction;
 use civit_ci::cache_warming;
+use civit_ci::caches::{self, CacheEntryResponse, CacheListParams, CreateCacheRequest};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -632,7 +632,8 @@ pub async fn create_strategy(
     };
 
     let config = req.config.unwrap_or(serde_json::json!({}));
-    match caches::create_cache_strategy(pool, repo_id, &req.name, &req.strategy_type, &config).await {
+    match caches::create_cache_strategy(pool, repo_id, &req.name, &req.strategy_type, &config).await
+    {
         Ok(strategy) => (axum::http::StatusCode::CREATED, Json(strategy)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -983,7 +984,16 @@ pub async fn create_warming_rule(
         }
     };
 
-    match cache_warming::create_warming_rule(pool, repo_id, &req.name, &req.trigger_type, &req.cache_keys, req.enabled).await {
+    match cache_warming::create_warming_rule(
+        pool,
+        repo_id,
+        &req.name,
+        &req.trigger_type,
+        &req.cache_keys,
+        req.enabled,
+    )
+    .await
+    {
         Ok(rule) => (axum::http::StatusCode::CREATED, Json(rule)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -1079,7 +1089,16 @@ pub async fn update_warming_rule(
         }
     };
 
-    match cache_warming::update_warming_rule(pool, rid, req.name.as_deref(), req.trigger_type.as_deref(), req.cache_keys.as_deref(), req.enabled).await {
+    match cache_warming::update_warming_rule(
+        pool,
+        rid,
+        req.name.as_deref(),
+        req.trigger_type.as_deref(),
+        req.cache_keys.as_deref(),
+        req.enabled,
+    )
+    .await
+    {
         Ok(rule) => (axum::http::StatusCode::OK, Json(rule)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -1375,7 +1394,15 @@ pub async fn create_eviction_policy(
         }
     };
 
-    match cache_eviction::create_eviction_policy(pool, repo_id, &req.name, &req.policy_type, &req.config).await {
+    match cache_eviction::create_eviction_policy(
+        pool,
+        repo_id,
+        &req.name,
+        &req.policy_type,
+        &req.config,
+    )
+    .await
+    {
         Ok(policy) => (axum::http::StatusCode::CREATED, Json(policy)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -1477,7 +1504,16 @@ pub async fn update_eviction_policy(
         }
     };
 
-    match cache_eviction::update_eviction_policy(pool, pid, req.name.as_deref(), req.policy_type.as_deref(), req.config.as_ref(), req.enabled).await {
+    match cache_eviction::update_eviction_policy(
+        pool,
+        pid,
+        req.name.as_deref(),
+        req.policy_type.as_deref(),
+        req.config.as_ref(),
+        req.enabled,
+    )
+    .await
+    {
         Ok(policy) => (axum::http::StatusCode::OK, Json(policy)).into_response(),
         Err(e) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
@@ -2135,7 +2171,17 @@ pub async fn get_size_history_v17(
         }
     };
 
-    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i64, i32, chrono::DateTime<chrono::Utc>)>(
+    match sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            chrono::DateTime<chrono::Utc>,
+            i64,
+            i32,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         "SELECT id, cache_id, measured_at, size_bytes, item_count, created_at
          FROM cache_size_tracking_v17
          WHERE cache_id = $1
@@ -2206,7 +2252,17 @@ pub async fn record_size_v17(
         }
     };
 
-    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i64, i32, chrono::DateTime<chrono::Utc>)>(
+    match sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            chrono::DateTime<chrono::Utc>,
+            i64,
+            i32,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         "INSERT INTO cache_size_tracking_v17
          (cache_id, measured_at, size_bytes, item_count, created_at)
          VALUES ($1, NOW(), $2, $3, NOW())

@@ -19,10 +19,8 @@ impl ReviewAutomationStore {
     ) -> Result<ReviewAutomationRule, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let conditions = serde_json::to_value(&req.conditions)
-            .unwrap_or(serde_json::json!({}));
-        let actions = serde_json::to_value(&req.actions)
-            .unwrap_or(serde_json::json!([]));
+        let conditions = serde_json::to_value(&req.conditions).unwrap_or(serde_json::json!({}));
+        let actions = serde_json::to_value(&req.actions).unwrap_or(serde_json::json!([]));
 
         sqlx::query(
             r#"INSERT INTO review_automation_rules (id, repo_id, name, trigger_type, conditions, actions, enabled, created_at)
@@ -236,7 +234,10 @@ impl From<RuleRow> for ReviewAutomationRule {
             id: row.id,
             repo_id: row.repo_id,
             name: row.name,
-            trigger_type: row.trigger_type.parse().unwrap_or(ReviewTriggerType::PullRequestOpened),
+            trigger_type: row
+                .trigger_type
+                .parse()
+                .unwrap_or(ReviewTriggerType::PullRequestOpened),
             conditions: row.conditions,
             actions: serde_json::from_value(row.actions).unwrap_or_default(),
             enabled: row.enabled,

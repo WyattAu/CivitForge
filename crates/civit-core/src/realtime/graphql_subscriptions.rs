@@ -69,7 +69,13 @@ impl GraphqlSubscriptionService {
         pool: &sqlx::PgPool,
         user_id: Uuid,
         request: CreateSubscriptionRequest,
-    ) -> Result<(GraphqlSubscription, tokio::sync::mpsc::UnboundedReceiver<SubscriptionEvent>), sqlx::Error> {
+    ) -> Result<
+        (
+            GraphqlSubscription,
+            tokio::sync::mpsc::UnboundedReceiver<SubscriptionEvent>,
+        ),
+        sqlx::Error,
+    > {
         let id = Uuid::new_v4();
         let variables = request.variables.unwrap_or(serde_json::json!({}));
 
@@ -236,11 +242,7 @@ impl GraphqlSubscriptionService {
         }
     }
 
-    pub async fn publish_event(
-        &self,
-        channel: &str,
-        payload: serde_json::Value,
-    ) -> usize {
+    pub async fn publish_event(&self, channel: &str, payload: serde_json::Value) -> usize {
         let event = SubscriptionEvent {
             subscription_id: Uuid::new_v4(),
             channel: channel.to_string(),
@@ -258,9 +260,10 @@ impl GraphqlSubscriptionService {
                 for sub_id in ids {
                     if let Some(entry) = subs.get(sub_id)
                         && entry.subscription.enabled
-                            && entry.tx.send(event.clone()).is_ok() {
-                                sent += 1;
-                            }
+                        && entry.tx.send(event.clone()).is_ok()
+                    {
+                        sent += 1;
+                    }
                 }
                 sent
             }

@@ -100,12 +100,7 @@ async fn verify_and_complete_clone(
 }
 
 /// Record clone failure on the job with stderr context.
-async fn fail_job_clone(
-    db: &civit_db::DbRepository,
-    job_id: Uuid,
-    context: &str,
-    detail: &str,
-) {
+async fn fail_job_clone(db: &civit_db::DbRepository, job_id: Uuid, context: &str, detail: &str) {
     let _ = db
         .fail_import_job(job_id, &format!("{context}: {detail}"))
         .await;
@@ -114,10 +109,7 @@ async fn fail_job_clone(
 /// Map an upstream login to a local user — create-if-missing (Phase 2).
 /// Placeholder accounts get a random password (nobody can log in) and a
 /// bio marker; owners can reclaim by registering the same username.
-async fn map_upstream_user(
-    db: &civit_db::DbRepository,
-    login: &str,
-) -> Uuid {
+async fn map_upstream_user(db: &civit_db::DbRepository, login: &str) -> Uuid {
     if login.is_empty() {
         return Uuid::nil();
     }
@@ -223,21 +215,27 @@ async fn sync_forgejo_issues(
             let author = issue["user"]["login"].as_str().unwrap_or("unknown");
             let labels: Vec<String> = issue["labels"]
                 .as_array()
-                .map(|a| a.iter().filter_map(|l| l["name"].as_str()).map(String::from).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|l| l["name"].as_str())
+                        .map(String::from)
+                        .collect()
+                })
                 .unwrap_or_default();
 
-            let mut full_body = format!(
-                "_Imported from Forgejo issue #{number}, authored by @{author}_\n\n{body}"
-            );
+            let mut full_body =
+                format!("_Imported from Forgejo issue #{number}, authored by @{author}_\n\n{body}");
             if !labels.is_empty() {
                 full_body.push_str(&format!("\n\n**Labels:** {}", labels.join(", ")));
             }
             let _ = number;
             let author_id = map_upstream_user(db, author).await;
-            let author_id = if author_id == Uuid::nil() { actor_id } else { author_id };
-            let _ = db
-                .create_issue(repo_id, title, &full_body, author_id)
-                .await;
+            let author_id = if author_id == Uuid::nil() {
+                actor_id
+            } else {
+                author_id
+            };
+            let _ = db.create_issue(repo_id, title, &full_body, author_id).await;
             imported += 1;
         }
         if issues.len() < 50 {
@@ -300,22 +298,18 @@ async fn sync_forgejo_prs(
             }
 
             let number = pr["number"].as_i64().unwrap_or(0);
-            let full_body = format!(
-                "_Imported from Forgejo PR #{number}, authored by @{author}_\n\n{body}"
-            );
+            let full_body =
+                format!("_Imported from Forgejo PR #{number}, authored by @{author}_\n\n{body}");
             let author_id = map_upstream_user(db, author).await;
-            let author_id = if author_id == Uuid::nil() { actor_id } else { author_id };
+            let author_id = if author_id == Uuid::nil() {
+                actor_id
+            } else {
+                author_id
+            };
 
             if db
                 .create_pr(
-                    repo_id,
-                    title,
-                    &full_body,
-                    author_id,
-                    head_ref,
-                    base_ref,
-                    false,
-                    false,
+                    repo_id, title, &full_body, author_id, head_ref, base_ref, false, false,
                 )
                 .await
                 .is_ok()
@@ -989,9 +983,12 @@ fn parse_forgejo_url(url: &str) -> Option<(&str, &str, &str)> {
     let url = url.trim_end_matches(".git");
     // https://host/owner/repo or git@host:owner/repo.git
     if url.starts_with("https://") || url.starts_with("http://") {
-        let without_proto = url.strip_prefix("https://").or_else(|| url.strip_prefix("http://"))?;
+        let without_proto = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))?;
         let parts: Vec<&str> = without_proto.split('/').collect();
-        if parts.len() >= 3 && !parts[0].is_empty() && !parts[1].is_empty() && !parts[2].is_empty() {
+        if parts.len() >= 3 && !parts[0].is_empty() && !parts[1].is_empty() && !parts[2].is_empty()
+        {
             return Some((parts[0], parts[1], parts[2]));
         }
     }
@@ -1049,10 +1046,7 @@ async fn fetch_forgejo_metadata(
         .as_str()
         .unwrap_or("main")
         .to_string();
-    let visibility = json["visibility"]
-        .as_str()
-        .unwrap_or("public")
-        .to_string();
+    let visibility = json["visibility"].as_str().unwrap_or("public").to_string();
     Ok(ForgejoRepoMeta {
         name,
         description,
@@ -1099,7 +1093,8 @@ pub async fn import_forgejo(
     let fg_owner = fg_owner.to_string();
     let fg_repo = fg_repo.to_string();
 
-    let meta = match fetch_forgejo_metadata(&host, &fg_owner, &fg_repo, req.token.as_deref()).await {
+    let meta = match fetch_forgejo_metadata(&host, &fg_owner, &fg_repo, req.token.as_deref()).await
+    {
         Ok(m) => m,
         Err(e) => {
             return (
@@ -1416,10 +1411,7 @@ fn job_to_json(job: &civit_db::repository::ImportJob) -> serde_json::Value {
 }
 
 /// List the caller's import jobs (newest first).
-pub async fn list_jobs(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn list_jobs(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     let user_uuid = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
     match state.db.list_import_jobs(user_uuid, 100).await {
         Ok(jobs) => {
@@ -1447,7 +1439,7 @@ pub async fn get_job(
                 StatusCode::BAD_REQUEST,
                 Json(CoreError::BadRequest("invalid job id".into()).error_response()),
             )
-                .into_response()
+                .into_response();
         }
     };
 
@@ -1544,7 +1536,10 @@ pub async fn import_forgejo_bulk(
     let mut page = 1u32;
 
     loop {
-        let url = format!("{scheme}://{host}/api/v1/users/{}/repos?limit=50&page={page}", req.owner);
+        let url = format!(
+            "{scheme}://{host}/api/v1/users/{}/repos?limit=50&page={page}",
+            req.owner
+        );
         let mut rb = client.get(&url).header("User-Agent", "CivitForge/1.0");
         if let Some(ref t) = req.token {
             rb = rb.bearer_auth(t);
@@ -1557,7 +1552,7 @@ pub async fn import_forgejo_bulk(
                         StatusCode::BAD_GATEWAY,
                         Json(CoreError::Internal(format!("upstream decode: {e}")).error_response()),
                     )
-                        .into_response()
+                        .into_response();
                 }
             },
             Ok(r) => {
@@ -1574,9 +1569,11 @@ pub async fn import_forgejo_bulk(
             Err(e) => {
                 return (
                     StatusCode::BAD_GATEWAY,
-                    Json(CoreError::Internal(format!("upstream unreachable: {e}")).error_response()),
+                    Json(
+                        CoreError::Internal(format!("upstream unreachable: {e}")).error_response(),
+                    ),
                 )
-                    .into_response()
+                    .into_response();
             }
         };
 
@@ -1601,7 +1598,14 @@ pub async fn import_forgejo_bulk(
             // Create local repo record
             let repo = match state
                 .db
-                .create_repo(&name, &description, owner_uuid, None, &visibility, &default_branch)
+                .create_repo(
+                    &name,
+                    &description,
+                    owner_uuid,
+                    None,
+                    &visibility,
+                    &default_branch,
+                )
                 .await
             {
                 Ok(v) => v,
@@ -1619,7 +1623,13 @@ pub async fn import_forgejo_bulk(
 
             let job = state
                 .db
-                .create_import_job(owner_uuid, "forgejo", &format!("{scheme}://{host}/{}/{}", req.owner, name), &owner_name, &name)
+                .create_import_job(
+                    owner_uuid,
+                    "forgejo",
+                    &format!("{scheme}://{host}/{}/{}", req.owner, name),
+                    &owner_name,
+                    &name,
+                )
                 .await;
             let job_id = job.as_ref().ok().map(|j| j.id);
             let job_id_str = job_id.map(|id| id.to_string());

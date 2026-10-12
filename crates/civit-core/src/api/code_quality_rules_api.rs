@@ -4,11 +4,11 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::CoreError;
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{delete, get, post},
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -131,7 +131,12 @@ async fn list_metrics(
 ) -> impl IntoResponse {
     match state
         .db
-        .list_code_quality_metrics_v20(repo_id, params.metric_name.as_deref(), params.limit, params.offset)
+        .list_code_quality_metrics_v20(
+            repo_id,
+            params.metric_name.as_deref(),
+            params.limit,
+            params.offset,
+        )
         .await
     {
         Ok(metrics) => {
@@ -295,7 +300,11 @@ async fn get_enforcement_report(
     Path(repo_id): Path<Uuid>,
     _auth: AuthUser,
 ) -> impl IntoResponse {
-    match state.db.get_code_quality_enforcement_report_v20(repo_id).await {
+    match state
+        .db
+        .get_code_quality_enforcement_report_v20(repo_id)
+        .await
+    {
         Ok((total, violating, compliance_rate)) => (
             StatusCode::OK,
             Json(EnforcementReportResponse {

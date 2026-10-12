@@ -23,10 +23,15 @@ pub struct ListRunnersParams {
 
 pub fn runners_v2_routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v2/runners", get(list_runners_v2).post(register_runner_v2))
+        .route(
+            "/api/v2/runners",
+            get(list_runners_v2).post(register_runner_v2),
+        )
         .route(
             "/api/v2/runners/{runner_id}",
-            get(get_runner_v2).put(update_runner_v2).delete(delete_runner_v2),
+            get(get_runner_v2)
+                .put(update_runner_v2)
+                .delete(delete_runner_v2),
         )
         .route("/api/v2/runners/{runner_id}/heartbeat", post(heartbeat_v2))
         .route(
@@ -38,10 +43,7 @@ pub fn runners_v2_routes() -> Router<AppState> {
             "/api/v2/runners/{runner_id}/metrics",
             get(get_metrics_v2).post(record_metrics_v2),
         )
-        .route(
-            "/api/v2/runners/available",
-            get(find_available_runners_v2),
-        )
+        .route("/api/v2/runners/available", get(find_available_runners_v2))
         .route("/api/v2/runners/cleanup", post(cleanup_stale_runners_v2))
 }
 

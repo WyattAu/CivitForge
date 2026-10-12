@@ -1,9 +1,9 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::get,
-    Json, Router,
 };
 use uuid::Uuid;
 
@@ -18,7 +18,9 @@ pub fn deployment_strategy_routes() -> Router<AppState> {
         )
         .route(
             "/api/v1/deployment-strategies/{id}",
-            get(get_strategy).patch(update_strategy).delete(delete_strategy),
+            get(get_strategy)
+                .patch(update_strategy)
+                .delete(delete_strategy),
         )
 }
 
@@ -37,10 +39,7 @@ async fn create_strategy(
     }
 }
 
-async fn get_strategy(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn get_strategy(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::deployment_strategy::DeploymentStrategyStore::new(state.db.pool().clone());
     match store.get(id).await {
         Ok(Some(strategy)) => Json(strategy).into_response(),
@@ -81,10 +80,7 @@ async fn update_strategy(
     }
 }
 
-async fn delete_strategy(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn delete_strategy(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::deployment_strategy::DeploymentStrategyStore::new(state.db.pool().clone());
     match store.delete(id).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),

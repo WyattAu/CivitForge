@@ -695,7 +695,8 @@ pub async fn outbox(
     );
     headers.insert(
         axum::http::header::LINK,
-        HeaderValue::from_str(&format!("<{outbox_url}>; rel=\"self\"")).expect("valid header value"),
+        HeaderValue::from_str(&format!("<{outbox_url}>; rel=\"self\""))
+            .expect("valid header value"),
     );
 
     (StatusCode::OK, headers, Json(resp)).into_response()

@@ -230,7 +230,12 @@ pub async fn create_event_subscription(
     let event_system = crate::events::EventPublisher::new();
 
     match event_system
-        .create_subscription(pool, &auth.user_id, &req.event_type, req.callback_url.as_deref())
+        .create_subscription(
+            pool,
+            &auth.user_id,
+            &req.event_type,
+            req.callback_url.as_deref(),
+        )
         .await
     {
         Ok(subscription) => (
@@ -295,11 +300,7 @@ pub async fn delete_event_subscription(
         .delete_subscription(pool, &subscription_id, &auth.user_id)
         .await
     {
-        Ok(true) => (
-            StatusCode::OK,
-            Json(json!({"status": "deleted"})),
-        )
-            .into_response(),
+        Ok(true) => (StatusCode::OK, Json(json!({"status": "deleted"}))).into_response(),
         Ok(false) => (
             StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("subscription not found".into()).error_response()),

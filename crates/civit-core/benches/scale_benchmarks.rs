@@ -57,8 +57,16 @@ fn generate_repos(n: usize) -> Vec<TestRepo> {
 fn generate_issues(repo_id: &str, n: usize) -> Vec<TestIssue> {
     let states = ["open", "closed", "open", "open"];
     let label_pool = [
-        "bug", "enhancement", "documentation", "good-first-issue", "help-wanted",
-        "performance", "security", "ui", "backend", "ci",
+        "bug",
+        "enhancement",
+        "documentation",
+        "good-first-issue",
+        "help-wanted",
+        "performance",
+        "security",
+        "ui",
+        "backend",
+        "ci",
     ];
 
     (0..n)
@@ -189,7 +197,6 @@ fn generate_large_json_payload(count: usize) -> Vec<serde_json::Value> {
         .collect()
 }
 
-
 // ── Git helpers ──────────────────────────────────────────────────────────────
 
 fn git_cmd(work: &Path, args: &[&str]) -> String {
@@ -219,7 +226,10 @@ fn create_commits(repo_path: &std::path::Path, count: usize) {
     let work = tmp.path().join("work");
     std::fs::create_dir_all(&work).unwrap();
 
-    git_cmd(tmp.path(), &["clone", repo_path.to_str().unwrap(), work.to_str().unwrap()]);
+    git_cmd(
+        tmp.path(),
+        &["clone", repo_path.to_str().unwrap(), work.to_str().unwrap()],
+    );
     git_cmd(&work, &["config", "user.name", "bench"]);
     git_cmd(&work, &["config", "user.email", "bench@test.com"]);
     git_cmd_ok(&work, &["branch", "main"]);
@@ -247,16 +257,12 @@ fn bench_repo_list_scale(c: &mut Criterion) {
     for count in [1_000, 10_000] {
         let repos = generate_repos(count);
 
-        group.bench_with_input(
-            BenchmarkId::new("paginate", count),
-            &repos,
-            |b, repos| {
-                b.iter(|| {
-                    let page: Vec<_> = repos.iter().take(50).collect();
-                    black_box(&page);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("paginate", count), &repos, |b, repos| {
+            b.iter(|| {
+                let page: Vec<_> = repos.iter().take(50).collect();
+                black_box(&page);
+            });
+        });
 
         group.bench_with_input(
             BenchmarkId::new("iterate_all", count),
@@ -396,9 +402,7 @@ fn bench_issue_search_scale(c: &mut Criterion) {
         b.iter(|| {
             let results: Vec<_> = issues
                 .iter()
-                .filter(|i| {
-                    i.title.contains("Issue #") && i.body.contains("scale testing")
-                })
+                .filter(|i| i.title.contains("Issue #") && i.body.contains("scale testing"))
                 .collect();
             black_box(&results);
         });
@@ -465,10 +469,7 @@ fn bench_pipeline_list_scale(c: &mut Criterion) {
 
     group.bench_function("list_with_status_filter", |b| {
         b.iter(|| {
-            let filtered: Vec<_> = pipelines
-                .iter()
-                .filter(|p| p.status == "running")
-                .collect();
+            let filtered: Vec<_> = pipelines.iter().filter(|p| p.status == "running").collect();
             black_box(&filtered);
         });
     });
@@ -587,18 +588,28 @@ fn bench_git_diff_scale(c: &mut Criterion) {
     std::fs::create_dir_all(&work_dir).unwrap();
     git_cmd(
         tmp.path(),
-        &["clone", repo_path.to_str().unwrap(), work_dir.to_str().unwrap()],
+        &[
+            "clone",
+            repo_path.to_str().unwrap(),
+            work_dir.to_str().unwrap(),
+        ],
     );
     git_cmd(&work_dir, &["config", "user.name", "bench"]);
     git_cmd(&work_dir, &["config", "user.email", "bench@test.com"]);
     git_cmd_ok(&work_dir, &["branch", "main"]);
 
     for i in 0..100 {
-        std::fs::write(work_dir.join(format!("file-{i:03}.txt")), "initial content\n").unwrap();
+        std::fs::write(
+            work_dir.join(format!("file-{i:03}.txt")),
+            "initial content\n",
+        )
+        .unwrap();
     }
     git_cmd(&work_dir, &["add", "."]);
     git_cmd(&work_dir, &["commit", "-m", "initial commit"]);
-    let base = git_cmd(&work_dir, &["rev-parse", "HEAD"]).trim().to_string();
+    let base = git_cmd(&work_dir, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
 
     for i in 0..100 {
         std::fs::write(
@@ -609,7 +620,9 @@ fn bench_git_diff_scale(c: &mut Criterion) {
     }
     git_cmd(&work_dir, &["add", "."]);
     git_cmd(&work_dir, &["commit", "-m", "modify all files"]);
-    let head = git_cmd(&work_dir, &["rev-parse", "HEAD"]).trim().to_string();
+    let head = git_cmd(&work_dir, &["rev-parse", "HEAD"])
+        .trim()
+        .to_string();
     git_cmd(&work_dir, &["push", "origin", "main"]);
 
     c.bench_function("git_diff_100_files", |b| {
@@ -632,7 +645,11 @@ fn bench_git_blame_scale(c: &mut Criterion) {
     std::fs::create_dir_all(&work_dir).unwrap();
     git_cmd(
         tmp.path(),
-        &["clone", repo_path.to_str().unwrap(), work_dir.to_str().unwrap()],
+        &[
+            "clone",
+            repo_path.to_str().unwrap(),
+            work_dir.to_str().unwrap(),
+        ],
     );
     git_cmd(&work_dir, &["config", "user.name", "bench"]);
     git_cmd(&work_dir, &["config", "user.email", "bench@test.com"]);
@@ -667,7 +684,11 @@ fn bench_git_list_branches_scale(c: &mut Criterion) {
     std::fs::create_dir_all(&work_dir).unwrap();
     git_cmd(
         tmp.path(),
-        &["clone", repo_path.to_str().unwrap(), work_dir.to_str().unwrap()],
+        &[
+            "clone",
+            repo_path.to_str().unwrap(),
+            work_dir.to_str().unwrap(),
+        ],
     );
     git_cmd(&work_dir, &["config", "user.name", "bench"]);
     git_cmd(&work_dir, &["config", "user.email", "bench@test.com"]);
@@ -822,9 +843,7 @@ fn bench_response_serialization(c: &mut Criterion) {
     group.bench_function("deserialize_1k_repos", |b| {
         let json_str = serde_json::to_string(&large_payload).unwrap();
         b.iter(|| {
-            black_box(
-                serde_json::from_str::<Vec<serde_json::Value>>(&json_str).unwrap(),
-            );
+            black_box(serde_json::from_str::<Vec<serde_json::Value>>(&json_str).unwrap());
         });
     });
 
@@ -836,15 +855,12 @@ fn bench_response_serialization(c: &mut Criterion) {
     group.bench_function("deserialize_10k_repos", |b| {
         let json_str = serde_json::to_string(&very_large_payload).unwrap();
         b.iter(|| {
-            black_box(
-                serde_json::from_str::<Vec<serde_json::Value>>(&json_str).unwrap(),
-            );
+            black_box(serde_json::from_str::<Vec<serde_json::Value>>(&json_str).unwrap());
         });
     });
 
     group.finish();
 }
-
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Criterion harness

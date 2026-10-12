@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-pub mod types;
 pub mod store;
+pub mod types;
 
-pub use types::*;
 pub use store::DashboardReportingService;
+pub use types::*;

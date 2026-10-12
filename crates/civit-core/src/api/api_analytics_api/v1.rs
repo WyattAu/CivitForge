@@ -2,18 +2,11 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use crate::api::auth::require_admin;
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiAnalyticResponse {
@@ -84,20 +77,27 @@ pub async fn list_api_analytics(
 
     match state.db.get_api_analytics(query.limit, query.offset).await {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticResponse> = analytics.iter().map(|a| ApiAnalyticResponse {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                ip_address: a.ip_address.clone(),
-                user_agent: a.user_agent.clone(),
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                created_at: a.created_at,
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"analytics": response, "total": response.len()}))).into_response()
+            let response: Vec<ApiAnalyticResponse> = analytics
+                .iter()
+                .map(|a| ApiAnalyticResponse {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    ip_address: a.ip_address.clone(),
+                    user_agent: a.user_agent.clone(),
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    created_at: a.created_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"analytics": response, "total": response.len()})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -117,10 +117,15 @@ pub async fn get_endpoint_statistics(
 
     match state.db.get_endpoint_statistics().await {
         Ok(stats) => {
-            let response: Vec<EndpointStatistics> = stats.iter().filter_map(|s| {
-                serde_json::from_value(s.clone()).ok()
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"endpoints": response}))).into_response()
+            let response: Vec<EndpointStatistics> = stats
+                .iter()
+                .filter_map(|s| serde_json::from_value(s.clone()).ok())
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"endpoints": response})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -140,9 +145,10 @@ pub async fn get_user_usage_statistics(
 
     match state.db.get_user_usage_statistics().await {
         Ok(stats) => {
-            let response: Vec<UserUsageStatistics> = stats.iter().filter_map(|s| {
-                serde_json::from_value(s.clone()).ok()
-            }).collect();
+            let response: Vec<UserUsageStatistics> = stats
+                .iter()
+                .filter_map(|s| serde_json::from_value(s.clone()).ok())
+                .collect();
             (StatusCode::OK, Json(serde_json::json!({"users": response}))).into_response()
         }
         Err(e) => (
@@ -164,7 +170,11 @@ pub async fn get_api_usage_summary(
     let period_start = Utc::now() - chrono::Duration::hours(24);
     let period_end = Utc::now();
 
-    match state.db.get_api_usage_summary(period_start, period_end).await {
+    match state
+        .db
+        .get_api_usage_summary(period_start, period_end)
+        .await
+    {
         Ok(summary) => {
             let response = ApiUsageSummaryResponse {
                 id: summary.id,
@@ -190,9 +200,18 @@ pub async fn get_api_usage_summary(
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/v1/admin/analytics", get(list_api_analytics))
-        .route("/api/v1/admin/analytics/endpoints", get(get_endpoint_statistics))
-        .route("/api/v1/admin/analytics/users", get(get_user_usage_statistics))
-        .route("/api/v1/admin/analytics/summary", get(get_api_usage_summary))
+        .route(
+            "/api/v1/admin/analytics/endpoints",
+            get(get_endpoint_statistics),
+        )
+        .route(
+            "/api/v1/admin/analytics/users",
+            get(get_user_usage_statistics),
+        )
+        .route(
+            "/api/v1/admin/analytics/summary",
+            get(get_api_usage_summary),
+        )
 }
 
 #[cfg(test)]

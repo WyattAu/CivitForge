@@ -65,10 +65,7 @@ impl LogAggregationService {
         Self { pool }
     }
 
-    pub async fn ingest(
-        &self,
-        input: CreateLogEntry,
-    ) -> Result<LogEntry, sqlx::Error> {
+    pub async fn ingest(&self, input: CreateLogEntry) -> Result<LogEntry, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryRow>(
             r#"INSERT INTO log_entries_v2 (level, message, source, service, trace_id, span_id, metadata)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -87,10 +84,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn search(
-        &self,
-        filter: LogSearchFilter,
-    ) -> Result<LogSearchResult, sqlx::Error> {
+    pub async fn search(&self, filter: LogSearchFilter) -> Result<LogSearchResult, sqlx::Error> {
         let limit = filter.limit.unwrap_or(100).min(1000);
         let offset = filter.offset.unwrap_or(0);
 
@@ -146,10 +140,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<LogEntry>, sqlx::Error> {
+    pub async fn get_by_id(&self, id: Uuid) -> Result<Option<LogEntry>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryRow>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, created_at
              FROM log_entries_v2 WHERE id = $1"#,
@@ -161,10 +152,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn delete_old_entries(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v2 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -188,9 +176,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_log_stats(
-        &self,
-    ) -> Result<LogServiceStats, sqlx::Error> {
+    pub async fn get_log_stats(&self) -> Result<LogServiceStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LevelCount {
             level: String,
@@ -205,10 +191,8 @@ impl LogAggregationService {
 
         let total = rows.iter().map(|r| r.count).sum();
 
-        let level_counts: std::collections::HashMap<String, i64> = rows
-            .into_iter()
-            .map(|r| (r.level, r.count))
-            .collect();
+        let level_counts: std::collections::HashMap<String, i64> =
+            rows.into_iter().map(|r| (r.level, r.count)).collect();
 
         #[derive(Debug, sqlx::FromRow)]
         struct ServiceCount {
@@ -222,10 +206,8 @@ impl LogAggregationService {
         .fetch_all(&self.pool)
         .await?;
 
-        let service_counts: std::collections::HashMap<String, i64> = svc_rows
-            .into_iter()
-            .map(|r| (r.service, r.count))
-            .collect();
+        let service_counts: std::collections::HashMap<String, i64> =
+            svc_rows.into_iter().map(|r| (r.service, r.count)).collect();
 
         Ok(LogServiceStats {
             total_entries: total,
@@ -234,10 +216,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn search_by_trace(
-        &self,
-        trace_id: &str,
-    ) -> Result<Vec<LogEntry>, sqlx::Error> {
+    pub async fn search_by_trace(&self, trace_id: &str) -> Result<Vec<LogEntry>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogEntryRow>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, created_at
              FROM log_entries_v2 WHERE trace_id = $1
@@ -269,9 +248,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn list_retention_policies(
-        &self,
-    ) -> Result<Vec<LogRetentionPolicy>, sqlx::Error> {
+    pub async fn list_retention_policies(&self) -> Result<Vec<LogRetentionPolicy>, sqlx::Error> {
         let rows = sqlx::query_as::<_, RetentionPolicyRow>(
             r#"SELECT id, service, level, retention_days, enabled, created_at
              FROM log_retention_policies ORDER BY created_at DESC"#,
@@ -307,10 +284,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_retention_policy(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_retention_policy(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_retention_policies WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -319,9 +293,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn apply_retention_policies(
-        &self,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn apply_retention_policies(&self) -> Result<i64, sqlx::Error> {
         let policies = sqlx::query_as::<_, RetentionPolicyRow>(
             r#"SELECT id, service, level, retention_days, enabled, created_at
              FROM log_retention_policies WHERE enabled = true"#,
@@ -351,10 +323,7 @@ impl LogAggregationService {
 
     // V3: Full-text search and correlation methods
 
-    pub async fn ingest_v3(
-        &self,
-        input: CreateLogEntryV3,
-    ) -> Result<LogEntryV3, sqlx::Error> {
+    pub async fn ingest_v3(&self, input: CreateLogEntryV3) -> Result<LogEntryV3, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV3Row>(
             r#"INSERT INTO log_entries_v3 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -469,10 +438,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn correlate_by_trace(
-        &self,
-        trace_id: &str,
-    ) -> Result<LogCorrelation, sqlx::Error> {
+    pub async fn correlate_by_trace(&self, trace_id: &str) -> Result<LogCorrelation, sqlx::Error> {
         let entries = sqlx::query_as::<_, LogEntryV3Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, created_at
              FROM log_entries_v3 WHERE trace_id = $1
@@ -512,10 +478,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() as i64)
     }
 
-    pub async fn get_by_id_v3(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV3>, sqlx::Error> {
+    pub async fn get_by_id_v3(&self, id: uuid::Uuid) -> Result<Option<LogEntryV3>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV3Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, created_at
              FROM log_entries_v3 WHERE id = $1"#,
@@ -527,10 +490,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn delete_old_entries_v3(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v3(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v3 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -543,10 +503,7 @@ impl LogAggregationService {
 
     // V4: Log aggregation with indexing and alert rules
 
-    pub async fn ingest_v4(
-        &self,
-        input: CreateLogEntryV4,
-    ) -> Result<LogEntryV4, sqlx::Error> {
+    pub async fn ingest_v4(&self, input: CreateLogEntryV4) -> Result<LogEntryV4, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV4Row>(
             r#"INSERT INTO log_entries_v4 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -629,10 +586,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v4(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV4>, sqlx::Error> {
+    pub async fn get_by_id_v4(&self, id: uuid::Uuid) -> Result<Option<LogEntryV4>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV4Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v4 WHERE id = $1"#,
@@ -644,10 +598,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v4(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v4(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v4 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -656,10 +607,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v4(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v4(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v4 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -748,10 +696,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -764,7 +709,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRule, i64), sqlx::Error> {
-        let rule = self.get_alert_rule(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v4
@@ -782,10 +730,7 @@ impl LogAggregationService {
 
     // V5: Log entries with enhanced indexing and alert rules v2
 
-    pub async fn ingest_v5(
-        &self,
-        input: CreateLogEntryV5,
-    ) -> Result<LogEntryV5, sqlx::Error> {
+    pub async fn ingest_v5(&self, input: CreateLogEntryV5) -> Result<LogEntryV5, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV5Row>(
             r#"INSERT INTO log_entries_v5 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -867,10 +812,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v5(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV5>, sqlx::Error> {
+    pub async fn get_by_id_v5(&self, id: uuid::Uuid) -> Result<Option<LogEntryV5>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV5Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v5 WHERE id = $1"#,
@@ -881,10 +823,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v5(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v5(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v5 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -892,10 +831,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v5(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v5(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v5 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -941,9 +877,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v2(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV2>, sqlx::Error> {
+    pub async fn list_alert_rules_v2(&self) -> Result<Vec<LogAlertRuleV2>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV2Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v2 ORDER BY created_at DESC"#,
@@ -981,10 +915,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v2(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v2(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v2 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -996,7 +927,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV2, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v2(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v2(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v5
              WHERE level = $1 AND message ILIKE $2
@@ -1037,10 +971,7 @@ impl LogAggregationService {
 
     // V6: Log entries with enhanced indexing and alert rules v3
 
-    pub async fn ingest_v6(
-        &self,
-        input: CreateLogEntryV6,
-    ) -> Result<LogEntryV6, sqlx::Error> {
+    pub async fn ingest_v6(&self, input: CreateLogEntryV6) -> Result<LogEntryV6, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV6Row>(
             r#"INSERT INTO log_entries_v6 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1120,10 +1051,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v6(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV6>, sqlx::Error> {
+    pub async fn get_by_id_v6(&self, id: uuid::Uuid) -> Result<Option<LogEntryV6>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV6Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v6 WHERE id = $1"#,
@@ -1134,10 +1062,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v6(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v6(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v6 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1145,10 +1070,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v6(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v6(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v6 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -1194,9 +1116,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v3(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV3>, sqlx::Error> {
+    pub async fn list_alert_rules_v3(&self) -> Result<Vec<LogAlertRuleV3>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV3Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v3 ORDER BY created_at DESC"#,
@@ -1234,10 +1154,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v3(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v3(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v3 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1249,7 +1166,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV3, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v3(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v3(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v6
              WHERE level = $1 AND message ILIKE $2
@@ -1290,10 +1210,7 @@ impl LogAggregationService {
 
     // V7: Log entries with enhanced indexing and alert rules v4
 
-    pub async fn ingest_v7(
-        &self,
-        input: CreateLogEntryV7,
-    ) -> Result<LogEntryV7, sqlx::Error> {
+    pub async fn ingest_v7(&self, input: CreateLogEntryV7) -> Result<LogEntryV7, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV7Row>(
             r#"INSERT INTO log_entries_v7 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1373,10 +1290,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v7(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV7>, sqlx::Error> {
+    pub async fn get_by_id_v7(&self, id: uuid::Uuid) -> Result<Option<LogEntryV7>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV7Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v7 WHERE id = $1"#,
@@ -1387,10 +1301,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v7(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v7(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v7 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1398,10 +1309,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v7(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v7(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v7 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -1447,9 +1355,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v4(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV4>, sqlx::Error> {
+    pub async fn list_alert_rules_v4(&self) -> Result<Vec<LogAlertRuleV4>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV4Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v4 ORDER BY created_at DESC"#,
@@ -1487,10 +1393,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v4(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v4(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v4 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1502,7 +1405,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV4, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v4(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v4(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v7
              WHERE level = $1 AND message ILIKE $2
@@ -1566,10 +1472,7 @@ impl LogAggregationService {
 
     // V8: Log entries with enhanced indexing and alert rules v5
 
-    pub async fn ingest_v8(
-        &self,
-        input: CreateLogEntryV8,
-    ) -> Result<LogEntryV8, sqlx::Error> {
+    pub async fn ingest_v8(&self, input: CreateLogEntryV8) -> Result<LogEntryV8, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV8Row>(
             r#"INSERT INTO log_entries_v8 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1649,10 +1552,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v8(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV8>, sqlx::Error> {
+    pub async fn get_by_id_v8(&self, id: uuid::Uuid) -> Result<Option<LogEntryV8>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV8Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v8 WHERE id = $1"#,
@@ -1663,10 +1563,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v8(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v8(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v8 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1674,10 +1571,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v8(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v8(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v8 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -1723,9 +1617,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v5(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV5>, sqlx::Error> {
+    pub async fn list_alert_rules_v5(&self) -> Result<Vec<LogAlertRuleV5>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV5Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v5 ORDER BY created_at DESC"#,
@@ -1763,10 +1655,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v5(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v5(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v5 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1778,7 +1667,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV5, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v5(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v5(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v8
              WHERE level = $1 AND message ILIKE $2
@@ -1870,8 +1762,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV8 {
             pattern: pattern.to_string(),
@@ -1884,10 +1782,7 @@ impl LogAggregationService {
 
     // V9: Log entries v9 and alert rules v6
 
-    pub async fn ingest_v9(
-        &self,
-        input: CreateLogEntryV9,
-    ) -> Result<LogEntryV9, sqlx::Error> {
+    pub async fn ingest_v9(&self, input: CreateLogEntryV9) -> Result<LogEntryV9, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV9Row>(
             r#"INSERT INTO log_entries_v9 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1967,10 +1862,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v9(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV9>, sqlx::Error> {
+    pub async fn get_by_id_v9(&self, id: uuid::Uuid) -> Result<Option<LogEntryV9>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV9Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v9 WHERE id = $1"#,
@@ -1981,10 +1873,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v9(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v9(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v9 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1992,10 +1881,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v9(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v9(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v9 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -2039,9 +1925,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v6(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV6>, sqlx::Error> {
+    pub async fn list_alert_rules_v6(&self) -> Result<Vec<LogAlertRuleV6>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV6Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v6 ORDER BY created_at DESC"#,
@@ -2079,10 +1963,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v6(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v6(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v6 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2094,7 +1975,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV6, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v6(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v6(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v9
              WHERE level = $1 AND message ILIKE $2
@@ -2186,8 +2070,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV9 {
             pattern: pattern.to_string(),
@@ -2200,10 +2090,7 @@ impl LogAggregationService {
 
     // V10: Log entries v10 and alert rules v7
 
-    pub async fn ingest_v10(
-        &self,
-        input: CreateLogEntryV10,
-    ) -> Result<LogEntryV10, sqlx::Error> {
+    pub async fn ingest_v10(&self, input: CreateLogEntryV10) -> Result<LogEntryV10, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV10Row>(
             r#"INSERT INTO log_entries_v10 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -2283,10 +2170,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV10>, sqlx::Error> {
+    pub async fn get_by_id_v10(&self, id: uuid::Uuid) -> Result<Option<LogEntryV10>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV10Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v10 WHERE id = $1"#,
@@ -2297,10 +2181,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v10(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v10 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2308,10 +2189,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v10(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v10(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v10 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -2355,9 +2233,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v7(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV7>, sqlx::Error> {
+    pub async fn list_alert_rules_v7(&self) -> Result<Vec<LogAlertRuleV7>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV7Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v7 ORDER BY created_at DESC"#,
@@ -2395,10 +2271,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v7(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v7(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v7 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2410,7 +2283,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV7, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v7(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v7(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v10
              WHERE level = $1 AND message ILIKE $2
@@ -2502,8 +2378,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV10 {
             pattern: pattern.to_string(),
@@ -2516,10 +2398,7 @@ impl LogAggregationService {
 
     // V11: Log entries v11 and alert rules v8
 
-    pub async fn ingest_v11(
-        &self,
-        input: CreateLogEntryV11,
-    ) -> Result<LogEntryV11, sqlx::Error> {
+    pub async fn ingest_v11(&self, input: CreateLogEntryV11) -> Result<LogEntryV11, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV11Row>(
             r#"INSERT INTO log_entries_v11 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -2599,10 +2478,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v11(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV11>, sqlx::Error> {
+    pub async fn get_by_id_v11(&self, id: uuid::Uuid) -> Result<Option<LogEntryV11>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV11Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v11 WHERE id = $1"#,
@@ -2613,10 +2489,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v11(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v11(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v11 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2624,10 +2497,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v11(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v11(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v11 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -2671,9 +2541,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v8(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV8>, sqlx::Error> {
+    pub async fn list_alert_rules_v8(&self) -> Result<Vec<LogAlertRuleV8>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV8Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v8 ORDER BY created_at DESC"#,
@@ -2711,10 +2579,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v8(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v8(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v8 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2726,7 +2591,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV8, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v8(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v8(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v11
              WHERE level = $1 AND message ILIKE $2
@@ -2818,8 +2686,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV11 {
             pattern: pattern.to_string(),
@@ -2832,10 +2706,7 @@ impl LogAggregationService {
 
     // V12: Log entries v12 and alert rules v9
 
-    pub async fn ingest_v12(
-        &self,
-        input: CreateLogEntryV12,
-    ) -> Result<LogEntryV12, sqlx::Error> {
+    pub async fn ingest_v12(&self, input: CreateLogEntryV12) -> Result<LogEntryV12, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV12Row>(
             r#"INSERT INTO log_entries_v12 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -2915,10 +2786,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v12(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV12>, sqlx::Error> {
+    pub async fn get_by_id_v12(&self, id: uuid::Uuid) -> Result<Option<LogEntryV12>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV12Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v12 WHERE id = $1"#,
@@ -2929,10 +2797,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v12(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v12(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v12 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2940,10 +2805,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v12(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v12(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v12 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -2987,9 +2849,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v9(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV9>, sqlx::Error> {
+    pub async fn list_alert_rules_v9(&self) -> Result<Vec<LogAlertRuleV9>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV9Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v9 ORDER BY created_at DESC"#,
@@ -3027,10 +2887,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v9(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v9(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v9 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3042,7 +2899,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV9, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v9(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v9(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v12
              WHERE level = $1 AND message ILIKE $2
@@ -3083,10 +2943,7 @@ impl LogAggregationService {
 
     // V13: Log entries v13 and alert rules v10
 
-    pub async fn ingest_v13(
-        &self,
-        input: CreateLogEntryV13,
-    ) -> Result<LogEntryV13, sqlx::Error> {
+    pub async fn ingest_v13(&self, input: CreateLogEntryV13) -> Result<LogEntryV13, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV13Row>(
             r#"INSERT INTO log_entries_v13 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -3166,10 +3023,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v13(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV13>, sqlx::Error> {
+    pub async fn get_by_id_v13(&self, id: uuid::Uuid) -> Result<Option<LogEntryV13>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV13Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v13 WHERE id = $1"#,
@@ -3180,10 +3034,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v13(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v13(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v13 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3191,10 +3042,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v13(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v13(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v13 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -3240,9 +3088,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v10(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV10>, sqlx::Error> {
+    pub async fn list_alert_rules_v10(&self) -> Result<Vec<LogAlertRuleV10>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV10Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v10 ORDER BY created_at DESC"#,
@@ -3280,10 +3126,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v10(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v10 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3295,7 +3138,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV10, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v10(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v10(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v13
              WHERE level = $1 AND message ILIKE $2
@@ -3387,8 +3233,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV13 {
             pattern: pattern.to_string(),
@@ -4154,10 +4006,7 @@ impl From<LogAlertRuleV12Row> for LogAlertRuleV12 {
 impl LogAggregationService {
     // V14: Log entries with alert rules v11
 
-    pub async fn ingest_v14(
-        &self,
-        input: CreateLogEntryV14,
-    ) -> Result<LogEntryV14, sqlx::Error> {
+    pub async fn ingest_v14(&self, input: CreateLogEntryV14) -> Result<LogEntryV14, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV14Row>(
             r#"INSERT INTO log_entries_v14 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -4237,10 +4086,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v14(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV14>, sqlx::Error> {
+    pub async fn get_by_id_v14(&self, id: uuid::Uuid) -> Result<Option<LogEntryV14>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV14Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v14 WHERE id = $1"#,
@@ -4251,10 +4097,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v14(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v14(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v14 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4262,10 +4105,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v14(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v14(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v14 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -4311,9 +4151,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v11(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV11>, sqlx::Error> {
+    pub async fn list_alert_rules_v11(&self) -> Result<Vec<LogAlertRuleV11>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV11Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v11 ORDER BY created_at DESC"#,
@@ -4351,10 +4189,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v11(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v11(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v11 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4366,7 +4201,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV11, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v11(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v11(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v14
              WHERE level = $1 AND message ILIKE $2
@@ -4407,10 +4245,7 @@ impl LogAggregationService {
 
     // V15: Log entries v15 and alert rules v12
 
-    pub async fn ingest_v15(
-        &self,
-        input: CreateLogEntryV15,
-    ) -> Result<LogEntryV15, sqlx::Error> {
+    pub async fn ingest_v15(&self, input: CreateLogEntryV15) -> Result<LogEntryV15, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV15Row>(
             r#"INSERT INTO log_entries_v15 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -4490,10 +4325,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v15(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV15>, sqlx::Error> {
+    pub async fn get_by_id_v15(&self, id: uuid::Uuid) -> Result<Option<LogEntryV15>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV15Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v15 WHERE id = $1"#,
@@ -4504,10 +4336,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v15(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v15(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v15 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4515,10 +4344,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v15(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v15(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v15 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -4562,9 +4388,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v12(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV12>, sqlx::Error> {
+    pub async fn list_alert_rules_v12(&self) -> Result<Vec<LogAlertRuleV12>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV12Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v12 ORDER BY created_at DESC"#,
@@ -4602,10 +4426,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v12(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v12(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v12 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4617,7 +4438,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV12, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v12(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v12(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v15
              WHERE level = $1 AND message ILIKE $2
@@ -4709,8 +4533,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV15 {
             pattern: pattern.to_string(),
@@ -4723,10 +4553,7 @@ impl LogAggregationService {
 
     // V16: Log entries v16 and alert rules v13
 
-    pub async fn ingest_v16(
-        &self,
-        input: CreateLogEntryV16,
-    ) -> Result<LogEntryV16, sqlx::Error> {
+    pub async fn ingest_v16(&self, input: CreateLogEntryV16) -> Result<LogEntryV16, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV16Row>(
             r#"INSERT INTO log_entries_v16 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -4806,10 +4633,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v16(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV16>, sqlx::Error> {
+    pub async fn get_by_id_v16(&self, id: uuid::Uuid) -> Result<Option<LogEntryV16>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV16Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v16 WHERE id = $1"#,
@@ -4820,10 +4644,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v16(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v16(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v16 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4831,10 +4652,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v16(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v16(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v16 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -4880,9 +4698,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v13(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV13>, sqlx::Error> {
+    pub async fn list_alert_rules_v13(&self) -> Result<Vec<LogAlertRuleV13>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV13Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v13 ORDER BY created_at DESC"#,
@@ -4920,10 +4736,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v13(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v13(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v13 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4935,7 +4748,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV13, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v13(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v13(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v16
              WHERE level = $1 AND message ILIKE $2
@@ -5027,8 +4843,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV16 {
             pattern: pattern.to_string(),
@@ -5041,10 +4863,7 @@ impl LogAggregationService {
 
     // V17: Log entries v17 and alert rules v14
 
-    pub async fn ingest_v17(
-        &self,
-        input: CreateLogEntryV17,
-    ) -> Result<LogEntryV17, sqlx::Error> {
+    pub async fn ingest_v17(&self, input: CreateLogEntryV17) -> Result<LogEntryV17, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV17Row>(
             r#"INSERT INTO log_entries_v17 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -5124,10 +4943,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v17(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV17>, sqlx::Error> {
+    pub async fn get_by_id_v17(&self, id: uuid::Uuid) -> Result<Option<LogEntryV17>, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV17Row>(
             r#"SELECT id, level, message, source, service, trace_id, span_id, metadata, retention_days, indexed, created_at
              FROM log_entries_v17 WHERE id = $1"#,
@@ -5138,10 +4954,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v17(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v17(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v17 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5149,10 +4962,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v17(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v17(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v17 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -5198,9 +5008,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v14(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV14>, sqlx::Error> {
+    pub async fn list_alert_rules_v14(&self) -> Result<Vec<LogAlertRuleV14>, sqlx::Error> {
         let rows = sqlx::query_as::<_, LogAlertRuleV14Row>(
             r#"SELECT id, name, level, pattern, threshold, window_seconds, enabled, created_at
              FROM log_alert_rules_v14 ORDER BY created_at DESC"#,
@@ -5238,10 +5046,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v14(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v14(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v14 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5253,7 +5058,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV14, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v14(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v14(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v17
              WHERE level = $1 AND message ILIKE $2
@@ -5345,8 +5153,14 @@ impl LogAggregationService {
             .cloned()
             .collect();
 
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV17 {
             pattern: pattern.to_string(),
@@ -5541,10 +5355,7 @@ impl From<LogAlertRuleV15Row> for LogAlertRuleV15 {
 }
 
 impl LogAggregationService {
-    pub async fn ingest_v18(
-        &self,
-        input: CreateLogEntryV18,
-    ) -> Result<LogEntryV18, sqlx::Error> {
+    pub async fn ingest_v18(&self, input: CreateLogEntryV18) -> Result<LogEntryV18, sqlx::Error> {
         let row = sqlx::query_as::<_, LogEntryV18Row>(
             r#"INSERT INTO log_entries_v18 (level, message, source, service, trace_id, span_id, metadata, retention_days)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -5738,7 +5549,8 @@ impl LogAggregationService {
         let mut alerts = Vec::new();
 
         for rule in rules {
-            let window_start = chrono::Utc::now() - chrono::Duration::seconds(rule.window_seconds as i64);
+            let window_start =
+                chrono::Utc::now() - chrono::Duration::seconds(rule.window_seconds as i64);
 
             #[derive(Debug, sqlx::FromRow)]
             struct CountResult {
@@ -5776,10 +5588,7 @@ impl LogAggregationService {
 
     // V19: Log entries with enhanced indexing and alert rules v16
 
-    pub async fn ingest_v19(
-        &self,
-        input: CreateLogEntryV19,
-    ) -> Result<LogEntryV19, sqlx::Error> {
+    pub async fn ingest_v19(&self, input: CreateLogEntryV19) -> Result<LogEntryV19, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogEntryV19Row {
             id: uuid::Uuid,
@@ -5923,10 +5732,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v19(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV19>, sqlx::Error> {
+    pub async fn get_by_id_v19(&self, id: uuid::Uuid) -> Result<Option<LogEntryV19>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogEntryV19Row {
             id: uuid::Uuid,
@@ -6052,9 +5858,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v16(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV16>, sqlx::Error> {
+    pub async fn list_alert_rules_v16(&self) -> Result<Vec<LogAlertRuleV16>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogAlertRuleV16Row {
             id: uuid::Uuid,
@@ -6142,10 +5946,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v16(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v16(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v16 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6157,7 +5958,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV16, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v16(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v16(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v19
              WHERE level = $1 AND message ILIKE $2
@@ -6310,8 +6114,14 @@ impl LogAggregationService {
             .into_iter()
             .cloned()
             .collect();
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
 
         Ok(LogPatternMatchV19 {
             pattern: pattern.to_string(),
@@ -6324,10 +6134,7 @@ impl LogAggregationService {
 
     // V20: Log entries v20 and alert rules v17
 
-    pub async fn ingest_v20(
-        &self,
-        input: CreateLogEntryV20,
-    ) -> Result<LogEntryV20, sqlx::Error> {
+    pub async fn ingest_v20(&self, input: CreateLogEntryV20) -> Result<LogEntryV20, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogEntryV20Row {
             id: uuid::Uuid,
@@ -6470,10 +6277,7 @@ impl LogAggregationService {
         })
     }
 
-    pub async fn get_by_id_v20(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<Option<LogEntryV20>, sqlx::Error> {
+    pub async fn get_by_id_v20(&self, id: uuid::Uuid) -> Result<Option<LogEntryV20>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogEntryV20Row {
             id: uuid::Uuid,
@@ -6515,10 +6319,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn mark_indexed_v20(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn mark_indexed_v20(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("UPDATE log_entries_v20 SET indexed = true WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6526,10 +6327,7 @@ impl LogAggregationService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn delete_old_entries_v20(
-        &self,
-        max_age_days: i32,
-    ) -> Result<i64, sqlx::Error> {
+    pub async fn delete_old_entries_v20(&self, max_age_days: i32) -> Result<i64, sqlx::Error> {
         let result = sqlx::query(
             "DELETE FROM log_entries_v20 WHERE created_at < NOW() - make_interval(days => $1::int)",
         )
@@ -6625,9 +6423,7 @@ impl LogAggregationService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_alert_rules_v17(
-        &self,
-    ) -> Result<Vec<LogAlertRuleV17>, sqlx::Error> {
+    pub async fn list_alert_rules_v17(&self) -> Result<Vec<LogAlertRuleV17>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogAlertRuleV17Row {
             id: uuid::Uuid,
@@ -6715,10 +6511,7 @@ impl LogAggregationService {
         Ok(row.into())
     }
 
-    pub async fn delete_alert_rule_v17(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_alert_rule_v17(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM log_alert_rules_v17 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -6730,7 +6523,10 @@ impl LogAggregationService {
         &self,
         id: uuid::Uuid,
     ) -> Result<(LogAlertRuleV17, i64), sqlx::Error> {
-        let rule = self.get_alert_rule_v17(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_alert_rule_v17(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let count = sqlx::query_scalar::<_, i64>(
             r#"SELECT COUNT(*) FROM log_entries_v20
              WHERE level = $1 AND message ILIKE $2
@@ -6884,8 +6680,14 @@ impl LogAggregationService {
             .into_iter()
             .cloned()
             .collect();
-        let first_match_at = rows.first().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
-        let last_match_at = rows.last().map(|r| r.created_at).unwrap_or_else(chrono::Utc::now);
+        let first_match_at = rows
+            .first()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
+        let last_match_at = rows
+            .last()
+            .map(|r| r.created_at)
+            .unwrap_or_else(chrono::Utc::now);
         Ok(LogPatternMatchV20 {
             pattern: pattern.to_string(),
             match_count,
@@ -6935,10 +6737,7 @@ impl LogAggregationService {
 
     // V21: Log entries v21 and alert rules v18
 
-    pub async fn ingest_v21(
-        &self,
-        input: CreateLogEntryV21,
-    ) -> Result<LogEntryV21, sqlx::Error> {
+    pub async fn ingest_v21(&self, input: CreateLogEntryV21) -> Result<LogEntryV21, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct LogEntryV21Row {
             id: uuid::Uuid,
@@ -7238,7 +7037,8 @@ impl LogAggregationService {
         let mut alerts = Vec::new();
 
         for rule in rules {
-            let window_start = chrono::Utc::now() - chrono::Duration::seconds(rule.window_seconds as i64);
+            let window_start =
+                chrono::Utc::now() - chrono::Duration::seconds(rule.window_seconds as i64);
 
             #[derive(Debug, sqlx::FromRow)]
             struct CountResult {

@@ -3,15 +3,14 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use axum::{
-    Json,
-    Router,
+    Json, Router,
     extract::State,
     http::StatusCode,
     response::IntoResponse,
     routing::{get, put},
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,8 +35,12 @@ pub struct CreateAnalyticsDashboardTemplateV24Request {
     pub template_data: serde_json::Value,
 }
 
-fn default_category() -> String { "general".into() }
-fn default_template_data() -> serde_json::Value { serde_json::json!({}) }
+fn default_category() -> String {
+    "general".into()
+}
+fn default_template_data() -> serde_json::Value {
+    serde_json::json!({})
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsAlertRuleV24Response {
@@ -62,8 +65,12 @@ pub struct CreateAnalyticsAlertRuleV24Request {
     pub enabled: bool,
 }
 
-fn default_severity() -> String { "warning".into() }
-fn default_true() -> bool { true }
+fn default_severity() -> String {
+    "warning".into()
+}
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateAnalyticsAlertRuleV24Request {
@@ -109,15 +116,18 @@ pub async fn list_analytics_dashboard_templates_v24(
     let _ = auth;
     match state.db.list_analytics_dashboard_templates_v21().await {
         Ok(templates) => {
-            let response: Vec<AnalyticsDashboardTemplateV24Response> = templates.iter().map(|t| AnalyticsDashboardTemplateV24Response {
-                id: t.id,
-                name: t.name.clone(),
-                description: t.description.clone(),
-                category: t.category.clone(),
-                template_data: t.template_data.clone(),
-                usage_count: t.usage_count,
-                created_at: t.created_at,
-            }).collect();
+            let response: Vec<AnalyticsDashboardTemplateV24Response> = templates
+                .iter()
+                .map(|t| AnalyticsDashboardTemplateV24Response {
+                    id: t.id,
+                    name: t.name.clone(),
+                    description: t.description.clone(),
+                    category: t.category.clone(),
+                    template_data: t.template_data.clone(),
+                    usage_count: t.usage_count,
+                    created_at: t.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -134,12 +144,16 @@ pub async fn create_analytics_dashboard_template_v24(
     Json(req): Json<CreateAnalyticsDashboardTemplateV24Request>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_analytics_dashboard_template_v21(
-        &req.name,
-        &req.description,
-        &req.category,
-        &req.template_data,
-    ).await {
+    match state
+        .db
+        .create_analytics_dashboard_template_v21(
+            &req.name,
+            &req.description,
+            &req.category,
+            &req.template_data,
+        )
+        .await
+    {
         Ok(template) => {
             let response = AnalyticsDashboardTemplateV24Response {
                 id: template.id,
@@ -183,16 +197,19 @@ pub async fn list_analytics_alert_rules_v24(
     let _ = auth;
     match state.db.list_analytics_alert_rules_v21().await {
         Ok(rules) => {
-            let response: Vec<AnalyticsAlertRuleV24Response> = rules.iter().map(|r| AnalyticsAlertRuleV24Response {
-                id: r.id,
-                metric_name: r.metric_name.clone(),
-                condition: r.condition.clone(),
-                threshold: r.threshold,
-                severity: r.severity.clone(),
-                enabled: r.enabled,
-                last_triggered_at: r.last_triggered_at,
-                created_at: r.created_at,
-            }).collect();
+            let response: Vec<AnalyticsAlertRuleV24Response> = rules
+                .iter()
+                .map(|r| AnalyticsAlertRuleV24Response {
+                    id: r.id,
+                    metric_name: r.metric_name.clone(),
+                    condition: r.condition.clone(),
+                    threshold: r.threshold,
+                    severity: r.severity.clone(),
+                    enabled: r.enabled,
+                    last_triggered_at: r.last_triggered_at,
+                    created_at: r.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -209,13 +226,17 @@ pub async fn create_analytics_alert_rule_v24(
     Json(req): Json<CreateAnalyticsAlertRuleV24Request>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_analytics_alert_rule_v21(
-        &req.metric_name,
-        &req.condition,
-        req.threshold,
-        &req.severity,
-        req.enabled,
-    ).await {
+    match state
+        .db
+        .create_analytics_alert_rule_v21(
+            &req.metric_name,
+            &req.condition,
+            req.threshold,
+            &req.severity,
+            req.enabled,
+        )
+        .await
+    {
         Ok(rule) => {
             let response = AnalyticsAlertRuleV24Response {
                 id: rule.id,
@@ -244,13 +265,17 @@ pub async fn update_analytics_alert_rule_v24(
     Json(req): Json<UpdateAnalyticsAlertRuleV24Request>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.update_analytics_alert_rule_v21(
-        id,
-        req.condition.as_deref(),
-        req.threshold,
-        req.severity.as_deref(),
-        req.enabled,
-    ).await {
+    match state
+        .db
+        .update_analytics_alert_rule_v21(
+            id,
+            req.condition.as_deref(),
+            req.threshold,
+            req.severity.as_deref(),
+            req.enabled,
+        )
+        .await
+    {
         Ok(rule) => {
             let response = AnalyticsAlertRuleV24Response {
                 id: rule.id,
@@ -300,19 +325,40 @@ pub async fn get_predictive_analytics_v24() -> impl IntoResponse {
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v24/analytics/dashboard-templates", get(list_analytics_dashboard_templates_v24).post(create_analytics_dashboard_template_v24))
-        .route("/api/v24/analytics/dashboard-templates/{id}", get(get_analytics_dashboard_template_v24_by_id).delete(delete_analytics_dashboard_template_v24))
-        .route("/api/v24/analytics/alert-rules", get(list_analytics_alert_rules_v24).post(create_analytics_alert_rule_v24))
-        .route("/api/v24/analytics/alert-rules/{id}", put(update_analytics_alert_rule_v24).delete(delete_analytics_alert_rule_v24))
+        .route(
+            "/api/v24/analytics/dashboard-templates",
+            get(list_analytics_dashboard_templates_v24)
+                .post(create_analytics_dashboard_template_v24),
+        )
+        .route(
+            "/api/v24/analytics/dashboard-templates/{id}",
+            get(get_analytics_dashboard_template_v24_by_id)
+                .delete(delete_analytics_dashboard_template_v24),
+        )
+        .route(
+            "/api/v24/analytics/alert-rules",
+            get(list_analytics_alert_rules_v24).post(create_analytics_alert_rule_v24),
+        )
+        .route(
+            "/api/v24/analytics/alert-rules/{id}",
+            put(update_analytics_alert_rule_v24).delete(delete_analytics_alert_rule_v24),
+        )
         .route("/api/v24/analytics/anomalies", get(detect_anomalies_v24))
-        .route("/api/v24/analytics/predictions", get(get_predictive_analytics_v24))
+        .route(
+            "/api/v24/analytics/predictions",
+            get(get_predictive_analytics_v24),
+        )
 }
 
 pub async fn get_analytics_dashboard_template_v24_by_id(
     State(state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
 ) -> impl IntoResponse {
-    match state.db.get_analytics_dashboard_template_v21_by_id(id).await {
+    match state
+        .db
+        .get_analytics_dashboard_template_v21_by_id(id)
+        .await
+    {
         Ok(Some(template)) => {
             let response = AnalyticsDashboardTemplateV24Response {
                 id: template.id,

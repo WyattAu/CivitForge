@@ -94,12 +94,10 @@ impl CircuitBreaker {
                 }
             }
             CircuitBreakerState::Closed => {
-                sqlx::query(
-                    r#"UPDATE circuit_breakers SET failure_count = 0 WHERE name = $1"#,
-                )
-                .bind(name)
-                .execute(&self.pool)
-                .await?;
+                sqlx::query(r#"UPDATE circuit_breakers SET failure_count = 0 WHERE name = $1"#)
+                    .bind(name)
+                    .execute(&self.pool)
+                    .await?;
             }
             CircuitBreakerState::Open => {}
         }
@@ -191,7 +189,10 @@ impl CircuitBreaker {
         }
     }
 
-    pub async fn get_status(&self, name: &str) -> Result<Option<CircuitBreakerStatus>, sqlx::Error> {
+    pub async fn get_status(
+        &self,
+        name: &str,
+    ) -> Result<Option<CircuitBreakerStatus>, sqlx::Error> {
         let breaker = self.get(name).await?;
 
         Ok(breaker.map(|b| CircuitBreakerStatus {

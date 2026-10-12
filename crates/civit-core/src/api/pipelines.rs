@@ -235,45 +235,48 @@ pub async fn trigger_pipeline(
 
     // Resolve includes for v2 pipelines
     if pl.version == "2"
-        && let Some(includes) = &pl.include {
-            let mut included_files = Vec::new();
-            for inc in includes {
-                let ref_name = inc.ref_name.as_deref().unwrap_or(&req.ref_name);
-                match read_pipeline_yaml(&state, &repo_id, &owner, &repo_name, ref_name, &inc.source).await {
-                    Ok(Some(content)) => {
-                        included_files.push((inc.clone(), content));
-                    }
-                    Ok(None) => {
-                        return (
-                            axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-                            Json(
-                                CoreError::NotFound(format!(
-                                    "included file '{}' not found",
-                                    inc.source
-                                ))
-                                .error_response(),
-                            ),
-                        )
-                            .into_response();
-                    }
-                    Err(e) => {
-                        return (
-                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(CoreError::Database(e.to_string()).error_response()),
-                        )
-                            .into_response();
-                    }
+        && let Some(includes) = &pl.include
+    {
+        let mut included_files = Vec::new();
+        for inc in includes {
+            let ref_name = inc.ref_name.as_deref().unwrap_or(&req.ref_name);
+            match read_pipeline_yaml(&state, &repo_id, &owner, &repo_name, ref_name, &inc.source)
+                .await
+            {
+                Ok(Some(content)) => {
+                    included_files.push((inc.clone(), content));
+                }
+                Ok(None) => {
+                    return (
+                        axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                        Json(
+                            CoreError::NotFound(format!(
+                                "included file '{}' not found",
+                                inc.source
+                            ))
+                            .error_response(),
+                        ),
+                    )
+                        .into_response();
+                }
+                Err(e) => {
+                    return (
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(CoreError::Database(e.to_string()).error_response()),
+                    )
+                        .into_response();
                 }
             }
-
-            if let Err(e) = resolve_includes(&mut pl, &included_files) {
-                return (
-                    axum::http::StatusCode::UNPROCESSABLE_ENTITY,
-                    Json(CoreError::NotFound(e.to_string()).error_response()),
-                )
-                    .into_response();
-            }
         }
+
+        if let Err(e) = resolve_includes(&mut pl, &included_files) {
+            return (
+                axum::http::StatusCode::UNPROCESSABLE_ENTITY,
+                Json(CoreError::NotFound(e.to_string()).error_response()),
+            )
+                .into_response();
+        }
+    }
 
     if let Err(e) = validate_pipeline(&pl) {
         return (
@@ -499,24 +502,24 @@ pub async fn trigger_pipelines_on_push(state: &AppState, owner: &str, repo_name:
 
     // Resolve includes for v2 pipelines
     if pl.version == "2"
-        && let Some(includes) = &pl.include {
-            let mut included_files = Vec::new();
-            for inc in includes {
-                let ref_name = inc.ref_name.as_deref().unwrap_or(&ref_name);
-                match read_pipeline_yaml(state, &repo_id, owner, repo_name, ref_name, &inc.source)
-                    .await
-                {
-                    Ok(Some(content)) => {
-                        included_files.push((inc.clone(), content));
-                    }
-                    _ => continue,
+        && let Some(includes) = &pl.include
+    {
+        let mut included_files = Vec::new();
+        for inc in includes {
+            let ref_name = inc.ref_name.as_deref().unwrap_or(&ref_name);
+            match read_pipeline_yaml(state, &repo_id, owner, repo_name, ref_name, &inc.source).await
+            {
+                Ok(Some(content)) => {
+                    included_files.push((inc.clone(), content));
                 }
-            }
-
-            if resolve_includes(&mut pl, &included_files).is_err() {
-                return;
+                _ => continue,
             }
         }
+
+        if resolve_includes(&mut pl, &included_files).is_err() {
+            return;
+        }
+    }
 
     if validate_pipeline(&pl).is_err() {
         return;

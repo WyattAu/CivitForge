@@ -112,7 +112,10 @@ pub async fn create_pr_template(
     };
 
     if req.name.trim().is_empty() {
-        return err_response(axum::http::StatusCode::BAD_REQUEST, "template name is required");
+        return err_response(
+            axum::http::StatusCode::BAD_REQUEST,
+            "template name is required",
+        );
     }
 
     let title = req.title.unwrap_or_default();
@@ -181,11 +184,7 @@ pub async fn delete_pr_template(
         }
     };
 
-    match state
-        .db
-        .delete_pr_template(template_id, repo_id)
-        .await
-    {
+    match state.db.delete_pr_template(template_id, repo_id).await {
         Ok(()) => (axum::http::StatusCode::NO_CONTENT, ()).into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
@@ -199,8 +198,7 @@ pub fn pr_template_routes() -> Router<AppState> {
         )
         .route(
             "/api/v1/repos/{owner}/{name}/pr-templates/{template_id}",
-            axum::routing::patch(update_pr_template)
-                .delete(delete_pr_template),
+            axum::routing::patch(update_pr_template).delete(delete_pr_template),
         )
 }
 

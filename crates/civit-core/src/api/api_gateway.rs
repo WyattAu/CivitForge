@@ -117,19 +117,7 @@ pub async fn list_routes(
     let pool = state.db.pool();
     let offset = (params.page.saturating_sub(1) * params.per_page) as i64;
 
-    let rows = sqlx::query_as::<
-        _,
-        (
-            Uuid,
-            String,
-            String,
-            String,
-            i32,
-            i32,
-            bool,
-            DateTime<Utc>,
-        ),
-    >(
+    let rows = sqlx::query_as::<_, (Uuid, String, String, String, i32, i32, bool, DateTime<Utc>)>(
         "SELECT id, path, method, backend_url, rate_limit, timeout_ms, enabled, created_at
          FROM api_gateway_routes ORDER BY created_at DESC LIMIT $1 OFFSET $2",
     )
@@ -142,18 +130,29 @@ pub async fn list_routes(
         Ok(rows) => {
             let routes: Vec<GatewayRoute> = rows
                 .into_iter()
-                .map(|(id, path, method, backend_url, rate_limit, timeout_ms, enabled, created_at)| {
-                    GatewayRoute {
-                        id: id.to_string(),
+                .map(
+                    |(
+                        id,
                         path,
                         method,
                         backend_url,
                         rate_limit,
                         timeout_ms,
                         enabled,
-                        created_at: created_at.to_rfc3339(),
-                    }
-                })
+                        created_at,
+                    )| {
+                        GatewayRoute {
+                            id: id.to_string(),
+                            path,
+                            method,
+                            backend_url,
+                            rate_limit,
+                            timeout_ms,
+                            enabled,
+                            created_at: created_at.to_rfc3339(),
+                        }
+                    },
+                )
                 .collect();
             (StatusCode::OK, Json(routes)).into_response()
         }
@@ -176,7 +175,10 @@ pub async fn create_route(
     if req.path.is_empty() || req.method.is_empty() || req.backend_url.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
-            Json(CoreError::BadRequest("path, method, and backend_url are required".into()).error_response()),
+            Json(
+                CoreError::BadRequest("path, method, and backend_url are required".into())
+                    .error_response(),
+            ),
         )
             .into_response();
     }
@@ -358,19 +360,21 @@ pub async fn list_keys(
         Ok(rows) => {
             let keys: Vec<GatewayKey> = rows
                 .into_iter()
-                .map(|(id, name, scopes, rate_limit, enabled, expires_at, created_at)| {
-                    let scopes_vec =
-                        serde_json::from_value::<Vec<String>>(scopes).unwrap_or_default();
-                    GatewayKey {
-                        id: id.to_string(),
-                        name,
-                        scopes: scopes_vec,
-                        rate_limit,
-                        enabled,
-                        expires_at: expires_at.map(|dt| dt.to_rfc3339()),
-                        created_at: created_at.to_rfc3339(),
-                    }
-                })
+                .map(
+                    |(id, name, scopes, rate_limit, enabled, expires_at, created_at)| {
+                        let scopes_vec =
+                            serde_json::from_value::<Vec<String>>(scopes).unwrap_or_default();
+                        GatewayKey {
+                            id: id.to_string(),
+                            name,
+                            scopes: scopes_vec,
+                            rate_limit,
+                            enabled,
+                            expires_at: expires_at.map(|dt| dt.to_rfc3339()),
+                            created_at: created_at.to_rfc3339(),
+                        }
+                    },
+                )
                 .collect();
             (StatusCode::OK, Json(keys)).into_response()
         }
@@ -532,8 +536,7 @@ pub async fn validate_api_key(
 
     match row {
         Some((id, scopes, rate_limit)) => {
-            let scopes_vec =
-                serde_json::from_value::<Vec<String>>(scopes).unwrap_or_default();
+            let scopes_vec = serde_json::from_value::<Vec<String>>(scopes).unwrap_or_default();
             Ok(Some((id.to_string(), scopes_vec, rate_limit)))
         }
         None => Ok(None),
@@ -543,12 +546,18 @@ pub async fn validate_api_key(
 pub fn gateway_routes() -> axum::Router<AppState> {
     use axum::routing::{delete, get};
     axum::Router::new()
-        .route("/api/v1/admin/gateway/routes", get(list_routes).post(create_route))
+        .route(
+            "/api/v1/admin/gateway/routes",
+            get(list_routes).post(create_route),
+        )
         .route(
             "/api/v1/admin/gateway/routes/{route_id}",
             get(get_route).put(update_route).delete(delete_route),
         )
-        .route("/api/v1/admin/gateway/keys", get(list_keys).post(create_key))
+        .route(
+            "/api/v1/admin/gateway/keys",
+            get(list_keys).post(create_key),
+        )
         .route("/api/v1/admin/gateway/keys/{key_id}", delete(delete_key))
 }
 
@@ -578,22 +587,20 @@ async fn get_route(
     .await;
 
     match row {
-        Ok(Some((id, path, method, backend_url, rate_limit, timeout_ms, enabled, created_at))) => {
-            (
-                StatusCode::OK,
-                Json(GatewayRoute {
-                    id: id.to_string(),
-                    path,
-                    method,
-                    backend_url,
-                    rate_limit,
-                    timeout_ms,
-                    enabled,
-                    created_at: created_at.to_rfc3339(),
-                }),
-            )
-                .into_response()
-        }
+        Ok(Some((id, path, method, backend_url, rate_limit, timeout_ms, enabled, created_at))) => (
+            StatusCode::OK,
+            Json(GatewayRoute {
+                id: id.to_string(),
+                path,
+                method,
+                backend_url,
+                rate_limit,
+                timeout_ms,
+                enabled,
+                created_at: created_at.to_rfc3339(),
+            }),
+        )
+            .into_response(),
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(CoreError::NotFound("route not found".into()).error_response()),

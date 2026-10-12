@@ -128,10 +128,7 @@ impl DataRetentionService {
         Ok(row.into())
     }
 
-    pub async fn get_policy(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<DataRetentionPolicy>, sqlx::Error> {
+    pub async fn get_policy(&self, id: Uuid) -> Result<Option<DataRetentionPolicy>, sqlx::Error> {
         let row = sqlx::query_as::<_, DataRetentionPolicyRow>(
             r#"SELECT id, name, data_types, retention_days, action, enabled, created_at
              FROM data_retention_policies WHERE id = $1"#,

@@ -2,12 +2,11 @@
 
 use crate::api::AppState;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -123,7 +122,13 @@ async fn create_replication_log(
     .bind(input.record_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(log.into())))
 }
@@ -137,7 +142,13 @@ async fn list_replication_logs(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(logs.into_iter().map(|l| l.into()).collect()))
 }
@@ -153,8 +164,20 @@ async fn get_replication_log(
     .bind(id)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "log not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "log not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(log.into()))
 }
@@ -164,7 +187,8 @@ async fn update_replication_log_status(
     Path(id): Path<Uuid>,
     Json(input): Json<serde_json::Value>,
 ) -> Result<Json<ReplicationLogResponse>, Response> {
-    let status = input.get("status")
+    let status = input
+        .get("status")
         .and_then(|v| v.as_str())
         .unwrap_or("completed");
 
@@ -176,8 +200,20 @@ async fn update_replication_log_status(
     .bind(status)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "log not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "log not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(log.into()))
 }
@@ -237,7 +273,13 @@ async fn get_replication_summary(
     )
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let avg_lag = sqlx::query_scalar::<_, f64>(
         r#"SELECT COALESCE(AVG(avg_lag_ms), 0.0) FROM database_replication_stats
@@ -271,7 +313,13 @@ async fn monitor_replication_lag(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let result: Vec<serde_json::Value> = replicas
         .into_iter()
@@ -404,7 +452,13 @@ async fn set_config(
     .bind(&input.config_value)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(config.into())))
 }
@@ -422,8 +476,20 @@ async fn get_config(
     .bind(&config_key)
     .fetch_optional(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?
-    .ok_or_else(|| (StatusCode::NOT_FOUND, Json(serde_json::json!({"error": "config not found"}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "config not found"})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(config.into()))
 }
@@ -441,7 +507,13 @@ async fn get_all_config(
     .bind(replica_id)
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(configs.into_iter().map(|c| c.into()).collect()))
 }
@@ -460,7 +532,13 @@ async fn create_replication_alert(
     .bind(input.threshold)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok((StatusCode::CREATED, Json(alert.into())))
 }
@@ -478,7 +556,13 @@ async fn get_replication_alerts(
     .bind(replica_id)
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     Ok(Json(alerts.into_iter().map(|a| a.into()).collect()))
 }
@@ -499,7 +583,13 @@ async fn monitor_replication(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let result: Vec<serde_json::Value> = replicas
         .into_iter()
@@ -524,13 +614,18 @@ async fn test_failover(
     let start = Utc::now();
     let mut steps = Vec::new();
 
-    let replica_exists: Option<(Uuid,)> = sqlx::query_as(
-        r#"SELECT id FROM database_replicas WHERE id = $1"#,
-    )
-    .bind(replica_id)
-    .fetch_optional(state.db.pool())
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    let replica_exists: Option<(Uuid,)> =
+        sqlx::query_as(r#"SELECT id FROM database_replicas WHERE id = $1"#)
+            .bind(replica_id)
+            .fetch_optional(state.db.pool())
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
     if replica_exists.is_none() {
         return Ok(Json(FailoverTestResponse {
@@ -550,7 +645,13 @@ async fn test_failover(
     .bind(replica_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
     let step_duration = (Utc::now() - step_start).num_milliseconds() as i32;
     steps.push(FailoverStepResponse {
         step_name: "verify_config".into(),
@@ -566,7 +667,13 @@ async fn test_failover(
     .bind(replica_id)
     .fetch_one(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
     let step_duration = (Utc::now() - step_start).num_milliseconds() as i32;
     steps.push(FailoverStepResponse {
         step_name: "verify_alerts".into(),
@@ -810,7 +917,13 @@ async fn get_replication_topology(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let mut topology = Vec::new();
     for (i, replica) in replicas.iter().enumerate() {
@@ -825,7 +938,13 @@ async fn get_replication_topology(
             .bind(&target.name)
             .fetch_one(state.db.pool())
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
             let last_check: Option<(Option<DateTime<Utc>>,)> = sqlx::query_as(
                 r#"SELECT MAX(checked_at) FROM replication_consistency_checks_v21
@@ -835,7 +954,13 @@ async fn get_replication_topology(
             .bind(&target.name)
             .fetch_optional(state.db.pool())
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({"error": e.to_string()})),
+                )
+                    .into_response()
+            })?;
 
             topology.push(ReplicationTopologyResponseV22 {
                 source_node: replica.name.clone(),
@@ -867,7 +992,13 @@ async fn get_recovery_points(
     )
     .fetch_all(state.db.pool())
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": e.to_string()}))).into_response())?;
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": e.to_string()})),
+        )
+            .into_response()
+    })?;
 
     let now = Utc::now();
     let points: Vec<RecoveryPointResponseV22> = replicas
@@ -903,61 +1034,133 @@ pub fn database_replication_routes() -> Router<AppState> {
             "/api/v1/replication/logs/{id}",
             get(get_replication_log).patch(update_replication_log_status),
         )
-        .route(
-            "/api/v1/replication/stats",
-            post(create_replication_stats),
-        )
+        .route("/api/v1/replication/stats", post(create_replication_stats))
         .route(
             "/api/v1/replication/stats/{replica_id}",
             get(get_replication_stats),
         )
-        .route(
-            "/api/v1/replication/summary",
-            get(get_replication_summary),
-        )
+        .route("/api/v1/replication/summary", get(get_replication_summary))
         .route(
             "/api/v1/replication/lag-monitor",
             get(monitor_replication_lag),
         )
         // v5 routes
         .route("/api/v1/replication-v5/config", post(set_config))
-        .route("/api/v1/replication-v5/config/{replica_id}", get(get_all_config))
-        .route("/api/v1/replication-v5/config/{replica_id}/{config_key}", get(get_config))
-        .route("/api/v1/replication-v5/alerts", post(create_replication_alert))
-        .route("/api/v1/replication-v5/alerts/{replica_id}", get(get_replication_alerts))
+        .route(
+            "/api/v1/replication-v5/config/{replica_id}",
+            get(get_all_config),
+        )
+        .route(
+            "/api/v1/replication-v5/config/{replica_id}/{config_key}",
+            get(get_config),
+        )
+        .route(
+            "/api/v1/replication-v5/alerts",
+            post(create_replication_alert),
+        )
+        .route(
+            "/api/v1/replication-v5/alerts/{replica_id}",
+            get(get_replication_alerts),
+        )
         .route("/api/v1/replication-v5/monitor", get(monitor_replication))
-        .route("/api/v1/replication-v5/failover-test/{replica_id}", post(test_failover))
+        .route(
+            "/api/v1/replication-v5/failover-test/{replica_id}",
+            post(test_failover),
+        )
         // v8 routes
         .route("/api/v1/replication-v8/config", post(set_config))
-        .route("/api/v1/replication-v8/config/{replica_id}", get(get_all_config))
-        .route("/api/v1/replication-v8/config/{replica_id}/{config_key}", get(get_config))
-        .route("/api/v1/replication-v8/alerts", post(create_replication_alert))
-        .route("/api/v1/replication-v8/alerts/{replica_id}", get(get_replication_alerts))
+        .route(
+            "/api/v1/replication-v8/config/{replica_id}",
+            get(get_all_config),
+        )
+        .route(
+            "/api/v1/replication-v8/config/{replica_id}/{config_key}",
+            get(get_config),
+        )
+        .route(
+            "/api/v1/replication-v8/alerts",
+            post(create_replication_alert),
+        )
+        .route(
+            "/api/v1/replication-v8/alerts/{replica_id}",
+            get(get_replication_alerts),
+        )
         .route("/api/v1/replication-v8/monitor", get(monitor_replication))
-        .route("/api/v1/replication-v8/failover-test/{replica_id}", post(test_failover))
+        .route(
+            "/api/v1/replication-v8/failover-test/{replica_id}",
+            post(test_failover),
+        )
         // v9 routes
         .route("/api/v1/replication-v9/config", post(set_config))
-        .route("/api/v1/replication-v9/config/{replica_id}", get(get_all_config))
-        .route("/api/v1/replication-v9/config/{replica_id}/{config_key}", get(get_config))
-        .route("/api/v1/replication-v9/alerts", post(create_replication_alert))
-        .route("/api/v1/replication-v9/alerts/{replica_id}", get(get_replication_alerts))
+        .route(
+            "/api/v1/replication-v9/config/{replica_id}",
+            get(get_all_config),
+        )
+        .route(
+            "/api/v1/replication-v9/config/{replica_id}/{config_key}",
+            get(get_config),
+        )
+        .route(
+            "/api/v1/replication-v9/alerts",
+            post(create_replication_alert),
+        )
+        .route(
+            "/api/v1/replication-v9/alerts/{replica_id}",
+            get(get_replication_alerts),
+        )
         .route("/api/v1/replication-v9/monitor", get(monitor_replication))
-        .route("/api/v1/replication-v9/failover-test/{replica_id}", post(test_failover))
+        .route(
+            "/api/v1/replication-v9/failover-test/{replica_id}",
+            post(test_failover),
+        )
         // v11 routes
         .route("/api/v1/replication-v11/config", post(set_config))
-        .route("/api/v1/replication-v11/config/{replica_id}", get(get_all_config))
-        .route("/api/v1/replication-v11/config/{replica_id}/{config_key}", get(get_config))
-        .route("/api/v1/replication-v11/alerts", post(create_replication_alert))
-        .route("/api/v1/replication-v11/alerts/{replica_id}", get(get_replication_alerts))
+        .route(
+            "/api/v1/replication-v11/config/{replica_id}",
+            get(get_all_config),
+        )
+        .route(
+            "/api/v1/replication-v11/config/{replica_id}/{config_key}",
+            get(get_config),
+        )
+        .route(
+            "/api/v1/replication-v11/alerts",
+            post(create_replication_alert),
+        )
+        .route(
+            "/api/v1/replication-v11/alerts/{replica_id}",
+            get(get_replication_alerts),
+        )
         .route("/api/v1/replication-v11/monitor", get(monitor_replication))
-        .route("/api/v1/replication-v11/failover-test/{replica_id}", post(test_failover))
+        .route(
+            "/api/v1/replication-v11/failover-test/{replica_id}",
+            post(test_failover),
+        )
         // v12 routes
-        .route("/api/v1/replication-v12/consistency-checks", post(create_consistency_check))
-        .route("/api/v1/replication-v12/consistency-checks/{source}/{target}", get(get_consistency_check_history))
-        .route("/api/v1/replication-v12/failover-history", post(record_failover))
-        .route("/api/v1/replication-v12/failover-history/{source}", get(get_failover_history))
-        .route("/api/v1/replication-v12/topology", get(get_replication_topology))
-        .route("/api/v1/replication-v12/recovery-points", get(get_recovery_points))
+        .route(
+            "/api/v1/replication-v12/consistency-checks",
+            post(create_consistency_check),
+        )
+        .route(
+            "/api/v1/replication-v12/consistency-checks/{source}/{target}",
+            get(get_consistency_check_history),
+        )
+        .route(
+            "/api/v1/replication-v12/failover-history",
+            post(record_failover),
+        )
+        .route(
+            "/api/v1/replication-v12/failover-history/{source}",
+            get(get_failover_history),
+        )
+        .route(
+            "/api/v1/replication-v12/topology",
+            get(get_replication_topology),
+        )
+        .route(
+            "/api/v1/replication-v12/recovery-points",
+            get(get_recovery_points),
+        )
 }
 
 #[cfg(test)]

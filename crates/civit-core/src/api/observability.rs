@@ -1,10 +1,10 @@
 #![forbid(unsafe_code)]
 
 use axum::{
+    Json,
     extract::{Query, State},
     http::StatusCode,
     response::IntoResponse,
-    Json,
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,9 +57,7 @@ pub struct MetricResponse {
 /// text/plain per the exposition format; a scrape target must not receive
 /// JSON, and a guard-less process (unit tests) reports 503 rather than an
 /// empty scrape that looks like a healthy service with zero metrics.
-pub async fn prometheus_exposition(
-    State(state): State<crate::api::AppState>,
-) -> impl IntoResponse {
+pub async fn prometheus_exposition(State(state): State<crate::api::AppState>) -> impl IntoResponse {
     use axum::http::StatusCode;
     use axum::response::{IntoResponse, Response};
 
@@ -184,9 +182,7 @@ pub async fn list_metrics(
 /// POST /api/v1/observability/traces/export
 ///
 /// Export and flush all completed spans (for OTLP collector push).
-pub async fn export_traces(
-    State(state): State<crate::api::AppState>,
-) -> impl IntoResponse {
+pub async fn export_traces(State(state): State<crate::api::AppState>) -> impl IntoResponse {
     let provider = &state.telemetry_provider;
     let exported = provider.export_spans();
     let count = exported.len();

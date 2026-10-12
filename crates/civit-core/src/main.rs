@@ -80,7 +80,8 @@ mod sql_split_tests {
 
     #[test]
     fn tagged_dollar_quote_is_untouched() {
-        let sql = "CREATE FUNCTION g() RETURNS int AS $body$ SELECT 1; $body$ LANGUAGE sql; SELECT 5;";
+        let sql =
+            "CREATE FUNCTION g() RETURNS int AS $body$ SELECT 1; $body$ LANGUAGE sql; SELECT 5;";
         let p = parts(sql);
         assert_eq!(p.len(), 2, "{p:?}");
         assert!(p[1] == "SELECT 5");
@@ -115,7 +116,10 @@ mod sql_split_tests {
                 }
                 let first = body.split_whitespace().next().unwrap_or("");
                 assert!(
-                    first.chars().next().is_some_and(|c| c.is_ascii_alphabetic()),
+                    first
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphabetic()),
                     "migration {} ({}) produced a fragment starting with {:?}",
                     m.version,
                     m.name,
@@ -124,7 +128,10 @@ mod sql_split_tests {
                 checked += 1;
             }
         }
-        assert!(checked > 100, "expected the whole migration set, got {checked}");
+        assert!(
+            checked > 100,
+            "expected the whole migration set, got {checked}"
+        );
     }
 }
 
@@ -320,9 +327,8 @@ async fn main() -> Result<()> {
     // red, and hold when there is not enough evidence either way.
     if config.rollout_controller_enabled() {
         let rollout_db = Arc::new(civit_core::db::DbRepository::new(pool.clone()));
-        let rollout_config =
-            civit_core::rollout_controller::RolloutControllerConfig::from_env()
-                .map_err(|e| anyhow::anyhow!("rollout controller config: {e}"))?;
+        let rollout_config = civit_core::rollout_controller::RolloutControllerConfig::from_env()
+            .map_err(|e| anyhow::anyhow!("rollout controller config: {e}"))?;
         let tick = rollout_config.tick;
         let controller =
             civit_core::rollout_controller::RolloutController::new(rollout_db, rollout_config);
@@ -369,8 +375,14 @@ async fn main() -> Result<()> {
         })?;
 
     if config.tls_enabled() {
-        let cert_path = config.tls_cert_path.as_ref().expect("operation should succeed");
-        let key_path = config.tls_key_path.as_ref().expect("operation should succeed");
+        let cert_path = config
+            .tls_cert_path
+            .as_ref()
+            .expect("operation should succeed");
+        let key_path = config
+            .tls_key_path
+            .as_ref()
+            .expect("operation should succeed");
 
         let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
             .await

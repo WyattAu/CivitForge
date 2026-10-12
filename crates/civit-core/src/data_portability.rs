@@ -196,12 +196,11 @@ impl DataPortabilityService {
     }
 
     pub async fn get_export_job(&self, id: Uuid) -> Result<Option<ExportJobRecord>, sqlx::Error> {
-        let row = sqlx::query_as::<_, ExportJobRecord>(
-            "SELECT * FROM data_export_jobs WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row =
+            sqlx::query_as::<_, ExportJobRecord>("SELECT * FROM data_export_jobs WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(row)
     }
 
@@ -272,12 +271,11 @@ impl DataPortabilityService {
     }
 
     pub async fn get_import_job(&self, id: Uuid) -> Result<Option<ImportJobRecord>, sqlx::Error> {
-        let row = sqlx::query_as::<_, ImportJobRecord>(
-            "SELECT * FROM data_import_jobs WHERE id = $1",
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let row =
+            sqlx::query_as::<_, ImportJobRecord>("SELECT * FROM data_import_jobs WHERE id = $1")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(row)
     }
 
@@ -492,7 +490,10 @@ mod tests {
     fn test_export_format_parse() {
         assert_eq!("json".parse::<ExportFormat>().unwrap(), ExportFormat::Json);
         assert_eq!("csv".parse::<ExportFormat>().unwrap(), ExportFormat::Csv);
-        assert_eq!("git_archive".parse::<ExportFormat>().unwrap(), ExportFormat::GitArchive);
+        assert_eq!(
+            "git_archive".parse::<ExportFormat>().unwrap(),
+            ExportFormat::GitArchive
+        );
         assert!("unknown".parse::<ExportFormat>().is_err());
     }
 
@@ -592,7 +593,9 @@ mod tests {
         let svc = DataPortabilityService {
             pool: PgPool::connect_lazy("postgres://localhost/test").unwrap(),
         };
-        let result = svc.validate_import_data(&serde_json::Value::Null, "github").await;
+        let result = svc
+            .validate_import_data(&serde_json::Value::Null, "github")
+            .await;
         assert!(!result.valid);
         assert!(!result.errors.is_empty());
     }
@@ -626,7 +629,9 @@ mod tests {
         };
         let existing = serde_json::json!({"name": "old"});
         let incoming = serde_json::json!({"name": "new"});
-        let result = svc.resolve_conflicts(&existing, &incoming, "overwrite").await;
+        let result = svc
+            .resolve_conflicts(&existing, &incoming, "overwrite")
+            .await;
         assert_eq!(result.resolved_count, 1);
         assert_eq!(result.skipped_count, 0);
     }

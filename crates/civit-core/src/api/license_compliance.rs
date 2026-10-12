@@ -165,19 +165,27 @@ pub async fn get_license_report(
     };
 
     #[allow(clippy::type_complexity)]
-    let row: Option<(Uuid, Uuid, String, String, i32, bool, serde_json::Value, DateTime<Utc>)> =
-        sqlx::query_as(
-            r#"SELECT id, repo_id, license, spdx_id, file_count, compliant, issues, scanned_at
+    let row: Option<(
+        Uuid,
+        Uuid,
+        String,
+        String,
+        i32,
+        bool,
+        serde_json::Value,
+        DateTime<Utc>,
+    )> = sqlx::query_as(
+        r#"SELECT id, repo_id, license, spdx_id, file_count, compliant, issues, scanned_at
                FROM license_reports
                WHERE repo_id = $1
                ORDER BY scanned_at DESC
                LIMIT 1"#,
-        )
-        .bind(repo_id)
-        .fetch_optional(state.db.pool())
-        .await
-        .ok()
-        .flatten();
+    )
+    .bind(repo_id)
+    .fetch_optional(state.db.pool())
+    .await
+    .ok()
+    .flatten();
 
     match row {
         Some((id, repo_id, license, spdx_id, file_count, compliant, issues_json, scanned_at)) => {

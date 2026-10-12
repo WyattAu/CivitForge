@@ -607,11 +607,10 @@ impl DataResidencyService {
         .fetch_one(&self.pool)
         .await?;
 
-        let total_transfers: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21"#,
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let total_transfers: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21"#)
+                .fetch_one(&self.pool)
+                .await?;
 
         let pending_transfers: (i64,) = sqlx::query_as(
             r#"SELECT COUNT(*) FROM data_residency_transfer_requests_v21 WHERE status = 'pending'"#,
@@ -977,23 +976,19 @@ impl DataResidencyService {
     }
 
     pub async fn get_compliance_info(&self) -> Result<ResidencyComplianceInfo, sqlx::Error> {
-        let total_rules: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM data_residency_rules"#,
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let total_rules: (i64,) = sqlx::query_as(r#"SELECT COUNT(*) FROM data_residency_rules"#)
+            .fetch_one(&self.pool)
+            .await?;
 
-        let enabled_rules: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM data_residency_rules WHERE enabled = true"#,
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let enabled_rules: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM data_residency_rules WHERE enabled = true"#)
+                .fetch_one(&self.pool)
+                .await?;
 
-        let total_violations: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM data_residency_violations"#,
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let total_violations: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM data_residency_violations"#)
+                .fetch_one(&self.pool)
+                .await?;
 
         let resolved_violations: (i64,) = sqlx::query_as(
             r#"SELECT COUNT(*) FROM data_residency_migrations WHERE status = 'completed'"#,
@@ -1001,11 +996,10 @@ impl DataResidencyService {
         .fetch_one(&self.pool)
         .await?;
 
-        let average_score: (f64,) = sqlx::query_as(
-            r#"SELECT COALESCE(AVG(score), 0.0) FROM data_residency_audits"#,
-        )
-        .fetch_one(&self.pool)
-        .await?;
+        let average_score: (f64,) =
+            sqlx::query_as(r#"SELECT COALESCE(AVG(score), 0.0) FROM data_residency_audits"#)
+                .fetch_one(&self.pool)
+                .await?;
 
         let compliance_percentage = if total_rules.0 > 0 {
             ((enabled_rules.0 as f64 / total_rules.0 as f64) * 100.0).min(100.0)

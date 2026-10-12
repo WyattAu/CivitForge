@@ -5,8 +5,8 @@ use lettre::{
     AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, message::header::ContentType,
     transport::smtp::authentication::Credentials,
 };
-use serde::{Deserialize, Serialize};
 use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NotificationChannel {
@@ -146,7 +146,6 @@ impl NotificationService {
     pub fn get_preferences(&self, user_id: &str) -> Option<NotificationPreferences> {
         self.preferences
             .lock()
-            
             .iter()
             .find(|p| p.user_id == user_id)
             .cloned()
@@ -174,20 +173,13 @@ impl NotificationService {
     pub fn pending_count(&self) -> usize {
         self.notifications
             .lock()
-            
             .iter()
             .filter(|n| !n.dispatched)
             .count()
     }
 
     fn mark_dispatched(&self, id: &str) {
-        if let Some(n) = self
-            .notifications
-            .lock()
-            
-            .iter_mut()
-            .find(|n| n.id == id)
-        {
+        if let Some(n) = self.notifications.lock().iter_mut().find(|n| n.id == id) {
             n.dispatched = true;
         }
     }

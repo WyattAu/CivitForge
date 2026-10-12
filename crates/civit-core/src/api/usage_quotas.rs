@@ -5,15 +5,14 @@
 use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
 use axum::{
-    Json,
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post, delete},
+    routing::{delete, get, post},
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,15 +58,18 @@ pub async fn list_usage_quotas(
     match state.db.get_user_usage_quotas(user_id).await {
         Ok(quotas) => {
             let response = UsageQuotasResponse {
-                quotas: quotas.iter().map(|q| UsageQuotaResponse {
-                    id: q.id,
-                    user_id: q.user_id,
-                    quota_type: q.quota_type.clone(),
-                    quota_limit: q.quota_limit,
-                    quota_used: q.quota_used,
-                    period_start: q.period_start,
-                    created_at: q.created_at,
-                }).collect(),
+                quotas: quotas
+                    .iter()
+                    .map(|q| UsageQuotaResponse {
+                        id: q.id,
+                        user_id: q.user_id,
+                        quota_type: q.quota_type.clone(),
+                        quota_limit: q.quota_limit,
+                        quota_used: q.quota_used,
+                        period_start: q.period_start,
+                        created_at: q.created_at,
+                    })
+                    .collect(),
                 total: quotas.len(),
             };
             (StatusCode::OK, Json(response)).into_response()
@@ -142,7 +144,11 @@ pub async fn create_usage_quota(
 
     let period_start = req.period_start.unwrap_or_else(Utc::now);
 
-    match state.db.create_usage_quota(req.user_id, &req.quota_type, req.quota_limit, period_start).await {
+    match state
+        .db
+        .create_usage_quota(req.user_id, &req.quota_type, req.quota_limit, period_start)
+        .await
+    {
         Ok(quota) => {
             let response = UsageQuotaResponse {
                 id: quota.id,
@@ -182,7 +188,11 @@ pub async fn increment_usage_quota(
                     .into_response();
             }
 
-            match state.db.increment_usage_quota(req.user_id, &req.quota_type).await {
+            match state
+                .db
+                .increment_usage_quota(req.user_id, &req.quota_type)
+                .await
+            {
                 Ok(updated) => {
                     let response = UsageQuotaResponse {
                         id: updated.id,
@@ -236,26 +246,17 @@ pub async fn delete_usage_quota(
 
 pub fn usage_quota_routes() -> Router<AppState> {
     Router::new()
-        .route(
-            "/api/v1/admin/quotas/{user_id}",
-            get(list_usage_quotas),
-        )
+        .route("/api/v1/admin/quotas/{user_id}", get(list_usage_quotas))
         .route(
             "/api/v1/admin/quotas/{user_id}/{quota_type}",
             get(get_usage_quota),
         )
-        .route(
-            "/api/v1/admin/quotas",
-            post(create_usage_quota),
-        )
+        .route("/api/v1/admin/quotas", post(create_usage_quota))
         .route(
             "/api/v1/admin/quotas/increment",
             post(increment_usage_quota),
         )
-        .route(
-            "/api/v1/admin/quotas/{user_id}",
-            delete(delete_usage_quota),
-        )
+        .route("/api/v1/admin/quotas/{user_id}", delete(delete_usage_quota))
 }
 
 #[cfg(test)]
@@ -288,7 +289,8 @@ mod tests {
 
     #[test]
     fn test_increment_quota_request_deserialization() {
-        let json = r#"{"user_id": "00000000-0000-0000-0000-000000000000", "quota_type": "api_requests"}"#;
+        let json =
+            r#"{"user_id": "00000000-0000-0000-0000-000000000000", "quota_type": "api_requests"}"#;
         let req: IncrementQuotaRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.quota_type, "api_requests");
     }

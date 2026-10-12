@@ -5,7 +5,6 @@ pub mod types;
 
 pub use store::ReviewAutomationStore;
 pub use types::{
-    ReviewAutomationRule, ReviewTriggerType, ReviewAction,
-    CreateReviewRuleRequest, UpdateReviewRuleRequest,
-    ReviewRuleTestResult, ReviewRuleExecutionLog,
+    CreateReviewRuleRequest, ReviewAction, ReviewAutomationRule, ReviewRuleExecutionLog,
+    ReviewRuleTestResult, ReviewTriggerType, UpdateReviewRuleRequest,
 };

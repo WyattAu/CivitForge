@@ -77,8 +77,16 @@ pub struct TestIssue {
 pub fn generate_issues(repo_id: &str, n: usize) -> Vec<TestIssue> {
     let states = ["open", "closed", "open", "open"];
     let label_pool = [
-        "bug", "enhancement", "documentation", "good-first-issue", "help-wanted",
-        "performance", "security", "ui", "backend", "ci",
+        "bug",
+        "enhancement",
+        "documentation",
+        "good-first-issue",
+        "help-wanted",
+        "performance",
+        "security",
+        "ui",
+        "backend",
+        "ci",
     ];
 
     (0..n)
@@ -177,9 +185,7 @@ pub fn generate_pipeline_yaml(idx: usize, job_count: usize) -> String {
             lines.push(needs);
         }
         lines.push("    steps:".to_string());
-        lines.push(format!(
-            "      - name: step-{j}"
-        ));
+        lines.push(format!("      - name: step-{j}"));
         lines.push(format!(
             "        run: [\"echo step-{j} of pipeline-{idx}\"]"
         ));
@@ -249,15 +255,14 @@ pub fn create_commits(repo_path: &Path, count: usize) -> Vec<String> {
     git_cmd(&work, &["config", "user.email", "bench@test.com"]);
 
     // Create a branch if no main branch exists (bare repos have no HEAD)
-    let _init_output = std::process::Command::new(
-        std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string()),
-    )
-    .args(["branch", "main"])
-    .current_dir(&work)
-    .env("GIT_TERMINAL_PROMPT", "0")
-    .env("GIT_CONFIG_NOSYSTEM", "1")
-    .output()
-    .unwrap();
+    let _init_output =
+        std::process::Command::new(std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string()))
+            .args(["branch", "main"])
+            .current_dir(&work)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .output()
+            .unwrap();
     // Ignore error if branch already exists
 
     let mut oids = Vec::with_capacity(count);
@@ -290,14 +295,13 @@ pub fn create_large_file(repo_path: &Path, line_count: usize) -> String {
     git_cmd(&work, &["config", "user.name", "bench"]);
     git_cmd(&work, &["config", "user.email", "bench@test.com"]);
 
-    let _ = std::process::Command::new(
-        std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string()),
-    )
-    .args(["branch", "main"])
-    .current_dir(&work)
-    .env("GIT_TERMINAL_PROMPT", "0")
-    .env("GIT_CONFIG_NOSYSTEM", "1")
-    .output();
+    let _ =
+        std::process::Command::new(std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string()))
+            .args(["branch", "main"])
+            .current_dir(&work)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .output();
 
     // Write a file with N distinct lines
     let content: String = (0..line_count)
@@ -323,33 +327,30 @@ pub fn create_branches(repo_path: &Path, count: usize) {
     git_cmd(&work, &["config", "user.name", "bench"]);
     git_cmd(&work, &["config", "user.email", "bench@test.com"]);
 
-    let _ = std::process::Command::new(
-        std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string()),
-    )
-    .args(["branch", "main"])
-    .current_dir(&work)
-    .env("GIT_TERMINAL_PROMPT", "0")
-    .env("GIT_CONFIG_NOSYSTEM", "1")
-    .output();
+    let _ =
+        std::process::Command::new(std::env::var("GIT_BIN").unwrap_or_else(|_| "git".to_string()))
+            .args(["branch", "main"])
+            .current_dir(&work)
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GIT_CONFIG_NOSYSTEM", "1")
+            .output();
 
     for i in 0..count {
         let branch_name = format!("branch-{i:03}");
-        std::fs::write(work.join(format!("branch-{i}.txt")), format!("branch {i}\n")).unwrap();
+        std::fs::write(
+            work.join(format!("branch-{i}.txt")),
+            format!("branch {i}\n"),
+        )
+        .unwrap();
         git_cmd(&work, &["add", "."]);
         git_cmd(&work, &["commit", "-m", &format!("branch-{i}")]);
-        git_cmd(
-            &work,
-            &["checkout", "-b", &branch_name],
-        );
+        git_cmd(&work, &["checkout", "-b", &branch_name]);
     }
 
     // Push all branches
     for i in 0..count {
         let branch_name = format!("branch-{i:03}");
-        git_cmd(
-            &work,
-            &["push", "origin", &branch_name],
-        );
+        git_cmd(&work, &["push", "origin", &branch_name]);
     }
 }
 
@@ -363,7 +364,6 @@ pub fn generate_chunk_data(size_bytes: usize) -> Vec<u8> {
 }
 
 // ── Event bus generators ─────────────────────────────────────────────────────
-
 
 // ── Serialization generators ─────────────────────────────────────────────────
 
@@ -469,7 +469,6 @@ fn bench_generate_large_json_payload(c: &mut Criterion) {
     }
     group.finish();
 }
-
 
 criterion_group!(
     benches,

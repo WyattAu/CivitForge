@@ -140,7 +140,8 @@ impl EventPublisher {
                 let event_clone = event.clone();
 
                 tokio::spawn(async move {
-                    if let Err(e) = Self::deliver_event(&client, &callback_url, &event_clone).await {
+                    if let Err(e) = Self::deliver_event(&client, &callback_url, &event_clone).await
+                    {
                         tracing::error!("Failed to deliver event to {}: {e}", callback_url);
                     }
                 });
@@ -153,8 +154,8 @@ impl EventPublisher {
         callback_url: &str,
         event: &PublishedEvent,
     ) -> Result<(), DeliveryError> {
-        let body = serde_json::to_vec(event)
-            .map_err(|e| DeliveryError::Serialization(e.to_string()))?;
+        let body =
+            serde_json::to_vec(event).map_err(|e| DeliveryError::Serialization(e.to_string()))?;
 
         let resp = client
             .post(callback_url)
@@ -223,13 +224,11 @@ impl EventPublisher {
         let sub_uuid = Uuid::parse_str(subscription_id).unwrap_or_default();
         let user_uuid = Uuid::parse_str(user_id).unwrap_or_default();
 
-        let result = sqlx::query(
-            "DELETE FROM event_subscriptions WHERE id = $1 AND user_id = $2",
-        )
-        .bind(sub_uuid)
-        .bind(user_uuid)
-        .execute(pool)
-        .await?;
+        let result = sqlx::query("DELETE FROM event_subscriptions WHERE id = $1 AND user_id = $2")
+            .bind(sub_uuid)
+            .bind(user_uuid)
+            .execute(pool)
+            .await?;
 
         Ok(result.rows_affected() > 0)
     }

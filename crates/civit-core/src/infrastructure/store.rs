@@ -12,7 +12,10 @@ impl InfrastructureStore {
         Self { pool }
     }
 
-    pub async fn create_template(&self, req: CreateTemplateRequest) -> Result<InfrastructureTemplate, sqlx::Error> {
+    pub async fn create_template(
+        &self,
+        req: CreateTemplateRequest,
+    ) -> Result<InfrastructureTemplate, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let description = req.description.unwrap_or_default();
@@ -43,7 +46,10 @@ impl InfrastructureStore {
         })
     }
 
-    pub async fn get_template(&self, id: Uuid) -> Result<Option<InfrastructureTemplate>, sqlx::Error> {
+    pub async fn get_template(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<InfrastructureTemplate>, sqlx::Error> {
         let row = sqlx::query_as::<_, TemplateRow>(
             r#"SELECT id, name, description, provider, template_content, variables, created_at
                FROM infrastructure_templates WHERE id = $1"#,
@@ -55,7 +61,11 @@ impl InfrastructureStore {
         Ok(row.map(InfrastructureTemplate::from))
     }
 
-    pub async fn list_templates(&self, limit: i64, offset: i64) -> Result<Vec<InfrastructureTemplate>, sqlx::Error> {
+    pub async fn list_templates(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InfrastructureTemplate>, sqlx::Error> {
         let rows = sqlx::query_as::<_, TemplateRow>(
             r#"SELECT id, name, description, provider, template_content, variables, created_at
                FROM infrastructure_templates ORDER BY created_at DESC LIMIT $1 OFFSET $2"#,
@@ -68,32 +78,56 @@ impl InfrastructureStore {
         Ok(rows.into_iter().map(InfrastructureTemplate::from).collect())
     }
 
-    pub async fn update_template(&self, id: Uuid, req: UpdateTemplateRequest) -> Result<InfrastructureTemplate, sqlx::Error> {
-        let mut template = self.get_template(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+    pub async fn update_template(
+        &self,
+        id: Uuid,
+        req: UpdateTemplateRequest,
+    ) -> Result<InfrastructureTemplate, sqlx::Error> {
+        let mut template = self
+            .get_template(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         if let Some(name) = req.name {
             sqlx::query(r#"UPDATE infrastructure_templates SET name = $1 WHERE id = $2"#)
-                .bind(&name).bind(id).execute(&self.pool).await?;
+                .bind(&name)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             template.name = name;
         }
         if let Some(description) = req.description {
             sqlx::query(r#"UPDATE infrastructure_templates SET description = $1 WHERE id = $2"#)
-                .bind(&description).bind(id).execute(&self.pool).await?;
+                .bind(&description)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             template.description = description;
         }
         if let Some(provider) = req.provider {
             sqlx::query(r#"UPDATE infrastructure_templates SET provider = $1 WHERE id = $2"#)
-                .bind(&provider).bind(id).execute(&self.pool).await?;
+                .bind(&provider)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             template.provider = provider;
         }
         if let Some(template_content) = req.template_content {
-            sqlx::query(r#"UPDATE infrastructure_templates SET template_content = $1 WHERE id = $2"#)
-                .bind(&template_content).bind(id).execute(&self.pool).await?;
+            sqlx::query(
+                r#"UPDATE infrastructure_templates SET template_content = $1 WHERE id = $2"#,
+            )
+            .bind(&template_content)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
             template.template_content = template_content;
         }
         if let Some(variables) = req.variables {
             sqlx::query(r#"UPDATE infrastructure_templates SET variables = $1 WHERE id = $2"#)
-                .bind(&variables).bind(id).execute(&self.pool).await?;
+                .bind(&variables)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             template.variables = variables;
         }
 
@@ -102,11 +136,17 @@ impl InfrastructureStore {
 
     pub async fn delete_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(r#"DELETE FROM infrastructure_templates WHERE id = $1"#)
-            .bind(id).execute(&self.pool).await?;
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn deploy(&self, template_id: Uuid, req: DeployRequest) -> Result<InfrastructureDeployment, sqlx::Error> {
+    pub async fn deploy(
+        &self,
+        template_id: Uuid,
+        req: DeployRequest,
+    ) -> Result<InfrastructureDeployment, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let variables = req.variables.unwrap_or(serde_json::json!({}));
@@ -135,7 +175,10 @@ impl InfrastructureStore {
         })
     }
 
-    pub async fn get_deployment(&self, id: Uuid) -> Result<Option<InfrastructureDeployment>, sqlx::Error> {
+    pub async fn get_deployment(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<InfrastructureDeployment>, sqlx::Error> {
         let row = sqlx::query_as::<_, DeploymentRow>(
             r#"SELECT id, template_id, environment, status, variables, started_at, completed_at
                FROM infrastructure_deployments WHERE id = $1"#,
@@ -147,7 +190,12 @@ impl InfrastructureStore {
         Ok(row.map(InfrastructureDeployment::from))
     }
 
-    pub async fn list_deployments(&self, template_id: Uuid, limit: i64, offset: i64) -> Result<Vec<InfrastructureDeployment>, sqlx::Error> {
+    pub async fn list_deployments(
+        &self,
+        template_id: Uuid,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InfrastructureDeployment>, sqlx::Error> {
         let rows = sqlx::query_as::<_, DeploymentRow>(
             r#"SELECT id, template_id, environment, status, variables, started_at, completed_at
                FROM infrastructure_deployments WHERE template_id = $1 ORDER BY started_at DESC LIMIT $2 OFFSET $3"#,
@@ -158,12 +206,23 @@ impl InfrastructureStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(InfrastructureDeployment::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(InfrastructureDeployment::from)
+            .collect())
     }
 
-    pub async fn complete_deployment(&self, id: Uuid, success: bool) -> Result<InfrastructureDeployment, sqlx::Error> {
+    pub async fn complete_deployment(
+        &self,
+        id: Uuid,
+        success: bool,
+    ) -> Result<InfrastructureDeployment, sqlx::Error> {
         let now = Utc::now();
-        let status = if success { InfraDeploymentStatus::Completed } else { InfraDeploymentStatus::Failed };
+        let status = if success {
+            InfraDeploymentStatus::Completed
+        } else {
+            InfraDeploymentStatus::Failed
+        };
 
         sqlx::query(
             r#"UPDATE infrastructure_deployments SET status = $1, completed_at = $2 WHERE id = $3"#,
@@ -174,10 +233,15 @@ impl InfrastructureStore {
         .execute(&self.pool)
         .await?;
 
-        self.get_deployment(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_deployment(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
-    pub async fn create_module(&self, req: CreateModuleRequest) -> Result<InfrastructureModule, sqlx::Error> {
+    pub async fn create_module(
+        &self,
+        req: CreateModuleRequest,
+    ) -> Result<InfrastructureModule, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let description = req.description.unwrap_or_default();
@@ -223,7 +287,13 @@ impl InfrastructureStore {
         Ok(row.map(InfrastructureModule::from))
     }
 
-    pub async fn list_modules(&self, provider: Option<&str>, module_type: Option<&str>, limit: i64, offset: i64) -> Result<Vec<InfrastructureModule>, sqlx::Error> {
+    pub async fn list_modules(
+        &self,
+        provider: Option<&str>,
+        module_type: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<InfrastructureModule>, sqlx::Error> {
         match (provider, module_type) {
             (Some(p), Some(t)) => {
                 let rows = sqlx::query_as::<_, ModuleRow>(
@@ -280,37 +350,62 @@ impl InfrastructureStore {
         }
     }
 
-    pub async fn update_module(&self, id: Uuid, req: UpdateModuleRequest) -> Result<InfrastructureModule, sqlx::Error> {
-        let mut module = self.get_module(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+    pub async fn update_module(
+        &self,
+        id: Uuid,
+        req: UpdateModuleRequest,
+    ) -> Result<InfrastructureModule, sqlx::Error> {
+        let mut module = self
+            .get_module(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         if let Some(name) = req.name {
             sqlx::query(r#"UPDATE infrastructure_modules SET name = $1 WHERE id = $2"#)
-                .bind(&name).bind(id).execute(&self.pool).await?;
+                .bind(&name)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             module.name = name;
         }
         if let Some(description) = req.description {
             sqlx::query(r#"UPDATE infrastructure_modules SET description = $1 WHERE id = $2"#)
-                .bind(&description).bind(id).execute(&self.pool).await?;
+                .bind(&description)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             module.description = description;
         }
         if let Some(provider) = req.provider {
             sqlx::query(r#"UPDATE infrastructure_modules SET provider = $1 WHERE id = $2"#)
-                .bind(&provider).bind(id).execute(&self.pool).await?;
+                .bind(&provider)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             module.provider = provider;
         }
         if let Some(module_type) = req.module_type {
             sqlx::query(r#"UPDATE infrastructure_modules SET module_type = $1 WHERE id = $2"#)
-                .bind(&module_type).bind(id).execute(&self.pool).await?;
+                .bind(&module_type)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             module.module_type = module_type;
         }
         if let Some(config) = req.config {
             sqlx::query(r#"UPDATE infrastructure_modules SET config = $1 WHERE id = $2"#)
-                .bind(&config).bind(id).execute(&self.pool).await?;
+                .bind(&config)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             module.config = config;
         }
         if let Some(version) = req.version {
             sqlx::query(r#"UPDATE infrastructure_modules SET version = $1 WHERE id = $2"#)
-                .bind(&version).bind(id).execute(&self.pool).await?;
+                .bind(&version)
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             module.version = version;
         }
 
@@ -319,11 +414,17 @@ impl InfrastructureStore {
 
     pub async fn delete_module(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(r#"DELETE FROM infrastructure_modules WHERE id = $1"#)
-            .bind(id).execute(&self.pool).await?;
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn create_module_dependency(&self, module_id: Uuid, req: CreateModuleDependencyRequest) -> Result<ModuleDependency, sqlx::Error> {
+    pub async fn create_module_dependency(
+        &self,
+        module_id: Uuid,
+        req: CreateModuleDependencyRequest,
+    ) -> Result<ModuleDependency, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
         let version_constraint = req.version_constraint.unwrap_or_else(|| "*".to_string());
@@ -349,7 +450,10 @@ impl InfrastructureStore {
         })
     }
 
-    pub async fn list_module_dependencies(&self, module_id: Uuid) -> Result<Vec<ModuleDependency>, sqlx::Error> {
+    pub async fn list_module_dependencies(
+        &self,
+        module_id: Uuid,
+    ) -> Result<Vec<ModuleDependency>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ModuleDepRow>(
             r#"SELECT id, module_id, dependency_id, version_constraint, created_at
                FROM infrastructure_module_deps WHERE module_id = $1 ORDER BY created_at"#,
@@ -363,21 +467,27 @@ impl InfrastructureStore {
 
     pub async fn delete_module_dependency(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query(r#"DELETE FROM infrastructure_module_deps WHERE id = $1"#)
-            .bind(id).execute(&self.pool).await?;
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn resolve_dependencies(&self, module_id: Uuid) -> Result<Vec<InfrastructureModule>, sqlx::Error> {
+    pub async fn resolve_dependencies(
+        &self,
+        module_id: Uuid,
+    ) -> Result<Vec<InfrastructureModule>, sqlx::Error> {
         let deps = self.list_module_dependencies(module_id).await?;
         let mut resolved = Vec::new();
-        
+
         for dep in deps {
             if let Some(module) = self.get_module(dep.dependency_id).await?
-                && self.version_matches(&module.version, &dep.version_constraint) {
-                    resolved.push(module);
-                }
+                && self.version_matches(&module.version, &dep.version_constraint)
+            {
+                resolved.push(module);
+            }
         }
-        
+
         Ok(resolved)
     }
 
@@ -390,15 +500,24 @@ impl InfrastructureStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| ModuleVersion {
-            version: r.version,
-            created_at: r.created_at,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| ModuleVersion {
+                version: r.version,
+                created_at: r.created_at,
+            })
+            .collect())
     }
 
-    pub async fn search_marketplace(&self, query: &str, provider: Option<&str>, limit: i64, offset: i64) -> Result<Vec<ModuleMarketplaceItem>, sqlx::Error> {
+    pub async fn search_marketplace(
+        &self,
+        query: &str,
+        provider: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ModuleMarketplaceItem>, sqlx::Error> {
         let search_pattern = format!("%{}%", query);
-        
+
         let rows = match provider {
             Some(p) => {
                 sqlx::query_as::<_, ModuleRow>(
@@ -426,12 +545,16 @@ impl InfrastructureStore {
                 .await?
             }
         };
-        
-        let modules: Vec<InfrastructureModule> = rows.into_iter().map(InfrastructureModule::from).collect();
-        
+
+        let modules: Vec<InfrastructureModule> =
+            rows.into_iter().map(InfrastructureModule::from).collect();
+
         let mut items = Vec::new();
         for module in modules {
-            let deps = self.list_module_dependencies(module.id).await.unwrap_or_default();
+            let deps = self
+                .list_module_dependencies(module.id)
+                .await
+                .unwrap_or_default();
             items.push(ModuleMarketplaceItem {
                 module,
                 download_count: 0,
@@ -439,7 +562,7 @@ impl InfrastructureStore {
                 dependencies: deps,
             });
         }
-        
+
         Ok(items)
     }
 
@@ -447,17 +570,19 @@ impl InfrastructureStore {
         if constraint == "*" {
             return true;
         }
-        
+
         if constraint.starts_with(">=")
-            && let Some(min_version) = constraint.strip_prefix(">=") {
-                return version >= min_version;
-            }
-        
+            && let Some(min_version) = constraint.strip_prefix(">=")
+        {
+            return version >= min_version;
+        }
+
         if constraint.starts_with("^")
-            && let Some(min_version) = constraint.strip_prefix("^") {
-                return version.starts_with(min_version);
-            }
-        
+            && let Some(min_version) = constraint.strip_prefix("^")
+        {
+            return version.starts_with(min_version);
+        }
+
         version == constraint
     }
 }

@@ -279,18 +279,16 @@ async fn get_sla_dashboard(
         at_risk_sla_count: 1,
         total_breaches_this_month: 2,
         current_incidents: 0,
-        sla_statuses: vec![
-            SlaCurrentStatusDto {
-                sla_id: Uuid::new_v4(),
-                sla_name: "Platform Uptime".into(),
-                metric_type: "uptime".into(),
-                target_value: 99.9,
-                current_value: 99.95,
-                status: "met".into(),
-                compliance_percentage: 100.0,
-                last_checked_at: Utc::now().to_rfc3339(),
-            },
-        ],
+        sla_statuses: vec![SlaCurrentStatusDto {
+            sla_id: Uuid::new_v4(),
+            sla_name: "Platform Uptime".into(),
+            metric_type: "uptime".into(),
+            target_value: 99.9,
+            current_value: 99.95,
+            status: "met".into(),
+            compliance_percentage: 100.0,
+            last_checked_at: Utc::now().to_rfc3339(),
+        }],
         recent_breaches: vec![],
         compliance_trend: (0..30)
             .map(|i| ComplianceTrendPointDto {
@@ -309,15 +307,13 @@ async fn create_sla_alert(
     if !valid_types.contains(&req.alert_type.as_str()) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(
-                serde_json::json!({
-                    "error": format!(
-                        "invalid alert_type: {}, must be one of {}",
-                        req.alert_type,
-                        valid_types.join(", ")
-                    )
-                }),
-            ),
+            Json(serde_json::json!({
+                "error": format!(
+                    "invalid alert_type: {}, must be one of {}",
+                    req.alert_type,
+                    valid_types.join(", ")
+                )
+            })),
         ));
     }
 

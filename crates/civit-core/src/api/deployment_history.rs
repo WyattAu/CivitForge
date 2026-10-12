@@ -4,11 +4,11 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::{CoreError, ErrorResponse};
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -85,9 +85,7 @@ async fn resolve_environment_id(
                 _ => {
                     return Err((
                         StatusCode::NOT_FOUND,
-                        Json(
-                            CoreError::NotFound("environment not found".into()).error_response(),
-                        ),
+                        Json(CoreError::NotFound("environment not found".into()).error_response()),
                     ));
                 }
             }
@@ -350,19 +348,31 @@ pub async fn list_deployments_v2(
         Ok(rows) => {
             let deps: Vec<DeploymentHistoryV2Response> = rows
                 .into_iter()
-                .map(|(id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at)| {
-                    DeploymentHistoryV2Response {
-                        id: id.to_string(),
-                        environment_id: environment_id.to_string(),
+                .map(
+                    |(
+                        id,
+                        environment_id,
                         version,
                         sha,
                         status,
-                        deployed_by: deployed_by.to_string(),
-                        rollback_of: rollback_of.map(|id| id.to_string()),
+                        deployed_by,
+                        rollback_of,
                         metadata,
-                        created_at: created_at.to_rfc3339(),
-                    }
-                })
+                        created_at,
+                    )| {
+                        DeploymentHistoryV2Response {
+                            id: id.to_string(),
+                            environment_id: environment_id.to_string(),
+                            version,
+                            sha,
+                            status,
+                            deployed_by: deployed_by.to_string(),
+                            rollback_of: rollback_of.map(|id| id.to_string()),
+                            metadata,
+                            created_at: created_at.to_rfc3339(),
+                        }
+                    },
+                )
                 .collect();
             (StatusCode::OK, Json(deps)).into_response()
         }
@@ -418,7 +428,17 @@ pub async fn create_deployment_v2(
     .await;
 
     match result {
-        Ok((id, environment_id, version, sha, status, deployed_by, rollback_of, metadata, created_at)) => (
+        Ok((
+            id,
+            environment_id,
+            version,
+            sha,
+            status,
+            deployed_by,
+            rollback_of,
+            metadata,
+            created_at,
+        )) => (
             StatusCode::CREATED,
             Json(DeploymentHistoryV2Response {
                 id: id.to_string(),

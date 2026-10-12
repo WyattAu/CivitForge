@@ -391,8 +391,7 @@ mod tests {
 
     #[test]
     fn test_is_framework_active() {
-        let config = ComplianceConfig::new()
-            .with_frameworks(vec![ComplianceFrameworkType::Soc2]);
+        let config = ComplianceConfig::new().with_frameworks(vec![ComplianceFrameworkType::Soc2]);
         assert!(config.is_framework_active(&ComplianceFrameworkType::Soc2));
         assert!(!config.is_framework_active(&ComplianceFrameworkType::Gdpr));
     }
@@ -426,7 +425,11 @@ mod tests {
         let policy = AccessControlPolicy::default();
         assert!(policy.require_mfa_for_admin);
         assert!(policy.require_mfa_for_sensitive);
-        assert!(policy.sensitive_operations.contains(&"delete_user".to_string()));
+        assert!(
+            policy
+                .sensitive_operations
+                .contains(&"delete_user".to_string())
+        );
         assert!(!policy.enforce_ip_restrictions);
     }
 
@@ -437,10 +440,7 @@ mod tests {
         assert!(policy.require_encryption_in_transit);
         assert_eq!(policy.minimum_tls_version, TlsVersion::Tls12);
         assert_eq!(policy.key_rotation_days, 90);
-        assert_eq!(
-            policy.encryption_algorithm,
-            EncryptionAlgorithm::Aes256Gcm
-        );
+        assert_eq!(policy.encryption_algorithm, EncryptionAlgorithm::Aes256Gcm);
     }
 
     #[test]
@@ -451,10 +451,7 @@ mod tests {
 
     #[test]
     fn test_encryption_algorithm_display() {
-        assert_eq!(
-            EncryptionAlgorithm::Aes256Gcm.display_name(),
-            "AES-256-GCM"
-        );
+        assert_eq!(EncryptionAlgorithm::Aes256Gcm.display_name(), "AES-256-GCM");
     }
 
     #[test]
@@ -493,7 +490,15 @@ mod tests {
 
     #[test]
     fn test_framework_description() {
-        assert!(ComplianceFrameworkType::Gdpr.description().contains("Data Protection"));
-        assert!(ComplianceFrameworkType::Soc2.description().contains("Service Organization"));
+        assert!(
+            ComplianceFrameworkType::Gdpr
+                .description()
+                .contains("Data Protection")
+        );
+        assert!(
+            ComplianceFrameworkType::Soc2
+                .description()
+                .contains("Service Organization")
+        );
     }
 }

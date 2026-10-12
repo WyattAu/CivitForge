@@ -8,6 +8,6 @@ pub mod websocket_scaler;
 
 pub use log_stream::{LogBroadcaster, LogStreamEvent, PipelineStatusEvent};
 pub use model::{Event, EventCategory, EventPayload};
-pub use publish::{EventPublisher, PublishedEvent, EventSubscription};
+pub use publish::{EventPublisher, EventSubscription, PublishedEvent};
 pub use websocket::WebSocketManager;
 pub use websocket_scaler::WebSocketScaler;

@@ -6,8 +6,8 @@ use crate::error::CoreError;
 use axum::{
     extract::{Query, State},
     http::StatusCode,
-    response::{IntoResponse, Json},
     response::sse::Sse,
+    response::{IntoResponse, Json},
 };
 use futures::stream::Stream;
 use serde::{Deserialize, Serialize};

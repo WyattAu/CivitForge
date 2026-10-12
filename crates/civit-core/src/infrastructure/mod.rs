@@ -1,14 +1,12 @@
 #![forbid(unsafe_code)]
 
-pub mod types;
 pub mod store;
+pub mod types;
 
 pub use store::InfrastructureStore;
 pub use types::{
-    InfrastructureTemplate, InfrastructureDeployment,
-    CreateTemplateRequest, UpdateTemplateRequest,
-    DeployRequest, InfraDeploymentStatus,
-    InfrastructureModule, CreateModuleRequest, UpdateModuleRequest,
-    ModuleDependency, CreateModuleDependencyRequest,
-    ModuleVersion, ModuleMarketplaceItem,
+    CreateModuleDependencyRequest, CreateModuleRequest, CreateTemplateRequest, DeployRequest,
+    InfraDeploymentStatus, InfrastructureDeployment, InfrastructureModule, InfrastructureTemplate,
+    ModuleDependency, ModuleMarketplaceItem, ModuleVersion, UpdateModuleRequest,
+    UpdateTemplateRequest,
 };

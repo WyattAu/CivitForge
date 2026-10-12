@@ -470,7 +470,9 @@ impl DatabaseReplicationService {
             .collect())
     }
 
-    pub async fn monitor_replication(&self) -> Result<Vec<ReplicationMonitoringResult>, sqlx::Error> {
+    pub async fn monitor_replication(
+        &self,
+    ) -> Result<Vec<ReplicationMonitoringResult>, sqlx::Error> {
         #[derive(sqlx::FromRow)]
         struct ReplicaRow {
             id: Uuid,
@@ -503,19 +505,15 @@ impl DatabaseReplicationService {
         Ok(results)
     }
 
-    pub async fn test_failover(
-        &self,
-        replica_id: Uuid,
-    ) -> Result<FailoverTestResult, sqlx::Error> {
+    pub async fn test_failover(&self, replica_id: Uuid) -> Result<FailoverTestResult, sqlx::Error> {
         let start = Utc::now();
         let mut steps = Vec::new();
 
-        let replica_exists: Option<(Uuid,)> = sqlx::query_as(
-            r#"SELECT id FROM database_replicas WHERE id = $1"#,
-        )
-        .bind(replica_id)
-        .fetch_optional(&self.pool)
-        .await?;
+        let replica_exists: Option<(Uuid,)> =
+            sqlx::query_as(r#"SELECT id FROM database_replicas WHERE id = $1"#)
+                .bind(replica_id)
+                .fetch_optional(&self.pool)
+                .await?;
 
         if replica_exists.is_none() {
             return Ok(FailoverTestResult {
@@ -609,9 +607,7 @@ impl DatabaseReplicationService {
         })
     }
 
-    pub async fn get_conflict_resolvers(
-        &self,
-    ) -> Result<Vec<ConflictResolverEntry>, sqlx::Error> {
+    pub async fn get_conflict_resolvers(&self) -> Result<Vec<ConflictResolverEntry>, sqlx::Error> {
         #[derive(sqlx::FromRow)]
         struct ResolverRow {
             id: Uuid,
@@ -743,21 +739,19 @@ impl DatabaseReplicationService {
         let check_id = Uuid::new_v4();
         let checked_at = Utc::now();
 
-        let source_count: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM database_replicas WHERE name = $1"#,
-        )
-        .bind(source_node)
-        .fetch_one(&self.pool)
-        .await
-            .unwrap_or((0,));
+        let source_count: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM database_replicas WHERE name = $1"#)
+                .bind(source_node)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or((0,));
 
-        let target_count: (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM database_replicas WHERE name = $1"#,
-        )
-        .bind(target_node)
-        .fetch_one(&self.pool)
-        .await
-            .unwrap_or((0,));
+        let target_count: (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM database_replicas WHERE name = $1"#)
+                .bind(target_node)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or((0,));
 
         let discrepancy_count = (source_count.0 - target_count.0).abs();
         let consistent = discrepancy_count == 0;
@@ -819,9 +813,7 @@ impl DatabaseReplicationService {
         }
     }
 
-    pub async fn get_lag_monitoring_summary(
-        &self,
-    ) -> Result<Vec<serde_json::Value>, sqlx::Error> {
+    pub async fn get_lag_monitoring_summary(&self) -> Result<Vec<serde_json::Value>, sqlx::Error> {
         let alerts = self.get_lag_alerts(None).await.unwrap_or_default();
 
         let summary: Vec<serde_json::Value> = alerts
@@ -1084,9 +1076,7 @@ impl DatabaseReplicationService {
             .collect())
     }
 
-    pub async fn get_replication_topology(
-        &self,
-    ) -> Result<Vec<ReplicationTopology>, sqlx::Error> {
+    pub async fn get_replication_topology(&self) -> Result<Vec<ReplicationTopology>, sqlx::Error> {
         #[derive(sqlx::FromRow)]
         struct ReplicaRow {
             name: String,
@@ -1138,9 +1128,7 @@ impl DatabaseReplicationService {
         Ok(topology)
     }
 
-    pub async fn get_recovery_points(
-        &self,
-    ) -> Result<Vec<RecoveryPoint>, sqlx::Error> {
+    pub async fn get_recovery_points(&self) -> Result<Vec<RecoveryPoint>, sqlx::Error> {
         #[derive(sqlx::FromRow)]
         struct ReplicaRow {
             name: String,

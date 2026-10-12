@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
 
-use std::time::{Duration, Instant};
 use dashmap::DashMap;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
+use std::time::{Duration, Instant};
 use tracing::{debug, warn};
 
 /// Default TTL values for different query categories (in seconds).
@@ -76,7 +76,8 @@ impl QueryCache {
                 // Lazy eviction
                 drop(entry);
                 self.store.remove(key);
-                self.misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.misses
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 return None;
             }
             self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -91,7 +92,8 @@ impl QueryCache {
                 }
             }
         } else {
-            self.misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.misses
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             None
         }
     }
@@ -102,13 +104,15 @@ impl QueryCache {
             if entry.is_expired() {
                 drop(entry);
                 self.store.remove(key);
-                self.misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.misses
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 return None;
             }
             self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             Some(entry.value.clone())
         } else {
-            self.misses.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.misses
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             None
         }
     }
@@ -129,7 +133,8 @@ impl QueryCache {
                         }
                     }
                 }
-                self.store.insert(key.to_string(), CacheEntry::new(bytes, ttl));
+                self.store
+                    .insert(key.to_string(), CacheEntry::new(bytes, ttl));
                 debug!(key = %key, ttl_ms = ttl.as_millis(), "query cache set");
             }
             Err(e) => {
@@ -150,7 +155,8 @@ impl QueryCache {
                 }
             }
         }
-        self.store.insert(key.to_string(), CacheEntry::new(data, ttl));
+        self.store
+            .insert(key.to_string(), CacheEntry::new(data, ttl));
     }
 
     /// Invalidate a single key.
@@ -303,9 +309,21 @@ mod tests {
     #[test]
     fn test_query_cache_invalidate_pattern() {
         let cache = QueryCache::new(100);
-        cache.set("repo:list:1:0:10", &"data1".to_string(), Duration::from_secs(60));
-        cache.set("repo:list:2:0:10", &"data2".to_string(), Duration::from_secs(60));
-        cache.set("issue:list:1:0:10", &"data3".to_string(), Duration::from_secs(60));
+        cache.set(
+            "repo:list:1:0:10",
+            &"data1".to_string(),
+            Duration::from_secs(60),
+        );
+        cache.set(
+            "repo:list:2:0:10",
+            &"data2".to_string(),
+            Duration::from_secs(60),
+        );
+        cache.set(
+            "issue:list:1:0:10",
+            &"data3".to_string(),
+            Duration::from_secs(60),
+        );
         let count = cache.invalidate_pattern("repo:list");
         assert_eq!(count, 2);
         let result: Option<String> = cache.get("repo:list:1:0:10");
@@ -338,8 +356,14 @@ mod tests {
     #[test]
     fn test_cache_key_builders() {
         assert_eq!(repo_list_key("user1", 0, 10), "repo:list:user1:0:10");
-        assert_eq!(issue_list_key("repo1", Some("open"), 0, 10), "issue:list:repo1:open:0:10");
-        assert_eq!(issue_list_key("repo1", None, 0, 10), "issue:list:repo1:all:0:10");
+        assert_eq!(
+            issue_list_key("repo1", Some("open"), 0, 10),
+            "issue:list:repo1:open:0:10"
+        );
+        assert_eq!(
+            issue_list_key("repo1", None, 0, 10),
+            "issue:list:repo1:all:0:10"
+        );
         assert_eq!(user_permissions_key("user1"), "user:perms:user1");
         assert_eq!(pipeline_status_key("repo1"), "pipeline:status:repo1");
     }

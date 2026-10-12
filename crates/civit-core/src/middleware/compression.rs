@@ -12,9 +12,9 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use flate2::Compression as GzCompression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
-use flate2::Compression as GzCompression;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::io::Write;
@@ -136,7 +136,10 @@ impl CompressionState {
 }
 
 /// Parse the `Accept-Encoding` header and return the best supported algorithm.
-pub fn negotiate_encoding(accept_encoding: &str, preferred: &[CompressionAlgorithm]) -> CompressionAlgorithm {
+pub fn negotiate_encoding(
+    accept_encoding: &str,
+    preferred: &[CompressionAlgorithm],
+) -> CompressionAlgorithm {
     let accepted: Vec<&str> = accept_encoding
         .split(',')
         .map(|s| s.trim().split(';').next().unwrap_or("").trim())
@@ -194,10 +197,7 @@ fn content_encoding_header_value(algo: CompressionAlgorithm) -> HeaderValue {
 
 /// Compression middleware for API responses.
 pub async fn compression_middleware(req: Request, next: Next) -> Response {
-    let state = req
-        .extensions()
-        .get::<Arc<CompressionState>>()
-        .cloned();
+    let state = req.extensions().get::<Arc<CompressionState>>().cloned();
 
     let config = match &state {
         Some(s) => s.config.clone(),
@@ -219,8 +219,7 @@ pub async fn compression_middleware(req: Request, next: Next) -> Response {
     let response = next.run(req).await;
 
     // Don't compress if already encoded or non-success status
-    if response.headers().contains_key(header::CONTENT_ENCODING)
-        || !response.status().is_success()
+    if response.headers().contains_key(header::CONTENT_ENCODING) || !response.status().is_success()
     {
         if let Some(ref s) = state {
             s.record_skip().await;
@@ -299,7 +298,10 @@ pub async fn compression_middleware(req: Request, next: Next) -> Response {
             );
 
             let mut builder = Response::builder().status(status);
-            builder = builder.header(header::CONTENT_ENCODING, content_encoding_header_value(chosen_algo));
+            builder = builder.header(
+                header::CONTENT_ENCODING,
+                content_encoding_header_value(chosen_algo),
+            );
             builder = builder.header(
                 HeaderName::from_static("x-original-size"),
                 HeaderValue::from_str(&original_size.to_string()).expect("valid number"),
@@ -355,31 +357,46 @@ mod tests {
 
     #[test]
     fn test_negotiate_encoding_gzip() {
-        let algo = negotiate_encoding("gzip, deflate", &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip]);
+        let algo = negotiate_encoding(
+            "gzip, deflate",
+            &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip],
+        );
         assert_eq!(algo, CompressionAlgorithm::Gzip);
     }
 
     #[test]
     fn test_negotiate_encoding_brotli() {
-        let algo = negotiate_encoding("br, gzip", &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip]);
+        let algo = negotiate_encoding(
+            "br, gzip",
+            &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip],
+        );
         assert_eq!(algo, CompressionAlgorithm::Brotli);
     }
 
     #[test]
     fn test_negotiate_encoding_none() {
-        let algo = negotiate_encoding("deflate", &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip]);
+        let algo = negotiate_encoding(
+            "deflate",
+            &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip],
+        );
         assert_eq!(algo, CompressionAlgorithm::None);
     }
 
     #[test]
     fn test_negotiate_encoding_empty() {
-        let algo = negotiate_encoding("", &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip]);
+        let algo = negotiate_encoding(
+            "",
+            &[CompressionAlgorithm::Brotli, CompressionAlgorithm::Gzip],
+        );
         assert_eq!(algo, CompressionAlgorithm::None);
     }
 
     #[test]
     fn test_is_compressible_json() {
-        assert!(is_compressible("application/json", &CompressionConfig::default()));
+        assert!(is_compressible(
+            "application/json",
+            &CompressionConfig::default()
+        ));
     }
 
     #[test]

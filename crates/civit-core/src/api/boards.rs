@@ -337,7 +337,11 @@ pub async fn get_board(
             .await
             .unwrap_or_default();
 
-            cards.push(CardDetailResponse { card, labels, assignees });
+            cards.push(CardDetailResponse {
+                card,
+                labels,
+                assignees,
+            });
         }
 
         columns_with_cards.push(ColumnWithCards { column: col, cards });
@@ -1000,18 +1004,20 @@ pub async fn update_card_priority(
         None => return err_response(StatusCode::BAD_REQUEST, "priority is required"),
     };
 
-    match sqlx::query(
-        "UPDATE board_cards SET priority = $1, updated_at = NOW() WHERE id = $2",
-    )
-    .bind(priority)
-    .bind(card_id)
-    .execute(pool)
-    .await
+    match sqlx::query("UPDATE board_cards SET priority = $1, updated_at = NOW() WHERE id = $2")
+        .bind(priority)
+        .bind(card_id)
+        .execute(pool)
+        .await
     {
         Ok(rows) if rows.rows_affected() == 0 => {
             err_response(StatusCode::NOT_FOUND, "card not found")
         }
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({"priority": priority}))).into_response(),
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({"priority": priority})),
+        )
+            .into_response(),
         Err(e) => internal_err(&e.to_string()),
     }
 }
@@ -1056,13 +1062,11 @@ pub async fn update_card_due_date(
         .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
         .map(|dt| dt.with_timezone(&Utc));
 
-    match sqlx::query(
-        "UPDATE board_cards SET due_date = $1, updated_at = NOW() WHERE id = $2",
-    )
-    .bind(due_date)
-    .bind(card_id)
-    .execute(pool)
-    .await
+    match sqlx::query("UPDATE board_cards SET due_date = $1, updated_at = NOW() WHERE id = $2")
+        .bind(due_date)
+        .bind(card_id)
+        .execute(pool)
+        .await
     {
         Ok(rows) if rows.rows_affected() == 0 => {
             err_response(StatusCode::NOT_FOUND, "card not found")
@@ -1115,13 +1119,11 @@ pub async fn update_card_sort_order(
         None => return err_response(StatusCode::BAD_REQUEST, "sort_order is required"),
     };
 
-    match sqlx::query(
-        "UPDATE board_cards SET sort_order = $1, updated_at = NOW() WHERE id = $2",
-    )
-    .bind(sort_order)
-    .bind(card_id)
-    .execute(pool)
-    .await
+    match sqlx::query("UPDATE board_cards SET sort_order = $1, updated_at = NOW() WHERE id = $2")
+        .bind(sort_order)
+        .bind(card_id)
+        .execute(pool)
+        .await
     {
         Ok(rows) if rows.rows_affected() == 0 => {
             err_response(StatusCode::NOT_FOUND, "card not found")

@@ -5,12 +5,11 @@
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use axum::{
-    Json,
+    Json, Router,
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::IntoResponse,
     routing::get,
-    Router,
 };
 use uuid::Uuid;
 
@@ -46,9 +45,16 @@ pub async fn get_maven_artifact(
             };
             headers.insert(
                 "content-type",
-                content_type.parse().unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+                content_type
+                    .parse()
+                    .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
             );
-            (StatusCode::OK, headers, "Binary content placeholder".as_bytes().to_vec()).into_response()
+            (
+                StatusCode::OK,
+                headers,
+                "Binary content placeholder".as_bytes().to_vec(),
+            )
+                .into_response()
         }
         None => (
             StatusCode::NOT_FOUND,
@@ -113,15 +119,24 @@ pub async fn publish_maven_artifact(
     .await;
 
     let mut headers = HeaderMap::new();
-    headers.insert("location", format!("/api/v1/packages/maven/{group}/{artifact}/{version}/{file}").parse().unwrap_or_else(|_| HeaderValue::from_static("/api/v1/packages/maven")));
+    headers.insert(
+        "location",
+        format!("/api/v1/packages/maven/{group}/{artifact}/{version}/{file}")
+            .parse()
+            .unwrap_or_else(|_| HeaderValue::from_static("/api/v1/packages/maven")),
+    );
 
-    (StatusCode::CREATED, headers, Json(serde_json::json!({"ok": true}))).into_response()
+    (
+        StatusCode::CREATED,
+        headers,
+        Json(serde_json::json!({"ok": true})),
+    )
+        .into_response()
 }
 
 pub fn maven_routes() -> Router<AppState> {
-    Router::new()
-        .route(
-            "/api/v1/packages/maven/{group}/{artifact}/{version}/{file}",
-            get(get_maven_artifact).put(publish_maven_artifact),
-        )
+    Router::new().route(
+        "/api/v1/packages/maven/{group}/{artifact}/{version}/{file}",
+        get(get_maven_artifact).put(publish_maven_artifact),
+    )
 }

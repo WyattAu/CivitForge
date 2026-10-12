@@ -2,17 +2,14 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use crate::data_portability::{
-    DataPortabilityService, ExportFormat, ExportRequest, ImportRequest,
-};
+use crate::data_portability::{DataPortabilityService, ExportFormat, ExportRequest, ImportRequest};
 use crate::error::CoreError;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -227,7 +224,10 @@ pub async fn download_export(
                     }
                     Err(_) => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(CoreError::Internal("failed to read export file".into()).error_response()),
+                        Json(
+                            CoreError::Internal("failed to read export file".into())
+                                .error_response(),
+                        ),
                     )
                         .into_response(),
                 }

@@ -2,11 +2,10 @@
 
 use crate::api::AppState;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Query, State},
     http::StatusCode,
     routing::{get, post},
-    Json,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -163,9 +162,7 @@ async fn generate_compliance_report(
         period_start: params
             .since
             .unwrap_or_else(|| (Utc::now() - chrono::Duration::days(30)).to_rfc3339()),
-        period_end: params
-            .until
-            .unwrap_or_else(|| Utc::now().to_rfc3339()),
+        period_end: params.until.unwrap_or_else(|| Utc::now().to_rfc3339()),
         total_events_audited: 0,
         events_by_action: HashMap::new(),
         high_risk_events: 0,

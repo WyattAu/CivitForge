@@ -19,10 +19,8 @@ impl QualityGateStore {
     ) -> Result<QualityGate, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let conditions = serde_json::to_value(&req.conditions)
-            .unwrap_or(serde_json::json!([]));
-        let actions = serde_json::to_value(&req.actions)
-            .unwrap_or(serde_json::json!([]));
+        let conditions = serde_json::to_value(&req.conditions).unwrap_or(serde_json::json!([]));
+        let actions = serde_json::to_value(&req.actions).unwrap_or(serde_json::json!([]));
 
         sqlx::query(
             r#"INSERT INTO quality_gates (id, repo_id, name, conditions, actions, enabled, created_at)
@@ -135,8 +133,7 @@ impl QualityGateStore {
     ) -> Result<QualityGateResult, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let findings_json = serde_json::to_value(&findings)
-            .unwrap_or(serde_json::json!([]));
+        let findings_json = serde_json::to_value(&findings).unwrap_or(serde_json::json!([]));
 
         sqlx::query(
             r#"INSERT INTO quality_gate_results (id, gate_id, pr_id, status, findings, created_at)
@@ -179,55 +176,41 @@ impl QualityGateStore {
         for condition in &gate.conditions {
             conditions_checked += 1;
             let passed = match condition {
-                QualityGateCondition::MinTestPassRate { threshold } => {
-                    context
-                        .get("test_pass_rate")
-                        .and_then(|v| v.as_f64())
-                        .map(|rate| rate >= *threshold)
-                        .unwrap_or(false)
-                }
-                QualityGateCondition::MaxCriticalFindings { threshold } => {
-                    context
-                        .get("critical_findings")
-                        .and_then(|v| v.as_i64())
-                        .map(|count| count <= *threshold as i64)
-                        .unwrap_or(true)
-                }
-                QualityGateCondition::MaxHighFindings { threshold } => {
-                    context
-                        .get("high_findings")
-                        .and_then(|v| v.as_i64())
-                        .map(|count| count <= *threshold as i64)
-                        .unwrap_or(true)
-                }
-                QualityGateCondition::MinCodeCoverage { threshold } => {
-                    context
-                        .get("code_coverage")
-                        .and_then(|v| v.as_f64())
-                        .map(|cov| cov >= *threshold)
-                        .unwrap_or(false)
-                }
-                QualityGateCondition::NoFailingTests => {
-                    context
-                        .get("failing_tests")
-                        .and_then(|v| v.as_i64())
-                        .map(|count| count == 0)
-                        .unwrap_or(true)
-                }
-                QualityGateCondition::LintClean => {
-                    context
-                        .get("lint_errors")
-                        .and_then(|v| v.as_i64())
-                        .map(|count| count == 0)
-                        .unwrap_or(true)
-                }
-                QualityGateCondition::SecurityScanPass => {
-                    context
-                        .get("security_vulnerabilities")
-                        .and_then(|v| v.as_i64())
-                        .map(|count| count == 0)
-                        .unwrap_or(true)
-                }
+                QualityGateCondition::MinTestPassRate { threshold } => context
+                    .get("test_pass_rate")
+                    .and_then(|v| v.as_f64())
+                    .map(|rate| rate >= *threshold)
+                    .unwrap_or(false),
+                QualityGateCondition::MaxCriticalFindings { threshold } => context
+                    .get("critical_findings")
+                    .and_then(|v| v.as_i64())
+                    .map(|count| count <= *threshold as i64)
+                    .unwrap_or(true),
+                QualityGateCondition::MaxHighFindings { threshold } => context
+                    .get("high_findings")
+                    .and_then(|v| v.as_i64())
+                    .map(|count| count <= *threshold as i64)
+                    .unwrap_or(true),
+                QualityGateCondition::MinCodeCoverage { threshold } => context
+                    .get("code_coverage")
+                    .and_then(|v| v.as_f64())
+                    .map(|cov| cov >= *threshold)
+                    .unwrap_or(false),
+                QualityGateCondition::NoFailingTests => context
+                    .get("failing_tests")
+                    .and_then(|v| v.as_i64())
+                    .map(|count| count == 0)
+                    .unwrap_or(true),
+                QualityGateCondition::LintClean => context
+                    .get("lint_errors")
+                    .and_then(|v| v.as_i64())
+                    .map(|count| count == 0)
+                    .unwrap_or(true),
+                QualityGateCondition::SecurityScanPass => context
+                    .get("security_vulnerabilities")
+                    .and_then(|v| v.as_i64())
+                    .map(|count| count == 0)
+                    .unwrap_or(true),
             };
 
             if passed {

@@ -262,11 +262,7 @@ pub async fn search_suggestions(
         }
     }
 
-    (
-        StatusCode::OK,
-        Json(SearchSuggestResponse { suggestions }),
-    )
-        .into_response()
+    (StatusCode::OK, Json(SearchSuggestResponse { suggestions })).into_response()
 }
 
 // ---------------------------------------------------------------------------
@@ -484,11 +480,7 @@ pub async fn global_search(
     let filters = parse_advanced_filters(&raw_q);
 
     // Merge explicit params with parsed filters (explicit params take precedence)
-    let effective_repo = params
-        .repo
-        .as_ref()
-        .or(filters.repo_name.as_ref())
-        .cloned();
+    let effective_repo = params.repo.as_ref().or(filters.repo_name.as_ref()).cloned();
     let effective_language = params
         .language
         .as_ref()

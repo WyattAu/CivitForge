@@ -91,10 +91,7 @@ pub async fn upload_artifact(
     };
 
     // Generate storage key
-    let storage_key = format!(
-        "{}/{}/artifacts/{}",
-        run_id, req.job_id, req.name
-    );
+    let storage_key = format!("{}/{}/artifacts/{}", run_id, req.job_id, req.name);
 
     match pipeline::create_artifact(
         pool,

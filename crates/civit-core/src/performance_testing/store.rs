@@ -154,19 +154,17 @@ impl PerformanceTestStore {
         test_id_1: Uuid,
         test_id_2: Uuid,
     ) -> Result<PerformanceComparison, sqlx::Error> {
-        let test_1 = sqlx::query_scalar::<_, String>(
-            r#"SELECT name FROM performance_tests WHERE id = $1"#,
-        )
-        .bind(test_id_1)
-        .fetch_one(&self.pool)
-        .await?;
+        let test_1 =
+            sqlx::query_scalar::<_, String>(r#"SELECT name FROM performance_tests WHERE id = $1"#)
+                .bind(test_id_1)
+                .fetch_one(&self.pool)
+                .await?;
 
-        let test_2 = sqlx::query_scalar::<_, String>(
-            r#"SELECT name FROM performance_tests WHERE id = $1"#,
-        )
-        .bind(test_id_2)
-        .fetch_one(&self.pool)
-        .await?;
+        let test_2 =
+            sqlx::query_scalar::<_, String>(r#"SELECT name FROM performance_tests WHERE id = $1"#)
+                .bind(test_id_2)
+                .fetch_one(&self.pool)
+                .await?;
 
         let rows = sqlx::query_as::<_, MetricCompareRow>(
             r#"SELECT
@@ -220,8 +218,8 @@ impl PerformanceTestStore {
     ) -> Result<PerformanceTestRecord, sqlx::Error> {
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let config = serde_json::to_value(req.config.unwrap_or_default())
-            .unwrap_or(serde_json::json!({}));
+        let config =
+            serde_json::to_value(req.config.unwrap_or_default()).unwrap_or(serde_json::json!({}));
 
         sqlx::query(
             r#"INSERT INTO performance_tests (id, repo_id, name, test_type, endpoint, config, status, started_at)
@@ -301,7 +299,9 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        self.get_test(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_test(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn complete_test(
@@ -319,13 +319,12 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        self.get_test(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_test(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
-    pub async fn get_summary(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<PerformanceTestSummary, sqlx::Error> {
+    pub async fn get_summary(&self, repo_id: Uuid) -> Result<PerformanceTestSummary, sqlx::Error> {
         let row = sqlx::query_as::<_, SummaryRow>(
             r#"SELECT
                 COUNT(*) as total_tests,
@@ -355,15 +354,16 @@ impl PerformanceTestStore {
             by_type[tr.test_type] = serde_json::json!(tr.count);
         }
 
-        let latest_results: Option<PerformanceTestResults> = sqlx::query_scalar::<_, serde_json::Value>(
-            r#"SELECT results FROM performance_tests
+        let latest_results: Option<PerformanceTestResults> =
+            sqlx::query_scalar::<_, serde_json::Value>(
+                r#"SELECT results FROM performance_tests
                WHERE repo_id = $1 AND status = 'completed'
                ORDER BY completed_at DESC LIMIT 1"#,
-        )
-        .bind(repo_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .and_then(|v| serde_json::from_value(v).ok());
+            )
+            .bind(repo_id)
+            .fetch_optional(&self.pool)
+            .await?
+            .and_then(|v| serde_json::from_value(v).ok());
 
         Ok(PerformanceTestSummary {
             total_tests: row.total_tests,
@@ -465,7 +465,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_baseline(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_baseline(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_baseline(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -524,10 +526,8 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let data_points: Vec<PerformanceTrendData> = rows
-            .into_iter()
-            .map(PerformanceTrendData::from)
-            .collect();
+        let data_points: Vec<PerformanceTrendData> =
+            rows.into_iter().map(PerformanceTrendData::from).collect();
 
         let avg_value = if data_points.is_empty() {
             0.0
@@ -535,8 +535,14 @@ impl PerformanceTestStore {
             data_points.iter().map(|d| d.metric_value).sum::<f64>() / data_points.len() as f64
         };
 
-        let min_value = data_points.iter().map(|d| d.metric_value).fold(f64::INFINITY, f64::min);
-        let max_value = data_points.iter().map(|d| d.metric_value).fold(f64::NEG_INFINITY, f64::max);
+        let min_value = data_points
+            .iter()
+            .map(|d| d.metric_value)
+            .fold(f64::INFINITY, f64::min);
+        let max_value = data_points
+            .iter()
+            .map(|d| d.metric_value)
+            .fold(f64::NEG_INFINITY, f64::max);
 
         let (trend_direction, change_percent) = if data_points.len() >= 2 {
             let first = data_points.first().expect("non-empty").metric_value;
@@ -776,7 +782,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfig::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfig::from)
+            .collect())
     }
 
     pub async fn list_alert_configs_for_repo(
@@ -794,7 +803,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfig::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfig::from)
+            .collect())
     }
 
     pub async fn update_alert_config(
@@ -824,7 +836,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_alert_config(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -891,7 +905,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceAlertHistory::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceAlertHistory::from)
+            .collect())
     }
 
     pub async fn get_alert_notifications(
@@ -934,10 +951,7 @@ impl PerformanceTestStore {
         Ok(notifications)
     }
 
-    pub async fn get_alert_analytics(
-        &self,
-        repo_id: Uuid,
-    ) -> Result<AlertAnalytics, sqlx::Error> {
+    pub async fn get_alert_analytics(&self, repo_id: Uuid) -> Result<AlertAnalytics, sqlx::Error> {
         let alerts = self.list_alert_configs_for_repo(repo_id).await?;
         let total_alerts = alerts.len() as i64;
         let active_alerts = alerts.iter().filter(|a| a.enabled).count() as i64;
@@ -988,7 +1002,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrend::from).collect();
+        let trigger_trend = trigger_rows
+            .into_iter()
+            .map(AlertTriggerTrend::from)
+            .collect();
 
         Ok(AlertAnalytics {
             total_alerts,
@@ -1033,8 +1050,14 @@ impl PerformanceTestStore {
 
                 for alert in alerts {
                     let triggered = match alert.alert_type.as_str() {
-                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
-                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "regression" => {
+                            current_value
+                                > baseline.baseline_value * (1.0 + alert.threshold / 100.0)
+                        }
+                        "improvement" => {
+                            current_value
+                                < baseline.baseline_value * (1.0 - alert.threshold / 100.0)
+                        }
                         "absolute" => current_value > alert.threshold,
                         _ => false,
                     };
@@ -1062,7 +1085,10 @@ impl PerformanceTestStore {
                             },
                             message: format!(
                                 "Performance alert triggered: {} {} (current: {}, threshold: {})",
-                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                                baseline.metric_name,
+                                alert.alert_type,
+                                current_value,
+                                alert.threshold
                             ),
                         });
                     }
@@ -1135,7 +1161,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV3::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV3::from)
+            .collect())
     }
 
     pub async fn list_alert_configs_v3_for_repo(
@@ -1153,7 +1182,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV3::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV3::from)
+            .collect())
     }
 
     pub async fn update_alert_config_v3(
@@ -1183,7 +1215,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_alert_config_v3(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config_v3(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config_v3(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -1217,11 +1251,13 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        sqlx::query(r#"UPDATE performance_test_alerts_v3 SET last_triggered_at = $1 WHERE id = $2"#)
-            .bind(now)
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"UPDATE performance_test_alerts_v3 SET last_triggered_at = $1 WHERE id = $2"#,
+        )
+        .bind(now)
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(PerformanceAlertHistoryV3 {
             id,
@@ -1250,7 +1286,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceAlertHistoryV3::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceAlertHistoryV3::from)
+            .collect())
     }
 
     pub async fn get_alert_notifications_v3(
@@ -1347,7 +1386,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrendV3::from).collect();
+        let trigger_trend = trigger_rows
+            .into_iter()
+            .map(AlertTriggerTrendV3::from)
+            .collect();
 
         Ok(AlertAnalyticsV3 {
             total_alerts,
@@ -1392,8 +1434,14 @@ impl PerformanceTestStore {
 
                 for alert in alerts {
                     let triggered = match alert.alert_type.as_str() {
-                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
-                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "regression" => {
+                            current_value
+                                > baseline.baseline_value * (1.0 + alert.threshold / 100.0)
+                        }
+                        "improvement" => {
+                            current_value
+                                < baseline.baseline_value * (1.0 - alert.threshold / 100.0)
+                        }
                         "absolute" => current_value > alert.threshold,
                         _ => false,
                     };
@@ -1421,7 +1469,10 @@ impl PerformanceTestStore {
                             },
                             message: format!(
                                 "Performance alert triggered: {} {} (current: {}, threshold: {})",
-                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                                baseline.metric_name,
+                                alert.alert_type,
+                                current_value,
+                                alert.threshold
                             ),
                         });
                     }
@@ -1494,7 +1545,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV5::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV5::from)
+            .collect())
     }
 
     pub async fn list_alert_configs_v5_for_repo(
@@ -1512,7 +1566,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV5::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV5::from)
+            .collect())
     }
 
     pub async fn update_alert_config_v5(
@@ -1542,7 +1599,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_alert_config_v5(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config_v5(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config_v5(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -1576,11 +1635,13 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        sqlx::query(r#"UPDATE performance_test_alerts_v5 SET last_triggered_at = $1 WHERE id = $2"#)
-            .bind(now)
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"UPDATE performance_test_alerts_v5 SET last_triggered_at = $1 WHERE id = $2"#,
+        )
+        .bind(now)
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(PerformanceAlertHistoryV5 {
             id,
@@ -1609,7 +1670,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceAlertHistoryV5::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceAlertHistoryV5::from)
+            .collect())
     }
 
     pub async fn get_alert_notifications_v5(
@@ -1706,7 +1770,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrendV5::from).collect();
+        let trigger_trend = trigger_rows
+            .into_iter()
+            .map(AlertTriggerTrendV5::from)
+            .collect();
 
         Ok(AlertAnalyticsV5 {
             total_alerts,
@@ -1751,8 +1818,14 @@ impl PerformanceTestStore {
 
                 for alert in alerts {
                     let triggered = match alert.alert_type.as_str() {
-                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
-                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "regression" => {
+                            current_value
+                                > baseline.baseline_value * (1.0 + alert.threshold / 100.0)
+                        }
+                        "improvement" => {
+                            current_value
+                                < baseline.baseline_value * (1.0 - alert.threshold / 100.0)
+                        }
                         "absolute" => current_value > alert.threshold,
                         _ => false,
                     };
@@ -1780,7 +1853,10 @@ impl PerformanceTestStore {
                             },
                             message: format!(
                                 "Performance alert triggered: {} {} (current: {}, threshold: {})",
-                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                                baseline.metric_name,
+                                alert.alert_type,
+                                current_value,
+                                alert.threshold
                             ),
                         });
                     }
@@ -1853,7 +1929,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV9::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV9::from)
+            .collect())
     }
 
     pub async fn list_alert_configs_v9_for_repo(
@@ -1871,7 +1950,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV9::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV9::from)
+            .collect())
     }
 
     pub async fn update_alert_config_v9(
@@ -1901,7 +1983,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_alert_config_v9(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config_v9(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config_v9(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -1935,11 +2019,13 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        sqlx::query(r#"UPDATE performance_test_alerts_v9 SET last_triggered_at = $1 WHERE id = $2"#)
-            .bind(now)
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"UPDATE performance_test_alerts_v9 SET last_triggered_at = $1 WHERE id = $2"#,
+        )
+        .bind(now)
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(PerformanceAlertHistoryV9 {
             id,
@@ -1968,7 +2054,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceAlertHistoryV9::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceAlertHistoryV9::from)
+            .collect())
     }
 
     pub async fn get_alert_notifications_v9(
@@ -2065,7 +2154,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrendV9::from).collect();
+        let trigger_trend = trigger_rows
+            .into_iter()
+            .map(AlertTriggerTrendV9::from)
+            .collect();
 
         Ok(AlertAnalyticsV9 {
             total_alerts,
@@ -2110,8 +2202,14 @@ impl PerformanceTestStore {
 
                 for alert in alerts {
                     let triggered = match alert.alert_type.as_str() {
-                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
-                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "regression" => {
+                            current_value
+                                > baseline.baseline_value * (1.0 + alert.threshold / 100.0)
+                        }
+                        "improvement" => {
+                            current_value
+                                < baseline.baseline_value * (1.0 - alert.threshold / 100.0)
+                        }
                         "absolute" => current_value > alert.threshold,
                         _ => false,
                     };
@@ -2139,7 +2237,10 @@ impl PerformanceTestStore {
                             },
                             message: format!(
                                 "Performance alert triggered: {} {} (current: {}, threshold: {})",
-                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                                baseline.metric_name,
+                                alert.alert_type,
+                                current_value,
+                                alert.threshold
                             ),
                         });
                     }
@@ -2212,7 +2313,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV16::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV16::from)
+            .collect())
     }
 
     pub async fn list_alert_configs_v16_for_repo(
@@ -2230,7 +2334,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV16::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV16::from)
+            .collect())
     }
 
     pub async fn update_alert_config_v16(
@@ -2260,7 +2367,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_alert_config_v16(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config_v16(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config_v16(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -2294,11 +2403,13 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        sqlx::query(r#"UPDATE performance_test_alerts_v16 SET last_triggered_at = $1 WHERE id = $2"#)
-            .bind(now)
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"UPDATE performance_test_alerts_v16 SET last_triggered_at = $1 WHERE id = $2"#,
+        )
+        .bind(now)
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(PerformanceAlertHistoryV16 {
             id,
@@ -2327,7 +2438,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceAlertHistoryV16::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceAlertHistoryV16::from)
+            .collect())
     }
 
     pub async fn get_alert_notifications_v16(
@@ -2424,7 +2538,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrendV16::from).collect();
+        let trigger_trend = trigger_rows
+            .into_iter()
+            .map(AlertTriggerTrendV16::from)
+            .collect();
 
         Ok(AlertAnalyticsV16 {
             total_alerts,
@@ -2469,8 +2586,14 @@ impl PerformanceTestStore {
 
                 for alert in alerts {
                     let triggered = match alert.alert_type.as_str() {
-                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
-                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "regression" => {
+                            current_value
+                                > baseline.baseline_value * (1.0 + alert.threshold / 100.0)
+                        }
+                        "improvement" => {
+                            current_value
+                                < baseline.baseline_value * (1.0 - alert.threshold / 100.0)
+                        }
                         "absolute" => current_value > alert.threshold,
                         _ => false,
                     };
@@ -2498,7 +2621,10 @@ impl PerformanceTestStore {
                             },
                             message: format!(
                                 "Performance alert triggered: {} {} (current: {}, threshold: {})",
-                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                                baseline.metric_name,
+                                alert.alert_type,
+                                current_value,
+                                alert.threshold
                             ),
                         });
                     }
@@ -2571,7 +2697,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV18::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV18::from)
+            .collect())
     }
 
     pub async fn list_alert_configs_v18_for_repo(
@@ -2589,7 +2718,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestAlertConfigV18::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestAlertConfigV18::from)
+            .collect())
     }
 
     pub async fn update_alert_config_v18(
@@ -2619,7 +2751,9 @@ impl PerformanceTestStore {
                 .await?;
         }
 
-        self.get_alert_config_v18(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_alert_config_v18(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_alert_config_v18(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -2653,11 +2787,13 @@ impl PerformanceTestStore {
         .execute(&self.pool)
         .await?;
 
-        sqlx::query(r#"UPDATE performance_test_alerts_v19 SET last_triggered_at = $1 WHERE id = $2"#)
-            .bind(now)
-            .bind(alert_id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            r#"UPDATE performance_test_alerts_v19 SET last_triggered_at = $1 WHERE id = $2"#,
+        )
+        .bind(now)
+        .bind(alert_id)
+        .execute(&self.pool)
+        .await?;
 
         Ok(PerformanceAlertHistoryV18 {
             id,
@@ -2686,7 +2822,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceAlertHistoryV18::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceAlertHistoryV18::from)
+            .collect())
     }
 
     pub async fn get_alert_notifications_v18(
@@ -2783,7 +2922,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let trigger_trend = trigger_rows.into_iter().map(AlertTriggerTrendV18::from).collect();
+        let trigger_trend = trigger_rows
+            .into_iter()
+            .map(AlertTriggerTrendV18::from)
+            .collect();
 
         Ok(AlertAnalyticsV18 {
             total_alerts,
@@ -2828,8 +2970,14 @@ impl PerformanceTestStore {
 
                 for alert in alerts {
                     let triggered = match alert.alert_type.as_str() {
-                        "regression" => current_value > baseline.baseline_value * (1.0 + alert.threshold / 100.0),
-                        "improvement" => current_value < baseline.baseline_value * (1.0 - alert.threshold / 100.0),
+                        "regression" => {
+                            current_value
+                                > baseline.baseline_value * (1.0 + alert.threshold / 100.0)
+                        }
+                        "improvement" => {
+                            current_value
+                                < baseline.baseline_value * (1.0 - alert.threshold / 100.0)
+                        }
                         "absolute" => current_value > alert.threshold,
                         _ => false,
                     };
@@ -2857,7 +3005,10 @@ impl PerformanceTestStore {
                             },
                             message: format!(
                                 "Performance alert triggered: {} {} (current: {}, threshold: {})",
-                                baseline.metric_name, alert.alert_type, current_value, alert.threshold
+                                baseline.metric_name,
+                                alert.alert_type,
+                                current_value,
+                                alert.threshold
                             ),
                         });
                     }
@@ -2929,7 +3080,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestComparisonV20::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestComparisonV20::from)
+            .collect())
     }
 
     pub async fn get_comparison_analysis_v20(
@@ -3007,7 +3161,10 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(PerformanceTestRegressionsV20::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(PerformanceTestRegressionsV20::from)
+            .collect())
     }
 
     pub async fn update_regression_v20(
@@ -3023,11 +3180,13 @@ impl PerformanceTestStore {
                 .await?;
         }
         if let Some(enabled) = req.enabled {
-            sqlx::query(r#"UPDATE performance_test_regressions_v20 SET enabled = $1 WHERE id = $2"#)
-                .bind(enabled)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE performance_test_regressions_v20 SET enabled = $1 WHERE id = $2"#,
+            )
+            .bind(enabled)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
 
         let row = sqlx::query_as::<_, RegressionV20Row>(
@@ -3079,7 +3238,8 @@ impl PerformanceTestStore {
         .fetch_all(&self.pool)
         .await?;
 
-        let data_points: Vec<PerformanceTrendData> = rows.into_iter().map(PerformanceTrendData::from).collect();
+        let data_points: Vec<PerformanceTrendData> =
+            rows.into_iter().map(PerformanceTrendData::from).collect();
 
         let avg_value = if data_points.is_empty() {
             0.0
@@ -3087,17 +3247,41 @@ impl PerformanceTestStore {
             data_points.iter().map(|d| d.metric_value).sum::<f64>() / data_points.len() as f64
         };
 
-        let min_value = data_points.iter().map(|d| d.metric_value).fold(f64::INFINITY, f64::min);
-        let min_value = if min_value == f64::INFINITY { 0.0 } else { min_value };
+        let min_value = data_points
+            .iter()
+            .map(|d| d.metric_value)
+            .fold(f64::INFINITY, f64::min);
+        let min_value = if min_value == f64::INFINITY {
+            0.0
+        } else {
+            min_value
+        };
 
-        let max_value = data_points.iter().map(|d| d.metric_value).fold(f64::NEG_INFINITY, f64::max);
-        let max_value = if max_value == f64::NEG_INFINITY { 0.0 } else { max_value };
+        let max_value = data_points
+            .iter()
+            .map(|d| d.metric_value)
+            .fold(f64::NEG_INFINITY, f64::max);
+        let max_value = if max_value == f64::NEG_INFINITY {
+            0.0
+        } else {
+            max_value
+        };
 
         let trend_direction = if data_points.len() < 2 {
             "stable".to_string()
         } else {
-            let first_half: f64 = data_points.iter().take(data_points.len() / 2).map(|d| d.metric_value).sum::<f64>() / (data_points.len() / 2) as f64;
-            let second_half: f64 = data_points.iter().skip(data_points.len() / 2).map(|d| d.metric_value).sum::<f64>() / (data_points.len() - data_points.len() / 2) as f64;
+            let first_half: f64 = data_points
+                .iter()
+                .take(data_points.len() / 2)
+                .map(|d| d.metric_value)
+                .sum::<f64>()
+                / (data_points.len() / 2) as f64;
+            let second_half: f64 = data_points
+                .iter()
+                .skip(data_points.len() / 2)
+                .map(|d| d.metric_value)
+                .sum::<f64>()
+                / (data_points.len() - data_points.len() / 2) as f64;
             if second_half > first_half * 1.1 {
                 "increasing".to_string()
             } else if second_half < first_half * 0.9 {

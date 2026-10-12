@@ -164,7 +164,11 @@ fn generate_cache_key(req: &Request) -> Option<String> {
         return None;
     }
     let path = req.uri().path().to_string();
-    let query = req.uri().query().map(|q| format!("?{q}")).unwrap_or_default();
+    let query = req
+        .uri()
+        .query()
+        .map(|q| format!("?{q}"))
+        .unwrap_or_default();
     Some(format!("http:{path}{query}"))
 }
 
@@ -177,9 +181,10 @@ fn should_cache(req: &Request) -> bool {
     // Don't cache if Cache-Control: no-cache is set
     if let Some(cc) = req.headers().get(header::CACHE_CONTROL)
         && let Ok(val) = cc.to_str()
-            && (val.contains("no-cache") || val.contains("no-store")) {
-                return false;
-            }
+        && (val.contains("no-cache") || val.contains("no-store"))
+    {
+        return false;
+    }
     true
 }
 
@@ -224,27 +229,28 @@ pub async fn cache_middleware(req: Request, next: Next) -> Response {
 
     // Try to serve from cache
     if should_cache(&req)
-        && let Some(entry) = cache_state.store.get(&cache_key).await {
-            debug!(key = %cache_key, "Serving cached response");
-            let mut response = Response::builder()
-                .status(entry.status)
-                .body(Body::from(entry.body))
-                .expect("operation should succeed");
-            let headers = response.headers_mut();
-            for (name, value) in &entry.headers {
-                if let (Ok(n), Ok(v)) = (
-                    HeaderName::from_bytes(name.as_bytes()),
-                    HeaderValue::from_str(value),
-                ) {
-                    headers.insert(n, v);
-                }
+        && let Some(entry) = cache_state.store.get(&cache_key).await
+    {
+        debug!(key = %cache_key, "Serving cached response");
+        let mut response = Response::builder()
+            .status(entry.status)
+            .body(Body::from(entry.body))
+            .expect("operation should succeed");
+        let headers = response.headers_mut();
+        for (name, value) in &entry.headers {
+            if let (Ok(n), Ok(v)) = (
+                HeaderName::from_bytes(name.as_bytes()),
+                HeaderValue::from_str(value),
+            ) {
+                headers.insert(n, v);
             }
-            headers.insert(
-                HeaderName::from_static("x-cache"),
-                HeaderValue::from_static("HIT"),
-            );
-            return response;
         }
+        headers.insert(
+            HeaderName::from_static("x-cache"),
+            HeaderValue::from_static("HIT"),
+        );
+        return response;
+    }
 
     let start = Instant::now();
     let response = next.run(req).await;
@@ -256,44 +262,41 @@ pub async fn cache_middleware(req: Request, next: Next) -> Response {
     let status = response.status().as_u16();
     let headers = response.headers().clone();
 
-    if should_cache
-        && let Ok(body) = axum::body::to_bytes(response.into_body(), usize::MAX).await {
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
+    if should_cache && let Ok(body) = axum::body::to_bytes(response.into_body(), usize::MAX).await {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
 
-            let entry = CacheEntry {
-                body: body.to_vec(),
-                status,
-                headers: headers
-                    .iter()
-                    .filter_map(|(k, v)| {
-                        v.to_str().ok().map(|val| (k.to_string(), val.to_string()))
-                    })
-                    .collect(),
-                created_at: now,
-                expires_at: now + cache_state.store.ttl().as_secs(),
-            };
+        let entry = CacheEntry {
+            body: body.to_vec(),
+            status,
+            headers: headers
+                .iter()
+                .filter_map(|(k, v)| v.to_str().ok().map(|val| (k.to_string(), val.to_string())))
+                .collect(),
+            created_at: now,
+            expires_at: now + cache_state.store.ttl().as_secs(),
+        };
 
-            cache_state.store.set(cache_key.clone(), entry).await;
-            debug!(
-                key = %cache_key,
-                duration_ms = duration.as_secs_f64() * 1000.0,
-                "Cached response"
-            );
+        cache_state.store.set(cache_key.clone(), entry).await;
+        debug!(
+            key = %cache_key,
+            duration_ms = duration.as_secs_f64() * 1000.0,
+            "Cached response"
+        );
 
-            let mut response = Response::builder()
-                .status(status)
-                .body(Body::from(body))
-                .expect("operation should succeed");
-            let resp_headers = response.headers_mut();
-            resp_headers.insert(
-                HeaderName::from_static("x-cache"),
-                HeaderValue::from_static("MISS"),
-            );
-            return response;
-        }
+        let mut response = Response::builder()
+            .status(status)
+            .body(Body::from(body))
+            .expect("operation should succeed");
+        let resp_headers = response.headers_mut();
+        resp_headers.insert(
+            HeaderName::from_static("x-cache"),
+            HeaderValue::from_static("MISS"),
+        );
+        return response;
+    }
 
     // Return original response if caching failed
     let mut response = Response::builder()

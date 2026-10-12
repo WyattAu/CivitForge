@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use parking_lot::Mutex;
 
 /// OCI media type constants.
 pub mod media_types {
@@ -74,11 +74,7 @@ impl InMemoryBlobStore {
     }
 
     pub fn total_bytes(&self) -> u64 {
-        self.blobs
-            .lock()
-            .values()
-            .map(|v| v.len() as u64)
-            .sum()
+        self.blobs.lock().values().map(|v| v.len() as u64).sum()
     }
 
     fn compute_digest(data: &[u8]) -> String {
@@ -121,10 +117,7 @@ impl BlobStore for InMemoryBlobStore {
     }
 
     fn size(&self, digest: &str) -> Option<u64> {
-        self.blobs
-            .lock()
-            .get(digest)
-            .map(|d| d.len() as u64)
+        self.blobs.lock().get(digest).map(|d| d.len() as u64)
     }
 }
 

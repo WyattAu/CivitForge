@@ -139,9 +139,10 @@ impl PipelineRunnersService {
         let mut runners: Vec<PipelineRunner> = rows.into_iter().map(|r| r.into()).collect();
 
         if let Some(filter_tags) = tags
-            && !filter_tags.is_empty() {
-                runners.retain(|r| filter_tags.iter().all(|t| r.tags.contains(t)));
-            }
+            && !filter_tags.is_empty()
+        {
+            runners.retain(|r| filter_tags.iter().all(|t| r.tags.contains(t)));
+        }
 
         Ok(runners)
     }
@@ -227,29 +228,21 @@ impl PipelineRunnersService {
         Ok(())
     }
 
-    pub async fn assign_job(
-        &self,
-        runner_id: Uuid,
-        job_id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "UPDATE pipeline_runners_v2 SET current_job = $2 WHERE id = $1",
-        )
-        .bind(runner_id)
-        .bind(job_id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn assign_job(&self, runner_id: Uuid, job_id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE pipeline_runners_v2 SET current_job = $2 WHERE id = $1")
+            .bind(runner_id)
+            .bind(job_id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
 
     pub async fn clear_job(&self, runner_id: Uuid) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "UPDATE pipeline_runners_v2 SET current_job = NULL WHERE id = $1",
-        )
-        .bind(runner_id)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("UPDATE pipeline_runners_v2 SET current_job = NULL WHERE id = $1")
+            .bind(runner_id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }

@@ -2,18 +2,11 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use crate::api::auth::require_admin;
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiAnalyticV3Response {
@@ -101,21 +94,32 @@ pub async fn list_api_analytics_v3(
         return rejection.into_response();
     }
 
-    match state.db.get_api_analytics_v3(query.limit, query.offset).await {
+    match state
+        .db
+        .get_api_analytics_v3(query.limit, query.offset)
+        .await
+    {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticV3Response> = analytics.iter().map(|a| ApiAnalyticV3Response {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                cache_hit: a.cache_hit,
-                created_at: a.created_at,
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"analytics": response, "total": response.len()}))).into_response()
+            let response: Vec<ApiAnalyticV3Response> = analytics
+                .iter()
+                .map(|a| ApiAnalyticV3Response {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    cache_hit: a.cache_hit,
+                    created_at: a.created_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"analytics": response, "total": response.len()})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -136,19 +140,26 @@ pub async fn get_endpoint_analytics_v3(
 
     match state.db.get_endpoint_analytics_v3(&endpoint, &method).await {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticV3Response> = analytics.iter().map(|a| ApiAnalyticV3Response {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                cache_hit: a.cache_hit,
-                created_at: a.created_at,
-            }).collect();
-            (StatusCode::OK, Json(serde_json::json!({"analytics": response, "total": response.len()}))).into_response()
+            let response: Vec<ApiAnalyticV3Response> = analytics
+                .iter()
+                .map(|a| ApiAnalyticV3Response {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    cache_hit: a.cache_hit,
+                    created_at: a.created_at,
+                })
+                .collect();
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({"analytics": response, "total": response.len()})),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -162,16 +173,20 @@ pub async fn create_api_analytic_v3(
     State(state): State<AppState>,
     Json(req): Json<CreateApiAnalyticV3Request>,
 ) -> impl IntoResponse {
-    match state.db.create_api_analytic_v3(
-        &req.endpoint,
-        &req.method,
-        req.status_code,
-        req.response_time_ms,
-        req.user_id,
-        req.request_size_bytes,
-        req.response_size_bytes,
-        req.cache_hit,
-    ).await {
+    match state
+        .db
+        .create_api_analytic_v3(
+            &req.endpoint,
+            &req.method,
+            req.status_code,
+            req.response_time_ms,
+            req.user_id,
+            req.request_size_bytes,
+            req.response_size_bytes,
+            req.cache_hit,
+        )
+        .await
+    {
         Ok(analytic) => {
             let response = ApiAnalyticV3Response {
                 id: analytic.id,
@@ -195,10 +210,7 @@ pub async fn create_api_analytic_v3(
     }
 }
 
-pub async fn get_cache_stats(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn get_cache_stats(State(state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
@@ -246,14 +258,11 @@ pub async fn get_performance_stats(
     }
 }
 
-pub async fn get_usage_trends(
-    State(_state): State<AppState>,
-    auth: AuthUser,
-) -> impl IntoResponse {
+pub async fn get_usage_trends(State(_state): State<AppState>, auth: AuthUser) -> impl IntoResponse {
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
-    
+
     // In a real implementation, this would aggregate usage data over time
     // For now, return mock trend data
     let trends = vec![
@@ -276,7 +285,7 @@ pub async fn get_usage_trends(
             avg_response_time: 40.0,
         },
     ];
-    
+
     (StatusCode::OK, Json(serde_json::json!({"trends": trends}))).into_response()
 }
 
@@ -287,7 +296,7 @@ pub async fn get_realtime_analytics(
     if let Err(rejection) = require_admin(&auth) {
         return rejection.into_response();
     }
-    
+
     // In a real implementation, this would connect to a real-time analytics stream
     // For now, return mock real-time data
     let response = serde_json::json!({
@@ -302,14 +311,20 @@ pub async fn get_realtime_analytics(
             {"endpoint": "/api/v1/repos", "method": "POST", "requests_per_second": 10.0},
         ],
     });
-    
+
     (StatusCode::OK, Json(response)).into_response()
 }
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v3/analytics", get(list_api_analytics_v3).post(create_api_analytic_v3))
-        .route("/api/v3/analytics/{endpoint}/{method}", get(get_endpoint_analytics_v3))
+        .route(
+            "/api/v3/analytics",
+            get(list_api_analytics_v3).post(create_api_analytic_v3),
+        )
+        .route(
+            "/api/v3/analytics/{endpoint}/{method}",
+            get(get_endpoint_analytics_v3),
+        )
         .route("/api/v3/analytics/cache", get(get_cache_stats))
         .route("/api/v3/analytics/performance", get(get_performance_stats))
         .route("/api/v3/analytics/trends", get(get_usage_trends))

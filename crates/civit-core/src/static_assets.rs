@@ -70,10 +70,7 @@ impl AssetFingerprintMap {
             let path = entry.path();
             if path.is_file() {
                 let content = tokio::fs::read(&path).await?;
-                let name = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("");
+                let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
                 if !name.is_empty() {
                     self.fingerprint_file(name, &content).await;
                     count += 1;
@@ -227,7 +224,10 @@ mod tests {
 
     #[test]
     fn test_immutable_cache_control() {
-        assert_eq!(immutable_cache_control(), "public, max-age=31536000, immutable");
+        assert_eq!(
+            immutable_cache_control(),
+            "public, max-age=31536000, immutable"
+        );
     }
 
     #[test]
@@ -237,12 +237,18 @@ mod tests {
 
     #[test]
     fn test_cache_control_for_path_js() {
-        assert_eq!(cache_control_for_path("/assets/app.js"), immutable_cache_control());
+        assert_eq!(
+            cache_control_for_path("/assets/app.js"),
+            immutable_cache_control()
+        );
     }
 
     #[test]
     fn test_cache_control_for_path_css() {
-        assert_eq!(cache_control_for_path("/styles/main.css"), immutable_cache_control());
+        assert_eq!(
+            cache_control_for_path("/styles/main.css"),
+            immutable_cache_control()
+        );
     }
 
     #[test]
@@ -312,7 +318,9 @@ mod tests {
     #[tokio::test]
     async fn test_asset_fingerprint_map_build_from_dir() {
         let dir = tempfile::tempdir().unwrap();
-        tokio::fs::write(dir.path().join("test.txt"), b"hello").await.unwrap();
+        tokio::fs::write(dir.path().join("test.txt"), b"hello")
+            .await
+            .unwrap();
         let map = AssetFingerprintMap::new();
         let count = map.build_from_dir(dir.path()).await.unwrap();
         assert_eq!(count, 1);

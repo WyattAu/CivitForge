@@ -519,8 +519,14 @@ pub fn collect_evidence_for_framework(
 
 pub fn compute_controls_summary(controls: &[ComplianceControl]) -> ControlsSummary {
     let total = controls.len() as u32;
-    let passing = controls.iter().filter(|c| c.status == ControlStatus::Passing).count() as u32;
-    let failing = controls.iter().filter(|c| c.status == ControlStatus::Failing).count() as u32;
+    let passing = controls
+        .iter()
+        .filter(|c| c.status == ControlStatus::Passing)
+        .count() as u32;
+    let failing = controls
+        .iter()
+        .filter(|c| c.status == ControlStatus::Failing)
+        .count() as u32;
     let partially = controls
         .iter()
         .filter(|c| c.status == ControlStatus::PartiallyPassing)

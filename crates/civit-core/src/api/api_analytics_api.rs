@@ -9,11 +9,6 @@ use crate::api::AppState;
 use axum::Router;
 
 pub mod v1;
-pub mod v2;
-pub mod v3;
-pub mod v5;
-pub mod v6;
-pub mod v9;
 pub mod v11;
 pub mod v12;
 pub mod v13;
@@ -23,10 +18,15 @@ pub mod v16;
 pub mod v17;
 pub mod v18;
 pub mod v19;
+pub mod v2;
 pub mod v20;
 pub mod v21;
 pub mod v23;
 pub mod v24;
+pub mod v3;
+pub mod v5;
+pub mod v6;
+pub mod v9;
 
 pub fn api_analytics_api_routes() -> Router<AppState> {
     v1::routes()

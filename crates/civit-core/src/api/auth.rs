@@ -61,7 +61,11 @@ pub async fn authenticate_with_token(state: &AppState, token: &str) -> Result<Au
 
 fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreError> {
     // 1) Try Authorization header first (standard)
-    if let Some(auth_header) = parts.headers.get(AUTHORIZATION).and_then(|v| v.to_str().ok()) {
+    if let Some(auth_header) = parts
+        .headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+    {
         return extract_from_auth_header(auth_header, state);
     }
 
@@ -77,8 +81,9 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
                     let token = decoded.into_owned();
                     // Try JWT first (synchronous, no DB call needed)
                     if let Ok(claims) = state.jwt_service.validate_token(&token) {
-                        let role = Role::from_str(&claims.role)
-                            .ok_or_else(|| CoreError::Auth(format!("unknown role: {}", claims.role)))?;
+                        let role = Role::from_str(&claims.role).ok_or_else(|| {
+                            CoreError::Auth(format!("unknown role: {}", claims.role))
+                        })?;
                         return Ok(AuthUser {
                             user_id: claims.sub,
                             username: claims.username,
@@ -105,7 +110,6 @@ fn extract_auth_user(parts: &Parts, state: &AppState) -> Result<AuthUser, CoreEr
 }
 
 fn extract_from_auth_header(auth_header: &str, state: &AppState) -> Result<AuthUser, CoreError> {
-
     // Support Bearer token (JWT or PAT)
     if let Some(token) = auth_header.strip_prefix("Bearer ") {
         // Try PAT first (tokens starting with cf_pat_)

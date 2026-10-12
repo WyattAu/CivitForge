@@ -10,9 +10,9 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
-use civit_ci::pipeline;
 use civit_ci::environment_webhooks;
 use civit_ci::health_checks;
+use civit_ci::pipeline;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -115,8 +115,7 @@ async fn resolve_repo_id(
             Err(e) => {
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response())
-                        .into_response(),
+                    Json(CoreError::Database(e.to_string()).error_response()).into_response(),
                 )
                     .into_response());
             }
@@ -141,8 +140,7 @@ async fn resolve_repo_id(
             .into_response()),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CoreError::Database(e.to_string()).error_response())
-                .into_response(),
+            Json(CoreError::Database(e.to_string()).error_response()).into_response(),
         )
             .into_response()),
     }
@@ -454,14 +452,8 @@ pub async fn create_deployment(
         None => None,
     };
 
-    match pipeline::create_environment_deployment(
-        pool,
-        eid,
-        pipeline_run_id,
-        &req.sha,
-        creator_id,
-    )
-    .await
+    match pipeline::create_environment_deployment(pool, eid, pipeline_run_id, &req.sha, creator_id)
+        .await
     {
         Ok(deployment) => (StatusCode::CREATED, Json(deployment)).into_response(),
         Err(e) => (
@@ -906,7 +898,10 @@ pub async fn update_approval_status(
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(CoreError::BadRequest("status must be 'approved' or 'rejected'".into()).error_response()),
+                Json(
+                    CoreError::BadRequest("status must be 'approved' or 'rejected'".into())
+                        .error_response(),
+                ),
             )
                 .into_response();
         }
@@ -1017,7 +1012,8 @@ pub async fn create_webhook(
         }
     };
 
-    match environment_webhooks::create_webhook(pool, eid, &req.url, &req.events, req.enabled).await {
+    match environment_webhooks::create_webhook(pool, eid, &req.url, &req.events, req.enabled).await
+    {
         Ok(webhook) => (StatusCode::CREATED, Json(webhook)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1109,7 +1105,15 @@ pub async fn update_webhook(
         }
     };
 
-    match environment_webhooks::update_webhook(pool, wid, req.url.as_deref(), req.events.as_deref(), req.enabled).await {
+    match environment_webhooks::update_webhook(
+        pool,
+        wid,
+        req.url.as_deref(),
+        req.events.as_deref(),
+        req.enabled,
+    )
+    .await
+    {
         Ok(webhook) => (StatusCode::OK, Json(webhook)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1321,7 +1325,15 @@ pub async fn create_notification(
 
     let config = req.config.unwrap_or(serde_json::json!({}));
 
-    match environment_webhooks::create_notification(pool, eid, &req.notification_type, &config, req.enabled).await {
+    match environment_webhooks::create_notification(
+        pool,
+        eid,
+        &req.notification_type,
+        &config,
+        req.enabled,
+    )
+    .await
+    {
         Ok(notification) => (StatusCode::CREATED, Json(notification)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1413,7 +1425,15 @@ pub async fn update_notification(
         }
     };
 
-    match environment_webhooks::update_notification(pool, nid, req.notification_type.as_deref(), req.config.as_ref(), req.enabled).await {
+    match environment_webhooks::update_notification(
+        pool,
+        nid,
+        req.notification_type.as_deref(),
+        req.config.as_ref(),
+        req.enabled,
+    )
+    .await
+    {
         Ok(notification) => (StatusCode::OK, Json(notification)).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -1975,8 +1995,7 @@ async fn resolve_repo_id_for_history(
             Err(e) => {
                 return Err((
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(CoreError::Database(e.to_string()).error_response())
-                        .into_response(),
+                    Json(CoreError::Database(e.to_string()).error_response()).into_response(),
                 )
                     .into_response());
             }
@@ -2001,8 +2020,7 @@ async fn resolve_repo_id_for_history(
             .into_response()),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(CoreError::Database(e.to_string()).error_response())
-                .into_response(),
+            Json(CoreError::Database(e.to_string()).error_response()).into_response(),
         )
             .into_response()),
     }
@@ -2381,7 +2399,16 @@ pub async fn compare_deployments(
         }
     };
 
-    match sqlx::query_as::<_, (Uuid, Uuid, Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)>(
+    match sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            Uuid,
+            serde_json::Value,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         "INSERT INTO deployment_comparison_v18
          (from_deployment_id, to_deployment_id, diff_summary, created_at)
          VALUES ($1, $2, $3, NOW())
@@ -2435,7 +2462,20 @@ pub async fn get_deployment_history_analytics(
         }
     };
 
-    match sqlx::query_as::<_, (Uuid, Uuid, chrono::DateTime<chrono::Utc>, i32, i32, i32, i64, i32, chrono::DateTime<chrono::Utc>)>(
+    match sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            chrono::DateTime<chrono::Utc>,
+            i32,
+            i32,
+            i32,
+            i64,
+            i32,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         "SELECT id, environment_id, period_start, total_deployments, successful_deployments,
                 failed_deployments, avg_deploy_time_ms, rollback_count, created_at
          FROM deployment_analytics_v18
@@ -2552,7 +2592,10 @@ pub async fn create_deployment_history_v19(
     };
 
     let metadata = req.metadata.unwrap_or(serde_json::json!({}));
-    let rollback_of = req.rollback_of.as_deref().and_then(|s| Uuid::parse_str(s).ok());
+    let rollback_of = req
+        .rollback_of
+        .as_deref()
+        .and_then(|s| Uuid::parse_str(s).ok());
 
     match pipeline::create_deployment_history_v19(
         pool,
@@ -2728,7 +2771,8 @@ mod tests {
 
     #[test]
     fn test_create_environment_request() {
-        let json = r#"{"name": "staging", "url": "https://staging.example.com", "protected": true}"#;
+        let json =
+            r#"{"name": "staging", "url": "https://staging.example.com", "protected": true}"#;
         let req: CreateEnvironmentRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.name, "staging");
         assert_eq!(req.url.as_deref(), Some("https://staging.example.com"));

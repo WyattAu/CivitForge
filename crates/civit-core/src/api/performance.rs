@@ -7,17 +7,17 @@
 //! - `GET /api/v1/debug/pprof` — CPU/memory profiling (debug mode only)
 
 use axum::{
+    Router,
     extract::State,
     http::{HeaderMap, HeaderValue},
     response::IntoResponse,
     routing::get,
-    Router,
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use tokio::sync::RwLock;
 
@@ -90,9 +90,7 @@ pub struct PerformanceState {
 }
 
 /// Prometheus text format metrics endpoint.
-pub async fn metrics_handler(
-    State(state): State<PerformanceState>,
-) -> impl IntoResponse {
+pub async fn metrics_handler(State(state): State<PerformanceState>) -> impl IntoResponse {
     let collector = &state.collector;
     let uptime = collector.started_at.elapsed().as_secs_f64();
 
@@ -165,9 +163,7 @@ pub async fn metrics_handler(
 }
 
 /// Detailed health check with component timing.
-pub async fn detailed_health_handler(
-    State(state): State<PerformanceState>,
-) -> impl IntoResponse {
+pub async fn detailed_health_handler(State(state): State<PerformanceState>) -> impl IntoResponse {
     let start = Instant::now();
     let mut checks = HashMap::new();
 
@@ -190,7 +186,11 @@ pub async fn detailed_health_handler(
     checks.insert(
         "disk".to_string(),
         ComponentHealth {
-            status: if disk_ok { "healthy".into() } else { "degraded".into() },
+            status: if disk_ok {
+                "healthy".into()
+            } else {
+                "degraded".into()
+            },
             response_time_ms: 0,
             message: Some(format!("storage_path={}", state.storage_path)),
         },
@@ -226,9 +226,7 @@ pub async fn pprof_handler() -> impl IntoResponse {
         .expect("pprof build failed");
 
     let mut buf = Vec::new();
-    profile
-        .encode(&mut buf)
-        .expect("pprof encode failed");
+    profile.encode(&mut buf).expect("pprof encode failed");
 
     let mut headers = HeaderMap::new();
     headers.insert(

@@ -1,14 +1,11 @@
 #![forbid(unsafe_code)]
 
-pub mod types;
 pub mod store;
+pub mod types;
 
 pub use store::ServiceMeshStore;
 pub use types::{
-    ServiceMeshService, ServiceMeshRoute, ServiceStatus,
-    CreateServiceRequest, UpdateServiceRequest,
-    CreateRouteRequest, UpdateRouteRequest,
-    ServiceMeshPolicy, CreatePolicyRequest, UpdatePolicyRequest,
-    ServiceMeshMetric, CreateMetricRequest,
-    TrafficAnalysis, PerformanceMetrics,
+    CreateMetricRequest, CreatePolicyRequest, CreateRouteRequest, CreateServiceRequest,
+    PerformanceMetrics, ServiceMeshMetric, ServiceMeshPolicy, ServiceMeshRoute, ServiceMeshService,
+    ServiceStatus, TrafficAnalysis, UpdatePolicyRequest, UpdateRouteRequest, UpdateServiceRequest,
 };

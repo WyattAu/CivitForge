@@ -1,9 +1,9 @@
 use axum::{
+    Json, Router,
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::get,
-    Json, Router,
 };
 use uuid::Uuid;
 
@@ -18,7 +18,9 @@ pub fn service_mesh_routes() -> Router<AppState> {
         )
         .route(
             "/api/v1/service-mesh/services/{id}",
-            get(get_service).patch(update_service).delete(delete_service),
+            get(get_service)
+                .patch(update_service)
+                .delete(delete_service),
         )
         .route(
             "/api/v1/service-mesh/routes",
@@ -45,10 +47,7 @@ async fn create_service(
     }
 }
 
-async fn get_service(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn get_service(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::service_mesh::ServiceMeshStore::new(state.db.pool().clone());
     match store.get_service(id).await {
         Ok(Some(service)) => Json(service).into_response(),
@@ -89,10 +88,7 @@ async fn update_service(
     }
 }
 
-async fn delete_service(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn delete_service(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::service_mesh::ServiceMeshStore::new(state.db.pool().clone());
     match store.delete_service(id).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),
@@ -120,10 +116,7 @@ async fn create_route(
     }
 }
 
-async fn get_route(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn get_route(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::service_mesh::ServiceMeshStore::new(state.db.pool().clone());
     match store.get_route(id).await {
         Ok(Some(route)) => Json(route).into_response(),
@@ -164,10 +157,7 @@ async fn update_route(
     }
 }
 
-async fn delete_route(
-    State(state): State<AppState>,
-    Path(id): Path<Uuid>,
-) -> impl IntoResponse {
+async fn delete_route(State(state): State<AppState>, Path(id): Path<Uuid>) -> impl IntoResponse {
     let store = crate::service_mesh::ServiceMeshStore::new(state.db.pool().clone());
     match store.delete_route(id).await {
         Ok(true) => StatusCode::NO_CONTENT.into_response(),

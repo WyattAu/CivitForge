@@ -39,8 +39,8 @@ fn evaluate_row(
     user_id: Option<Uuid>,
     org_id: Option<Uuid>,
 ) -> flag_kit::ofrep::EvaluationSuccess {
-    use flag_kit::ofrep::{EvaluationSuccess, Reason};
     use flag_kit::lifecycle::rollout_decision;
+    use flag_kit::ofrep::{EvaluationSuccess, Reason};
 
     let name = row.name.as_str();
     if !row.enabled {
@@ -152,11 +152,17 @@ pub async fn evaluate_flags_bulk(
     // The ETag identifies the flag *set*, so it must change when any flag's
     // value or targeting changes. Names alone would miss a rollout change.
     let etag = flag_set_etag(&flags);
-    if let Some(inm) = headers.get(header::IF_NONE_MATCH).and_then(|v| v.to_str().ok()) {
+    if let Some(inm) = headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+    {
         if flag_kit::ofrep::if_none_match_hits(inm, &etag) {
             return (
                 StatusCode::NOT_MODIFIED,
-                [(header::ETAG, HeaderValue::from_str(&etag).unwrap_or(HeaderValue::from_static("W/\"0\"")))],
+                [(
+                    header::ETAG,
+                    HeaderValue::from_str(&etag).unwrap_or(HeaderValue::from_static("W/\"0\"")),
+                )],
                 Body::empty(),
             )
                 .into_response();
@@ -180,11 +186,18 @@ pub async fn evaluate_flags_bulk(
         .collect();
 
     let body = flag_kit::ofrep::BulkEvaluationSuccess::new(entries);
-    record_evaluation(&state, &flags.iter().map(|f| f.name.clone()).collect::<Vec<_>>()).await;
+    record_evaluation(
+        &state,
+        &flags.iter().map(|f| f.name.clone()).collect::<Vec<_>>(),
+    )
+    .await;
 
     (
         StatusCode::OK,
-        [(header::ETAG, HeaderValue::from_str(&etag).unwrap_or(HeaderValue::from_static("W/\"0\"")))],
+        [(
+            header::ETAG,
+            HeaderValue::from_str(&etag).unwrap_or(HeaderValue::from_static("W/\"0\"")),
+        )],
         Json(body),
     )
         .into_response()
@@ -320,7 +333,10 @@ mod tests {
         }
         // Bucketing is 0..100 so a 50% rollout lands near half; a wide band
         // keeps this from flaking on hash distribution.
-        assert!((120..=280).contains(&on), "expected ~half in rollout, got {on}");
+        assert!(
+            (120..=280).contains(&on),
+            "expected ~half in rollout, got {on}"
+        );
         assert!(
             (120..=280).contains(&off),
             "expected ~half out of rollout, got {off}"
@@ -354,10 +370,14 @@ mod tests {
         let moved = (0..50)
             .filter(|_| {
                 let u = Uuid::new_v4();
-                evaluate_row(&before, Some(u), None).value != evaluate_row(&after, Some(u), None).value
+                evaluate_row(&before, Some(u), None).value
+                    != evaluate_row(&after, Some(u), None).value
             })
             .count();
-        assert!(moved > 0, "changing the salt must be able to re-draw a cohort");
+        assert!(
+            moved > 0,
+            "changing the salt must be able to re-draw a cohort"
+        );
     }
 
     #[test]

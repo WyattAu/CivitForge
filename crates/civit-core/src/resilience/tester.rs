@@ -224,7 +224,8 @@ impl ResilienceTester {
         }
 
         let overall = if count > 0 {
-            (retry_score + timeout_score + fallback_score + bulkhead_score + rate_limit_score) / count
+            (retry_score + timeout_score + fallback_score + bulkhead_score + rate_limit_score)
+                / count
         } else {
             0
         };

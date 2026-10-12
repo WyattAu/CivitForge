@@ -1,8 +1,8 @@
 use super::types::*;
 use chrono::Utc;
 use sqlx::PgPool;
-use uuid::Uuid;
 use sqlx::QueryBuilder;
+use uuid::Uuid;
 
 pub struct CodeQualityStore {
     pool: PgPool,
@@ -594,7 +594,10 @@ impl CodeQualityStore {
                 .await?;
         }
 
-        let rule = self.get_rule_v2(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_rule_v2(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let config_snapshot = serde_json::json!({
             "name": rule.name,
@@ -663,7 +666,10 @@ impl CodeQualityStore {
         let id = Uuid::new_v4();
         let now = Utc::now();
 
-        let rule = self.get_rule_v2(rule_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_rule_v2(rule_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let actual_violations = if let Some(_pattern) = rule.pattern {
             match rule.rule_type {
@@ -712,10 +718,7 @@ impl CodeQualityStore {
         })
     }
 
-    pub async fn get_rule_analytics(
-        &self,
-        rule_id: Uuid,
-    ) -> Result<RuleAnalytics, sqlx::Error> {
+    pub async fn get_rule_analytics(&self, rule_id: Uuid) -> Result<RuleAnalytics, sqlx::Error> {
         let stats_row = sqlx::query_as::<_, RuleStatsRow>(
             r#"SELECT
                 COUNT(DISTINCT cqr.id) as total_enforcements,
@@ -866,7 +869,10 @@ impl CodeQualityStore {
             || req.enabled.is_some();
 
         if !has_updates {
-            return self.get_rule_v3(id).await?.ok_or_else(|| sqlx::Error::RowNotFound);
+            return self
+                .get_rule_v3(id)
+                .await?
+                .ok_or_else(|| sqlx::Error::RowNotFound);
         }
 
         let mut builder: QueryBuilder<sqlx::Postgres> =
@@ -875,46 +881,64 @@ impl CodeQualityStore {
         let mut first = true;
 
         if let Some(ref v) = req.name {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("name = ").push_bind(v.as_str());
             first = false;
         }
         if let Some(ref v) = req.description {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("description = ").push_bind(v.as_str());
             first = false;
         }
         if let Some(ref v) = req.rule_type {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("rule_type = ").push_bind(v.to_string());
             first = false;
         }
         if let Some(ref v) = req.severity {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("severity = ").push_bind(v.to_string());
             first = false;
         }
         if let Some(ref v) = req.pattern {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("pattern = ").push_bind(v.as_str());
             first = false;
         }
         if let Some(v) = req.auto_fix {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("auto_fix = ").push_bind(v);
             first = false;
         }
         if let Some(ref v) = req.fix_config {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("fix_config = ").push_bind(v);
             first = false;
         }
         if let Some(v) = req.enabled {
-            if !first { builder.push(", "); }
+            if !first {
+                builder.push(", ");
+            }
             builder.push("enabled = ").push_bind(v);
         }
 
-        builder.push(", version = version + 1 WHERE id = ").push_bind(id);
+        builder
+            .push(", version = version + 1 WHERE id = ")
+            .push_bind(id);
         builder.push(" RETURNING id, repo_id, name, description, rule_type, severity, pattern, auto_fix, fix_config, enabled, version, created_at");
 
         let row = builder
@@ -997,18 +1021,22 @@ impl CodeQualityStore {
                 .await?;
         }
         if let Some(threshold) = req.threshold {
-            sqlx::query(r#"UPDATE code_quality_rule_enforcement SET threshold = $1 WHERE rule_id = $2"#)
-                .bind(threshold)
-                .bind(rule_id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_rule_enforcement SET threshold = $1 WHERE rule_id = $2"#,
+            )
+            .bind(threshold)
+            .bind(rule_id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(enabled) = req.enabled {
-            sqlx::query(r#"UPDATE code_quality_rule_enforcement SET enabled = $1 WHERE rule_id = $2"#)
-                .bind(enabled)
-                .bind(rule_id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_rule_enforcement SET enabled = $1 WHERE rule_id = $2"#,
+            )
+            .bind(enabled)
+            .bind(rule_id)
+            .execute(&self.pool)
+            .await?;
         }
 
         self.get_enforcement(rule_id)
@@ -1021,7 +1049,10 @@ impl CodeQualityStore {
         rule_id: Uuid,
         current_violations: i64,
     ) -> Result<EnforcementThresholdResult, sqlx::Error> {
-        let rule = self.get_rule_v3(rule_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_rule_v3(rule_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
         let enforcement = self.get_enforcement(rule_id).await?;
 
         let (enforcement_type, threshold) = match enforcement {
@@ -1271,11 +1302,13 @@ impl CodeQualityStore {
         req: UpdateCodeQualityThresholdV2Request,
     ) -> Result<CodeQualityThresholdV2, sqlx::Error> {
         if let Some(value) = req.threshold_value {
-            sqlx::query(r#"UPDATE code_quality_thresholds_v2 SET threshold_value = $1 WHERE id = $2"#)
-                .bind(value)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_thresholds_v2 SET threshold_value = $1 WHERE id = $2"#,
+            )
+            .bind(value)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(enabled) = req.enabled {
             sqlx::query(r#"UPDATE code_quality_thresholds_v2 SET enabled = $1 WHERE id = $2"#)
@@ -1370,13 +1403,19 @@ impl CodeQualityStore {
 
         let mut violations_by_severity = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_severity.get(&v.severity).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_severity
+                .get(&v.severity)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_severity[&v.severity] = serde_json::json!(entry + 1);
         }
 
         let mut violations_by_metric = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_metric.get(&v.metric_name).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_metric
+                .get(&v.metric_name)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_metric[&v.metric_name] = serde_json::json!(entry + 1);
         }
 
@@ -1400,7 +1439,8 @@ impl CodeQualityStore {
 
         let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
-        let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
+        let violated_metrics: std::collections::HashSet<String> =
+            violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
         let thresholds_failed = violated_metrics.len() as i64;
 
@@ -1412,7 +1452,10 @@ impl CodeQualityStore {
 
         let mut score_breakdown = serde_json::json!({});
         for threshold in &thresholds {
-            let metric_violations = violations.iter().filter(|v| v.metric_name == threshold.metric_name).count();
+            let metric_violations = violations
+                .iter()
+                .filter(|v| v.metric_name == threshold.metric_name)
+                .count();
             let score = if metric_violations == 0 { 100.0 } else { 0.0 };
             score_breakdown[&threshold.metric_name] = serde_json::json!({
                 "score": score,
@@ -1593,11 +1636,13 @@ impl CodeQualityStore {
         req: UpdateCodeQualityThresholdV4Request,
     ) -> Result<CodeQualityThresholdV4, sqlx::Error> {
         if let Some(value) = req.threshold_value {
-            sqlx::query(r#"UPDATE code_quality_thresholds_v4 SET threshold_value = $1 WHERE id = $2"#)
-                .bind(value)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_thresholds_v4 SET threshold_value = $1 WHERE id = $2"#,
+            )
+            .bind(value)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(enabled) = req.enabled {
             sqlx::query(r#"UPDATE code_quality_thresholds_v4 SET enabled = $1 WHERE id = $2"#)
@@ -1692,13 +1737,19 @@ impl CodeQualityStore {
 
         let mut violations_by_severity = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_severity.get(&v.severity).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_severity
+                .get(&v.severity)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_severity[&v.severity] = serde_json::json!(entry + 1);
         }
 
         let mut violations_by_metric = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_metric.get(&v.metric_name).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_metric
+                .get(&v.metric_name)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_metric[&v.metric_name] = serde_json::json!(entry + 1);
         }
 
@@ -1722,7 +1773,8 @@ impl CodeQualityStore {
 
         let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
-        let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
+        let violated_metrics: std::collections::HashSet<String> =
+            violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
         let thresholds_failed = violated_metrics.len() as i64;
 
@@ -1734,7 +1786,10 @@ impl CodeQualityStore {
 
         let mut score_breakdown = serde_json::json!({});
         for threshold in &thresholds {
-            let metric_violations = violations.iter().filter(|v| v.metric_name == threshold.metric_name).count();
+            let metric_violations = violations
+                .iter()
+                .filter(|v| v.metric_name == threshold.metric_name)
+                .count();
             let score = if metric_violations == 0 { 100.0 } else { 0.0 };
             score_breakdown[&threshold.metric_name] = serde_json::json!({
                 "score": score,
@@ -1865,11 +1920,13 @@ impl CodeQualityStore {
         req: UpdateCodeQualityThresholdV8Request,
     ) -> Result<CodeQualityThresholdV8, sqlx::Error> {
         if let Some(value) = req.threshold_value {
-            sqlx::query(r#"UPDATE code_quality_thresholds_v8 SET threshold_value = $1 WHERE id = $2"#)
-                .bind(value)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_thresholds_v8 SET threshold_value = $1 WHERE id = $2"#,
+            )
+            .bind(value)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(enabled) = req.enabled {
             sqlx::query(r#"UPDATE code_quality_thresholds_v8 SET enabled = $1 WHERE id = $2"#)
@@ -1964,13 +2021,19 @@ impl CodeQualityStore {
 
         let mut violations_by_severity = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_severity.get(&v.severity).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_severity
+                .get(&v.severity)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_severity[&v.severity] = serde_json::json!(entry + 1);
         }
 
         let mut violations_by_metric = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_metric.get(&v.metric_name).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_metric
+                .get(&v.metric_name)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_metric[&v.metric_name] = serde_json::json!(entry + 1);
         }
 
@@ -1994,7 +2057,8 @@ impl CodeQualityStore {
 
         let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
-        let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
+        let violated_metrics: std::collections::HashSet<String> =
+            violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
         let thresholds_failed = violated_metrics.len() as i64;
 
@@ -2006,7 +2070,10 @@ impl CodeQualityStore {
 
         let mut score_breakdown = serde_json::json!({});
         for threshold in &thresholds {
-            let metric_violations = violations.iter().filter(|v| v.metric_name == threshold.metric_name).count();
+            let metric_violations = violations
+                .iter()
+                .filter(|v| v.metric_name == threshold.metric_name)
+                .count();
             let score = if metric_violations == 0 { 100.0 } else { 0.0 };
             score_breakdown[&threshold.metric_name] = serde_json::json!({
                 "score": score,
@@ -2128,7 +2195,10 @@ impl CodeQualityStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(CodeQualityThresholdV15::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(CodeQualityThresholdV15::from)
+            .collect())
     }
 
     pub async fn update_threshold_v15(
@@ -2137,11 +2207,13 @@ impl CodeQualityStore {
         req: UpdateCodeQualityThresholdV15Request,
     ) -> Result<CodeQualityThresholdV15, sqlx::Error> {
         if let Some(value) = req.threshold_value {
-            sqlx::query(r#"UPDATE code_quality_thresholds_v15 SET threshold_value = $1 WHERE id = $2"#)
-                .bind(value)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_thresholds_v15 SET threshold_value = $1 WHERE id = $2"#,
+            )
+            .bind(value)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(enabled) = req.enabled {
             sqlx::query(r#"UPDATE code_quality_thresholds_v15 SET enabled = $1 WHERE id = $2"#)
@@ -2236,13 +2308,19 @@ impl CodeQualityStore {
 
         let mut violations_by_severity = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_severity.get(&v.severity).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_severity
+                .get(&v.severity)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_severity[&v.severity] = serde_json::json!(entry + 1);
         }
 
         let mut violations_by_metric = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_metric.get(&v.metric_name).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_metric
+                .get(&v.metric_name)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_metric[&v.metric_name] = serde_json::json!(entry + 1);
         }
 
@@ -2266,7 +2344,8 @@ impl CodeQualityStore {
 
         let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
-        let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
+        let violated_metrics: std::collections::HashSet<String> =
+            violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
         let thresholds_failed = violated_metrics.len() as i64;
 
@@ -2278,7 +2357,10 @@ impl CodeQualityStore {
 
         let mut score_breakdown = serde_json::json!({});
         for threshold in &thresholds {
-            let metric_violations = violations.iter().filter(|v| v.metric_name == threshold.metric_name).count();
+            let metric_violations = violations
+                .iter()
+                .filter(|v| v.metric_name == threshold.metric_name)
+                .count();
             let score = if metric_violations == 0 { 100.0 } else { 0.0 };
             score_breakdown[&threshold.metric_name] = serde_json::json!({
                 "score": score,
@@ -2450,7 +2532,10 @@ impl CodeQualityStore {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(CodeQualityThresholdV18::from).collect())
+        Ok(rows
+            .into_iter()
+            .map(CodeQualityThresholdV18::from)
+            .collect())
     }
 
     pub async fn update_threshold_v18(
@@ -2459,11 +2544,13 @@ impl CodeQualityStore {
         req: UpdateCodeQualityThresholdV18Request,
     ) -> Result<CodeQualityThresholdV18, sqlx::Error> {
         if let Some(value) = req.threshold_value {
-            sqlx::query(r#"UPDATE code_quality_thresholds_v18 SET threshold_value = $1 WHERE id = $2"#)
-                .bind(value)
-                .bind(id)
-                .execute(&self.pool)
-                .await?;
+            sqlx::query(
+                r#"UPDATE code_quality_thresholds_v18 SET threshold_value = $1 WHERE id = $2"#,
+            )
+            .bind(value)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         }
         if let Some(enabled) = req.enabled {
             sqlx::query(r#"UPDATE code_quality_thresholds_v18 SET enabled = $1 WHERE id = $2"#)
@@ -2558,13 +2645,19 @@ impl CodeQualityStore {
 
         let mut violations_by_severity = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_severity.get(&v.severity).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_severity
+                .get(&v.severity)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_severity[&v.severity] = serde_json::json!(entry + 1);
         }
 
         let mut violations_by_metric = serde_json::json!({});
         for v in &violations {
-            let entry = violations_by_metric.get(&v.metric_name).and_then(|e| e.as_i64()).unwrap_or(0);
+            let entry = violations_by_metric
+                .get(&v.metric_name)
+                .and_then(|e| e.as_i64())
+                .unwrap_or(0);
             violations_by_metric[&v.metric_name] = serde_json::json!(entry + 1);
         }
 
@@ -2588,7 +2681,8 @@ impl CodeQualityStore {
 
         let _total_thresholds = thresholds.len() as i64;
         let active_thresholds = thresholds.iter().filter(|t| t.enabled).count() as i64;
-        let violated_metrics: std::collections::HashSet<String> = violations.iter().map(|v| v.metric_name.clone()).collect();
+        let violated_metrics: std::collections::HashSet<String> =
+            violations.iter().map(|v| v.metric_name.clone()).collect();
         let thresholds_passed = active_thresholds - violated_metrics.len() as i64;
         let thresholds_failed = violated_metrics.len() as i64;
 
@@ -2600,7 +2694,10 @@ impl CodeQualityStore {
 
         let mut score_breakdown = serde_json::json!({});
         for threshold in &thresholds {
-            let metric_violations = violations.iter().filter(|v| v.metric_name == threshold.metric_name).count();
+            let metric_violations = violations
+                .iter()
+                .filter(|v| v.metric_name == threshold.metric_name)
+                .count();
             let score = if metric_violations == 0 { 100.0 } else { 0.0 };
             score_breakdown[&threshold.metric_name] = serde_json::json!({
                 "score": score,
@@ -2845,7 +2942,9 @@ impl CodeQualityStore {
                 .await?;
         }
 
-        self.get_rule_v19(id).await?.ok_or_else(|| sqlx::Error::RowNotFound)
+        self.get_rule_v19(id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)
     }
 
     pub async fn delete_rule_v19(&self, id: Uuid) -> Result<bool, sqlx::Error> {
@@ -2889,9 +2988,7 @@ impl CodeQualityStore {
         Ok(CodeQualityRuleUsageV19::from(row))
     }
 
-    pub async fn get_rule_usage_summary(
-        &self,
-    ) -> Result<RuleUsageSummaryV19, sqlx::Error> {
+    pub async fn get_rule_usage_summary(&self) -> Result<RuleUsageSummaryV19, sqlx::Error> {
         let stats = sqlx::query_as::<_, RuleUsageStatsRow>(
             r#"SELECT
                 (SELECT COUNT(*) FROM code_quality_rules_v19) as total_rules,
@@ -2915,7 +3012,10 @@ impl CodeQualityStore {
             total_rules: stats.total_rules,
             active_rules: stats.active_rules,
             total_triggers: stats.total_triggers,
-            most_used_rules: most_used.into_iter().map(CodeQualityRuleUsageV19::from).collect(),
+            most_used_rules: most_used
+                .into_iter()
+                .map(CodeQualityRuleUsageV19::from)
+                .collect(),
         })
     }
 
@@ -2960,7 +3060,10 @@ impl CodeQualityStore {
         &self,
         rule_id: Uuid,
     ) -> Result<RuleEffectivenessAnalysisV22, sqlx::Error> {
-        let rule = self.get_rule_v19(rule_id).await?.ok_or_else(|| sqlx::Error::RowNotFound)?;
+        let rule = self
+            .get_rule_v19(rule_id)
+            .await?
+            .ok_or_else(|| sqlx::Error::RowNotFound)?;
 
         let stats = sqlx::query_as::<_, RuleEffectivenessStatsRow>(
             r#"SELECT
@@ -3276,7 +3379,10 @@ impl From<EnforcementRow> for QualityRuleEnforcement {
         Self {
             id: row.id,
             rule_id: row.rule_id,
-            enforcement_type: row.enforcement_type.parse().unwrap_or(EnforcementType::Warn),
+            enforcement_type: row
+                .enforcement_type
+                .parse()
+                .unwrap_or(EnforcementType::Warn),
             threshold: row.threshold,
             enabled: row.enabled,
             created_at: row.created_at,

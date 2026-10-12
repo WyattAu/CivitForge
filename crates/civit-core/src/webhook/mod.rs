@@ -2,11 +2,11 @@
 
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
+use parking_lot::Mutex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::collections::HashMap;
-use parking_lot::Mutex;
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

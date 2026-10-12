@@ -4,11 +4,11 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::{CoreError, ErrorResponse};
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
-    Router,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

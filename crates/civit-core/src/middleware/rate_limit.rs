@@ -19,12 +19,7 @@ use axum::{
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use std::{
-    collections::HashMap,
-    net::IpAddr,
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, net::IpAddr, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 use tracing::warn;
 
@@ -71,9 +66,11 @@ pub struct RateLimiter {
     /// Kit sliding-window limiters (throttle-kit), one per tier
     tier_limiters: [throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>; 3],
     /// Per-key token buckets (dynamic quotas) backed by kit limiters
-    token_limiters: Arc<Mutex<HashMap<String, throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>>>>,
+    token_limiters:
+        Arc<Mutex<HashMap<String, throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>>>>,
     /// Ad-hoc policy limiters (dynamic window per call)
-    policy_limiters: Arc<Mutex<HashMap<String, throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>>>>,
+    policy_limiters:
+        Arc<Mutex<HashMap<String, throttle_kit::RateLimiter<throttle_kit::InMemoryBackend>>>>,
     /// Admin bypass flag
     admin_bypass: bool,
 }
@@ -148,11 +145,7 @@ impl RateLimiter {
     }
 
     /// Check if request is allowed. Returns `(allowed, retry_after_seconds, remaining, limit, reset_seconds)`.
-    pub async fn check(
-        &self,
-        key: &str,
-        tier: RateLimitTier,
-    ) -> (bool, u32, u32, u32, u64) {
+    pub async fn check(&self, key: &str, tier: RateLimitTier) -> (bool, u32, u32, u32, u64) {
         let result = self.tier_limiters[tier_index(&tier)].check(key).await;
         map_result(&result)
     }
@@ -278,7 +271,10 @@ fn extract_tier_info(
 /// Rate limiting middleware function for axum.
 pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
     let state = req.extensions().get::<Arc<RateLimiter>>().cloned();
-    let jwt_service = req.extensions().get::<Arc<civit_auth::jwt::JwtService>>().cloned();
+    let jwt_service = req
+        .extensions()
+        .get::<Arc<civit_auth::jwt::JwtService>>()
+        .cloned();
 
     let limiter = match state {
         Some(l) => l,
@@ -327,10 +323,7 @@ pub async fn rate_limit_middleware(req: Request, next: Next) -> Response {
                     HeaderName::from_static("x-ratelimit-limit"),
                     limit.to_string(),
                 ),
-                (
-                    HeaderName::from_static("x-ratelimit-remaining"),
-                    "0".into(),
-                ),
+                (HeaderName::from_static("x-ratelimit-remaining"), "0".into()),
                 (
                     HeaderName::from_static("x-ratelimit-reset"),
                     reset_epoch.to_string(),
@@ -477,16 +470,12 @@ mod tests {
 
         // Should allow requests up to max_tokens
         for _ in 0..10 {
-            let (allowed, _) = limiter
-                .check_token_bucket(key, 10, 1.0, 0)
-                .await;
+            let (allowed, _) = limiter.check_token_bucket(key, 10, 1.0, 0).await;
             assert!(allowed);
         }
 
         // Should be blocked after max_tokens
-        let (allowed, retry_ms) = limiter
-            .check_token_bucket(key, 10, 1.0, 0)
-            .await;
+        let (allowed, retry_ms) = limiter.check_token_bucket(key, 10, 1.0, 0).await;
         assert!(!allowed);
         assert!(retry_ms > 0);
     }
@@ -520,9 +509,7 @@ mod tests {
 
         // Should allow up to rate_limit
         for _ in 0..5 {
-            let (allowed, _, _, _, _) = limiter
-                .check_with_policy(key, 5, 60, 0)
-                .await;
+            let (allowed, _, _, _, _) = limiter.check_with_policy(key, 5, 60, 0).await;
             assert!(allowed);
         }
 
@@ -538,9 +525,7 @@ mod tests {
 
         // Should allow up to rate_limit + burst_size
         for _ in 0..7 {
-            let (allowed, _, _, _, _) = limiter
-                .check_with_policy(key, 5, 60, 2)
-                .await;
+            let (allowed, _, _, _, _) = limiter.check_with_policy(key, 5, 60, 2).await;
             assert!(allowed);
         }
 

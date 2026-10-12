@@ -113,10 +113,7 @@ impl DashboardReportingService {
         Self { pool }
     }
 
-    pub async fn create_dashboard(
-        &self,
-        input: CreateDashboard,
-    ) -> Result<Dashboard, sqlx::Error> {
+    pub async fn create_dashboard(&self, input: CreateDashboard) -> Result<Dashboard, sqlx::Error> {
         let row = sqlx::query_as::<_, DashboardRow>(
             r#"INSERT INTO dashboards (name, description, widgets, layout, is_public)
              VALUES ($1, $2, $3, $4, $5)
@@ -133,10 +130,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn get_dashboard(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<Dashboard>, sqlx::Error> {
+    pub async fn get_dashboard(&self, id: Uuid) -> Result<Option<Dashboard>, sqlx::Error> {
         let row = sqlx::query_as::<_, DashboardRow>(
             r#"SELECT id, name, description, widgets, layout, is_public, created_at
              FROM dashboards WHERE id = $1"#,
@@ -186,10 +180,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_dashboard(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboards WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -198,10 +189,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn create_report(
-        &self,
-        input: CreateReport,
-    ) -> Result<Report, sqlx::Error> {
+    pub async fn create_report(&self, input: CreateReport) -> Result<Report, sqlx::Error> {
         let row = sqlx::query_as::<_, ReportRow>(
             r#"INSERT INTO reports (name, report_type, config, schedule)
              VALUES ($1, $2, $3, $4)
@@ -217,10 +205,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn get_report(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<Report>, sqlx::Error> {
+    pub async fn get_report(&self, id: Uuid) -> Result<Option<Report>, sqlx::Error> {
         let row = sqlx::query_as::<_, ReportRow>(
             r#"SELECT id, name, report_type, config, schedule, last_generated_at, created_at
              FROM reports WHERE id = $1"#,
@@ -268,10 +253,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM reports WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -280,10 +262,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn generate_report(
-        &self,
-        id: Uuid,
-    ) -> Result<ReportData, sqlx::Error> {
+    pub async fn generate_report(&self, id: Uuid) -> Result<ReportData, sqlx::Error> {
         let report = self.get_report(id).await?;
         let report = report.ok_or_else(|| sqlx::Error::RowNotFound)?;
 
@@ -307,9 +286,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn get_scheduled_reports(
-        &self,
-    ) -> Result<Vec<Report>, sqlx::Error> {
+    pub async fn get_scheduled_reports(&self) -> Result<Vec<Report>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportRow>(
             r#"SELECT id, name, report_type, config, schedule, last_generated_at, created_at
              FROM reports WHERE schedule IS NOT NULL
@@ -321,9 +298,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_dashboard_stats(
-        &self,
-    ) -> Result<DashboardStats, sqlx::Error> {
+    pub async fn get_dashboard_stats(&self) -> Result<DashboardStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -376,18 +351,23 @@ impl DashboardReportingService {
         .bind(input.dashboard_id)
         .bind(&input.widget_type)
         .bind(input.config.unwrap_or(serde_json::json!({})))
-        .bind(input.position.unwrap_or(serde_json::json!({"x": 0, "y": 0})))
-        .bind(input.size.unwrap_or(serde_json::json!({"width": 6, "height": 4})))
+        .bind(
+            input
+                .position
+                .unwrap_or(serde_json::json!({"x": 0, "y": 0})),
+        )
+        .bind(
+            input
+                .size
+                .unwrap_or(serde_json::json!({"width": 6, "height": 4})),
+        )
         .fetch_one(&self.pool)
         .await?;
 
         Ok(row.into())
     }
 
-    pub async fn get_widget_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<Option<DashboardWidgetV2>, sqlx::Error> {
+    pub async fn get_widget_v2(&self, id: Uuid) -> Result<Option<DashboardWidgetV2>, sqlx::Error> {
         let row = sqlx::query_as::<_, WidgetV2Row>(
             r#"SELECT id, dashboard_id, widget_type, config, position, size, created_at
              FROM dashboard_widgets_v2 WHERE id = $1"#,
@@ -440,10 +420,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_widget_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_widget_v2(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_widgets_v2 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -488,9 +465,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules(
-        &self,
-    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+    pub async fn list_report_schedules(&self) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules ORDER BY created_at DESC"#,
@@ -501,9 +476,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules(
-        &self,
-    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+    pub async fn get_due_schedules(&self) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules WHERE enabled = true AND next_run_at <= NOW()
@@ -538,24 +511,16 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn mark_schedule_executed(
-        &self,
-        id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
 
-    pub async fn delete_report_schedule(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -596,9 +561,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn list_public_dashboards(
-        &self,
-    ) -> Result<Vec<Dashboard>, sqlx::Error> {
+    pub async fn list_public_dashboards(&self) -> Result<Vec<Dashboard>, sqlx::Error> {
         let rows = sqlx::query_as::<_, DashboardRow>(
             r#"SELECT id, name, description, widgets, layout, is_public, created_at
              FROM dashboards WHERE is_public = true
@@ -648,9 +611,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_dashboard_templates(
-        &self,
-    ) -> Result<Vec<DashboardTemplate>, sqlx::Error> {
+    pub async fn list_dashboard_templates(&self) -> Result<Vec<DashboardTemplate>, sqlx::Error> {
         let rows = sqlx::query_as::<_, DashboardTemplateRow>(
             r#"SELECT id, name, description, template_type, config, is_public, author_id, usage_count, created_at
              FROM dashboard_templates ORDER BY usage_count DESC, created_at DESC"#,
@@ -688,10 +649,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_dashboard_template(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_templates WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -700,10 +658,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn use_dashboard_template(
-        &self,
-        id: Uuid,
-    ) -> Result<DashboardTemplate, sqlx::Error> {
+    pub async fn use_dashboard_template(&self, id: Uuid) -> Result<DashboardTemplate, sqlx::Error> {
         sqlx::query("UPDATE dashboard_templates SET usage_count = usage_count + 1 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -750,9 +705,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_templates(
-        &self,
-    ) -> Result<Vec<ReportTemplate>, sqlx::Error> {
+    pub async fn list_report_templates(&self) -> Result<Vec<ReportTemplate>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportTemplateRow>(
             r#"SELECT id, name, description, report_type, config, is_public, author_id, usage_count, created_at
              FROM report_templates ORDER BY usage_count DESC, created_at DESC"#,
@@ -790,10 +743,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_template(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_template(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_templates WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -802,10 +752,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn use_report_template(
-        &self,
-        id: Uuid,
-    ) -> Result<ReportTemplate, sqlx::Error> {
+    pub async fn use_report_template(&self, id: Uuid) -> Result<ReportTemplate, sqlx::Error> {
         sqlx::query("UPDATE report_templates SET usage_count = usage_count + 1 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -900,9 +847,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn get_dashboard_stats_v3(
-        &self,
-    ) -> Result<DashboardStats, sqlx::Error> {
+    pub async fn get_dashboard_stats_v3(&self) -> Result<DashboardStats, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -1027,13 +972,12 @@ impl DashboardReportingService {
         dashboard_id: Uuid,
         user_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "DELETE FROM dashboard_shares WHERE dashboard_id = $1 AND user_id = $2",
-        )
-        .bind(dashboard_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("DELETE FROM dashboard_shares WHERE dashboard_id = $1 AND user_id = $2")
+                .bind(dashboard_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await?;
 
         Ok(result.rows_affected() > 0)
     }
@@ -1074,9 +1018,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v2(
-        &self,
-    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+    pub async fn list_report_schedules_v2(&self) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v2 ORDER BY created_at DESC"#,
@@ -1087,9 +1029,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules_v2(
-        &self,
-    ) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
+    pub async fn get_due_schedules_v2(&self) -> Result<Vec<ReportScheduleV2>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV2Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v2 WHERE enabled = true AND next_run_at <= NOW()
@@ -1101,16 +1041,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v2 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v2(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v2 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
@@ -1138,10 +1073,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v2(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v2(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v2 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1192,13 +1124,12 @@ impl DashboardReportingService {
         dashboard_id: Uuid,
         user_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "DELETE FROM dashboard_shares_v2 WHERE dashboard_id = $1 AND user_id = $2",
-        )
-        .bind(dashboard_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("DELETE FROM dashboard_shares_v2 WHERE dashboard_id = $1 AND user_id = $2")
+                .bind(dashboard_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 
@@ -1253,9 +1184,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v3(
-        &self,
-    ) -> Result<Vec<ReportScheduleV3>, sqlx::Error> {
+    pub async fn list_report_schedules_v3(&self) -> Result<Vec<ReportScheduleV3>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV3Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v3 ORDER BY created_at DESC"#,
@@ -1265,9 +1194,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules_v3(
-        &self,
-    ) -> Result<Vec<ReportScheduleV3>, sqlx::Error> {
+    pub async fn get_due_schedules_v3(&self) -> Result<Vec<ReportScheduleV3>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV3Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v3 WHERE enabled = true AND next_run_at <= NOW()
@@ -1278,16 +1205,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v3(
-        &self,
-        id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v3 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v3(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v3 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -1313,10 +1235,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v3(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v3(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v3 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1326,9 +1245,7 @@ impl DashboardReportingService {
 
     // V5: Dashboard stats v5
 
-    pub async fn get_dashboard_stats_v5(
-        &self,
-    ) -> Result<DashboardStatsV5, sqlx::Error> {
+    pub async fn get_dashboard_stats_v5(&self) -> Result<DashboardStatsV5, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -1428,13 +1345,12 @@ impl DashboardReportingService {
         dashboard_id: Uuid,
         user_id: Uuid,
     ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "DELETE FROM dashboard_shares_v3 WHERE dashboard_id = $1 AND user_id = $2",
-        )
-        .bind(dashboard_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("DELETE FROM dashboard_shares_v3 WHERE dashboard_id = $1 AND user_id = $2")
+                .bind(dashboard_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 
@@ -1489,9 +1405,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v4(
-        &self,
-    ) -> Result<Vec<ReportScheduleV4>, sqlx::Error> {
+    pub async fn list_report_schedules_v4(&self) -> Result<Vec<ReportScheduleV4>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV4Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v4 ORDER BY created_at DESC"#,
@@ -1501,9 +1415,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules_v4(
-        &self,
-    ) -> Result<Vec<ReportScheduleV4>, sqlx::Error> {
+    pub async fn get_due_schedules_v4(&self) -> Result<Vec<ReportScheduleV4>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV4Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v4 WHERE enabled = true AND next_run_at <= NOW()
@@ -1514,16 +1426,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v4(
-        &self,
-        id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v4 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v4(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v4 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -1549,10 +1456,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v4(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v4(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v4 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1562,9 +1466,7 @@ impl DashboardReportingService {
 
     // V6: Dashboard stats v6
 
-    pub async fn get_dashboard_stats_v6(
-        &self,
-    ) -> Result<DashboardStatsV6, sqlx::Error> {
+    pub async fn get_dashboard_stats_v6(&self) -> Result<DashboardStatsV6, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -1636,9 +1538,7 @@ impl DashboardReportingService {
 
     // V7: Dashboard stats v7
 
-    pub async fn get_dashboard_stats_v7(
-        &self,
-    ) -> Result<DashboardStatsV7, sqlx::Error> {
+    pub async fn get_dashboard_stats_v7(&self) -> Result<DashboardStatsV7, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -1785,10 +1685,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_dashboard_share_v5(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v5(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v5 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1830,9 +1727,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v6(
-        &self,
-    ) -> Result<Vec<ReportScheduleV6>, sqlx::Error> {
+    pub async fn list_report_schedules_v6(&self) -> Result<Vec<ReportScheduleV6>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV6Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v6 ORDER BY created_at DESC"#,
@@ -1864,10 +1759,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v6(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v6(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v6 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -1875,9 +1767,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_due_schedules_v6(
-        &self,
-    ) -> Result<Vec<ReportScheduleV6>, sqlx::Error> {
+    pub async fn get_due_schedules_v6(&self) -> Result<Vec<ReportScheduleV6>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV6Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v6 WHERE enabled = true AND next_run_at <= NOW()
@@ -1888,24 +1778,17 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v6(
-        &self,
-        id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v6 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v6(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v6 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
     // V8: Dashboard stats v8
 
-    pub async fn get_dashboard_stats_v8(
-        &self,
-    ) -> Result<DashboardStatsV8, sqlx::Error> {
+    pub async fn get_dashboard_stats_v8(&self) -> Result<DashboardStatsV8, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -2052,10 +1935,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_dashboard_share_v6(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v6(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v6 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2114,9 +1994,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v7(
-        &self,
-    ) -> Result<Vec<ReportScheduleV7>, sqlx::Error> {
+    pub async fn list_report_schedules_v7(&self) -> Result<Vec<ReportScheduleV7>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV7Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v7 ORDER BY created_at DESC"#,
@@ -2148,10 +2026,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v7(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v7(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v7 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2159,9 +2034,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_due_schedules_v7(
-        &self,
-    ) -> Result<Vec<ReportScheduleV7>, sqlx::Error> {
+    pub async fn get_due_schedules_v7(&self) -> Result<Vec<ReportScheduleV7>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV7Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v7 WHERE enabled = true AND next_run_at <= NOW()
@@ -2172,24 +2045,17 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v7(
-        &self,
-        id: Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v7 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v7(&self, id: Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v7 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
     // V9: Dashboard stats v9
 
-    pub async fn get_dashboard_stats_v9(
-        &self,
-    ) -> Result<DashboardStatsV9, sqlx::Error> {
+    pub async fn get_dashboard_stats_v9(&self) -> Result<DashboardStatsV9, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -2305,10 +2171,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn delete_dashboard_share_v7(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v7(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v7 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2367,9 +2230,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v8(
-        &self,
-    ) -> Result<Vec<ReportScheduleV8>, sqlx::Error> {
+    pub async fn list_report_schedules_v8(&self) -> Result<Vec<ReportScheduleV8>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV8Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v8 ORDER BY created_at DESC"#,
@@ -2401,10 +2262,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v8(&self, id: Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v8 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2412,10 +2270,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn mark_schedule_run_v8(
-        &self,
-        id: Uuid,
-    ) -> Result<ReportScheduleV8, sqlx::Error> {
+    pub async fn mark_schedule_run_v8(&self, id: Uuid) -> Result<ReportScheduleV8, sqlx::Error> {
         let row = sqlx::query_as::<_, ReportScheduleV8Row>(
             r#"UPDATE report_schedules_v8 SET last_run_at = NOW()
              WHERE id = $1
@@ -2429,9 +2284,7 @@ impl DashboardReportingService {
 
     // V10: Dashboard stats v10
 
-    pub async fn get_dashboard_stats_v10(
-        &self,
-    ) -> Result<DashboardStatsV10, sqlx::Error> {
+    pub async fn get_dashboard_stats_v10(&self) -> Result<DashboardStatsV10, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -2547,10 +2400,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn delete_dashboard_share_v8(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v8(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v8 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2626,9 +2476,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v9(
-        &self,
-    ) -> Result<Vec<ReportScheduleV9>, sqlx::Error> {
+    pub async fn list_report_schedules_v9(&self) -> Result<Vec<ReportScheduleV9>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV9Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v9 ORDER BY created_at DESC"#,
@@ -2660,10 +2508,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v9(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v9(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v9 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2686,9 +2531,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn get_due_schedules_v9(
-        &self,
-    ) -> Result<Vec<ReportScheduleV9>, sqlx::Error> {
+    pub async fn get_due_schedules_v9(&self) -> Result<Vec<ReportScheduleV9>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV9Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v9 WHERE enabled = true AND next_run_at <= NOW()
@@ -2701,9 +2544,7 @@ impl DashboardReportingService {
 
     // V11: Dashboard stats v11
 
-    pub async fn get_dashboard_stats_v11(
-        &self,
-    ) -> Result<DashboardStatsV11, sqlx::Error> {
+    pub async fn get_dashboard_stats_v11(&self) -> Result<DashboardStatsV11, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -2826,13 +2667,12 @@ impl DashboardReportingService {
         dashboard_id: uuid::Uuid,
         user_id: uuid::Uuid,
     ) -> Result<bool, sqlx::Error> {
-        let result = sqlx::query(
-            "DELETE FROM dashboard_shares_v9 WHERE dashboard_id = $1 AND user_id = $2",
-        )
-        .bind(dashboard_id)
-        .bind(user_id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("DELETE FROM dashboard_shares_v9 WHERE dashboard_id = $1 AND user_id = $2")
+                .bind(dashboard_id)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 
@@ -2870,9 +2710,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v10(
-        &self,
-    ) -> Result<Vec<ReportScheduleV10>, sqlx::Error> {
+    pub async fn list_report_schedules_v10(&self) -> Result<Vec<ReportScheduleV10>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV10Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v10 ORDER BY created_at DESC"#,
@@ -2882,9 +2720,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules_v10(
-        &self,
-    ) -> Result<Vec<ReportScheduleV10>, sqlx::Error> {
+    pub async fn get_due_schedules_v10(&self) -> Result<Vec<ReportScheduleV10>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV10Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v10 WHERE enabled = true AND next_run_at <= NOW()
@@ -2895,16 +2731,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v10 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v10(&self, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v10 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -2930,10 +2761,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v10(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v10 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -2943,9 +2771,7 @@ impl DashboardReportingService {
 
     // V12: Dashboard stats v12
 
-    pub async fn get_dashboard_stats_v12(
-        &self,
-    ) -> Result<DashboardStatsV12, sqlx::Error> {
+    pub async fn get_dashboard_stats_v12(&self) -> Result<DashboardStatsV12, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -3503,10 +3329,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn delete_dashboard_share_v10(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v10(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v10 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3583,10 +3406,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v11(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v11(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v11 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -3897,9 +3717,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v12(
-        &self,
-    ) -> Result<Vec<ReportScheduleV12>, sqlx::Error> {
+    pub async fn list_report_schedules_v12(&self) -> Result<Vec<ReportScheduleV12>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV12Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v12 ORDER BY created_at DESC"#,
@@ -3909,9 +3727,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules_v12(
-        &self,
-    ) -> Result<Vec<ReportScheduleV12>, sqlx::Error> {
+    pub async fn get_due_schedules_v12(&self) -> Result<Vec<ReportScheduleV12>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV12Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v12 WHERE enabled = true AND next_run_at <= NOW()
@@ -3922,16 +3738,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v12(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v12 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v12(&self, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v12 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -3957,10 +3768,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v12(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v12(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v12 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4012,9 +3820,7 @@ impl DashboardReportingService {
 
     // V14: Dashboard stats v14
 
-    pub async fn get_dashboard_stats_v14(
-        &self,
-    ) -> Result<DashboardStatsV14, sqlx::Error> {
+    pub async fn get_dashboard_stats_v14(&self) -> Result<DashboardStatsV14, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -4188,10 +3994,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn remove_dashboard_share_v12(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn remove_dashboard_share_v12(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v12 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4231,9 +4034,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v13(
-        &self,
-    ) -> Result<Vec<ReportScheduleV13>, sqlx::Error> {
+    pub async fn list_report_schedules_v13(&self) -> Result<Vec<ReportScheduleV13>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV13Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v13 ORDER BY next_run_at ASC"#,
@@ -4265,10 +4066,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v13(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v13(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v13 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4276,9 +4074,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_due_schedules_v13(
-        &self,
-    ) -> Result<Vec<ReportScheduleV13>, sqlx::Error> {
+    pub async fn get_due_schedules_v13(&self) -> Result<Vec<ReportScheduleV13>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV13Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v13 WHERE enabled = true AND next_run_at <= NOW()
@@ -4392,9 +4188,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v14(
-        &self,
-    ) -> Result<Vec<ReportScheduleV14>, sqlx::Error> {
+    pub async fn list_report_schedules_v14(&self) -> Result<Vec<ReportScheduleV14>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV14Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v14 ORDER BY created_at DESC"#,
@@ -4404,9 +4198,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn get_due_schedules_v14(
-        &self,
-    ) -> Result<Vec<ReportScheduleV14>, sqlx::Error> {
+    pub async fn get_due_schedules_v14(&self) -> Result<Vec<ReportScheduleV14>, sqlx::Error> {
         let rows = sqlx::query_as::<_, ReportScheduleV14Row>(
             r#"SELECT id, report_id, cron_expression, enabled, last_run_at, next_run_at, created_at
              FROM report_schedules_v14 WHERE enabled = true AND next_run_at <= NOW()
@@ -4417,16 +4209,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v14(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v14 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v14(&self, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v14 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -4452,10 +4239,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v14(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v14(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v14 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4465,9 +4249,7 @@ impl DashboardReportingService {
 
     // V16: Dashboard stats v16
 
-    pub async fn get_dashboard_stats_v16(
-        &self,
-    ) -> Result<DashboardStatsV16, sqlx::Error> {
+    pub async fn get_dashboard_stats_v16(&self) -> Result<DashboardStatsV16, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -4591,10 +4373,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn delete_dashboard_share_v14(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v14(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v14 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4677,10 +4456,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v15(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v15(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v15 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4690,9 +4466,7 @@ impl DashboardReportingService {
 
     // V17: Dashboard stats v17
 
-    pub async fn get_dashboard_stats_v17(
-        &self,
-    ) -> Result<DashboardStatsV17, sqlx::Error> {
+    pub async fn get_dashboard_stats_v17(&self) -> Result<DashboardStatsV17, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct StatsRow {
             total_dashboards: i64,
@@ -4897,10 +4671,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn delete_dashboard_share_v15(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v15(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v15 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4984,10 +4755,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v16(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v16(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v16 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -4995,9 +4763,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_dashboard_stats_v18(
-        &self,
-    ) -> Result<DashboardStatsV18, sqlx::Error> {
+    pub async fn get_dashboard_stats_v18(&self) -> Result<DashboardStatsV18, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct DashStats {
             total_dashboards: i64,
@@ -5145,10 +4911,7 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn delete_dashboard_share_v16(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_dashboard_share_v16(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v16 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5236,9 +4999,7 @@ impl DashboardReportingService {
         Ok(row.map(|r| r.into()))
     }
 
-    pub async fn list_report_schedules_v17(
-        &self,
-    ) -> Result<Vec<ReportScheduleV17>, sqlx::Error> {
+    pub async fn list_report_schedules_v17(&self) -> Result<Vec<ReportScheduleV17>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct ReportScheduleV17Row {
             id: uuid::Uuid,
@@ -5316,10 +5077,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_report_schedule_v17(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_report_schedule_v17(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v17 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5327,9 +5085,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_due_schedules_v17(
-        &self,
-    ) -> Result<Vec<ReportScheduleV17>, sqlx::Error> {
+    pub async fn get_due_schedules_v17(&self) -> Result<Vec<ReportScheduleV17>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct ReportScheduleV17Row {
             id: uuid::Uuid,
@@ -5363,16 +5119,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v17(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v17 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v17(&self, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v17 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -5460,10 +5211,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn delete_share_v17(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_share_v17(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v17 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5596,10 +5344,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn delete_schedule_v18(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_schedule_v18(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM report_schedules_v18 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5607,9 +5352,7 @@ impl DashboardReportingService {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn get_due_schedules_v18(
-        &self,
-    ) -> Result<Vec<ReportScheduleV18>, sqlx::Error> {
+    pub async fn get_due_schedules_v18(&self) -> Result<Vec<ReportScheduleV18>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct ReportScheduleV18Row {
             id: uuid::Uuid,
@@ -5643,16 +5386,11 @@ impl DashboardReportingService {
         Ok(rows.into_iter().map(|r| r.into()).collect())
     }
 
-    pub async fn mark_schedule_executed_v18(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            r#"UPDATE report_schedules_v18 SET last_run_at = NOW() WHERE id = $1"#,
-        )
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn mark_schedule_executed_v18(&self, id: uuid::Uuid) -> Result<(), sqlx::Error> {
+        sqlx::query(r#"UPDATE report_schedules_v18 SET last_run_at = NOW() WHERE id = $1"#)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -5740,10 +5478,7 @@ impl DashboardReportingService {
         })
     }
 
-    pub async fn delete_share_v18(
-        &self,
-        id: uuid::Uuid,
-    ) -> Result<bool, sqlx::Error> {
+    pub async fn delete_share_v18(&self, id: uuid::Uuid) -> Result<bool, sqlx::Error> {
         let result = sqlx::query("DELETE FROM dashboard_shares_v18 WHERE id = $1")
             .bind(id)
             .execute(&self.pool)
@@ -5876,9 +5611,7 @@ impl DashboardReportingService {
         Ok(row.into())
     }
 
-    pub async fn get_due_schedules_v19(
-        &self,
-    ) -> Result<Vec<ReportScheduleV19>, sqlx::Error> {
+    pub async fn get_due_schedules_v19(&self) -> Result<Vec<ReportScheduleV19>, sqlx::Error> {
         #[derive(Debug, sqlx::FromRow)]
         struct ReportScheduleV19Row {
             id: uuid::Uuid,

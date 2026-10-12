@@ -2,16 +2,9 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,24 +127,31 @@ pub async fn list_api_analytics_v19(
     axum::extract::Query(query): axum::extract::Query<AnalyticsV19Query>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.list_api_analytics_v19(query.limit, query.offset).await {
+    match state
+        .db
+        .list_api_analytics_v19(query.limit, query.offset)
+        .await
+    {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticV19Response> = analytics.iter().map(|a| ApiAnalyticV19Response {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                cache_hit: a.cache_hit,
-                region: a.region.clone(),
-                user_agent: a.user_agent.clone(),
-                request_id: a.request_id,
-                cost_cents: a.cost_cents,
-                created_at: a.created_at,
-            }).collect();
+            let response: Vec<ApiAnalyticV19Response> = analytics
+                .iter()
+                .map(|a| ApiAnalyticV19Response {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    cache_hit: a.cache_hit,
+                    region: a.region.clone(),
+                    user_agent: a.user_agent.clone(),
+                    request_id: a.request_id,
+                    cost_cents: a.cost_cents,
+                    created_at: a.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -168,20 +168,24 @@ pub async fn create_api_analytic_v19(
     Json(req): Json<CreateApiAnalyticV19Request>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_api_analytic_v19(
-        &req.endpoint,
-        &req.method,
-        req.status_code,
-        req.response_time_ms,
-        req.user_id,
-        req.request_size_bytes,
-        req.response_size_bytes,
-        req.cache_hit,
-        &req.region,
-        req.user_agent.as_deref(),
-        req.request_id,
-        req.cost_cents,
-    ).await {
+    match state
+        .db
+        .create_api_analytic_v19(
+            &req.endpoint,
+            &req.method,
+            req.status_code,
+            req.response_time_ms,
+            req.user_id,
+            req.request_size_bytes,
+            req.response_size_bytes,
+            req.cache_hit,
+            &req.region,
+            req.user_agent.as_deref(),
+            req.request_id,
+            req.cost_cents,
+        )
+        .await
+    {
         Ok(analytic) => {
             let response = ApiAnalyticV19Response {
                 id: analytic.id,
@@ -221,16 +225,24 @@ pub async fn get_cost_tracking_v19(
                 total_request_bytes: analysis.1,
                 total_response_bytes: analysis.2,
                 estimated_cost_cents: analysis.3,
-                cost_by_region: analysis.4.into_iter().map(|(region, requests, cost)| RegionCostV19 {
-                    region,
-                    requests,
-                    cost_cents: cost,
-                }).collect(),
-                cost_by_user_agent: analysis.5.into_iter().map(|(ua, requests, cost)| UserAgentCostV19 {
-                    user_agent: ua,
-                    requests,
-                    cost_cents: cost,
-                }).collect(),
+                cost_by_region: analysis
+                    .4
+                    .into_iter()
+                    .map(|(region, requests, cost)| RegionCostV19 {
+                        region,
+                        requests,
+                        cost_cents: cost,
+                    })
+                    .collect(),
+                cost_by_user_agent: analysis
+                    .5
+                    .into_iter()
+                    .map(|(ua, requests, cost)| UserAgentCostV19 {
+                        user_agent: ua,
+                        requests,
+                        cost_cents: cost,
+                    })
+                    .collect(),
             };
             (StatusCode::OK, Json(response)).into_response()
         }
@@ -254,14 +266,17 @@ pub async fn get_usage_optimization_v19(
     let _ = auth;
     match state.db.get_usage_optimization_v19().await {
         Ok(optimizations) => {
-            let response: Vec<UsageOptimizationV19> = optimizations.iter().map(|o| UsageOptimizationV19 {
-                endpoint: o.0.clone(),
-                method: o.1.clone(),
-                avg_response_time_ms: o.2,
-                p95_response_time_ms: o.3,
-                cache_hit_rate: o.4,
-                optimization_suggestions: o.5.clone(),
-            }).collect();
+            let response: Vec<UsageOptimizationV19> = optimizations
+                .iter()
+                .map(|o| UsageOptimizationV19 {
+                    endpoint: o.0.clone(),
+                    method: o.1.clone(),
+                    avg_response_time_ms: o.2,
+                    p95_response_time_ms: o.3,
+                    cache_hit_rate: o.4,
+                    optimization_suggestions: o.5.clone(),
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -279,11 +294,23 @@ pub async fn get_capacity_planning_v19() -> impl IntoResponse {
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v19/analytics", get(list_api_analytics_v19).post(create_api_analytic_v19))
+        .route(
+            "/api/v19/analytics",
+            get(list_api_analytics_v19).post(create_api_analytic_v19),
+        )
         .route("/api/v19/analytics/cost", get(get_cost_tracking_v19))
-        .route("/api/v19/analytics/budget-alerts", get(get_budget_alerts_v19))
-        .route("/api/v19/analytics/optimization", get(get_usage_optimization_v19))
-        .route("/api/v19/analytics/capacity", get(get_capacity_planning_v19))
+        .route(
+            "/api/v19/analytics/budget-alerts",
+            get(get_budget_alerts_v19),
+        )
+        .route(
+            "/api/v19/analytics/optimization",
+            get(get_usage_optimization_v19),
+        )
+        .route(
+            "/api/v19/analytics/capacity",
+            get(get_capacity_planning_v19),
+        )
 }
 
 #[cfg(test)]

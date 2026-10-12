@@ -125,11 +125,21 @@ fn bench_password_verify(c: &mut Criterion) {
     let hash = civit_auth::password::hash_password("benchmark-password").unwrap();
 
     c.bench_function("password_verify_correct", |b| {
-        b.iter(|| black_box(civit_auth::password::verify_password("benchmark-password", &hash)));
+        b.iter(|| {
+            black_box(civit_auth::password::verify_password(
+                "benchmark-password",
+                &hash,
+            ))
+        });
     });
 
     c.bench_function("password_verify_wrong", |b| {
-        b.iter(|| black_box(civit_auth::password::verify_password("wrong-password", &hash)));
+        b.iter(|| {
+            black_box(civit_auth::password::verify_password(
+                "wrong-password",
+                &hash,
+            ))
+        });
     });
 }
 
@@ -151,8 +161,7 @@ fn bench_password_policy_check(c: &mut Criterion) {
 // ── Storage chunking ─────────────────────────────────────────────────────────
 
 fn bench_storage_chunking(c: &mut Criterion) {
-    let chunker =
-        civit_core::storage::chunking::ContentDefinedChunker::new(Default::default());
+    let chunker = civit_core::storage::chunking::ContentDefinedChunker::new(Default::default());
 
     let mut group = c.benchmark_group("storage_chunk");
     for size in [64 * 1024, 256 * 1024, 1024 * 1024] {
@@ -169,20 +178,18 @@ fn bench_storage_chunking(c: &mut Criterion) {
 }
 
 fn bench_storage_chunk_assemble(c: &mut Criterion) {
-    let chunker =
-        civit_core::storage::chunking::ContentDefinedChunker::new(Default::default());
+    let chunker = civit_core::storage::chunking::ContentDefinedChunker::new(Default::default());
     let data = vec![0xCDu8; 256 * 1024];
     let chunks = chunker.chunk(&data);
 
     c.bench_function("storage_chunk_assemble", |b| {
-        b.iter(|| black_box(civit_core::storage::chunking::ContentDefinedChunker::reconstruct(
-            &chunks,
-        )));
+        b.iter(|| {
+            black_box(civit_core::storage::chunking::ContentDefinedChunker::reconstruct(&chunks))
+        });
     });
 }
 
 // ── Event bus ─────────────────────────────────────────────────────────────────
-
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -234,7 +241,12 @@ fn create_test_repo_with_tree(repo_path: &PathBuf) {
     for dir in &["src", "tests", "docs"] {
         std::fs::create_dir_all(work.join(dir)).unwrap();
     }
-    for file in &["src/main.rs", "src/lib.rs", "tests/test.rs", "docs/readme.md"] {
+    for file in &[
+        "src/main.rs",
+        "src/lib.rs",
+        "tests/test.rs",
+        "docs/readme.md",
+    ] {
         std::fs::write(work.join(file), "// placeholder\n").unwrap();
     }
 
@@ -261,9 +273,7 @@ fn create_test_repo_with_diff(repo_path: &PathBuf) -> (String, String) {
     git_cmd(&work, &["add", "."]);
     git_cmd(&work, &["commit", "-m", "initial files"]);
 
-    let base = git_cmd(&work, &["rev-parse", "HEAD"])
-        .trim()
-        .to_string();
+    let base = git_cmd(&work, &["rev-parse", "HEAD"]).trim().to_string();
 
     for i in 0..5 {
         std::fs::write(
@@ -275,9 +285,7 @@ fn create_test_repo_with_diff(repo_path: &PathBuf) -> (String, String) {
     git_cmd(&work, &["add", "."]);
     git_cmd(&work, &["commit", "-m", "modify all files"]);
 
-    let head = git_cmd(&work, &["rev-parse", "HEAD"])
-        .trim()
-        .to_string();
+    let head = git_cmd(&work, &["rev-parse", "HEAD"]).trim().to_string();
 
     git_cmd(&work, &["push", "origin", "main"]);
 

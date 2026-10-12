@@ -1,10 +1,6 @@
 #![forbid(unsafe_code)]
 
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, middleware::Next, response::Response};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -219,10 +215,7 @@ async fn trace_request(
     let metrics = http_metrics();
     let attrs = [
         otelkit::otel::opentelemetry::KeyValue::new("http.request.method", method.clone()),
-        otelkit::otel::opentelemetry::KeyValue::new(
-            "http.response.status_code",
-            i64::from(status),
-        ),
+        otelkit::otel::opentelemetry::KeyValue::new("http.response.status_code", i64::from(status)),
     ];
     metrics.requests.add(1, &attrs);
     metrics.duration.record(duration_ms, &attrs);
@@ -288,7 +281,10 @@ mod tests {
         let ctx = extract_parent(&headers).expect("valid traceparent");
         let binding = ctx.span();
         let sc = binding.span_context();
-        assert_eq!(sc.trace_id().to_string(), "4bf92f3577b34da6a3ce929d0e0e4736");
+        assert_eq!(
+            sc.trace_id().to_string(),
+            "4bf92f3577b34da6a3ce929d0e0e4736"
+        );
         assert!(sc.is_remote());
 
         let mut bad = axum::http::HeaderMap::new();

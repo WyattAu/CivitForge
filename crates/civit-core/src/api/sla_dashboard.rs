@@ -150,7 +150,8 @@ async fn get_sla_breach_alerts(
 async fn subscribe_sla_notifications(
     State(_state): State<AppState>,
     Json(req): Json<SubscribeRequest>,
-) -> Result<(StatusCode, Json<SubscriptionConfirmResponse>), (StatusCode, Json<serde_json::Value>)> {
+) -> Result<(StatusCode, Json<SubscriptionConfirmResponse>), (StatusCode, Json<serde_json::Value>)>
+{
     if req.email.is_empty() || !req.email.contains('@') {
         return Err((
             StatusCode::BAD_REQUEST,

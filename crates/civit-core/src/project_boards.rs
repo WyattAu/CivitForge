@@ -268,10 +268,7 @@ impl ProjectBoardService {
         })
     }
 
-    pub async fn get_board_analytics(
-        &self,
-        board_id: Uuid,
-    ) -> Result<BoardAnalytics, sqlx::Error> {
+    pub async fn get_board_analytics(&self, board_id: Uuid) -> Result<BoardAnalytics, sqlx::Error> {
         let total_cards: i64 = sqlx::query_scalar(
             "SELECT COUNT(*)::bigint FROM project_board_cards_v1 WHERE board_id = $1",
         )

@@ -297,7 +297,10 @@ impl MarketplaceService {
         })
     }
 
-    pub async fn verify_listing(&self, listing_id: Uuid) -> Result<MarketplaceListing, sqlx::Error> {
+    pub async fn verify_listing(
+        &self,
+        listing_id: Uuid,
+    ) -> Result<MarketplaceListing, sqlx::Error> {
         let row = sqlx::query_as::<_, MarketplaceListing>(
             r#"
             UPDATE marketplace_listings_v1

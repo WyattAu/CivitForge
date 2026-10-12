@@ -350,7 +350,8 @@ pub async fn list_pull_requests(
     let items: Vec<PrResponse> = prs
         .into_iter()
         .filter(|pr| {
-            params.state.as_deref().is_none() || pr.status == params.state.as_deref().expect("operation should succeed")
+            params.state.as_deref().is_none()
+                || pr.status == params.state.as_deref().expect("operation should succeed")
         })
         .map(|pr| pr_to_response(pr, None, None, None))
         .collect();
@@ -1049,10 +1050,7 @@ fn pr_to_response(
                 "git checkout -b {} origin/{}",
                 pr.source_branch, pr.source_branch
             ),
-            test: format!(
-                "git diff origin/{}...HEAD",
-                pr.target_branch
-            ),
+            test: format!("git diff origin/{}...HEAD", pr.target_branch),
         })
     } else {
         None
@@ -2411,7 +2409,11 @@ pub async fn assign_reviewers(
     let team = req.team.unwrap_or_default();
     let mut results = Vec::new();
     for uid in &req.user_ids {
-        if let Ok(assignment) = state.db.add_review_assignment(pr.id, *uid, &team, actor_id).await {
+        if let Ok(assignment) = state
+            .db
+            .add_review_assignment(pr.id, *uid, &team, actor_id)
+            .await
+        {
             results.push(ReviewAssignmentResponse {
                 id: assignment.id.to_string(),
                 pr_id: assignment.pr_id.to_string(),

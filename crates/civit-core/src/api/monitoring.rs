@@ -4,11 +4,11 @@ use crate::api::AppState;
 use crate::api::auth::AuthUser;
 use crate::error::{CoreError, ErrorResponse};
 use axum::{
+    Router,
     extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json},
     routing::{get, post},
-    Router,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -111,7 +111,13 @@ pub async fn create_alert(
         Err(resp) => return resp.into_response(),
     };
 
-    let valid_types = ["error_rate", "latency", "cpu_usage", "memory_usage", "disk_usage"];
+    let valid_types = [
+        "error_rate",
+        "latency",
+        "cpu_usage",
+        "memory_usage",
+        "disk_usage",
+    ];
     if !valid_types.contains(&req.alert_type.as_str()) {
         return (
             StatusCode::BAD_REQUEST,
@@ -382,7 +388,12 @@ pub async fn list_incidents(
 
     match state
         .db
-        .list_monitoring_incidents(repo_id, params.status.as_deref(), params.per_page as i64, offset)
+        .list_monitoring_incidents(
+            repo_id,
+            params.status.as_deref(),
+            params.per_page as i64,
+            offset,
+        )
         .await
     {
         Ok(incidents) => {
@@ -560,9 +571,10 @@ mod tests {
 
     #[test]
     fn test_create_alert_request() {
-        let req: CreateAlertRequest =
-            serde_json::from_str(r#"{"alert_type": "error_rate", "condition": ">", "threshold": 0.05}"#)
-                .unwrap();
+        let req: CreateAlertRequest = serde_json::from_str(
+            r#"{"alert_type": "error_rate", "condition": ">", "threshold": 0.05}"#,
+        )
+        .unwrap();
         assert_eq!(req.alert_type, "error_rate");
         assert_eq!(req.threshold, 0.05);
     }

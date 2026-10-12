@@ -2,16 +2,9 @@
 
 use crate::api::AppState;
 use crate::api::auth::AuthUser;
-use axum::{
-    Json,
-    Router,
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-};
-use serde::{Deserialize, Serialize};
+use axum::{Json, Router, extract::State, http::StatusCode, response::IntoResponse, routing::get};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,23 +156,30 @@ pub async fn list_api_analytics_v6(
     axum::extract::Query(query): axum::extract::Query<AnalyticsV6Query>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.list_api_analytics_v6(query.limit, query.offset).await {
+    match state
+        .db
+        .list_api_analytics_v6(query.limit, query.offset)
+        .await
+    {
         Ok(analytics) => {
-            let response: Vec<ApiAnalyticV6Response> = analytics.iter().map(|a| ApiAnalyticV6Response {
-                id: a.id,
-                endpoint: a.endpoint.clone(),
-                method: a.method.clone(),
-                status_code: a.status_code,
-                response_time_ms: a.response_time_ms,
-                user_id: a.user_id,
-                request_size_bytes: a.request_size_bytes,
-                response_size_bytes: a.response_size_bytes,
-                cache_hit: a.cache_hit,
-                region: a.region.clone(),
-                user_agent: a.user_agent.clone(),
-                request_id: a.request_id,
-                created_at: a.created_at,
-            }).collect();
+            let response: Vec<ApiAnalyticV6Response> = analytics
+                .iter()
+                .map(|a| ApiAnalyticV6Response {
+                    id: a.id,
+                    endpoint: a.endpoint.clone(),
+                    method: a.method.clone(),
+                    status_code: a.status_code,
+                    response_time_ms: a.response_time_ms,
+                    user_id: a.user_id,
+                    request_size_bytes: a.request_size_bytes,
+                    response_size_bytes: a.response_size_bytes,
+                    cache_hit: a.cache_hit,
+                    region: a.region.clone(),
+                    user_agent: a.user_agent.clone(),
+                    request_id: a.request_id,
+                    created_at: a.created_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -196,19 +196,23 @@ pub async fn create_api_analytic_v6(
     Json(req): Json<CreateApiAnalyticV6Request>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.create_api_analytic_v6(
-        &req.endpoint,
-        &req.method,
-        req.status_code,
-        req.response_time_ms,
-        req.user_id,
-        req.request_size_bytes,
-        req.response_size_bytes,
-        req.cache_hit,
-        &req.region,
-        req.user_agent.as_deref(),
-        req.request_id,
-    ).await {
+    match state
+        .db
+        .create_api_analytic_v6(
+            &req.endpoint,
+            &req.method,
+            req.status_code,
+            req.response_time_ms,
+            req.user_id,
+            req.request_size_bytes,
+            req.response_size_bytes,
+            req.cache_hit,
+            &req.region,
+            req.user_agent.as_deref(),
+            req.request_id,
+        )
+        .await
+    {
         Ok(analytic) => {
             let response = ApiAnalyticV6Response {
                 id: analytic.id,
@@ -243,17 +247,21 @@ pub async fn get_request_correlation(
     let _ = auth;
     match state.db.get_correlations_for_request(request_id).await {
         Ok(correlations) => {
-            let correlation_entries: Vec<CorrelationEntry> = correlations.iter().map(|c| CorrelationEntry {
-                id: c.id,
-                request_id: c.request_id,
-                parent_request_id: c.parent_request_id,
-                correlation_type: c.correlation_type.clone(),
-                trace_id: c.trace_id.clone(),
-                span_id: c.span_id.clone(),
-                created_at: c.created_at,
-            }).collect();
+            let correlation_entries: Vec<CorrelationEntry> = correlations
+                .iter()
+                .map(|c| CorrelationEntry {
+                    id: c.id,
+                    request_id: c.request_id,
+                    parent_request_id: c.parent_request_id,
+                    correlation_type: c.correlation_type.clone(),
+                    trace_id: c.trace_id.clone(),
+                    span_id: c.span_id.clone(),
+                    created_at: c.created_at,
+                })
+                .collect();
 
-            let trace_chain: Vec<TraceEntry> = correlations.iter()
+            let trace_chain: Vec<TraceEntry> = correlations
+                .iter()
                 .filter_map(|c| {
                     let trace_id = c.trace_id.clone()?;
                     let span_id = c.span_id.clone()?;
@@ -293,14 +301,17 @@ pub async fn get_performance_optimization_v6(
     let _ = auth;
     match state.db.get_performance_optimization_v6().await {
         Ok(optimizations) => {
-            let response: Vec<PerformanceOptimizationV6> = optimizations.iter().map(|o| PerformanceOptimizationV6 {
-                endpoint: o.0.clone(),
-                method: o.1.clone(),
-                avg_response_time_ms: o.2,
-                p95_response_time_ms: o.3,
-                cache_hit_rate: o.4,
-                optimization_suggestions: o.5.clone(),
-            }).collect();
+            let response: Vec<PerformanceOptimizationV6> = optimizations
+                .iter()
+                .map(|o| PerformanceOptimizationV6 {
+                    endpoint: o.0.clone(),
+                    method: o.1.clone(),
+                    avg_response_time_ms: o.2,
+                    p95_response_time_ms: o.3,
+                    cache_hit_rate: o.4,
+                    optimization_suggestions: o.5.clone(),
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -323,16 +334,24 @@ pub async fn get_cost_analysis_v6(
                 total_request_bytes: analysis.1,
                 total_response_bytes: analysis.2,
                 estimated_cost_cents: analysis.3,
-                cost_by_region: analysis.4.into_iter().map(|(region, requests, cost)| RegionCostV6 {
-                    region,
-                    requests,
-                    cost_cents: cost,
-                }).collect(),
-                cost_by_user_agent: analysis.5.into_iter().map(|(ua, requests, cost)| UserAgentCostV6 {
-                    user_agent: ua,
-                    requests,
-                    cost_cents: cost,
-                }).collect(),
+                cost_by_region: analysis
+                    .4
+                    .into_iter()
+                    .map(|(region, requests, cost)| RegionCostV6 {
+                        region,
+                        requests,
+                        cost_cents: cost,
+                    })
+                    .collect(),
+                cost_by_user_agent: analysis
+                    .5
+                    .into_iter()
+                    .map(|(ua, requests, cost)| UserAgentCostV6 {
+                        user_agent: ua,
+                        requests,
+                        cost_cents: cost,
+                    })
+                    .collect(),
             };
             (StatusCode::OK, Json(response)).into_response()
         }
@@ -351,16 +370,19 @@ pub async fn list_capacity_plans(
     let _ = auth;
     match state.db.get_capacity_plans().await {
         Ok(plans) => {
-            let response: Vec<CapacityPlanResponse> = plans.iter().map(|p| CapacityPlanResponse {
-                id: p.id,
-                endpoint: p.endpoint.clone(),
-                method: p.method.clone(),
-                current_rps: p.current_rps,
-                projected_rps: p.projected_rps,
-                capacity_limit: p.capacity_limit,
-                utilization_percent: p.utilization_percent,
-                last_calculated_at: p.last_calculated_at,
-            }).collect();
+            let response: Vec<CapacityPlanResponse> = plans
+                .iter()
+                .map(|p| CapacityPlanResponse {
+                    id: p.id,
+                    endpoint: p.endpoint.clone(),
+                    method: p.method.clone(),
+                    current_rps: p.current_rps,
+                    projected_rps: p.projected_rps,
+                    capacity_limit: p.capacity_limit,
+                    utilization_percent: p.utilization_percent,
+                    last_calculated_at: p.last_calculated_at,
+                })
+                .collect();
             (StatusCode::OK, Json(response)).into_response()
         }
         Err(e) => (
@@ -377,14 +399,18 @@ pub async fn create_capacity_plan(
     Json(req): Json<CreateCapacityPlanRequest>,
 ) -> impl IntoResponse {
     let _ = auth;
-    match state.db.upsert_capacity_plan(
-        &req.endpoint,
-        &req.method,
-        req.current_rps,
-        req.projected_rps,
-        req.capacity_limit,
-        req.utilization_percent,
-    ).await {
+    match state
+        .db
+        .upsert_capacity_plan(
+            &req.endpoint,
+            &req.method,
+            req.current_rps,
+            req.projected_rps,
+            req.capacity_limit,
+            req.utilization_percent,
+        )
+        .await
+    {
         Ok(plan) => {
             let response = CapacityPlanResponse {
                 id: plan.id,
@@ -408,11 +434,23 @@ pub async fn create_capacity_plan(
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route("/api/v6/analytics", get(list_api_analytics_v6).post(create_api_analytic_v6))
-        .route("/api/v6/analytics/correlation/{request_id}", get(get_request_correlation))
-        .route("/api/v6/analytics/performance", get(get_performance_optimization_v6))
+        .route(
+            "/api/v6/analytics",
+            get(list_api_analytics_v6).post(create_api_analytic_v6),
+        )
+        .route(
+            "/api/v6/analytics/correlation/{request_id}",
+            get(get_request_correlation),
+        )
+        .route(
+            "/api/v6/analytics/performance",
+            get(get_performance_optimization_v6),
+        )
         .route("/api/v6/analytics/cost", get(get_cost_analysis_v6))
-        .route("/api/v6/analytics/capacity", get(list_capacity_plans).post(create_capacity_plan))
+        .route(
+            "/api/v6/analytics/capacity",
+            get(list_capacity_plans).post(create_capacity_plan),
+        )
 }
 
 #[cfg(test)]

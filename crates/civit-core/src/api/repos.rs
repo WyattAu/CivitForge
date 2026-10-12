@@ -226,8 +226,20 @@ pub async fn get_repo(
         Ok(repo) => {
             let mut resp = repo_to_response(repo.clone(), Some(owner_name), &state);
             if let Some(user_id) = auth.0.and_then(|a| Uuid::parse_str(&a.user_id).ok()) {
-                resp.starred = Some(state.db.has_user_starred(user_id, repo.id).await.unwrap_or(false));
-                resp.watched = Some(state.db.has_user_watched(user_id, repo.id).await.unwrap_or(false));
+                resp.starred = Some(
+                    state
+                        .db
+                        .has_user_starred(user_id, repo.id)
+                        .await
+                        .unwrap_or(false),
+                );
+                resp.watched = Some(
+                    state
+                        .db
+                        .has_user_watched(user_id, repo.id)
+                        .await
+                        .unwrap_or(false),
+                );
             }
             (StatusCode::OK, Json(resp)).into_response()
         }
@@ -546,7 +558,10 @@ pub async fn list_branches(
     for reference in all_refs.flatten() {
         let full_name = reference.name().shorten().to_string();
         if full_name.starts_with("refs/heads/") {
-            let branch_name = full_name.strip_prefix("refs/heads/").expect("prefix present").to_string();
+            let branch_name = full_name
+                .strip_prefix("refs/heads/")
+                .expect("prefix present")
+                .to_string();
             let is_default = head_ref.as_ref() == Some(&branch_name);
             branches.push(BranchResponse {
                 name: branch_name,
@@ -610,7 +625,10 @@ pub async fn list_tags(
     for reference in all_refs.flatten() {
         let full_name = reference.name().shorten().to_string();
         if full_name.starts_with("refs/tags/") {
-            let tag_name = full_name.strip_prefix("refs/tags/").expect("prefix present").to_string();
+            let tag_name = full_name
+                .strip_prefix("refs/tags/")
+                .expect("prefix present")
+                .to_string();
             tags.push(TagResponse { name: tag_name });
         }
     }
@@ -1029,7 +1047,11 @@ pub async fn starred_repo(
     };
 
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
-    let starred = state.db.has_user_starred(user_id, repo.id).await.unwrap_or(false);
+    let starred = state
+        .db
+        .has_user_starred(user_id, repo.id)
+        .await
+        .unwrap_or(false);
 
     let resp = StarredResponse { starred };
     (StatusCode::OK, Json(resp)).into_response()
@@ -1098,7 +1120,11 @@ pub async fn watched_repo(
     };
 
     let user_id = Uuid::parse_str(&auth.user_id).unwrap_or(Uuid::nil());
-    let watched = state.db.has_user_watched(user_id, repo.id).await.unwrap_or(false);
+    let watched = state
+        .db
+        .has_user_watched(user_id, repo.id)
+        .await
+        .unwrap_or(false);
 
     let resp = WatchedResponse { watched };
     (StatusCode::OK, Json(resp)).into_response()

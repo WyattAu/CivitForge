@@ -331,8 +331,14 @@ async fn update_prs_on_push(state: &AppState, owner: &str, name: &str) {
         let target_exists = branches.iter().any(|b| b == &pr.target_branch);
 
         if !source_exists || !target_exists {
-            let _ = state.db.close_prs_with_source_branch(repo_id, &pr.source_branch).await;
-            let _ = state.db.close_prs_targeting_branch(repo_id, &pr.target_branch).await;
+            let _ = state
+                .db
+                .close_prs_with_source_branch(repo_id, &pr.source_branch)
+                .await;
+            let _ = state
+                .db
+                .close_prs_targeting_branch(repo_id, &pr.target_branch)
+                .await;
             tracing::info!(
                 pr_number = pr.number,
                 source = %pr.source_branch,

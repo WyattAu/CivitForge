@@ -6,12 +6,11 @@ use crate::api::AppState;
 use crate::api::auth::{AuthUser, require_admin};
 use crate::error::CoreError;
 use axum::{
-    Router,
+    Json, Router,
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -88,9 +87,10 @@ pub async fn start_export(
     }
 
     if req.export_type == "users"
-        && let Err(rejection) = require_admin(&auth) {
-            return rejection.into_response();
-        }
+        && let Err(rejection) = require_admin(&auth)
+    {
+        return rejection.into_response();
+    }
 
     let user_id = match Uuid::parse_str(&auth.user_id) {
         Ok(id) => id,
@@ -133,10 +133,7 @@ pub async fn start_export(
         }
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(
-                CoreError::Internal("failed to create export job".into())
-                    .error_response(),
-            ),
+            Json(CoreError::Internal("failed to create export job".into()).error_response()),
         )
             .into_response(),
     }
@@ -148,9 +145,8 @@ async fn execute_export_job(
     export_type: &str,
 ) -> Result<(), CoreError> {
     let export_dir = std::path::Path::new("/tmp/civitforge-exports");
-    std::fs::create_dir_all(export_dir).map_err(|e| {
-        CoreError::Internal(format!("failed to create export directory: {e}"))
-    })?;
+    std::fs::create_dir_all(export_dir)
+        .map_err(|e| CoreError::Internal(format!("failed to create export directory: {e}")))?;
 
     let output_file = export_dir.join(format!("{job_id}.json"));
 
@@ -263,9 +259,8 @@ async fn execute_export_job(
     let json_bytes = serde_json::to_vec_pretty(&data).unwrap_or_default();
     let file_size = json_bytes.len() as i64;
 
-    std::fs::write(&output_file, &json_bytes).map_err(|e| {
-        CoreError::Internal(format!("failed to write export file: {e}"))
-    })?;
+    std::fs::write(&output_file, &json_bytes)
+        .map_err(|e| CoreError::Internal(format!("failed to write export file: {e}")))?;
 
     let _ = sqlx::query(
         r#"UPDATE export_jobs
@@ -286,12 +281,10 @@ pub async fn get_export_status(
     _auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> Response {
-    let result = sqlx::query_as::<_, ExportJob>(
-        "SELECT * FROM export_jobs WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(state.db.pool())
-    .await;
+    let result = sqlx::query_as::<_, ExportJob>("SELECT * FROM export_jobs WHERE id = $1")
+        .bind(id)
+        .fetch_optional(state.db.pool())
+        .await;
 
     match result {
         Ok(Some(job)) => {
@@ -353,7 +346,10 @@ pub async fn download_export(
                     }
                     Err(_) => (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(CoreError::Internal("failed to read export file".into()).error_response()),
+                        Json(
+                            CoreError::Internal("failed to read export file".into())
+                                .error_response(),
+                        ),
                     )
                         .into_response(),
                 }
@@ -367,7 +363,10 @@ pub async fn download_export(
         }
         Ok(None) => (
             StatusCode::NOT_FOUND,
-            Json(CoreError::NotFound("export job not found or not completed".into()).error_response()),
+            Json(
+                CoreError::NotFound("export job not found or not completed".into())
+                    .error_response(),
+            ),
         )
             .into_response(),
         Err(e) => (
@@ -400,9 +399,10 @@ pub async fn import_data(
     }
 
     if req.import_type == "users"
-        && let Err(rejection) = require_admin(&auth) {
-            return rejection.into_response();
-        }
+        && let Err(rejection) = require_admin(&auth)
+    {
+        return rejection.into_response();
+    }
 
     let user_id = match Uuid::parse_str(&auth.user_id) {
         Ok(id) => id,
@@ -415,11 +415,26 @@ pub async fn import_data(
         "repos" => {
             if let Some(repos) = req.data.get("repos").and_then(|v| v.as_array()) {
                 for repo_val in repos {
-                    let name = repo_val.get("name").and_then(|v| v.as_str()).unwrap_or("imported");
-                    let description = repo_val.get("description").and_then(|v| v.as_str()).unwrap_or("");
-                    let visibility = repo_val.get("visibility").and_then(|v| v.as_str()).unwrap_or("public");
-                    let default_branch = repo_val.get("default_branch").and_then(|v| v.as_str()).unwrap_or("main");
-                    let _ = state.db.create_repo(name, description, user_id, None, visibility, default_branch).await;
+                    let name = repo_val
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("imported");
+                    let description = repo_val
+                        .get("description")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let visibility = repo_val
+                        .get("visibility")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("public");
+                    let default_branch = repo_val
+                        .get("default_branch")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("main");
+                    let _ = state
+                        .db
+                        .create_repo(name, description, user_id, None, visibility, default_branch)
+                        .await;
                     imported_count += 1;
                 }
             }
@@ -427,9 +442,14 @@ pub async fn import_data(
         "issues" => {
             if let Some(issues) = req.data.get("issues").and_then(|v| v.as_array()) {
                 for issue_val in issues {
-                    let title = issue_val.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
+                    let title = issue_val
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Untitled");
                     let body = issue_val.get("body").and_then(|v| v.as_str()).unwrap_or("");
-                    let repo_id = issue_val.get("repo_id").and_then(|v| v.as_str())
+                    let repo_id = issue_val
+                        .get("repo_id")
+                        .and_then(|v| v.as_str())
                         .and_then(|s| Uuid::parse_str(s).ok())
                         .unwrap_or(Uuid::nil());
                     let _ = state.db.create_issue(repo_id, title, body, user_id).await;
@@ -440,16 +460,45 @@ pub async fn import_data(
         "pull_requests" => {
             if let Some(prs) = req.data.get("pull_requests").and_then(|v| v.as_array()) {
                 for pr_val in prs {
-                    let title = pr_val.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
+                    let title = pr_val
+                        .get("title")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Untitled");
                     let body = pr_val.get("body").and_then(|v| v.as_str()).unwrap_or("");
-                    let source_branch = pr_val.get("source_branch").and_then(|v| v.as_str()).unwrap_or("feature");
-                    let target_branch = pr_val.get("target_branch").and_then(|v| v.as_str()).unwrap_or("main");
-                    let draft = pr_val.get("draft").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let auto_merge = pr_val.get("auto_merge").and_then(|v| v.as_bool()).unwrap_or(false);
-                    let repo_id = pr_val.get("repo_id").and_then(|v| v.as_str())
+                    let source_branch = pr_val
+                        .get("source_branch")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("feature");
+                    let target_branch = pr_val
+                        .get("target_branch")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("main");
+                    let draft = pr_val
+                        .get("draft")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let auto_merge = pr_val
+                        .get("auto_merge")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let repo_id = pr_val
+                        .get("repo_id")
+                        .and_then(|v| v.as_str())
                         .and_then(|s| Uuid::parse_str(s).ok())
                         .unwrap_or(Uuid::nil());
-                    let _ = state.db.create_pr(repo_id, title, body, user_id, source_branch, target_branch, draft, auto_merge).await;
+                    let _ = state
+                        .db
+                        .create_pr(
+                            repo_id,
+                            title,
+                            body,
+                            user_id,
+                            source_branch,
+                            target_branch,
+                            draft,
+                            auto_merge,
+                        )
+                        .await;
                     imported_count += 1;
                 }
             }
@@ -473,7 +522,10 @@ pub async fn import_data(
         StatusCode::OK,
         Json(ImportDataResponse {
             status: "completed".into(),
-            message: format!("Imported {imported_count} records of type {}", req.import_type),
+            message: format!(
+                "Imported {imported_count} records of type {}",
+                req.import_type
+            ),
             imported_count,
         }),
     )

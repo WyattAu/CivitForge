@@ -164,13 +164,7 @@ impl PipelineSecretsService {
         .fetch_one(&self.pool)
         .await?;
 
-        self.log_access(
-            row.id,
-            created_by,
-            "create",
-            None,
-        )
-        .await?;
+        self.log_access(row.id, created_by, "create", None).await?;
 
         Ok(row.into())
     }
@@ -217,13 +211,7 @@ impl PipelineSecretsService {
             .await?
         };
 
-        self.log_access(
-            row.id,
-            updated_by,
-            "update",
-            None,
-        )
-        .await?;
+        self.log_access(row.id, updated_by, "update", None).await?;
 
         Ok(row.into())
     }
@@ -303,13 +291,15 @@ impl PipelineSecretsService {
 
         Ok(rows
             .into_iter()
-            .map(|(id, secret_id, rotated_by, rotated_at, reason)| SecretRotationLog {
-                id,
-                secret_id,
-                rotated_by,
-                rotated_at,
-                reason,
-            })
+            .map(
+                |(id, secret_id, rotated_by, rotated_at, reason)| SecretRotationLog {
+                    id,
+                    secret_id,
+                    rotated_by,
+                    rotated_at,
+                    reason,
+                },
+            )
             .collect())
     }
 
@@ -317,7 +307,17 @@ impl PipelineSecretsService {
         &self,
         secret_id: Uuid,
     ) -> Result<Vec<SecretAccessLog>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (Uuid, Uuid, Option<Uuid>, String, DateTime<Utc>, Option<String>)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                Uuid,
+                Uuid,
+                Option<Uuid>,
+                String,
+                DateTime<Utc>,
+                Option<String>,
+            ),
+        >(
             "SELECT id, secret_id, accessed_by, access_type, accessed_at, ip_address
              FROM secret_access_log
              WHERE secret_id = $1
@@ -330,16 +330,18 @@ impl PipelineSecretsService {
 
         Ok(rows
             .into_iter()
-            .map(|(id, secret_id, accessed_by, access_type, accessed_at, ip_address)| {
-                SecretAccessLog {
-                    id,
-                    secret_id,
-                    accessed_by,
-                    access_type,
-                    accessed_at,
-                    ip_address,
-                }
-            })
+            .map(
+                |(id, secret_id, accessed_by, access_type, accessed_at, ip_address)| {
+                    SecretAccessLog {
+                        id,
+                        secret_id,
+                        accessed_by,
+                        access_type,
+                        accessed_at,
+                        ip_address,
+                    }
+                },
+            )
             .collect())
     }
 
