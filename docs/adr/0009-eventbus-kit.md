@@ -131,14 +131,47 @@ Step 3's Prometheus export is the one piece still outstanding: the counters
 exist and are queryable in-process (`WebSocketManager::send_stats`, and
 `dropped_count` on each realtime service), but are not yet exported.
 
-### A note on how this ADR went wrong twice
+### A note on how this ADR went wrong three times
 
-The first draft proposed a greenfield kit that already existed, because it
-researched the design without checking the catalogue. The second draft
-claimed four live modules, because it counted four modules containing
-unbounded channels without checking whether anything called them. Both
-errors were the same shape: treating what exists as what runs. The
-correction in both cases was to grep for the call sites.
+Every draft of this document asserted more certainty than the evidence
+supported, and each correction was the same mistake:
+
+1. It designed a greenfield kit that already existed.
+2. It claimed four live modules by counting files, not call sites.
+3. It called `events/websocket.rs` live because the router reaches it —
+   while never checking that anything produces events for it to deliver.
+
+All three are the same shape: treating what exists as what runs. The
+correction in each case was the same, and it is cheap: `grep` for the call
+sites before describing reachability.
+
+### The finding that actually matters
+
+Checking properly, the delivery subsystem has **no wired producer at all**:
+
+- `EventPublisher` is constructed only inside `api/events.rs` tests.
+- `WebSocketManager::broadcast_event`, `broadcast_presence`,
+  `broadcast_pipeline_log`, and `broadcast_pipeline_status` have no
+  non-test callers.
+- `ws_manager.` has no non-test callers outside the upgrade handler, so
+  connections can be registered and subscribed to, but nothing ever
+  broadcasts to them.
+- `realtime::` appears nowhere outside its own module.
+
+So the bounded queues are not closing a production fire. They remove a
+latent trap from a subsystem that cannot currently deliver an event, and
+they make the counters ready for whenever a producer is wired. That is
+worth having and is what this change delivers, but it is not the same
+claim as "fixing unbounded memory growth in production", and the earlier
+drafts should not be read as having made it.
+
+Verified live against a running server (2026-10-12): `/healthz` returns OK
+and `/api/v1/metrics/prometheus` exports `http_server_requests_total`,
+the request-duration histogram, and `target_info`, so the meter provider
+is installed and counters do export. The new `websocket_*` counters are
+absent from that scrape, correctly — OTel counters appear on first
+increment, and with no producer nothing increments them. Their
+end-to-end export cannot be demonstrated until a producer exists.
 
 ## Consequences
 
