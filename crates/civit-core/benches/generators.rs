@@ -11,7 +11,6 @@ use std::path::{Path, PathBuf};
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 
-use civit_core::events::bus::EventBus;
 use civit_core::events::model::{Event, EventCategory, EventPayload, SystemLevel};
 use civit_core::storage::chunking::{ChunkerConfig, ContentDefinedChunker};
 
@@ -365,24 +364,6 @@ pub fn generate_chunk_data(size_bytes: usize) -> Vec<u8> {
 
 // ── Event bus generators ─────────────────────────────────────────────────────
 
-/// Create an EventBus pre-loaded with N events.
-pub fn generate_event_bus_with_load(max_log: usize, event_count: usize) -> EventBus {
-    let bus = EventBus::new(max_log);
-    for i in 0..event_count {
-        bus.publish(
-            "bench",
-            Event::new(
-                EventCategory::System,
-                EventPayload::SystemEvent {
-                    level: SystemLevel::Info,
-                    message: format!("pre-loaded event #{i}"),
-                },
-                "bench-generator".into(),
-            ),
-        );
-    }
-    bus
-}
 
 // ── Serialization generators ─────────────────────────────────────────────────
 
@@ -489,15 +470,6 @@ fn bench_generate_large_json_payload(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_generate_event_bus(c: &mut Criterion) {
-    let mut group = c.benchmark_group("generate_event_bus");
-    for n in [1_000, 10_000] {
-        group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
-            b.iter(|| black_box(generate_event_bus_with_load(n, n)));
-        });
-    }
-    group.finish();
-}
 
 criterion_group!(
     benches,
@@ -508,6 +480,5 @@ criterion_group!(
     bench_generate_dag_pipeline,
     bench_generate_chunk_data,
     bench_generate_large_json_payload,
-    bench_generate_event_bus,
 );
 criterion_main!(benches);

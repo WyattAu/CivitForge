@@ -183,25 +183,6 @@ fn bench_storage_chunk_assemble(c: &mut Criterion) {
 
 // ── Event bus ─────────────────────────────────────────────────────────────────
 
-fn bench_event_bus_publish(c: &mut Criterion) {
-    let bus = civit_core::events::bus::EventBus::new(1024);
-
-    c.bench_function("event_bus_publish", |b| {
-        b.iter(|| {
-            black_box(bus.publish(
-                "bench",
-                civit_core::events::model::Event::new(
-                    civit_core::events::model::EventCategory::System,
-                    civit_core::events::model::EventPayload::SystemEvent {
-                        level: civit_core::events::model::SystemLevel::Info,
-                        message: "bench event".into(),
-                    },
-                    "bench".into(),
-                ),
-            ));
-        });
-    });
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -318,6 +299,5 @@ criterion_group!(
     bench_password_policy_check,
     bench_storage_chunking,
     bench_storage_chunk_assemble,
-    bench_event_bus_publish,
 );
 criterion_main!(benches);

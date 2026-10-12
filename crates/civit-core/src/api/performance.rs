@@ -196,16 +196,6 @@ pub async fn detailed_health_handler(
         },
     );
 
-    // Event bus check
-    checks.insert(
-        "event_bus".to_string(),
-        ComponentHealth {
-            status: "healthy".into(),
-            response_time_ms: 0,
-            message: Some("operational".into()),
-        },
-    );
-
     let total_ms = start.elapsed().as_millis();
     let overall_status = if checks.values().all(|c| c.status == "healthy") {
         "healthy"

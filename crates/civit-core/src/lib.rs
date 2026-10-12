@@ -99,7 +99,7 @@ pub mod wiki;
 pub use config::AppConfig;
 pub use db::{DatabasePool, DbRepository};
 pub use error::{CoreError, Result};
-pub use events::{Event, EventBus, EventCategory, EventPayload, EventSubscriber, EventPublisher, PublishedEvent, EventSubscription, WebSocketManager};
+pub use events::{Event, EventCategory, EventPayload, EventPublisher, PublishedEvent, EventSubscription, WebSocketManager};
 pub use ssh::{SshAuthService, SshConfig, SshServer};
 
 pub use security::{

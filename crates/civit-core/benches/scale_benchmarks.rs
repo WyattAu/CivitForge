@@ -189,23 +189,6 @@ fn generate_large_json_payload(count: usize) -> Vec<serde_json::Value> {
         .collect()
 }
 
-fn generate_event_bus_with_load(max_log: usize, event_count: usize) -> civit_core::events::bus::EventBus {
-    let bus = civit_core::events::bus::EventBus::new(max_log);
-    for i in 0..event_count {
-        bus.publish(
-            "bench",
-            civit_core::events::model::Event::new(
-                civit_core::events::model::EventCategory::System,
-                civit_core::events::model::EventPayload::SystemEvent {
-                    level: civit_core::events::model::SystemLevel::Info,
-                    message: format!("pre-loaded event #{i}"),
-                },
-                "bench-generator".into(),
-            ),
-        );
-    }
-    bus
-}
 
 // ── Git helpers ──────────────────────────────────────────────────────────────
 
@@ -862,39 +845,6 @@ fn bench_response_serialization(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_event_bus_scale(c: &mut Criterion) {
-    let mut group = c.benchmark_group("event_bus_scale");
-
-    group.bench_function("publish_10k_events", |b| {
-        b.iter(|| {
-            let bus = civit_core::events::bus::EventBus::new(10_000);
-            for i in 0..10_000 {
-                bus.publish(
-                    "bench",
-                    civit_core::events::model::Event::new(
-                        civit_core::events::model::EventCategory::System,
-                        civit_core::events::model::EventPayload::SystemEvent {
-                            level: civit_core::events::model::SystemLevel::Info,
-                            message: format!("event #{i}"),
-                        },
-                        "bench".into(),
-                    ),
-                );
-            }
-            black_box(bus.publish_count());
-        });
-    });
-
-    group.bench_function("replay_from_10k_events", |b| {
-        let bus = generate_event_bus_with_load(10_000, 10_000);
-        let since = chrono::Utc::now() - chrono::Duration::hours(1);
-        b.iter(|| {
-            black_box(bus.replay("bench", since));
-        });
-    });
-
-    group.finish();
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Criterion harness
@@ -919,6 +869,5 @@ criterion_group!(
     bench_auth_middleware,
     bench_rate_limiter_scale,
     bench_response_serialization,
-    bench_event_bus_scale,
 );
 criterion_main!(benches);

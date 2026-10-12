@@ -629,7 +629,6 @@ pub struct AppState {
     pub config: AppConfig,
     pub db: DbRepository,
     pub jwt_service: Arc<crate::auth::jwt::JwtService>,
-    pub event_bus: Arc<crate::events::EventBus>,
     pub ws_manager: Arc<tokio::sync::RwLock<crate::events::WebSocketManager>>,
     pub log_broadcaster: Arc<crate::events::LogBroadcaster>,
     pub session_manager: Arc<crate::db::SessionManager>,
@@ -661,9 +660,8 @@ impl AppState {
             crate::auth::jwt::JwtService::new(&config.jwt_secret, config.jwt_expiry_hours)
                 .expect("JWT secret must be at least 32 bytes"),
         );
-        let event_bus = Arc::new(crate::events::EventBus::new(1000));
         let ws_manager = Arc::new(tokio::sync::RwLock::new(
-            crate::events::WebSocketManager::new(event_bus.clone()),
+            crate::events::WebSocketManager::new(),
         ));
         let log_broadcaster = Arc::new(crate::events::LogBroadcaster::new(1024));
         let session_manager = Arc::new(crate::db::SessionManager::new(
@@ -721,7 +719,6 @@ impl AppState {
             config,
             db: DbRepository::new(db),
             jwt_service,
-            event_bus,
             ws_manager,
             log_broadcaster,
             session_manager,
@@ -798,7 +795,6 @@ mod tests {
         let pool = opts.connect_lazy("postgres://localhost/test").unwrap();
         let state = AppState::new(test_config(), pool);
         assert_eq!(state.config.port, 8080);
-        assert!(Arc::strong_count(&state.event_bus) >= 1);
         assert!(Arc::strong_count(&state.ws_manager) >= 1);
         assert!(Arc::strong_count(&state.session_manager) >= 1);
     }

@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 
-use crate::events::bus::EventBus;
 use crate::events::log_stream::{LogStreamEvent, PipelineStatusEvent};
 use crate::events::model::{Event, EventCategory, EventPayload, PresenceAction};
 use axum::{
@@ -84,15 +83,12 @@ impl WsConnection {
 #[derive(Clone)]
 pub struct WebSocketManager {
     connections: Arc<DashMap<Uuid, WsConnection>>,
-    #[allow(dead_code)]
-    event_bus: Arc<EventBus>,
 }
 
 impl WebSocketManager {
-    pub fn new(event_bus: Arc<EventBus>) -> Self {
+    pub fn new() -> Self {
         Self {
             connections: Arc::new(DashMap::new()),
-            event_bus,
         }
     }
 
@@ -460,10 +456,6 @@ mod tests {
     use super::*;
     use crate::events::model::{EventCategory, EventPayload, SystemLevel};
 
-    fn make_bus() -> Arc<EventBus> {
-        Arc::new(EventBus::new(100))
-    }
-
     fn make_system_event(msg: &str) -> Event {
         Event::new(
             EventCategory::System,
@@ -477,8 +469,7 @@ mod tests {
 
     #[test]
     fn register_and_unregister() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let id = mgr.register(Some("user-1".to_string()));
         assert_eq!(mgr.active_count(), 1);
         assert!(mgr.connection_info(id).is_some());
@@ -489,8 +480,7 @@ mod tests {
 
     #[test]
     fn subscribe_topic() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let id = mgr.register(None);
         assert!(mgr.subscribe(id, "global"));
         assert!(mgr.subscribe(id, "repo:abc"));
@@ -504,8 +494,7 @@ mod tests {
 
     #[test]
     fn unsubscribe_topic() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let id = mgr.register(None);
         mgr.subscribe(id, "repo:xyz");
         assert!(mgr.unsubscribe(id, "repo:xyz"));
@@ -516,16 +505,14 @@ mod tests {
 
     #[test]
     fn send_to_unknown_connection_fails() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let result = mgr.send_to_connection(Uuid::nil(), "hello");
         assert!(result.is_err());
     }
 
     #[test]
     fn cleanup_stale_connections() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let id1 = mgr.register(None);
         let _id2 = mgr.register(None);
@@ -540,8 +527,7 @@ mod tests {
 
     #[test]
     fn broadcast_to_global_subscribers() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let (tx1, _rx1) = mpsc::unbounded_channel::<String>();
         let (tx2, _rx2) = mpsc::unbounded_channel::<String>();
         let id1 = mgr.register_with_channel(None, tx1);
@@ -557,8 +543,7 @@ mod tests {
 
     #[test]
     fn register_with_channel() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
         let id = mgr.register_with_channel(Some("user-2".to_string()), tx);
         assert_eq!(mgr.active_count(), 1);
@@ -571,8 +556,7 @@ mod tests {
 
     #[test]
     fn broadcast_sends_to_matching_channels() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx1, mut rx1) = mpsc::unbounded_channel::<String>();
         let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
@@ -644,8 +628,7 @@ mod tests {
 
     #[test]
     fn presence_enter_leave_tracking() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx1, _rx1) = mpsc::unbounded_channel::<String>();
         let (tx2, _rx2) = mpsc::unbounded_channel::<String>();
@@ -666,16 +649,14 @@ mod tests {
 
     #[test]
     fn presence_for_resource_empty() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
         let present = mgr.presence_for_resource("repo", "repo-999");
         assert!(present.is_empty());
     }
 
     #[test]
     fn presence_summary_multiple_resources() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx1, _) = mpsc::unbounded_channel::<String>();
         let (tx2, _) = mpsc::unbounded_channel::<String>();
@@ -698,8 +679,7 @@ mod tests {
 
     #[test]
     fn broadcast_presence_event_on_enter() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx_enterer, _) = mpsc::unbounded_channel::<String>();
         let (tx_watcher, mut rx_watcher) = mpsc::unbounded_channel::<String>();
@@ -729,8 +709,7 @@ mod tests {
 
     #[test]
     fn broadcast_presence_event_on_leave() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx_enterer, _) = mpsc::unbounded_channel::<String>();
         let (tx_watcher, mut rx_watcher) = mpsc::unbounded_channel::<String>();
@@ -758,8 +737,7 @@ mod tests {
 
     #[test]
     fn presence_cleared_on_disconnect() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx1, _) = mpsc::unbounded_channel::<String>();
         let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
@@ -783,8 +761,7 @@ mod tests {
 
     #[test]
     fn dead_channel_cleaned_on_broadcast() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx, rx) = mpsc::unbounded_channel::<String>();
         let id = mgr.register_with_channel(None, tx);
@@ -816,8 +793,7 @@ mod tests {
 
     #[test]
     fn broadcast_pipeline_log_to_subscribed_connection() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
         let id = mgr.register_with_channel(None, tx);
@@ -841,8 +817,7 @@ mod tests {
 
     #[test]
     fn broadcast_pipeline_status_to_subscribed_connection() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
         let id = mgr.register_with_channel(None, tx);
@@ -866,8 +841,7 @@ mod tests {
 
     #[test]
     fn pipeline_log_not_sent_to_unsubscribed_connection() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx1, mut rx1) = mpsc::unbounded_channel::<String>();
         let (tx2, mut rx2) = mpsc::unbounded_channel::<String>();
@@ -891,8 +865,7 @@ mod tests {
 
     #[test]
     fn pipeline_log_sent_to_global_subscriber() {
-        let bus = make_bus();
-        let mgr = WebSocketManager::new(bus);
+        let mgr = WebSocketManager::new();
 
         let (tx, mut rx) = mpsc::unbounded_channel::<String>();
         let id = mgr.register_with_channel(None, tx);
