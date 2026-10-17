@@ -56,7 +56,7 @@ hmac = "0.12"
 sha1 = "0.10"
 ring = "0.17"
 rcgen = "0.13"
-x509-parser = { version = "0.17", features = ["verify"] }
+x509-parser = { version = "0.18", features = ["verify"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
