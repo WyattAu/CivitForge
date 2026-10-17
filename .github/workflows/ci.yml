@@ -165,7 +165,7 @@ jobs:
         run: cd crates/civit-ui && trunk build --release
       - name: Upload WASM dist artifact
         if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: civit-ui-dist
           path: crates/civit-ui/dist/
@@ -220,7 +220,7 @@ jobs:
           echo "No regressions detected."
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-results-${{ github.sha }}
           path: bench-results.txt
