@@ -52,7 +52,7 @@ proc-macro2 = { version = "1", optional = true }
 swc_ecma_parser = { version = "12", optional = true }
 swc_ecma_ast = { version = "12", optional = true }
 swc_ecma_visit = { version = "12", optional = true }
-swc_common = { version = "12", optional = true }
+swc_common = { version = "24", optional = true }
 sqlparser = { version = "0.62", optional = true }
 
 # Optional tree-sitter parsers (feature-gated, requires C compiler)
