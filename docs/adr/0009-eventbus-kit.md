@@ -6,7 +6,7 @@
 
 ## Context
 
-An audit of what CivitForge still hand-rolls found `crates/civit-core/src/events` : 2,514 lines across bus, websocket, log_stream, websocket_scaler — as the
+An audit of what CivitForge still hand-rolls found `crates/civit-core/src/events`: 2,514 lines across bus, websocket, log_stream, websocket_scaler — as the
 largest hand-rolled subsystem, with 52 subscribe sites and 7 publish sites.
 
 Reading `EventBus::publish` against the actor/reactive literature shows the

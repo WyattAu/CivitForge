@@ -177,7 +177,7 @@ consumers.
 
 `verify_local.sh` now drives traffic and asserts the scrape actually
 carries `http_server_requests_total` and a `target_info` naming the
-service. The endpoint can be present, return 200, and still serve nothing : which is precisely how the hand-rolled counters hid for so long
+service. The endpoint can be present, return 200, and still serve nothing: which is precisely how the hand-rolled counters hid for so long
 (`metrics_registered` stayed 0 while every request "recorded").
 
 ## Operator surface (iteration 9)
