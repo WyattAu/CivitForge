@@ -14,13 +14,13 @@
 1. If `remote_vc.happened_before(local_vc)`; delta is stale, skip
 2. If `local_vc.happened_before(remote_vc)`; delta is causally newer, apply
 3. If `local_vc.is_concurrent(remote_vc)`; concurrent writes, apply CRDT conflict resolution
-| Stars | OR-Set (implicit) |; | Automatic convergence; no manual intervention needed |
-| Issues | OR-Set (implicit) |; | Concurrent creates produce duplicate issues; deduplication via content hash |
-| Pull Requests | OR-Set (implicit) |; | Same as issues |
-| PR Reviews | LastWriteWins (per reviewer) |; | Each reviewer's review tracked independently |
-| Comments | Sequence CRDT |; | No conflict; concurrent comments merged in causal order |
-| Pipelines | Add-Wins Set |; | Additive only; deletion requires coordination |
-| Labels | OR-Set (implicit) |; | Automatic convergence |
+| Stars | OR-Set (implicit) | - | Automatic convergence; no manual intervention needed |
+| Issues | OR-Set (implicit) | - | Concurrent creates produce duplicate issues; deduplication via content hash |
+| Pull Requests | OR-Set (implicit) | - | Same as issues |
+| PR Reviews | LastWriteWins (per reviewer) | - | Each reviewer's review tracked independently |
+| Comments | Sequence CRDT | - | No conflict; concurrent comments merged in causal order |
+| Pipelines | Add-Wins Set | - | Additive only; deletion requires coordination |
+| Labels | OR-Set (implicit) | - | Automatic convergence |
 - `FEDERATION_REGION_ID`; unique identifier for this region
 - `FEDERATION_REGIONS`; comma-separated list of peer region endpoints
 - `FEDERATION_DISCOVERY_METHOD`; `config` or `dns`

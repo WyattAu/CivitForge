@@ -6,9 +6,9 @@ AI agents must be strictly sandboxed to prevent prompt injection attacks from ex
 - An overly restricted sandbox cannot compile, test, or execute code; rendering AI agents useless
 FIPS 140-2 requires using validated cryptographic modules. The Rust ecosystem primarily uses `ring` for cryptography, which is **not FIPS 140-2 validated**. The `boring` crate wraps BoringSSL (Google's FIPS-validated fork of OpenSSL), but introduces C-bindings; which contradicts CivitForge's `#![forbid(unsafe_code)]` policy (NFR-SEC-001) and the choice of gitoxide over libgit2 to avoid C-bindings.
 1. **Pre-Positioned Cache:** During air-gap transfer, the forge packages not just the full repository but also a **VFS metadata cache**; containing all tree objects, commit metadata, and file path listings. This allows VFS to mount and browse the full directory tree offline.
-| SC-001 (SLSA vs Air-Gap) |; | Independent | **Related**; both affect air-gapped deployments | Independent | Independent | **Related**; both affect air-gapped deployments |
-| SC-002 (Rootless vs Perf) | Independent |; | Independent | **Related**; both affect sandbox performance | Independent | Independent |
-| SC-003 (Consistency vs FINRA) | **Related** | Independent |; | Independent | Independent | Independent |
-| SC-004 (AI Sandbox vs Utility) | Independent | **Related** | Independent |; | Independent | Independent |
-| SC-005 (FIPS vs Rust) | Independent | Independent | Independent | Independent |; | Independent |
-| SC-006 (VFS vs Air-Gap) | **Related** | Independent | Independent | Independent | Independent |; |
+| SC-001 (SLSA vs Air-Gap) | - | Independent | **Related**; both affect air-gapped deployments | Independent | Independent | **Related**; both affect air-gapped deployments |
+| SC-002 (Rootless vs Perf) | Independent | - | Independent | **Related**; both affect sandbox performance | Independent | Independent |
+| SC-003 (Consistency vs FINRA) | **Related** | Independent | - | Independent | Independent | Independent |
+| SC-004 (AI Sandbox vs Utility) | Independent | **Related** | Independent | - | Independent | Independent |
+| SC-005 (FIPS vs Rust) | Independent | Independent | Independent | Independent | - | Independent |
+| SC-006 (VFS vs Air-Gap) | **Related** | Independent | Independent | Independent | Independent | - |

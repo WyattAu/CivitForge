@@ -1,10 +1,10 @@
-| **CRITICAL gaps (5/5 have it)** | 18 |; |; |; |; | N/A |
-| **HIGH gaps (4/5 have it)** | 12 |; |; |; |; | N/A |
+| **CRITICAL gaps (5/5 have it)** | 18 | - | - | - | - | N/A |
+| **HIGH gaps (4/5 have it)** | 12 | - | - | - | - | N/A |
 | 19 | **VFS (FUSE mount)** | Mount repos as filesystems; unique to CivitForge |
 ### Phase 0: Foundation (Weeks 1-2): Unblock Everything
 | F0.1 | **Archive download** (git archive zip/tar); complete NOT_IMPLEMENTED stub | 2d | HIGH | git binary available |
 | F0.2 | **Collaborator add/remove**; complete NOT_IMPLEMENTED stubs | 1d | HIGH | DB tables exist |
-| F0.8 | **Rate limiting** verify UI (already in middleware) | 0.5d | DONE |; |
+| F0.8 | **Rate limiting** verify UI (already in middleware) | 0.5d | DONE | - |
 | F1.1 | **Syntax highlighting**; integrate highlight.js via CDN (50+ langs) | 2d | CRITICAL |
 | F1.2 | **README rendering**; fetch README.md on repo detail, render markdown | 2d | CRITICAL |
 | F1.3 | **Language stats bar**; detect via extension, render colored breakdown | 2d | HIGH |

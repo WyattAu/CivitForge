@@ -1,40 +1,40 @@
 ## 1. CRITICAL Gaps: All 5 competitors have it
-| 13 | Raw file download | [YES] |; |
-| 14 | Code browsing | [YES] |; |
-| 15 | Search within repo | [YES] |; |
-| 28 | Issue tracker | [YES] |; |
-| 29 | Labels | [YES] |; |
-| 30 | Milestones | [YES] |; |
-| 31 | Emoji reactions | [YES] |; |
-| 46 | PR/MR creation | [YES] |; |
-| 47 | Inline comments | [YES] |; |
-| 48 | Status checks | [YES] |; |
-| 49 | Merge commit | [YES] |; |
-| 50 | Review requests | [YES] |; |
-| 51 | Cherry-pick | [YES] (via Git API) |; |
-| 61 | Pipeline YAML config | [YES] |; |
-| 62 | Artifacts | [YES] |; |
-| 63 | Manual triggers | [YES] |; |
-| 64 | Container registry | [YES] (OCI) |; |
-| 70 | Wiki edit via web | [YES] |; |
-| 71 | Built-in wiki | [YES] |; |
-| 72 | Page history | [YES] |; |
-| 73 | Markdown rendering | [YES] |; |
-| 78 | Username/password | [YES] |; |
-| 79 | 2FA/TOTP | [YES] |; |
-| 80 | WebAuthn | [YES] |; |
-| 81 | OIDC login | [YES] |; |
-| 94 | Repo activity page | [YES] |; |
-| 95 | Fork | [YES] |; |
-| 96 | Star/watch | [YES] |; |
-| 102 | Org creation | [YES] |; |
-| 109 | Watch/star/fork | [YES] |; |
-| 110 | Emoji reactions | [YES] |; |
-| 111 | Label system | [YES] |; |
-| 116 | REST API | [YES] |; |
-| 124 | Dashboard | [YES] |; |
-| 125 | Activity feed | [YES] |; |
-| 126 | SSH key management | [YES] |; |
+| 13 | Raw file download | [YES] | - |
+| 14 | Code browsing | [YES] | - |
+| 15 | Search within repo | [YES] | - |
+| 28 | Issue tracker | [YES] | - |
+| 29 | Labels | [YES] | - |
+| 30 | Milestones | [YES] | - |
+| 31 | Emoji reactions | [YES] | - |
+| 46 | PR/MR creation | [YES] | - |
+| 47 | Inline comments | [YES] | - |
+| 48 | Status checks | [YES] | - |
+| 49 | Merge commit | [YES] | - |
+| 50 | Review requests | [YES] | - |
+| 51 | Cherry-pick | [YES] (via Git API) | - |
+| 61 | Pipeline YAML config | [YES] | - |
+| 62 | Artifacts | [YES] | - |
+| 63 | Manual triggers | [YES] | - |
+| 64 | Container registry | [YES] (OCI) | - |
+| 70 | Wiki edit via web | [YES] | - |
+| 71 | Built-in wiki | [YES] | - |
+| 72 | Page history | [YES] | - |
+| 73 | Markdown rendering | [YES] | - |
+| 78 | Username/password | [YES] | - |
+| 79 | 2FA/TOTP | [YES] | - |
+| 80 | WebAuthn | [YES] | - |
+| 81 | OIDC login | [YES] | - |
+| 94 | Repo activity page | [YES] | - |
+| 95 | Fork | [YES] | - |
+| 96 | Star/watch | [YES] | - |
+| 102 | Org creation | [YES] | - |
+| 109 | Watch/star/fork | [YES] | - |
+| 110 | Emoji reactions | [YES] | - |
+| 111 | Label system | [YES] | - |
+| 116 | REST API | [YES] | - |
+| 124 | Dashboard | [YES] | - |
+| 125 | Activity feed | [YES] | - |
+| 126 | SSH key management | [YES] | - |
 ## 2. HIGH Gaps: 4 of 5 competitors have it
 | 159 | SCIM provisioning | 2/5 (GitHub/GitLab Enterprise only) | [NO] | Low priority; only SaaS |
 ## 3. MEDIUM Gaps: 3 of 5 competitors have it
@@ -42,11 +42,11 @@
 | 175 | Container scanning | 2/5 | [NO] | Low priority; security scanner |
 | 184 | Snippets / Gists | 1/5 (GitLab only native) | [NO] | Low priority; consider plugin |
 ## 4. LOW Gaps: 2 or fewer competitors have it
-| 197 | SAML SSO | CivitForge [YES] |; | Already implemented |
+| 197 | SAML SSO | CivitForge [YES] | - | Already implemented |
 | 200 | Mobile apps | 0/5 | [NO] | Not in scope; responsive web instead |
 | 201 | Codespaces / Workspaces | 2/5 | [NO] | Not in scope; use VFS instead |
 | 204 | Grafana integration | 1/5 | [NO] | Not in scope; use metrics export |
-| 205 | CLA tooling |; | [NO] | Very low priority |
+| 205 | CLA tooling | - | [NO] | Very low priority |
 | 207 | Secret scanning | 2/5 (GitHub/GitLab) | [NO] | Medium priority; could leverage AI AST |
 ## 5. CivitForge Competitive Advantages: No competitor has these
 ## 8. Priority Matrix: Recommended Implementation Order
